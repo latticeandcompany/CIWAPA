@@ -23,3 +23,14 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+.lattice/cache/
+.lattice/toolchains/
+.lattice/bin/
+.lattice/setup/
+.lattice-setup-marker
+
+# Toolchain container caches (see tools/in-docker)
+.cache/
+
+# The spec PDF is downloaded locally, never committed (see spec/README.md)
+spec/*.pdf

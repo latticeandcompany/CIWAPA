@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# The image tag is a hash of the Dockerfile, so editing the Dockerfile builds a fresh image.
+set -euo pipefail
+
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+dockerfile_hash="$(shasum -a 256 "$repo_root/Dockerfile" | cut -c1-12)"
+image="ciwapa-toolchain:$dockerfile_hash"
+
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+  docker build --tag "$image" - <"$repo_root/Dockerfile" >&2
+fi
+
+mkdir -p "$repo_root/.cache/home" "$repo_root/.cache/pub"
+
+exec docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  --env HOME=/work/.cache/home \
+  --env PUB_CACHE=/work/.cache/pub \
+  --volume "$repo_root:/work" \
+  --workdir "/work${PWD#"$repo_root"}" \
+  "$image" "$@"

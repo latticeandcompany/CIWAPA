@@ -1,0 +1,21 @@
+{
+  "$schema": ".lattice/schema.json",
+  "latticeVersion": "1.1.1",
+  "tasks": {
+    "test": {},
+    "lint": {},
+    "format": {}
+  },
+  "workspaces": [
+    {
+      "name": "ciwapa",
+      "path": ".",
+      "auto": false,
+      "scripts": {
+        "test": "tools/in-docker dart test",
+        "lint": "tools/in-docker dart analyze",
+        "format": "tools/in-docker dart format --output=none --set-exit-if-changed ."
+      }
+    }
+  ]
+}
