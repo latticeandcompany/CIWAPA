@@ -1,0 +1,10 @@
+name: ciwapa
+description: Compiler for INTERCAL With A Pronounceable Acronym — a native, spec-faithful INTERCAL compiler.
+version: 0.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.5
+
+dev_dependencies:
+  lints: ^6.1.0
