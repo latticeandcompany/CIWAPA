@@ -43,3 +43,10 @@ Every answer Ryan has given, so no question gets asked twice. Newest entries go 
 - **Options:** extract with pdftotext in Docker / keep the PDF only
 - **Decision:** PDF only
 - **Date:** 2026-10-14
+
+## Architecture
+
+### Compilation target
+- **Options:** LLVM IR / generated C / generated Dart compiled with `dart compile exe`
+- **Decision:** both LLVM IR and Dart, as two backends the user picks between. Details are open (see `docs/PLAN.md`).
+- **Date:** 2026-10-14

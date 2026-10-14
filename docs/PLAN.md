@@ -37,12 +37,25 @@ Goals:
 Questions:
 - Can we compile to LLVM IR? Would there be a benefit to this
 
+## Backends
+
+CIWAPA ships two backends and the user picks one:
+- **LLVM:** emits LLVM IR, which `clang` compiles to an optimized native executable. Needs an LLVM toolchain on the machine doing the build.
+- **Dart:** emits Dart source, which `dart compile exe` compiles to a native executable. Needs only the Dart SDK.
+
+Both produce native executables with no bytecode, so the "no bytecode" goal applies to both.
+
 ## Open items
 
 Found during workspace setup. These aren't decided yet.
 
 - **INTERCAL on Interstates**: a web framework built on C-INTERCAL ([intercaloninterstates.org](http://www.intercaloninterstates.org/), linked from the [Esolang INTERCAL page](https://esolangs.org/wiki/INTERCAL)). No source repository is linked. Still to decide: what "adding" it means (running its programs unmodified, porting it, or something else) and which C-INTERCAL extensions that would pull into scope.
-- **Compilation target**: LLVM IR, C, or something else. Prior art: [qpliu/esolang](https://github.com/qpliu/esolang/tree/master/intercal) has an INTERCAL-72 compiler that targets LLVM.
+- **Backend details** (see [Backends](#backends)). Prior art: [qpliu/esolang](https://github.com/qpliu/esolang/tree/master/intercal) has an INTERCAL-72 compiler that targets LLVM. Still to decide:
+  - which backend is the default
+  - how the user chooses (CLI flag, config file, ...)
+  - whether both backends must pass the full spec checklist, or one comes first
+  - whether the backends share a runtime (I/O, error messages) or each has its own
+  - whether the performance goal applies to both backends or only to LLVM
 - **Host vs. container platform**: the Docker toolchain runs `linux_arm64`, so anything compiled inside the container is a Linux binary, not a macOS one. Still to decide: which platforms the compiler and its output must run on, and how a macOS-native build gets produced and tested.
 - **Benchmark baselines**: which implementations count as "other implementations" (C-INTERCAL `ick`, CLC-INTERCAL, INTERCAL-64, qpliu's LLVM compiler, ...), and what benchmark programs to use.
 - **Mode naming and scope**: what Mode 2 is called and which `ick` features it includes.
