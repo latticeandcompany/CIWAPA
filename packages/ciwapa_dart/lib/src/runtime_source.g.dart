@@ -201,7 +201,8 @@ Uint32List ickArrayData(int index) => _arrays[index].shape.data;
 
 bool ickArrayIgnored(int index) => _arrays[index].ignored;
 
-void ickArraySetIgnored(int index, bool ignored) => _arrays[index].ignored = ignored;
+void ickArraySetIgnored(int index, bool ignored) =>
+    _arrays[index].ignored = ignored;
 
 // ---- STASH and RETRIEVE (§4.4.5, §4.4.6, decisions T24, T25) ------------------------------------
 

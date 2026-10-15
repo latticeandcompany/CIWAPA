@@ -167,19 +167,19 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.7 IGNORE
 
-- [x] §4.4.7 — after `IGNORE list`, later statements cannot change the listed variables or arrays. Tests: `packages/conformance/tests/ignore/store-dropped.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
+- [x] §4.4.7 — after `IGNORE list`, later statements cannot change the listed variables or arrays. Tests: `packages/conformance/tests/ignore/store-dropped.i`, `packages/conformance/tests/ignore/small-store-dropped.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
 - [ ] §4.4.7 — **golden:** `.1 <- #1; IGNORE .1; .1 <- #0` leaves `.1` = 1. Tests: (none yet)
 - [x] §4.4.7 — an IGNOREd variable's value can still be read in expressions. Tests: `packages/conformance/tests/ignore/still-readable.i`
 - [x] §4.4.7 — the statement that tries to change an IGNOREd variable still executes; only the store is blocked. Tests: `packages/conformance/tests/ignore/statement-still-executes.i`
 - [x] §4.4.7 — assigning an out-of-range value to an IGNOREd 16-bit variable still raises E275 before the store is dropped. (decision: T24) Tests: `packages/conformance/tests/ignore/e275-still-raised.i`
 - [ ] §4.4.7 — WRITE IN to an IGNOREd variable reads a number and throws it away. Tests: (none yet)
-- [x] §4.4.7 — RETRIEVE of an IGNOREd variable pops its stash and throws the value away; the current value is kept. (decision: T24) Tests: `packages/conformance/tests/ignore/retrieve-discards.i`, `packages/conformance/tests/ignore/retrieve-pops.i`
+- [x] §4.4.7 — RETRIEVE of an IGNOREd variable pops its stash and throws the value away; the current value is kept. (decision: T24) Tests: `packages/conformance/tests/ignore/retrieve-discards.i`, `packages/conformance/tests/ignore/retrieve-pops.i`, `packages/conformance/tests/ignore/retrieve-array-discards.i`, `packages/conformance/tests/ignore/retrieve-array-pops.i`
 - [x] §4.4.7 — stores into elements of an IGNOREd array are bounds-checked (E241) and then dropped. (decision: T24) Tests: `packages/conformance/tests/ignore/element-bounds-checked.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
 - [x] §4.4.7 — redimensioning an IGNOREd array is blocked, but a zero dimension still raises E240. (decision: T24) Tests: `packages/conformance/tests/ignore/redimension-blocked.i`, `packages/conformance/tests/ignore/e240-still-raised.i`
 
 ## §4.4.8 REMEMBER
 
-- [x] §4.4.8 — `REMEMBER list` ends the IGNORE for the listed variables and arrays. Tests: `packages/conformance/tests/ignore/remember.i`
+- [x] §4.4.8 — `REMEMBER list` ends the IGNORE for the listed variables and arrays. Tests: `packages/conformance/tests/ignore/remember.i`, `packages/conformance/tests/ignore/remember-array.i`
 - [x] §4.4.8 — IGNOREing more than once needs only one REMEMBER, and REMEMBERing something never IGNOREd is not an error. Tests: `packages/conformance/tests/ignore/remember-once.i`, `packages/conformance/tests/ignore/remember-never-ignored.i`
 
 ## §4.4.9 ABSTAIN

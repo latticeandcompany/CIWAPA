@@ -269,7 +269,8 @@ declare void @ick_array_set_ignored(i32, i32)
         for (final a in arrays) {
           _line('call void @ick_${verb}_array(i32 ${a.index}, i32 $next)');
         }
-      case IrVarList(:final op, :final scalars, :final arrays):
+      case IrVarList(:final op, :final scalars, :final arrays)
+          when op == ListOp.ignore || op == ListOp.remember:
         final ignored = op == ListOp.ignore ? 1 : 0;
         for (final v in scalars) {
           final p = _fresh();
