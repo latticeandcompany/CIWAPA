@@ -376,7 +376,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2 — E621: RESUME expression evaluated to #0. Tests: `packages/conformance/tests/next/e621-resume-zero.i`
 - [x] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: `packages/conformance/tests/next/e632-resume-empty.i`
 - [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
-- [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
+- [x] §9.2, §12 — E774: random compiler bug (see §12). Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
 - [x] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
 - [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
@@ -393,12 +393,12 @@ The library is a clean-room implementation written from these contracts alone (d
 
 - [ ] §10.1 — ASCII substitutes are accepted: `$` for ¢ and `?` for V−. Tests: (none yet)
 - [x] §10.2 — `--traditional` (`ick -t`) requires strict INTERCAL-72: COME FROM and other bases raise E111. (decision: Q15, Q101, T39) Tests: `packages/conformance/tests/tri/e111-traditional-base.3i`, `packages/conformance/tests/come-from/e111-traditional.i`
-- [ ] §10.2, §12 — `--no-random-bug` (`ick -b`) turns off E774. (decision: Q101) Tests: (none yet)
+- [x] §10.2, §12 — `--no-random-bug` (`ick -b`) turns off E774. (decision: Q101) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
 - [x] §10.2 — `--clockface` (`ick -C`) prints IIII, and MMMM for 4000. (decision: Q101, T30) Tests: `packages/conformance/tests/io/read-out-clockface.i`
 - [ ] §10.2 — `--keep` (`ick -c`) keeps the generated `.dart`/`.ll` source. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — `--dump=ast|ir` (`ick -d`) prints the parse or IR. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: (none yet)
-- [ ] §10.2 — `--seed <n>` makes E774 placement reproducible. (decision: Q101, T23) Tests: (none yet)
+- [x] §10.2 — `--seed <n>` makes E774 placement reproducible. (decision: Q101, T23) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`, `packages/ciwapa_core/test/ir_test.dart`
 - [x] §10.3 — compiled programs accept the `+`/`-` runtime options, read until the first argument without a sign. (decision: Q102) Tests: `packages/conformance/tests/options/options-stop-at-first-plain-argument.i`, `packages/conformance/tests/options/unknown-option.i`, `packages/conformance/tests/options/minus-seed-unknown.i`
 - [x] §10.3 — `+help`/`-help` print usage and exit with E778, with no 3-second sleep. (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/conformance/tests/options/help-minus.i`
 - [x] §10.3 — `+traditional` does nothing at run time. Tests: `packages/conformance/tests/options/traditional-does-nothing.i`
@@ -414,9 +414,9 @@ The library is a clean-room implementation written from these contracts alone (d
 
 ## §12 Princeton compiler (BUG option only)
 
-- [ ] §12 — by default each statement has a fixed 1-in-128 chance, chosen at compile time, of getting a random compiler bug. It fires E774 whenever that statement is reached, even if abstained. (decision: T23) Tests: (none yet)
-- [ ] §12 — the BUG option doesn't affect E778. Tests: (none yet)
-- [ ] §12 — the conformance suite always compiles with `--no-random-bug`. (decision: T23) Tests: (none yet)
+- [x] §12 — by default each statement has a fixed 1-in-128 chance, chosen at compile time, of getting a random compiler bug. It fires E774 whenever that statement is reached, even if abstained. (decision: T23) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`, `packages/ciwapa_core/test/ir_test.dart`
+- [x] §12 — the BUG option doesn't affect E778. Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
+- [x] §12 — the conformance suite always compiles with `--no-random-bug`. (decision: T23) Tests: `packages/conformance/bin/conformance.dart`
 
 ## TONSIL A — character set
 
