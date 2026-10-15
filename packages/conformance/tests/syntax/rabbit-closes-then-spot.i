@@ -1,0 +1,6 @@
+PLEASE DO ,1 <- #2 BY #2
+DO ,1 SUB #1 #2 <- #7
+DO .2 <- #2
+PLEASE DO .1 <- ,1 SUB "#1~#1".2
+DO READ OUT .1
+DO GIVE UP
