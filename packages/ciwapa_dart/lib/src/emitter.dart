@@ -4,7 +4,11 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 ///
 /// Control flow is a `switch` on `pc` inside a loop. Statement N's entry is case 2N and its
 /// "after" point, where any COME FROM trap fires and where a RESUME returns to a NEXT, is 2N + 1.
-/// Case 1 is falling off the end of the program (E633).
+/// pc 1 is falling off the end of the program (E633).
+///
+/// The statements are split into chunk functions of [chunkSize], because the Dart AOT compiler
+/// fails on a single function with tens of thousands of cases. Each chunk loops on its own and
+/// returns pc to `_run` once control leaves it.
 class DartEmitter {
   DartEmitter(this.program, this.options);
 
@@ -15,6 +19,7 @@ class DartEmitter {
   static int entry(int ordinal) => 2 * ordinal;
   static int after(int ordinal) => 2 * ordinal + 1;
   static const fellOff = 1;
+  static const chunkSize = 1024;
 
   String emit() {
     if (program.base != 2) {
@@ -40,6 +45,7 @@ class DartEmitter {
     for (final s in program.statements) {
       if (s.initiallyAbstained) _out.writeln('  ab[${s.ordinal}] = 1;');
     }
+    final chunks = (program.statements.length + chunkSize - 1) ~/ chunkSize;
     _out
       ..writeln('  _run();')
       ..writeln('}')
@@ -49,18 +55,36 @@ class DartEmitter {
         '  var pc = ${program.statements.isEmpty ? fellOff : entry(1)};',
       )
       ..writeln('  while (true) {')
-      ..writeln('    switch (pc) {')
-      ..writeln('      case $fellOff:')
-      ..writeln('        ickFatal(633, ${program.userStatements + 1});');
-    for (final s in program.statements) {
-      _statement(s);
+      ..writeln(
+        '    if (pc == $fellOff) ickFatal(633, ${program.userStatements + 1});',
+      )
+      ..writeln('    if (pc < 2) throw StateError("no statement at pc \$pc");')
+      ..writeln('    pc = switch (((pc >> 1) - 1) ~/ $chunkSize) {');
+    for (var c = 0; c < chunks; c++) {
+      _out.writeln('      $c => _chunk$c(pc),');
     }
     _out
-      ..writeln('      default:')
-      ..writeln('        throw StateError("no statement at pc \$pc");')
-      ..writeln('    }')
+      ..writeln('      _ => throw StateError("no statement at pc \$pc"),')
+      ..writeln('    };')
       ..writeln('  }')
-      ..writeln('}')
+      ..writeln('}');
+    for (var c = 0; c < chunks; c++) {
+      _out
+        ..writeln()
+        ..writeln('int _chunk$c(int pc) {')
+        ..writeln('  while (true) {')
+        ..writeln('    switch (pc) {');
+      for (final s in program.statements.skip(c * chunkSize).take(chunkSize)) {
+        _statement(s);
+      }
+      _out
+        ..writeln('      default:')
+        ..writeln('        return pc;')
+        ..writeln('    }')
+        ..writeln('  }')
+        ..writeln('}');
+    }
+    _out
       ..writeln()
       ..writeln('const _messages = {');
     for (final m in IclError.all) {

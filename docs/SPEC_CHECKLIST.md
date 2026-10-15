@@ -93,20 +93,20 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §4.1 — source is uppercase only; lowercase text is undecodable. (decision: T6) Tests: (none yet)
 - [ ] §4.1 — CRLF line endings are accepted (the `\r` is stripped). (decision: T7) Tests: (none yet)
 - [ ] §4.1 — source files are UTF-8. (decision: T14) Tests: (none yet)
-- [ ] §4.1 — there is no column or line-length limit, and no statement or variable count limit. (decision: T27) Tests: (none yet)
+- [x] §4.1 — there is no column or line-length limit, and no statement or variable count limit. (decision: T27) Tests: `packages/conformance/tests/errors/many-statements.i`, `packages/conformance/tests/errors/many-variables.i`, `packages/conformance/tests/calculate/e000-long-text.i`
 
 ## §4.2 Labels
 
 - [ ] §4.2 — an optional label `(n)` with n from 1 to 65535 may precede a statement. Tests: (none yet)
 - [ ] §4.2 — a statement has at most one label. Tests: (none yet)
 - [ ] §4.2 — spaces are allowed inside the parentheses: `( 123 )`. (decision: T5) Tests: (none yet)
-- [ ] §4.2, §9.2 — a duplicate label is a compile-time E182. (decision: Q80) Tests: (none yet)
+- [x] §4.2, §9.2 — a duplicate label is a compile-time E182. (decision: Q80) Tests: `packages/conformance/tests/errors/e182-duplicate-label.i`
 - [x] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: `packages/conformance/tests/calculate/e197-label.i`, `packages/conformance/tests/calculate/e197-label-too-big.i`
 
 ## §4.3 Identifiers and qualifiers
 
-- [ ] §4.3 — the statement identifiers are `DO`, `PLEASE` and `PLEASE DO`, interchangeable. Tests: (none yet)
-- [ ] §4.3, §10.4 — `DO PLEASE` is also accepted and counts as polite. (decision: T11) Tests: (none yet)
+- [x] §4.3 — the statement identifiers are `DO`, `PLEASE` and `PLEASE DO`, interchangeable. Tests: `packages/conformance/tests/next/computed-goto-1.i`
+- [x] §4.3, §10.4 — `DO PLEASE` is also accepted and counts as polite. (decision: T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`
 - [x] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: `packages/conformance/tests/calculate/not-skips.i`
 - [ ] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: (none yet)
 - [x] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: `packages/conformance/tests/calculate/percent-0-never-runs.i`, `packages/conformance/tests/calculate/percent-100-always-runs.i`
@@ -156,7 +156,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.5 — each variable has its own last-in-first-out stash. Tests: `packages/conformance/tests/stash/last-in-first-out.i`, `packages/conformance/tests/stash/separate-stashes.i`
 - [x] §4.4.5 — STASHing an array saves its dimensions and its data. Tests: `packages/conformance/tests/stash/array-dimensions.i`, `packages/conformance/tests/stash/array-data.i`
 - [x] §4.4.5 — stashing a single array element is invalid, so the statement is undecodable. (decision: T25) Tests: `packages/conformance/tests/stash/stash-element-undecodable.i`
-- [x] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [ ] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
 
 ## §4.4.6 RETRIEVE
 
@@ -344,26 +344,26 @@ The library is a clean-room implementation written from these contracts alone (d
 
 ## §9 Error messages
 
-- [ ] §9.1 — every error goes to stderr in this form:
+- [x] §9.1 — every error goes to stderr in this form:
   - line 1: `ICLnnnI <official text>`
   - line 2: our joke line, indented
   - line 3: a tab, then `ON THE WAY TO STATEMENT <n>`
   - line 4: eight spaces, then `CORRECT SOURCE AND RESUBMIT`
 
-  (decision: T33, Q90) Tests: (none yet)
-- [ ] §9.1 — `<n>` is the ordinal of the statement that would have run next, not zero-padded. For a NEXT that's its target; for a COME FROM target it's the COME FROM; for E633 it's the last ordinal + 1; for compile-time errors it's the offending statement's ordinal. (decision: T33) Tests: (none yet)
-- [ ] §9.1 — the official text is the spec's literal message where §4 gives one (E123, E436, and E275 for every trigger); otherwise it is the §9.2 description verbatim, uppercased. (decision: Q83, Q84, Q134) Tests: (none yet)
-- [ ] §9.1 — every error code has its own original joke line printed under the official text. (decision: Q90) Tests: (none yet)
-- [ ] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: (none yet)
-- [ ] §9 — errors local to one statement fire when that statement executes. Errors about the whole program (E182, E444, E555, E079, E099, E998, E997, E111, E777) fire at compile time. (decision: Q80) Tests: (none yet)
+  (decision: T33, Q90) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e079-impolite.i`
+- [x] §9.1 — `<n>` is the ordinal of the statement that would have run next, not zero-padded. For a NEXT that's its target; for a COME FROM target it's the COME FROM; for E633 it's the last ordinal + 1; for compile-time errors it's the offending statement's ordinal. (decision: T33) Tests: `packages/conformance/tests/next/e123-recursion.i`, `packages/conformance/tests/come-from/line-3-names-come-from.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e182-duplicate-label.i`, `packages/conformance/tests/come-from/e555.i`
+- [x] §9.1 — the official text is the spec's literal message where §4 gives one (E123, E436, and E275 for every trigger); otherwise it is the §9.2 description verbatim, uppercased. (decision: Q83, Q84, Q134) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/io/e275-write-in.i`
+- [x] §9.1 — every error code has its own original joke line printed under the official text. (decision: Q90) Tests: `packages/ciwapa_core/test/frontend_test.dart`
+- [x] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
+- [x] §9 — errors local to one statement fire when that statement executes. Errors about the whole program (E182, E444, E555, E079, E099, E998, E997, E111, E777) fire at compile time. (decision: Q80) Tests: `packages/conformance/tests/errors/local-errors-only-when-run.i`, `packages/conformance/tests/errors/e079-impolite.i`, `packages/conformance/tests/come-from/e444.i`
 - [x] §9.2 — E000: an undecodable statement executed. Tests: `packages/conformance/tests/calculate/e000-undecodable.i`
 - [x] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-ungrouped-chain.i`, `packages/conformance/tests/calculate/e017-percent-101.i`
-- [ ] §9.2 — E079: insufficiently polite. (decision: T35) Tests: (none yet)
-- [ ] §9.2 — E099: excessively polite. (decision: T35) Tests: (none yet)
+- [x] §9.2 — E079: insufficiently polite. (decision: T35) Tests: `packages/conformance/tests/errors/e079-impolite.i`
+- [x] §9.2 — E099: excessively polite. (decision: T35) Tests: `packages/conformance/tests/errors/e099-overpolite.i`
 - [x] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: `packages/conformance/tests/next/e123-depth-80.i`
 - [x] §9.2 — E129: transfer to a non-existent label. Tests: `packages/conformance/tests/next/e129-missing-label.i`
 - [x] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: `packages/conformance/tests/abstain/e139-abstain.i`, `packages/conformance/tests/abstain/e139-reinstate.i`
-- [ ] §9.2 — E182: label multiply defined. Tests: (none yet)
+- [x] §9.2 — E182: label multiply defined. Tests: `packages/conformance/tests/errors/e182-duplicate-label.i`
 - [x] §9.2 — E197: invalid line label. Tests: `packages/conformance/tests/calculate/e197-label.i`
 - [x] §9.2 — E200: unidentified variable. Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`
 - [x] §9.2 — E240: array dimension of zero. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
@@ -379,15 +379,15 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
 - [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
 - [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
-- [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) Tests: (none yet)
-- [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) Tests: (none yet)
+- [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-variables.i`
 - [x] §9.2 — E444: COME FROM to a non-existent label. Tests: `packages/conformance/tests/come-from/e444.i`
 - [x] §9.2 — E555: more than one COME FROM to one label. Tests: `packages/conformance/tests/come-from/e555.i`
-- [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) Tests: (none yet)
-- [ ] §9.2 — E777: no such source file. Tests: (none yet)
-- [ ] §9.2 — E888: can't write the output executable or temp files. (decision: Q133) Tests: (none yet)
-- [ ] §9.2 — E998: invalid source extension (use `.i` or `.[3-7]i`). Tests: (none yet)
-- [ ] §9.2 — E997: illegal possession of a controlled unary operator. Tests: (none yet)
+- [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-statements.i`
+- [x] §9.2 — E777: no such source file. Tests: `packages/ciwapa_core/test/cli_test.dart`
+- [x] §9.2 — E888: can't write the output executable or temp files. (decision: Q133) Tests: `packages/ciwapa_core/test/cli_test.dart`
+- [x] §9.2 — E998: invalid source extension (use `.i` or `.[3-7]i`). Tests: `packages/conformance/tests/errors/e998-extension.bad`
+- [x] §9.2 — E997: illegal possession of a controlled unary operator. Tests: `packages/conformance/tests/errors/e997-binary.i`
 
 ## §10 The C-INTERCAL compiler (CIWAPA equivalents)
 
@@ -404,12 +404,13 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §10.3 — `+traditional` does nothing at run time. Tests: (none yet)
 - [ ] §10.3 — `+wimpmode` prints our own humiliating message to stderr, then does decimal number I/O (`%u` per line). The default is `-wimpmode`. (decision: T32) Tests: (none yet)
 - [ ] §10.3 — `+seed <n>` makes the `%` randomness reproducible. (decision: Q102, T22) Tests: (none yet)
-- [ ] §10.4 — a program where fewer than 1/5 of statements use PLEASE is a compile-time E079. (decision: T35) Tests: (none yet)
-- [ ] §10.4 — a program where more than 1/3 of statements use PLEASE is a compile-time E099. (decision: T35) Tests: (none yet)
-- [ ] §10.4 — exactly 1/5 and exactly 1/3 both pass, because the comparisons use exact fractions. (decision: T35) Tests: (none yet)
-- [ ] §10.4 — the check counts statements whose identifier includes PLEASE (`PLEASE`, `PLEASE DO`, `DO PLEASE`), not PLEASE text anywhere. (decision: T35, T11) Tests: (none yet)
-- [ ] §10.4 — comments and undecodable statements count as statements; the auto-included library does not. (decision: T35) Tests: (none yet)
-- [ ] §10.4 — the check applies only to programs with more than 2 statements. (decision: T35) Tests: (none yet)
+- [x] §10.4 — a program where fewer than 1/5 of statements use PLEASE is a compile-time E079. (decision: T35) Tests: `packages/conformance/tests/errors/e079-impolite.i`, `packages/conformance/tests/errors/comments-count.i`
+- [x] §10.4 — a program where more than 1/3 of statements use PLEASE is a compile-time E099. (decision: T35) Tests: `packages/conformance/tests/errors/e099-overpolite.i`
+- [x] §10.4 — exactly 1/5 and exactly 1/3 both pass, because the comparisons use exact fractions. (decision: T35) Tests: `packages/conformance/tests/errors/polite-exactly-one-fifth.i`, `packages/conformance/tests/errors/polite-exactly-one-third.i`
+- [x] §10.4 — the check counts statements whose identifier includes PLEASE (`PLEASE`, `PLEASE DO`, `DO PLEASE`), not PLEASE text anywhere. (decision: T35, T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`, `packages/conformance/tests/errors/please-text-not-counted.i`
+- [x] §10.4 — comments and undecodable statements count as statements. (decision: T35) Tests: `packages/conformance/tests/errors/comments-count.i`
+- [ ] §10.4, §7.3 — the auto-included library does not count. (decision: T35) Tests: (none yet)
+- [x] §10.4 — the check applies only to programs with more than 2 statements. (decision: T35) Tests: `packages/conformance/tests/errors/two-statements-unchecked.i`, `packages/conformance/tests/errors/two-statements-all-polite.i`, `packages/conformance/tests/errors/three-statements-checked.i`
 
 ## §12 Princeton compiler (BUG option only)
 

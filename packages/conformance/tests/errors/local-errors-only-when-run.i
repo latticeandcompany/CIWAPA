@@ -1,0 +1,3 @@
+DO (3) NEXT
+DO .0 <- #65536
+(3) PLEASE GIVE UP
