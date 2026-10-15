@@ -33,6 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Read the pinned Dart version
+        id: dart
+        run: echo "version=$(.github/scripts/dart-version.sh)" >>"$GITHUB_OUTPUT"
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: ${{ steps.dart.outputs.version }}
+
       - name: Fetch the Dart SDK
         if: matrix.flavor == 'dart'
         run: .github/scripts/fetch-dart-sdk.sh ${{ matrix.platform.os }} ${{ matrix.platform.arch }} "$RUNNER_TEMP/toolchain"
@@ -57,5 +66,29 @@ jobs:
         if: matrix.flavor == 'llvm' && matrix.platform.os == 'macos'
         run: mkdir -p "$RUNNER_TEMP/toolchain" && clang --version
 
-      - name: Build and run hello world
-        run: .github/scripts/spike-hello.sh ${{ matrix.platform.name }} ${{ matrix.flavor }} "$RUNNER_TEMP/toolchain"
+      - name: Assemble the archive
+        id: archive
+        run: |
+          archive="$(.github/scripts/assemble-archive.sh ${{ matrix.platform.name }} ${{ matrix.flavor }} "$RUNNER_TEMP/toolchain" "$RUNNER_TEMP/archives")"
+          name="$(basename "$archive")"
+          name="${name%.zip}"
+          echo "path=$archive" >>"$GITHUB_OUTPUT"
+          echo "name=${name%.tar.xz}" >>"$GITHUB_OUTPUT"
+
+      - name: Smoke test
+        id: smoke
+        run: echo "compiler=$(.github/scripts/smoke-test.sh "${{ steps.archive.outputs.path }}" ${{ matrix.flavor }} "$RUNNER_TEMP/smoke")" >>"$GITHUB_OUTPUT"
+
+      # The IR cross-check: the full conformance suite through the toolchain the archive ships.
+      - name: Conformance with the archived compiler
+        if: matrix.flavor == 'llvm'
+        working-directory: packages/conformance
+        run: dart --suppress-analytics run bin/conformance.dart --compiler "${{ steps.smoke.outputs.compiler }}"
+
+      - name: Upload the archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.archive.outputs.name }}
+          path: ${{ steps.archive.outputs.path }}
+          if-no-files-found: error
+          compression-level: 0

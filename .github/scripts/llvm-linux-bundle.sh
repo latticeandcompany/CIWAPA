@@ -60,5 +60,7 @@ tar -xzf "$musl_tar" -C "$work"
   make -j"$(getconf _NPROCESSORS_ONLN)" >/dev/null
   make DESTDIR="$out/sysroot" install >/dev/null
 )
+mkdir -p "$out/licenses"
+cp "$work/musl-$MUSL_VERSION/COPYRIGHT" "$out/licenses/musl-MIT.txt"
 
 echo "bundled $musl_triple toolchain in $out"
