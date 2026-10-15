@@ -24,7 +24,7 @@ class LlvmEmitter {
   static const _declarations = '''
 declare void @ick_init(i32, ptr, ptr)
 declare void @ick_fatal(i32, i32) noreturn
-declare void @ick_undecodable(ptr, i32) noreturn
+declare void @ick_undecodable(ptr, i32, i32) noreturn
 declare void @ick_give_up() noreturn
 declare i32 @ick_roll(i32)
 declare i32 @ick_mingle(i32, i32, i32)
@@ -210,8 +210,9 @@ declare i32 @ick_array_ignored(i32)
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):
+        final length = utf8.encode(text).length;
         _line(
-          'call void @ick_undecodable(ptr ${_stringGlobal(text)}, i32 $next)',
+          'call void @ick_undecodable(ptr ${_stringGlobal(text)}, i32 $length, i32 $next)',
         );
         _line('unreachable');
         _block(_newBlock('dead'));

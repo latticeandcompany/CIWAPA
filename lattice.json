@@ -85,10 +85,7 @@
         "lint": "",
         "format": "",
         "goal-status": ""
-      },
-      "dependsOn": [
-        "ciwapa_core"
-      ]
+      }
     }
   ],
   "globalDependencies": [

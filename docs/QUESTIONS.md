@@ -35,3 +35,11 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). It's the same mistake either way, and the checklist item gives E017. The compiler does (a) until this is answered; the difference from 0.15 is listed under Divergences.
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-14
+
+## L5: Must "too large to allocate" give the same answer in both flavors on every machine?
+
+- **Context:** T26 says dimensions too large to allocate raise E241, and T27 rules out artificial caps. Both runtimes now raise E241 without trying when the element count passes 2^61, which no machine can allocate. Below that, the allocation itself decides, and the flavors can disagree. C's `calloc` may succeed under Linux overcommit, while the Dart VM refuses sooner and also prints its own `Exhausted heap space` line to stderr before the E241. The same applies to E222 (stash space). Requirement 2 asks for byte-identical output on the conformance suite, which only uses sizes past 2^61, so the suite isn't affected.
+- **Options:** (a) keep it this way: deterministic past 2^61, machine-dependent below it; (b) a shared, lower cap (an artificial limit, against T27); (c) probe for physical memory before allocating.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items. The E241 "too large to allocate" test uses a size past 2^61.
+- **Raised:** 2026-10-14

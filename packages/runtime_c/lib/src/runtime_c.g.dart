@@ -69,28 +69,34 @@ void ick_init(int argc, char **argv, const ick_program *p) {
 
 /* ---- Errors (§9) ------------------------------------------------------------------------- */
 
-static void print_error(uint32_t code, const char *text, uint32_t next) {
+/* [text] is written with its length, so a NUL inside an undecodable statement prints too. */
+static void print_error(uint32_t code, const char *text, size_t length, uint32_t next) {
   const char *joke = "";
   for (uint32_t i = 0; i < program->message_count; i++) {
     if (program->messages[i].code == code) {
-      if (!text) text = program->messages[i].text;
+      if (!text) {
+        text = program->messages[i].text;
+        length = strlen(text);
+      }
       joke = program->messages[i].joke;
       break;
     }
   }
   fflush(stdout);
-  fprintf(stderr, "ICL%03uI %s\n        %s\n\tON THE WAY TO STATEMENT %u\n        CORRECT SOURCE AND RESUBMIT\n",
-          (unsigned)code, text ? text : "", joke, (unsigned)next);
+  fprintf(stderr, "ICL%03uI ", (unsigned)code);
+  if (text) fwrite(text, 1, length, stderr);
+  fprintf(stderr, "\n        %s\n\tON THE WAY TO STATEMENT %u\n        CORRECT SOURCE AND RESUBMIT\n", joke,
+          (unsigned)next);
   fflush(stderr);
 }
 
 void ick_fatal(uint32_t code, uint32_t next) {
-  print_error(code, NULL, next);
+  print_error(code, NULL, 0, next);
   exit((int)(code % 256));
 }
 
-void ick_undecodable(const char *text, uint32_t next) {
-  print_error(0, text, next);
+void ick_undecodable(const char *text, uint32_t length, uint32_t next) {
+  print_error(0, text, length, next);
   exit(0);
 }
 
@@ -153,6 +159,10 @@ uint32_t ick_check_small(uint32_t value, uint32_t next) {
 
 /* ---- Arrays (§3.3, §4.4.1, decision T26) ------------------------------------------------- */
 
+/* More elements than this can't be allocated on any machine, so it's E241 without asking.
+ * Below it, the allocation itself decides (decisions T26, T27). runtime.dart uses the same bound. */
+#define ICK_MAX_ELEMENTS ((uint64_t)1 << 61)
+
 void ick_dimension(uint32_t index, uint32_t rank, const uint32_t *dims, uint32_t next) {
   ick_array *a = &arrays[index];
   uint64_t size = 1;
@@ -161,8 +171,8 @@ void ick_dimension(uint32_t index, uint32_t rank, const uint32_t *dims, uint32_t
   }
   if (a->ignored) return;
   for (uint32_t i = 0; i < rank; i++) {
+    if (dims[i] > ICK_MAX_ELEMENTS / size) ick_fatal(241, next);
     size *= dims[i];
-    if (size > (uint64_t)SIZE_MAX / sizeof(uint32_t)) ick_fatal(241, next);
   }
   uint32_t *data = calloc((size_t)size, sizeof(uint32_t));
   uint32_t *copy = malloc(rank * sizeof(uint32_t));

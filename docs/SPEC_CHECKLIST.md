@@ -101,7 +101,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §4.2 — a statement has at most one label. Tests: (none yet)
 - [ ] §4.2 — spaces are allowed inside the parentheses: `( 123 )`. (decision: T5) Tests: (none yet)
 - [ ] §4.2, §9.2 — a duplicate label is a compile-time E182. (decision: Q80) Tests: (none yet)
-- [x] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: `packages/conformance/tests/calculate/e197-label.i`
+- [x] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: `packages/conformance/tests/calculate/e197-label.i`, `packages/conformance/tests/calculate/e197-label-too-big.i`
 
 ## §4.3 Identifiers and qualifiers
 
@@ -127,7 +127,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: `packages/conformance/tests/calculate/dimension-32-bit.i`
 - [ ] §4.4.1 — redimensioning loses all element values. Tests: (none yet)
 - [x] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
-- [x] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-too-large.i`
+- [x] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-too-large.i`, `packages/conformance/tests/calculate/e241-size-overflow.i`, `packages/conformance/tests/calculate/e241-size-overflow-to-zero.i`
 
 ## §4.4.2 NEXT
 

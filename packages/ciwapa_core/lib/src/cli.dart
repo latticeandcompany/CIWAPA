@@ -81,7 +81,11 @@ Future<int> runCli(List<String> arguments, Backend backend) async {
         );
         return 64;
       }
-      return _build(backend, args, command == 'run');
+      try {
+        return await _build(backend, args, command == 'run');
+      } on _Exit catch (e) {
+        return e.status;
+      }
     default:
       stderr.writeln(
         '${backend.name}: unknown command "$command"\n\n${_usage(backend, parser)}',
@@ -153,12 +157,19 @@ Future<int> _doctor(Backend backend) async {
   return checks.every((c) => c.$1) ? 0 : 1;
 }
 
+/// Unwinds to [runCli] with an exit status, so that every `finally` (and its temp-dir cleanup) runs.
+class _Exit implements Exception {
+  _Exit(this.status);
+
+  final int status;
+}
+
 Never _fail(IclError error, int statement, {String? detail}) {
   if (detail != null && detail.isNotEmpty) {
     stderr.write(detail.endsWith('\n') ? detail : '$detail\n');
   }
   stderr.write(error.format(statement));
-  exit(error.exitStatus);
+  throw _Exit(error.exitStatus);
 }
 
 Future<int> _build(Backend backend, ArgResults args, bool run) async {
@@ -170,17 +181,26 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
     );
     return 64;
   }
+  final seed = args.option('seed');
+  if (seed != null && int.tryParse(seed) == null) {
+    stderr.writeln('${backend.name}: --seed needs a whole number, not "$seed"');
+    return 64;
+  }
   final file = File(path);
-  if (!file.existsSync()) _fail(IclError.of(777), 1);
+  final List<int> bytes;
+  try {
+    bytes = file.readAsBytesSync();
+  } on FileSystemException {
+    _fail(IclError.of(777), 1);
+  }
 
   final IrProgram ir;
   try {
     final program = analyze(
-      Source.fromBytes(path, file.readAsBytesSync()),
+      Source.fromBytes(path, bytes),
       traditional: args.flag('traditional'),
     );
     if (args.option('dump') == 'ast') stdout.write(_dumpAst(program));
-    final seed = args.option('seed');
     ir = lower(
       program,
       options: IrOptions(
@@ -217,7 +237,7 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
   try {
     final output = run
         ? '${temp.path}${Platform.pathSeparator}$stem$exe'
-        : args.option('output') ?? '$stem$exe';
+        : _executableName(args.option('output') ?? stem);
     try {
       for (final MapEntry(:key, :value) in files.entries) {
         File('${temp.path}${Platform.pathSeparator}$key')
@@ -243,10 +263,24 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
       programArgs,
       mode: ProcessStartMode.inheritStdio,
     );
-    return await process.exitCode;
+    // Ctrl-C reaches the program; ignoring it here lets the temp dir be cleaned up afterwards.
+    final interrupts = ProcessSignal.sigint.watch().listen((_) {});
+    try {
+      return await process.exitCode;
+    } finally {
+      await interrupts.cancel();
+    }
   } finally {
     temp.deleteSync(recursive: true);
   }
+}
+
+/// On Windows an executable gets `.exe` unless it already has an extension, as clang's MinGW
+/// driver would do anyway; both flavors then write the same file.
+String _executableName(String path) {
+  if (!Platform.isWindows) return path;
+  final name = path.split(RegExp(r'[\\/]')).last;
+  return name.contains('.') ? path : '$path.exe';
 }
 
 String _withoutExe(String path) =>

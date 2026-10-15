@@ -117,6 +117,10 @@ int ickCheckSmall(int value, int next) {
 
 // ---- Arrays (§3.3, §4.4.1, decision T26) --------------------------------------------------------
 
+/// More elements than this can't be allocated on any machine, so it's E241 without asking. Below
+/// it, the allocation itself decides (decisions T26, T27). runtime.c uses the same bound.
+const _maxElements = 1 << 61;
+
 void ickDimension(int index, List<int> dims, int next) {
   final a = _arrays[index];
   for (final d in dims) {
@@ -125,8 +129,8 @@ void ickDimension(int index, List<int> dims, int next) {
   if (a.ignored) return;
   var size = 1;
   for (final d in dims) {
+    if (d > _maxElements ~/ size) ickFatal(241, next);
     size *= d;
-    if (size > 1 << 40) ickFatal(241, next);
   }
   final Uint32List data;
   try {
