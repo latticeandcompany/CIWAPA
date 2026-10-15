@@ -55,12 +55,17 @@ class _Capture implements Stdout {
 }
 
 /// Runs the CLI and returns its exit status and stderr.
-Future<(int, String)> cli(List<String> args, Backend backend) async {
+Future<(int, String)> cli(
+  List<String> args,
+  Backend backend, {
+  Directory? systemTemp,
+}) async {
   final err = _Capture();
   final status = await IOOverrides.runZoned(
     () => runCli(args, backend),
     stderr: () => err,
     stdout: () => _Capture(),
+    getSystemTempDirectory: systemTemp == null ? null : () => systemTemp,
   );
   return (status, err.text);
 }
@@ -107,21 +112,46 @@ void main() {
   });
 
   test('temp directories are removed even when the build fails', () async {
-    final before = Directory.systemTemp
-        .listSync()
-        .where((e) => e.path.contains('ciwapa-'))
-        .length;
+    final systemTemp = Directory('${temp.path}/tmp')..createSync();
+    await cli(
+      ['build', source('DO GIVE UP'), '-o', '${temp.path}/prog'],
+      FakeBackend(toolchainError: 'no'),
+      systemTemp: systemTemp,
+    );
+    expect(systemTemp.listSync(), isEmpty);
+  });
+
+  test('temp files that cannot be created are E888', () async {
+    final (status, err) = await cli(
+      ['build', source('DO GIVE UP'), '-o', '${temp.path}/prog'],
+      FakeBackend(),
+      systemTemp: Directory('${temp.path}/no/such/tmp'),
+    );
+    expect(status, 888 % 256);
+    expect(err, IclError.of(888).format(1));
+  });
+
+  test('a failed build leaves an existing executable alone', () async {
+    final existing = File('${temp.path}/prog')
+      ..writeAsStringSync('old program');
+    final (status, _) = await cli([
+      'build',
+      source('DO GIVE UP'),
+      '-o',
+      existing.path,
+    ], FakeBackend(toolchainError: 'no'));
+    expect(status, 778 % 256);
+    expect(existing.readAsStringSync(), 'old program');
+  });
+
+  test('a failed build leaves no empty executable behind', () async {
     await cli([
       'build',
       source('DO GIVE UP'),
       '-o',
-      '${temp.path}/prog',
+      '${temp.path}/new',
     ], FakeBackend(toolchainError: 'no'));
-    final after = Directory.systemTemp
-        .listSync()
-        .where((e) => e.path.contains('ciwapa-'))
-        .length;
-    expect(after, before);
+    expect(File('${temp.path}/new').existsSync(), isFalse);
   });
 
   test('--seed must be a whole number', () async {

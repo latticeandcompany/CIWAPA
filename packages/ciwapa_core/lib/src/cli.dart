@@ -252,17 +252,24 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
       _fail(IclError.of(888), 1);
     }
     // The output has to be writable before the toolchain runs; otherwise it would fail as E778.
+    // An existing file is only opened for appending, so a failed build never empties it.
+    final outputFile = File(output);
+    final placeholder = !outputFile.existsSync();
     try {
-      File(output).writeAsBytesSync(const []);
+      outputFile.openSync(mode: FileMode.append).closeSync();
     } on FileSystemException {
       _fail(IclError.of(888), 1);
     }
     try {
       await backend.compile(temp, output, optimize: options.optimize);
     } on ToolchainException catch (e) {
+      if (placeholder) outputFile.deleteSync();
       _fail(IclError.of(778), 1, detail: e.message);
     }
-    if (!File(output).existsSync()) _fail(IclError.of(888), 1);
+    if (outputFile.lengthSync() == 0) {
+      outputFile.deleteSync();
+      _fail(IclError.of(888), 1);
+    }
     if (!run) return 0;
     final process = await Process.start(
       output,

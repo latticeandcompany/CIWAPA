@@ -156,7 +156,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.5 — each variable has its own last-in-first-out stash. Tests: `packages/conformance/tests/stash/last-in-first-out.i`, `packages/conformance/tests/stash/separate-stashes.i`
 - [x] §4.4.5 — STASHing an array saves its dimensions and its data. Tests: `packages/conformance/tests/stash/array-dimensions.i`, `packages/conformance/tests/stash/array-data.i`
 - [x] §4.4.5 — stashing a single array element is invalid, so the statement is undecodable. (decision: T25) Tests: `packages/conformance/tests/stash/stash-element-undecodable.i`
-- [x] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [ ] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
 
 ## §4.4.6 RETRIEVE
 
@@ -351,7 +351,7 @@ The library is a clean-room implementation written from these contracts alone (d
   - line 4: eight spaces, then `CORRECT SOURCE AND RESUBMIT`
 
   (decision: T33, Q90) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e079-impolite.i`
-- [x] §9.1 — `<n>` is the ordinal of the statement that would have run next, not zero-padded. For a NEXT that's its target; for a COME FROM target it's the COME FROM; for E633 it's the last ordinal + 1; for compile-time errors it's the offending statement's ordinal. (decision: T33) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/come-from/line-3-names-come-from.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e182-duplicate-label.i`, `packages/conformance/tests/come-from/e555.i`
+- [x] §9.1 — `<n>` is the ordinal of the statement that would have run next, not zero-padded. For a NEXT that's its target; for a COME FROM target it's the COME FROM; for E633 it's the last ordinal + 1; for compile-time errors it's the offending statement's ordinal. (decision: T33) Tests: `packages/conformance/tests/next/e123-recursion.i`, `packages/conformance/tests/come-from/line-3-names-come-from.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e182-duplicate-label.i`, `packages/conformance/tests/come-from/e555.i`
 - [x] §9.1 — the official text is the spec's literal message where §4 gives one (E123, E436, and E275 for every trigger); otherwise it is the §9.2 description verbatim, uppercased. (decision: Q83, Q84, Q134) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/io/e275-write-in.i`
 - [x] §9.1 — every error code has its own original joke line printed under the official text. (decision: Q90) Tests: `packages/ciwapa_core/test/frontend_test.dart`
 - [x] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
@@ -379,11 +379,11 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
 - [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
 - [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
-- [x] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
-- [x] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) Tests: `packages/conformance/tests/errors/many-variables.i`
+- [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-variables.i`
 - [x] §9.2 — E444: COME FROM to a non-existent label. Tests: `packages/conformance/tests/come-from/e444.i`
 - [x] §9.2 — E555: more than one COME FROM to one label. Tests: `packages/conformance/tests/come-from/e555.i`
-- [x] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) Tests: `packages/conformance/tests/errors/many-statements.i`
+- [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-statements.i`
 - [x] §9.2 — E777: no such source file. Tests: `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E888: can't write the output executable or temp files. (decision: Q133) Tests: `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E998: invalid source extension (use `.i` or `.[3-7]i`). Tests: `packages/conformance/tests/errors/e998-extension.bad`
@@ -408,8 +408,9 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §10.4 — a program where more than 1/3 of statements use PLEASE is a compile-time E099. (decision: T35) Tests: `packages/conformance/tests/errors/e099-overpolite.i`
 - [x] §10.4 — exactly 1/5 and exactly 1/3 both pass, because the comparisons use exact fractions. (decision: T35) Tests: `packages/conformance/tests/errors/polite-exactly-one-fifth.i`, `packages/conformance/tests/errors/polite-exactly-one-third.i`
 - [x] §10.4 — the check counts statements whose identifier includes PLEASE (`PLEASE`, `PLEASE DO`, `DO PLEASE`), not PLEASE text anywhere. (decision: T35, T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`, `packages/conformance/tests/errors/please-text-not-counted.i`
-- [x] §10.4 — comments and undecodable statements count as statements; the auto-included library does not. (decision: T35) Tests: `packages/conformance/tests/errors/comments-count.i`
-- [x] §10.4 — the check applies only to programs with more than 2 statements. (decision: T35) Tests: `packages/conformance/tests/errors/two-statements-unchecked.i`, `packages/conformance/tests/errors/two-statements-all-polite.i`
+- [x] §10.4 — comments and undecodable statements count as statements. (decision: T35) Tests: `packages/conformance/tests/errors/comments-count.i`
+- [ ] §10.4, §7.3 — the auto-included library does not count. (decision: T35) Tests: (none yet)
+- [x] §10.4 — the check applies only to programs with more than 2 statements. (decision: T35) Tests: `packages/conformance/tests/errors/two-statements-unchecked.i`, `packages/conformance/tests/errors/two-statements-all-polite.i`, `packages/conformance/tests/errors/three-statements-checked.i`
 
 ## §12 Princeton compiler (BUG option only)
 

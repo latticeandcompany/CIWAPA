@@ -1,3 +1,3 @@
 DO (3) NEXT
-DON'T .0 <- #65536
+DO .0 <- #65536
 (3) PLEASE GIVE UP

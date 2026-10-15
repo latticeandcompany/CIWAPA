@@ -51,3 +51,14 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (b), for Windows users. The code does (a), the tie-breaker's answer, until this is answered, because (b) would be a new divergence.
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-14
+
+## L7: How are the out-of-memory errors raised and proven?
+
+- **Context:** T25 and T27 say E222 (stash space), E333 (variables) and E666 (source lines) fire only when memory actually runs out. The runtimes raise E222 when a stash allocation fails, but nothing raises E333 or E666: the compiler just crashes if it runs out of memory. None of the three can be triggered deterministically by a test, so their checklist items can't be proven the way the others are. The "no artificial limit" half is proven: 2,000 stash levels, 5,000 variables and 20,000 statements all work.
+- **Options:**
+  - (a) Catch out-of-memory in the compiler and report E666 while parsing and E333 while laying out variables. Accept code review, plus the no-limit tests, as the proof.
+  - (b) As (a), plus a test-only memory limit (an environment variable the runtimes and compiler honor) so a test can force each error.
+  - (c) Drop the three codes from the checklist, since memory exhaustion isn't a behavior anyone can rely on.
+- **Lean:** (b), which proves the behavior without an artificial limit in normal runs.
+- **Blocks:** the §9.2 items E222, E333 and E666, and the §4.4.5 item "stashes have no depth limit; E222 fires only when memory runs out".
+- **Raised:** 2026-10-14

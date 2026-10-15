@@ -58,6 +58,7 @@ class DartEmitter {
       ..writeln(
         '    if (pc == $fellOff) ickFatal(633, ${program.userStatements + 1});',
       )
+      ..writeln('    if (pc < 2) throw StateError("no statement at pc \$pc");')
       ..writeln('    pc = switch (((pc >> 1) - 1) ~/ $chunkSize) {');
     for (var c = 0; c < chunks; c++) {
       _out.writeln('      $c => _chunk$c(pc),');
