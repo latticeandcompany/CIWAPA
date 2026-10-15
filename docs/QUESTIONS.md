@@ -25,6 +25,9 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Context:** `(0) DO FOO` has an invalid label (E197) and can't be decoded (E000). `DO %101 FOO` has an invalid percentage (E017) and can't be decoded. Each of these errors fires when the statement executes (Q80, T8). Nothing says which one is reported.
 - **Options:** (a) source order: the label, then the percentage, then E000; (b) E000 always wins, because the statement as a whole is undecodable.
 - **Lean:** (a), the same rule as every other statement with more than one problem. The IR does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-14
+
 ## L4: Is a chain inside a group E017 or undecodable?
 
 - **Context:** Q97 makes an ungrouped chain such as `#165¢#203~#358` invalid, following 0.15's parser, with E017 when the statement executes (Q80). Inside a group, as in `'#1¢#2~#3'`, 0.15's parser fails at a different point: it splatters the statement, so it would raise E000 rather than E017. The checklist item names the error E017 without saying where the chain sits.
