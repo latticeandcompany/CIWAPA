@@ -2,7 +2,11 @@
   "$schema": ".lattice/schema.json",
   "latticeVersion": "1.1.1",
   "tasks": {
-    "test": {},
+    "test": {
+      "dependsOn": [
+        "^test"
+      ]
+    },
     "lint": {},
     "format": {},
     "goal-status": {
@@ -37,29 +41,36 @@
       "path": "packages/ciwapa_dart",
       "auto": false,
       "scripts": {
-        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "test": "",
         "lint": "",
         "format": "",
         "goal-status": ""
-      }
+      },
+      "dependsOn": [
+        "ciwapa_core"
+      ]
     },
     {
       "name": "ciwapa_llvm",
       "path": "packages/ciwapa_llvm",
       "auto": false,
       "scripts": {
-        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "test": "",
         "lint": "",
         "format": "",
         "goal-status": ""
-      }
+      },
+      "dependsOn": [
+        "ciwapa_core",
+        "runtime_c"
+      ]
     },
     {
       "name": "runtime_c",
       "path": "packages/runtime_c",
       "auto": false,
       "scripts": {
-        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "test": "",
         "lint": "",
         "format": "",
         "goal-status": ""
@@ -70,11 +81,19 @@
       "path": "packages/conformance",
       "auto": false,
       "scripts": {
-        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "test": "",
         "lint": "",
         "format": "",
         "goal-status": ""
-      }
+      },
+      "dependsOn": [
+        "ciwapa_core"
+      ]
     }
+  ],
+  "globalDependencies": [
+    "Dockerfile",
+    "tools/in-docker",
+    "pubspec.lock"
   ]
 }

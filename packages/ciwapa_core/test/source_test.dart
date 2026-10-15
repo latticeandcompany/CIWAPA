@@ -29,6 +29,45 @@ void main() {
       expect(source.lineOf(4), 2);
       expect(source.line(2), 'GIVE UP');
     });
+
+    test('a newline belongs to the line it ends; a trailing newline starts an empty line', () {
+      final source = Source('trailing.i', 'DO\n');
+      expect(source.lineCount, 2);
+      expect(source.lineOf(2), 0);
+      expect(source.lineOf(3), 1);
+      expect(source.line(1), '');
+    });
+
+    test('an empty file is one empty line', () {
+      final source = Source('empty.i', '');
+      expect(source.lineCount, 1);
+      expect(source.line(0), '');
+      expect(source.lineOf(0), 0);
+    });
+
+    test(
+      'offsets count runes, so characters outside the BMP are one offset each',
+      () {
+        final source = Source('emoji.i', '😀\nDO');
+        expect(source.runes, hasLength(4));
+        expect(source.lineOf(2), 1);
+        expect(source.slice(0, 1), '😀');
+        expect(source.slice(2, 4), 'DO');
+      },
+    );
+
+    test('offsets outside the text are an error, not a guess', () {
+      final source = Source('short.i', 'DO');
+      expect(() => source.lineOf(-1), throwsRangeError);
+      expect(() => source.lineOf(3), throwsRangeError);
+    });
+
+    test('runes cannot be modified', () {
+      expect(
+        () => Source('frozen.i', 'DO').runes.add(1),
+        throwsUnsupportedError,
+      );
+    });
   });
 
   group('the extension picks the base', () {
