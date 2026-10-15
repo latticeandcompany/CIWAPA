@@ -24,44 +24,52 @@ mkdir -p "$root/bin" "$root/licenses"
 dart --suppress-analytics compile exe "$repo_root/packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" \
   -o "$root/bin/ciwapa-$flavor$exe" >&2
 
-llvm_license() {
-  curl -fsSL -o "$root/licenses/LLVM-Apache-2.0-with-LLVM-exception.txt" \
-    "https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-$LLVM_VERSION/llvm/LICENSE.TXT"
-}
-
+# Every binary in bin/ is a `dart compile exe` executable, so it carries the Dart runtime.
+dart_sdk="$(dirname "$(dirname "$(command -v dart)")")"
+cp "$dart_sdk/LICENSE" "$root/licenses/Dart-BSD-3-Clause.txt"
 cp "$repo_root/LICENSE" "$root/licenses/CIWAPA-ISC.txt"
 case "$flavor-$platform" in
   dart-*)
     cp -R "$toolchain/dart-sdk" "$root/dart-sdk"
-    cp "$toolchain/dart-sdk/LICENSE" "$root/licenses/Dart-BSD-3-Clause.txt"
     ;;
   llvm-linux-*)
     cp -R "$toolchain" "$root/toolchain"
-    llvm_license
-    cp "$toolchain/licenses/musl-MIT.txt" "$root/licenses/"
+    mv "$root/toolchain/licenses/"* "$root/licenses/"
+    rmdir "$root/toolchain/licenses"
     ;;
   llvm-windows-*)
-    cp -R "$toolchain" "$root/toolchain"
-    llvm_license
-    cp "$toolchain/LICENSE.TXT" "$root/licenses/llvm-mingw-ISC.txt"
-    mkdir -p "$root/licenses/mingw-w64"
-    find "$toolchain" -iname 'COPYING*' -path '*mingw*' | while IFS= read -r f; do
-      cp "$f" "$root/licenses/mingw-w64/$(basename "$(dirname "$f")")-$(basename "$f").txt"
+    # Only what ciwapa-llvm runs: the clang driver and lld with their DLLs, clang's resource
+    # directory, the C headers, and the host target's sysroot.
+    case "$platform" in
+      windows-x64) cpu=x86_64 ;;
+      windows-arm64) cpu=aarch64 ;;
+    esac
+    tc="$root/toolchain"
+    mkdir -p "$tc/bin" "$tc/lib"
+    for f in clang.exe clang-[0-9]*.exe ld.lld.exe libLLVM-*.dll libclang-cpp.dll libc++.dll \
+      libunwind.dll libwinpthread-1.dll mingw32-common.cfg "$cpu-w64-windows-gnu.cfg"; do
+      cp "$toolchain/bin/"$f "$tc/bin/"
     done
-    if [[ -z "$(ls "$root/licenses/mingw-w64")" ]]; then
-      echo "no mingw-w64 license found in $toolchain" >&2
-      exit 1
-    fi
+    cp -R "$toolchain/lib/clang" "$tc/lib/"
+    cp -R "$toolchain/include" "$tc/include"
+    rm -rf "$tc/include/c++"
+    cp -R "$toolchain/$cpu-w64-mingw32" "$tc/"
+    cp "$toolchain/LICENSE.TXT" "$root/licenses/LLVM-Apache-2.0-with-LLVM-exception.txt"
+    curl -fsSL -o "$root/licenses/llvm-mingw-ISC.txt" \
+      "https://raw.githubusercontent.com/mstorsjo/llvm-mingw/$LLVM_MINGW_VERSION/LICENSE.txt"
+    mkdir -p "$root/licenses/mingw-w64"
+    cp "$toolchain/$cpu-w64-mingw32/share/mingw32/"COPYING* "$root/licenses/mingw-w64/"
     ;;
 esac
 cp "$repo_root/.github/release/README.txt" "$root/README.txt"
 
 cd "$out"
 if [[ "$platform" == windows-* ]]; then
+  rm -f "$name.zip"
   7z a -tzip -bd -mx=9 "$name.zip" "$name" >/dev/null
   echo "$out/$name.zip"
 else
-  tar -cJf "$name.tar.xz" "$name"
+  XZ_OPT=-T0 tar -cJf "$name.tar.xz" "$name"
   echo "$out/$name.tar.xz"
 fi
 rm -rf "$root"

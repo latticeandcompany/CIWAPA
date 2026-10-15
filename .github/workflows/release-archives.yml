@@ -79,7 +79,9 @@ jobs:
 
       - name: Smoke test
         id: smoke
-        run: echo "compiler=$(.github/scripts/smoke-test.sh "${{ steps.archive.outputs.path }}" ${{ matrix.flavor }} "$RUNNER_TEMP/smoke")" >>"$GITHUB_OUTPUT"
+        run: |
+          compiler="$(.github/scripts/smoke-test.sh "${{ steps.archive.outputs.path }}" ${{ matrix.flavor }} "$RUNNER_TEMP/smoke")"
+          echo "compiler=$compiler" >>"$GITHUB_OUTPUT"
 
       # The IR cross-check: the full conformance suite through the toolchain the archive ships.
       - name: Conformance with the archived compiler

@@ -60,7 +60,11 @@ tar -xzf "$musl_tar" -C "$work"
   make -j"$(getconf _NPROCESSORS_ONLN)" >/dev/null
   make DESTDIR="$out/sysroot" install >/dev/null
 )
+rm -f "$out/sysroot/bin/musl-clang" "$out/sysroot/bin/ld.musl-clang"
+rmdir "$out/sysroot/bin" 2>/dev/null || true
 mkdir -p "$out/licenses"
 cp "$work/musl-$MUSL_VERSION/COPYRIGHT" "$out/licenses/musl-MIT.txt"
+curl -fsSL -o "$out/licenses/LLVM-Apache-2.0-with-LLVM-exception.txt" \
+  "https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-$LLVM_VERSION/llvm/LICENSE.TXT"
 
 echo "bundled $musl_triple toolchain in $out"

@@ -9,7 +9,11 @@ This archive holds one CIWAPA compiler and everything it needs to build programs
   licenses/           the license of every component in this archive
 
 Nothing needs installing, apart from the macOS LLVM flavor, which uses Apple's clang
-(run `xcode-select --install` once if `ciwapa-llvm doctor` says it's missing).
+(run `xcode-select --install` once if `ciwapa-llvm doctor` says it's missing). On Linux the
+bundled clang needs libstdc++, zlib and libgcc_s, which every mainstream distribution has.
+
+Put bin/ on your PATH, or run bin/ciwapa-<flavor> directly. Keep the folder together: the
+compiler finds its toolchain next to bin/.
 
 Usage
 -----
