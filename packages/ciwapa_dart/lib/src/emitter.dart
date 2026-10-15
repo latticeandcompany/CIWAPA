@@ -168,6 +168,15 @@ class DartEmitter {
         for (final a in arrays) {
           _line('ickStashArray(${a.index}, $next);');
         }
+      case IrVarList(:final op, :final scalars, :final arrays)
+          when op == ListOp.ignore || op == ListOp.remember:
+        final ignored = op == ListOp.ignore;
+        for (final v in scalars) {
+          _line('ig[${v.index}] = ${ignored ? 1 : 0};');
+        }
+        for (final a in arrays) {
+          _line('ickArraySetIgnored(${a.index}, $ignored);');
+        }
       case IrVarList(op: ListOp.retrieve, :final scalars, :final arrays):
         for (final v in scalars) {
           _line('ickRetrieveScalar(${v.index}, $next);');

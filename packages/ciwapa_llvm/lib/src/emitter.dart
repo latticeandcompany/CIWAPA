@@ -50,6 +50,7 @@ declare i32 @ick_check_small(i32, i32)
 declare void @ick_dimension(i32, i32, ptr, i32)
 declare ptr @ick_element(i32, i32, ptr, i32)
 declare i32 @ick_array_ignored(i32)
+declare void @ick_array_set_ignored(i32, i32)
 ''';
 
   String emit() {
@@ -267,6 +268,20 @@ declare i32 @ick_array_ignored(i32)
         }
         for (final a in arrays) {
           _line('call void @ick_${verb}_array(i32 ${a.index}, i32 $next)');
+        }
+      case IrVarList(:final op, :final scalars, :final arrays):
+        final ignored = op == ListOp.ignore ? 1 : 0;
+        for (final v in scalars) {
+          final p = _fresh();
+          _line(
+            '$p = getelementptr inbounds [${program.scalars.length} x i8], ptr @ig, i64 0, i64 ${v.index}',
+          );
+          _line('store i8 $ignored, ptr $p');
+        }
+        for (final a in arrays) {
+          _line(
+            'call void @ick_array_set_ignored(i32 ${a.index}, i32 $ignored)',
+          );
         }
       case IrComeFrom():
         break;

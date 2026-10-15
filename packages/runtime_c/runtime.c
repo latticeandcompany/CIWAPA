@@ -237,6 +237,8 @@ uint32_t *ick_element(uint32_t index, uint32_t count, const uint32_t *subscripts
 
 uint32_t ick_array_ignored(uint32_t index) { return arrays[index].ignored; }
 
+void ick_array_set_ignored(uint32_t index, uint32_t ignored) { arrays[index].ignored = ignored; }
+
 /* ---- STASH and RETRIEVE (§4.4.5, §4.4.6, decisions T24, T25) --------------------------- */
 
 /* Grows a stash; the only limit is memory, and running out is E222. */
