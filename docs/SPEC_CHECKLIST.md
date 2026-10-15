@@ -462,6 +462,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - T16 NEXT depth is 79, because the spec is explicit. Both versions allow 80.
 - T17 32-bit FORGET/RESUME arguments don't wrap. Both versions have a wraparound bug.
 - T21 CALCULATING includes dimensioning, and ABSTAINING covers all ABSTAINs, as in 0.35. 0.15 is narrower.
+- T23 a random bug planted on a COME FROM also fires when its jump arrives, since the statement is reached. 0.15's trap jumps past the bug check, so there it only fires when execution falls into the COME FROM.
 - T23 E774 follows 0.15 (1 in 128 per statement, before the guard). 0.35 uses 1 in 10 per program.
 - T25 RETRIEVE into an undimensioned array restores it. Both versions drop the value.
 - T27 no MAXLINES/MAXVARS limits. 0.15 caps programs at 1000 statements and 100 variables.

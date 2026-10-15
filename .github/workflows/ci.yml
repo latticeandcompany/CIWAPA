@@ -17,6 +17,7 @@ jobs:
   ci:
     name: ci (${{ matrix.platform.name }}, ${{ matrix.flavor }})
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

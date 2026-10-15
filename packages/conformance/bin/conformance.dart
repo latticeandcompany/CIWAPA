@@ -10,8 +10,10 @@
 //   .out    expected stdout (empty when missing)
 //   .err    expected stderr (empty when missing)
 //   .exit   expected exit status (0 when missing)
-//   .timeout  seconds the program must still be running after; it is then killed, and only its
-//             output so far is compared (for programs that loop forever by design)
+//   .timeout  seconds the program must still be running after; it is then killed and its
+//             output so far is compared. Only for programs that loop forever by design and print
+//             nothing, since how much a looping program prints in N seconds varies.
+// Any other program that runs longer than a minute fails as timed out.
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
 import 'dart:convert';
@@ -88,6 +90,8 @@ Future<void> main(List<String> arguments) async {
   exit(failed.isEmpty && tests.isNotEmpty ? 0 : 1);
 }
 
+const _defaultTimeout = Duration(minutes: 1);
+
 String _relative(String path, String root) =>
     path.substring(root.length).replaceAll(r'\', '/');
 
@@ -112,9 +116,10 @@ Future<String?> _check(String compiler, String path) async {
       exe,
     ], const []);
     final timeoutFile = File('$stem.timeout');
-    final timeout = timeoutFile.existsSync()
+    final mustLoop = timeoutFile.existsSync();
+    final timeout = mustLoop
         ? Duration(seconds: int.parse(timeoutFile.readAsStringSync().trim()))
-        : null;
+        : _defaultTimeout;
     final outcome = build.exitCode != 0
         ? build
         : await _run(
@@ -125,9 +130,12 @@ Future<String?> _check(String compiler, String path) async {
                 : const [],
             timeout: timeout,
           );
-    if (timeout != null && build.exitCode == 0 && !outcome.timedOut) {
+    if (build.exitCode == 0 && mustLoop && !outcome.timedOut) {
       return 'expected the program to still be running after ${timeout.inSeconds}s, '
           'but it exited with ${outcome.exitCode}';
+    }
+    if (build.exitCode == 0 && !mustLoop && outcome.timedOut) {
+      return 'timed out after ${timeout.inSeconds}s';
     }
     return _compare(stem, outcome);
   } finally {
@@ -185,8 +193,10 @@ Future<Outcome> _run(
   process.stdin.add(stdin);
   await process.stdin.close().catchError((_) {});
   if (timeout != null) {
-    final exited = await process.exitCode.timeout(timeout, onTimeout: () => -1);
-    if (exited == -1) {
+    final exited = await process.exitCode
+        .then<int?>((code) => code)
+        .timeout(timeout, onTimeout: () => null);
+    if (exited == null) {
       process.kill(ProcessSignal.sigkill);
       await process.exitCode;
       // The expected exit status of a program that never ends is "still running": 0 here.
