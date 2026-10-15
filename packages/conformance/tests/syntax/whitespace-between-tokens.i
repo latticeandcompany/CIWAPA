@@ -1,0 +1,5 @@
+DO	.1
+<-	#
+5
+DO READ OUT .1
+PLEASE GIVE UP
