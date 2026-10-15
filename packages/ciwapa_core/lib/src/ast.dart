@@ -239,7 +239,7 @@ class Statement {
     required this.not,
     required this.percent,
     required this.body,
-    this.ungroupedChain = false,
+    this.chain = false,
   });
 
   /// Rune offsets of the statement's text: from its label or identifier up to the next statement.
@@ -254,8 +254,12 @@ class Statement {
   final int? percent;
   Body body;
 
+  /// The parser saw two or more ungrouped binary operators in a row.
+  final bool chain;
+
   /// An ungrouped chain of binary operators: E017 when the statement executes (decision Q97).
-  final bool ungroupedChain;
+  /// A statement that later turns out to be undecodable raises E000 instead (decision T9).
+  bool get ungroupedChain => chain && body is! Undecodable;
 
   /// Whether the statement has an identifier at all. Garbage before the first statement doesn't.
   bool hasIdentifier = true;

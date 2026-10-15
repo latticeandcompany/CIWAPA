@@ -102,6 +102,16 @@ void main() {
       expect(rhs("'?\"&#123\"'").toString(), 'xor(and(#123))');
     });
 
+    test('the rabbit is just ears followed by a spot', () {
+      expect(rhs('".1~.2"').toString(), '(~ .1 .2)');
+    });
+
+    test('junk after a chain makes the statement undecodable, not a chain', () {
+      final s = parse('DO .1 <- #1¢#2~#3 JUNK DO GIVE UP').first;
+      expect(s.body, isA<Undecodable>());
+      expect(s.ungroupedChain, isFalse);
+    });
+
     test('the wow is a spark followed by a spot', () {
       expect(rhs("!1~.2'").toString(), rhs("'.1~.2'").toString());
       expect(rhs("\"V!1¢.2'\"").toString(), rhs("'V.1¢.2'").toString());
@@ -130,6 +140,13 @@ void main() {
     test('§12: alternating sparks and ears nest subscripts', () {
       expect(rhs("\",1SUB',2SUB#1'#2\"").toString(), '(,1 SUB (,2 SUB #1) #2)');
     });
+
+    test(
+      "§12: the Princeton compiler's restricted form parses the same way here",
+      () {
+        expect(rhs('",1SUB",2SUB#1"#2"').toString(), '(,1 SUB (,2 SUB #1) #2)');
+      },
+    );
 
     test('§4.4.1: the least-significant-bit example', () {
       final s = one("DO ,1SUB#1#1 <- '?,1SUB#1#1¢#1'~'#0¢#65535'");
@@ -212,6 +229,10 @@ void main() {
     test('single words and the angle-worm cannot be split', () {
       expect(undecodable('DO FOR GET #1'), isTrue);
       expect(undecodable('DO .1 < - #1'), isTrue);
+    });
+
+    test('tabs and newlines separate tokens like spaces', () {
+      expect(undecodable('DO\t.1\t<-\n#1'), isFalse);
     });
 
     test('lowercase is undecodable', () {
@@ -310,6 +331,34 @@ void main() {
         expect(statements[0].body, isA<Undecodable>());
       },
     );
+
+    test('a statement has at most one label', () {
+      final statements = parse('(1) (2) DO GIVE UP');
+      expect(statements, hasLength(2));
+      expect(statements[0].hasIdentifier, isFalse);
+      expect(statements[1].label, 2);
+      expect(statements[1].body, isA<GiveUp>());
+    });
+
+    test('TONSIL characters with no use make their statement undecodable', () {
+      for (final c in [
+        '=',
+        '`',
+        '|',
+        '>',
+        '[',
+        ']',
+        '{',
+        '}',
+        '_',
+        '/',
+        r'\',
+        '¬',
+        '*',
+      ]) {
+        expect(undecodable('DO .1 <- #1 $c'), isTrue, reason: c);
+      }
+    });
 
     test('an undecodable statement keeps its label and qualifiers', () {
       final s = one("(7) DON'T %30 EAT THE SPEC");

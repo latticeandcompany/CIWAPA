@@ -452,6 +452,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 
 - T1 grouping: 0.35 tracks groupers on a stack and accepts more grouped subscripts. We follow 0.15.
 - T2 a subscript list ends at a binary operator: both versions reject an array element as a mingle/select left operand. We accept it, because the spec's own §4.4.1 example needs it.
+- T2 a nested subscript takes the rest of the list, so `,1 SUB ,2 SUB #1 #2 #3` is `,1 SUB (,2 SUB #1 #2 #3)`. 0.15 can't parse it: there a nested subscripted array must come last and take one subscript.
 - T7 CRLF is accepted. 0.15 rejects `\r`.
 - T9 junk after a complete statement makes it undecodable (E000 when it runs). 0.15 reports compile-time E017.
 - T10 E000 text uses 0.35's format. 0.15's multi-line text is broken.
@@ -476,4 +477,6 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - Q80/Q81 a bad constant (E017), variable (E200), label (E197) or label reference (E129/E139) raises its error when the statement executes. Both versions report these at compile time.
 - Q83/Q90 messages are the spec's text plus original joke lines, not ick's message strings.
 - Q133 E127 and E999 are excluded, and E888 now means "can't write the output executable or temp files" instead of ick's C output file.
+- Q97, L4 a chain inside a group is also E017. 0.15 makes that statement undecodable.
+- T39 with `--traditional`, a COME FROM followed by junk is undecodable (E000 when it executes), like any other junk. 0.15 reports E111 because it checks traditional mode before it sees the junk.
 - Q97 ungrouped operator chains are rejected, as in 0.15. 0.35 groups them to the right. Timing follows Q80, not 0.15's compile-time error.

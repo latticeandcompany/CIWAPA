@@ -141,6 +141,74 @@ void main() {
     });
   });
 
+  group("the checks run in 0.15's order", () {
+    test('E998 before E111', () {
+      expect(
+        () => compile('DO GIVE UP', path: 'x.c', traditional: true),
+        throwsIcl(998, 1),
+      );
+    });
+
+    test('E111 before E079', () {
+      expect(
+        () => compile(
+          '(1) DO GIVE UP\nDO COME FROM (1)\nDO GIVE UP',
+          traditional: true,
+        ),
+        throwsIcl(111, 2),
+      );
+    });
+
+    test('E079 before E182', () {
+      expect(
+        () => compile('(1) DO GIVE UP\n(1) DO GIVE UP\nDO GIVE UP'),
+        throwsIcl(79, 1),
+      );
+    });
+
+    test('E182 before E444', () {
+      expect(
+        () => compile('(1) PLEASE GIVE UP\n(1) DO GIVE UP\nDO COME FROM (9)'),
+        throwsIcl(182, 1),
+      );
+    });
+
+    test('E444 and E555 in statement order', () {
+      expect(
+        () => compile(
+          '(1) PLEASE GIVE UP\nDO COME FROM (9)\nDO COME FROM (1)\nDO COME FROM (1)',
+        ),
+        throwsIcl(444, 2),
+      );
+      expect(
+        () => compile(
+          '(1) PLEASE GIVE UP\nDO COME FROM (1)\nDO COME FROM (1)\nDO COME FROM (9)',
+        ),
+        throwsIcl(555, 3),
+      );
+    });
+
+    test('E555 before E997', () {
+      expect(
+        () => compile(
+          '(1) PLEASE DO .1 <- .^1\nDO COME FROM (1)\nDO COME FROM (1)',
+        ),
+        throwsIcl(555, 3),
+      );
+    });
+
+    test('a COME FROM aimed at an invalid label is E444', () {
+      expect(
+        () => compile('PLEASE COME FROM (0)\nDO GIVE UP'),
+        throwsIcl(444, 1),
+      );
+      expect(
+        () => compile('PLEASE COME FROM (70000)\nDO GIVE UP'),
+        throwsIcl(444, 1),
+      );
+    });
+  });
+
   group('E997 (§6.6, decision T40)', () {
     test('^ and @ are illegal in base 2', () {
       expect(
@@ -164,6 +232,10 @@ void main() {
         throwsIcl(997, 1),
       );
       expect(compile('PLEASE DO .1 <- .@1', path: 'x.3i').base, 3);
+    });
+
+    test('operators inside comments are not checked', () {
+      expect(compile('PLEASE NOTE MAIL@HOST^').statements, hasLength(1));
     });
 
     test('0@ is not an operator: the statement is undecodable', () {

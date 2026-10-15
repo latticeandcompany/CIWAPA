@@ -61,7 +61,7 @@ class Parser {
           not: not,
           percent: percent,
           body: body,
-          ungroupedChain: body is! Undecodable && _chain,
+          chain: _chain,
         ),
       );
     }
