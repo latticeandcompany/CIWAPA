@@ -188,10 +188,10 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.9 — `ABSTAIN FROM gerund+gerund…` abstains every statement of those types. Tests: `packages/conformance/tests/abstain/gerund-list.i`, `packages/conformance/tests/abstain/gerund-other-types-run.i`
 - [x] §4.4.9 — an abstained statement is skipped, and control moves to the next statement. Tests: `packages/conformance/tests/abstain/skipped-moves-on.i`
 - [x] §4.4.9 — abstention is a single on/off flag; abstaining twice equals abstaining once. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-twice.i`
-- [x] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: `packages/conformance/tests/abstain/mixed-undecodable.i`
+- [x] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: `packages/conformance/tests/abstain/mixed-undecodable.i`, `packages/conformance/tests/abstain/mixed-undecodable-reversed.i`
 - [ ] §4.4.9 — the gerunds are CALCULATING, NEXTING, FORGETTING, RESUMING, STASHING, RETRIEVING, IGNORING, REMEMBERING, ABSTAINING, REINSTATING, READING OUT, WRITING IN and COMING FROM. (decision: T21) Tests: (none yet)
 - [x] §4.4.9 — CALCULATING covers both assignment and array dimensioning. (decision: T21) Tests: `packages/conformance/tests/abstain/calculating.i`
-- [x] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: `packages/conformance/tests/abstain/abstaining.i`
+- [x] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: `packages/conformance/tests/abstain/abstaining.i`, `packages/conformance/tests/abstain/abstaining-itself.i`
 - [x] §4.4.9 — `ABSTAIN FROM REINSTATING` is valid. Tests: `packages/conformance/tests/abstain/abstain-from-reinstating.i`
 - [x] §4.4.9 — `ABSTAIN FROM GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-from-giving-up-undecodable.i`
 - [x] §4.4.9 — ABSTAIN of a GIVE UP by label works. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-give-up-by-label.i`
@@ -262,7 +262,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §4.5 — junk after a complete statement makes that statement undecodable (E000 if it executes). (decision: T9) Tests: (none yet)
 - [ ] §4.5 — a `*` in the source is junk; it isn't the listing's splat marker. (decision: T15) Tests: (none yet)
 - [ ] §4.5, TONSIL — any character with no use in TONSIL A makes its statement undecodable. (decision: T14) Tests: (none yet)
-- [x] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: `packages/conformance/tests/abstain/encountered-once.i`
+- [x] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: `packages/conformance/tests/abstain/encountered-once.i`, `packages/conformance/tests/abstain/undecodable-keeps-percent.i`
 
 ## §5.2 Turing Text character I/O
 
