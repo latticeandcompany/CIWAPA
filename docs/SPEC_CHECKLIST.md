@@ -452,6 +452,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 
 - T1 grouping: 0.35 tracks groupers on a stack and accepts more grouped subscripts. We follow 0.15.
 - T2 a subscript list ends at a binary operator: both versions reject an array element as a mingle/select left operand. We accept it, because the spec's own §4.4.1 example needs it.
+- T2 a nested subscript takes the rest of the list, so `,1 SUB ,2 SUB #1 #2 #3` is `,1 SUB (,2 SUB #1 #2 #3)`. 0.15 can't parse it: there a nested subscripted array must come last and take one subscript.
 - T7 CRLF is accepted. 0.15 rejects `\r`.
 - T9 junk after a complete statement makes it undecodable (E000 when it runs). 0.15 reports compile-time E017.
 - T10 E000 text uses 0.35's format. 0.15's multi-line text is broken.
@@ -470,10 +471,13 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - T32 our own wimp-mode message. Both versions use ick's GPL text.
 - T33 the spelling is `RESUBMIT` (the spec), not ick's `RESUBNIT`. `<n>` is a statement ordinal, not a source line. E633 prints a number, not "THE NEW WORLD". A joke line is added.
 - T35 politeness uses the spec's exact fractions and counts statements. Both versions use integer formulas and count PLEASE tokens.
+- T19 A COME FROM aimed at a RESUME jumps after the RESUME executes, because §4.4.14.2 only exempts an executed NEXT. 0.15 doesn't: its RESUME transfers control before the trap is checked.
 - T37 E633 never falls through into the included library. Both versions would run the library's first statement.
 - T38 `+help` exits E778, as in 0.15, without the 3-second sleep. 0.35 exits E990.
 - Q78 mingle operands above 65535 raise E533, as in 0.35. 0.15 silently truncates.
 - Q80/Q81 a bad constant (E017), variable (E200), label (E197) or label reference (E129/E139) raises its error when the statement executes. Both versions report these at compile time.
 - Q83/Q90 messages are the spec's text plus original joke lines, not ick's message strings.
 - Q133 E127 and E999 are excluded, and E888 now means "can't write the output executable or temp files" instead of ick's C output file.
+- Q97, L4 a chain inside a group is also E017. 0.15 makes that statement undecodable.
+- T39 with `--traditional`, a COME FROM followed by junk is undecodable (E000 when it executes), like any other junk. 0.15 reports E111 because it checks traditional mode before it sees the junk.
 - Q97 ungrouped operator chains are rejected, as in 0.15. 0.35 groups them to the right. Timing follows Q80, not 0.15's compile-time error.
