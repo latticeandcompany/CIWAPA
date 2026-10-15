@@ -108,12 +108,12 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.3 — the statement identifiers are `DO`, `PLEASE` and `PLEASE DO`, interchangeable. Tests: `packages/conformance/tests/next/computed-goto-1.i`
 - [x] §4.3, §10.4 — `DO PLEASE` is also accepted and counts as polite. (decision: T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`
 - [x] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: `packages/conformance/tests/calculate/not-skips.i`
-- [ ] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: (none yet)
+- [x] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-other-seed.i`
 - [x] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: `packages/conformance/tests/calculate/percent-0-never-runs.i`, `packages/conformance/tests/calculate/percent-100-always-runs.i`
 - [x] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §4.3 — spaces are allowed between `%` and its number. (decision: T5) Tests: (none yet)
 - [ ] §4.3 — the qualifier order is NOT, then `%`. `DO %50 NOT …` is undecodable. (decision: T12) Tests: (none yet)
-- [ ] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: (none yet)
+- [x] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`
 
 ## §4.4.1 Calculate
 
@@ -377,7 +377,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: `packages/conformance/tests/next/e632-resume-empty.i`
 - [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
-- [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
+- [x] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
 - [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
 - [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-variables.i`
@@ -399,11 +399,11 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §10.2 — `--dump=ast|ir` (`ick -d`) prints the parse or IR. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — `--seed <n>` makes E774 placement reproducible. (decision: Q101, T23) Tests: (none yet)
-- [ ] §10.3 — compiled programs accept the `+`/`-` runtime options, read until the first argument without a sign. (decision: Q102) Tests: (none yet)
-- [ ] §10.3 — `+help`/`-help` print usage and exit with E778, with no 3-second sleep. (decision: T38) Tests: (none yet)
-- [ ] §10.3 — `+traditional` does nothing at run time. Tests: (none yet)
-- [ ] §10.3 — `+wimpmode` prints our own humiliating message to stderr, then does decimal number I/O (`%u` per line). The default is `-wimpmode`. (decision: T32) Tests: (none yet)
-- [ ] §10.3 — `+seed <n>` makes the `%` randomness reproducible. (decision: Q102, T22) Tests: (none yet)
+- [x] §10.3 — compiled programs accept the `+`/`-` runtime options, read until the first argument without a sign. (decision: Q102) Tests: `packages/conformance/tests/options/options-stop-at-first-plain-argument.i`, `packages/conformance/tests/options/unknown-option.i`, `packages/conformance/tests/options/minus-seed-unknown.i`
+- [x] §10.3 — `+help`/`-help` print usage and exit with E778, with no 3-second sleep. (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/conformance/tests/options/help-minus.i`
+- [x] §10.3 — `+traditional` does nothing at run time. Tests: `packages/conformance/tests/options/traditional-does-nothing.i`
+- [x] §10.3 — `+wimpmode` prints our own humiliating message to stderr, then does decimal number I/O (`%u` per line). The default is `-wimpmode`. (decision: T32) Tests: `packages/conformance/tests/options/wimpmode.i`, `packages/conformance/tests/options/wimpmode-atoi.i`, `packages/conformance/tests/options/wimpmode-off.i`, `packages/conformance/tests/options/wimpmode-e275.i`, `packages/conformance/tests/options/wimpmode-e562.i`
+- [x] §10.3 — `+seed <n>` makes the `%` randomness reproducible. (decision: Q102, T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-other-seed.i`
 - [x] §10.4 — a program where fewer than 1/5 of statements use PLEASE is a compile-time E079. (decision: T35) Tests: `packages/conformance/tests/errors/e079-impolite.i`, `packages/conformance/tests/errors/comments-count.i`
 - [x] §10.4 — a program where more than 1/3 of statements use PLEASE is a compile-time E099. (decision: T35) Tests: `packages/conformance/tests/errors/e099-overpolite.i`
 - [x] §10.4 — exactly 1/5 and exactly 1/3 both pass, because the comparisons use exact fractions. (decision: T35) Tests: `packages/conformance/tests/errors/polite-exactly-one-fifth.i`, `packages/conformance/tests/errors/polite-exactly-one-third.i`
@@ -432,7 +432,7 @@ The library is a clean-room implementation written from these contracts alone (d
 
 - [x] §9.2 — falling off the end of the program raises E633. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [x] §4.4.11, §9 — GIVE UP exits 0; any error exits with its code mod 256. (decision: T18, T34) Tests: `packages/conformance/tests/next/give-up.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
-- [ ] §4.3 — by default the `%` RNG is seeded from the time; `+seed` overrides it. (decision: T22) Tests: (none yet)
+- [x] §4.3 — by default the `%` RNG is seeded from the time; `+seed` overrides it. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/runtime_c/test/runtime_test.dart`, `packages/ciwapa_dart/test/runtime_test.dart`
 
 ## Excluded by decision
 

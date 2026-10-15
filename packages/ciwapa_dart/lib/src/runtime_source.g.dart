@@ -37,6 +37,11 @@ late int _largeMax;
 late bool _clockface;
 late List<_Array> _arrays;
 int _rngState = 0;
+var _wimpMode = false;
+
+/// The clock that seeds the `%` rolls when no `+seed` is given, in seconds; tests substitute their
+/// own.
+int Function() ickClock = () => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
 const _smallDigits = [0, 0, 16, 10, 8, 6, 6, 5];
 
@@ -62,7 +67,8 @@ void ickInit(
   _largeMax = base == 2 ? 0xFFFFFFFF : max * max - 1;
   _clockface = clockface;
   _arrays = List.generate(arrayCount, (_) => _Array());
-  _rngState = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  _rngState = ickClock();
+  _parseOptions(args);
 }
 
 // ---- Errors (§9) -----------------------------------------------------------------------------
@@ -401,9 +407,39 @@ List<int>? _readLine() {
 
 /// One number per line, each digit a word separated by spaces: E562 for a blank line or the end
 /// of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum.
+/// Wimp mode reads a line the way C's atoi does, with a 64-bit long: whitespace, a sign and
+/// digits, saturating at the long's range, and keeping the low 32 bits (decision T32).
+int _wimpNumber(List<int> line) {
+  var i = 0;
+  while (i < line.length &&
+      (line[i] == 0x20 || (line[i] >= 0x09 && line[i] <= 0x0D))) {
+    i++;
+  }
+  final negative = i < line.length && line[i] == 0x2D;
+  if (i < line.length && (line[i] == 0x2D || line[i] == 0x2B)) i++;
+  // The magnitude saturates at 2^63 - 1, or at 2^63 when negative; -2^63 keeps no low bits.
+  var magnitude = 0;
+  var saturated = false;
+  for (; i < line.length && line[i] >= 0x30 && line[i] <= 0x39; i++) {
+    final digit = line[i] - 0x30;
+    if (saturated || magnitude > (0x7FFFFFFFFFFFFFFF - digit) ~/ 10) {
+      saturated = true;
+    } else {
+      magnitude = magnitude * 10 + digit;
+    }
+  }
+  if (saturated) return negative ? 0 : 0xFFFFFFFF;
+  return (negative ? -magnitude : magnitude) & 0xFFFFFFFF;
+}
+
 int ickWriteIn(int next) {
   final line = _readLine();
   if (line == null) ickFatal(562, next);
+  if (_wimpMode) {
+    final value = _wimpNumber(line);
+    if (value > _largeMax) ickFatal(533, next);
+    return value;
+  }
   var result = 0, digits = 0, i = 0;
   while (i < line.length) {
     while (i < line.length && line[i] == 0x20) {
@@ -470,6 +506,11 @@ const _romanBars = [
 ];
 
 void ickReadOut(int value) {
+  if (_wimpMode) {
+    _write(utf8.encode('$value\n'));
+    _flush();
+    return;
+  }
   if (value == 0) {
     _write(const [0x5F, 0x0A, 0x0A]);
     _flush();
@@ -536,5 +577,66 @@ void ickTuringOut(int index, int next) {
     _writeByte(b);
     if (b == 0x0A) _flush();
   }
+}
+
+// ---- Runtime options (§10.3, decisions T32, T38, Q102) ------------------------------------------
+
+const _usage =
+    'Runtime options, read up to the first argument without a sign:\n'
+    '  +help, -help     print this, then give up with E778, as is tradition\n'
+    '  +traditional     accepted, and does nothing\n'
+    '  +wimpmode        read and write plain decimal numbers instead of words and Roman numerals\n'
+    '  -wimpmode        the default: proper INTERCAL numbers\n'
+    "  +seed <n>        make the % qualifiers' coin flips repeatable\n";
+
+const _wimpMessage =
+    'WIMP MODE ENGAGED. Numbers will be read and written in plain decimal, like a spreadsheet.\n'
+    'Your INTERCAL license has been suspended, and your next of kin have been notified.\n';
+
+/// A seed is decimal digits for a value below 2^63.
+int? _parseSeed(String text) {
+  if (text.isEmpty || !RegExp(r'^[0-9]+$').hasMatch(text)) return null;
+  var value = 0;
+  for (final c in text.codeUnits) {
+    final digit = c - 0x30;
+    if (value > (0x7FFFFFFFFFFFFFFF - digit) ~/ 10) return null;
+    value = value * 10 + digit;
+  }
+  return value;
+}
+
+void _parseOptions(List<String> args) {
+  var help = false;
+  String? unknown;
+  for (var i = 0; i < args.length; i++) {
+    final arg = args[i];
+    if (!arg.startsWith('+') && !arg.startsWith('-')) break;
+    final name = arg.substring(1);
+    final seed = arg.startsWith('+') && name == 'seed' && i + 1 < args.length
+        ? _parseSeed(args[i + 1])
+        : null;
+    if (name == 'help') {
+      help = true;
+    } else if (name == 'traditional') {
+    } else if (name == 'wimpmode') {
+      _wimpMode = arg.startsWith('+');
+    } else if (seed != null) {
+      _rngState = seed;
+      i++;
+    } else {
+      unknown = arg;
+      help = true;
+      break;
+    }
+  }
+  if (help) {
+    stderr.add(
+      utf8.encode(
+        '${unknown == null ? '' : 'Unknown runtime option: $unknown\n'}$_usage',
+      ),
+    );
+    ickFatal(778, 1);
+  }
+  if (_wimpMode) stderr.add(utf8.encode(_wimpMessage));
 }
 ''';

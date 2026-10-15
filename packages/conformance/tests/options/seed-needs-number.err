@@ -1,0 +1,11 @@
+Unknown runtime option: +seed
+Runtime options, read up to the first argument without a sign:
+  +help, -help     print this, then give up with E778, as is tradition
+  +traditional     accepted, and does nothing
+  +wimpmode        read and write plain decimal numbers instead of words and Roman numerals
+  -wimpmode        the default: proper INTERCAL numbers
+  +seed <n>        make the % qualifiers' coin flips repeatable
+ICL778I AN UNEXPLAINABLE COMPILER ERROR HAS OCCURRED.
+        EVEN THE COMPILER CANNOT EXPLAIN THIS ONE.
+	ON THE WAY TO STATEMENT 1
+        CORRECT SOURCE AND RESUBMIT

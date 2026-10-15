@@ -1,0 +1,3 @@
+PLEASE DO WRITE IN :1 + :2 + :3 + :4
+DO READ OUT :1 + :2 + :3 + :4
+DO GIVE UP

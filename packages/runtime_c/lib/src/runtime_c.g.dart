@@ -15,6 +15,9 @@ const runtimeC = r'''
 #ifndef ICK_FLUSH
 #define ICK_FLUSH() fflush(stdout)
 #endif
+#ifndef ICK_TIME
+#define ICK_TIME() time(NULL)
+#endif
 
 /* stdio's end of input is sticky, but after an end of input on a terminal the program may read
  * on, and the next character reads as itself + 1 (decision T31), so the flag is cleared. */
@@ -69,6 +72,7 @@ typedef struct {
 } ick_program;
 
 static const ick_program *program;
+static int wimp_mode;
 static uint32_t small_max;
 static uint32_t large_max;
 static ick_array *arrays;
@@ -87,9 +91,22 @@ static uint32_t small_digits(uint32_t base) {
   return digits[base];
 }
 
+static void parse_options(int argc, char **argv);
+
+/* A seed is decimal digits for a value below 2^63. */
+static int parse_seed(const char *text) {
+  uint64_t value = 0;
+  if (!*text) return 0;
+  for (const char *p = text; *p; p++) {
+    if (*p < '0' || *p > '9') return 0;
+    if (value > ((((uint64_t)1 << 63) - 1) - (uint64_t)(*p - '0')) / 10) return 0;
+    value = value * 10 + (uint64_t)(*p - '0');
+  }
+  rng_state = value;
+  return 1;
+}
+
 void ick_init(int argc, char **argv, const ick_program *p) {
-  (void)argc;
-  (void)argv;
 #ifdef _WIN32
   _setmode(_fileno(stdin), _O_BINARY);
   _setmode(_fileno(stdout), _O_BINARY);
@@ -101,7 +118,8 @@ void ick_init(int argc, char **argv, const ick_program *p) {
   arrays = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array));
   scalar_stashes = calloc(p->scalar_count ? p->scalar_count : 1, sizeof(ick_value_stash));
   array_stashes = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array_stash));
-  rng_state = (uint64_t)time(NULL);
+  rng_state = (uint64_t)ICK_TIME();
+  parse_options(argc, argv);
 }
 
 /* ---- Errors (§9) ------------------------------------------------------------------------- */
@@ -427,9 +445,30 @@ static int read_line(size_t *length, uint32_t next) {
 
 /* One number per line, each digit a word separated by spaces: E562 for a blank line or the end
  * of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum. */
+/* Wimp mode reads a line the way C's atoi does, with a 64-bit long: whitespace, a sign and
+ * digits, saturating at the long's range, and keeping the low 32 bits (decision T32). */
+static uint32_t wimp_number(void) {
+  const char *p = line_buffer;
+  while (*p == ' ' || (*p >= '\t' && *p <= '\r')) p++;
+  int negative = *p == '-';
+  if (*p == '-' || *p == '+') p++;
+  uint64_t limit = negative ? (uint64_t)1 << 63 : ((uint64_t)1 << 63) - 1;
+  uint64_t magnitude = 0;
+  for (; *p >= '0' && *p <= '9'; p++) {
+    uint64_t digit = (uint64_t)(*p - '0');
+    magnitude = magnitude > (limit - digit) / 10 ? limit : magnitude * 10 + digit;
+  }
+  return (uint32_t)(negative ? 0 - magnitude : magnitude);
+}
+
 uint32_t ick_write_in(uint32_t next) {
   size_t length;
   if (!read_line(&length, next)) ick_fatal(562, next);
+  if (wimp_mode) {
+    uint32_t value = wimp_number();
+    if (value > large_max) ick_fatal(533, next);
+    return value;
+  }
   uint64_t result = 0;
   int digits = 0;
   size_t i = 0;
@@ -479,6 +518,11 @@ static const char roman_bars[10][4] = {
 };
 
 void ick_read_out(uint32_t value) {
+  if (wimp_mode) {
+    printf("%u\n", (unsigned)value);
+    ICK_FLUSH();
+    return;
+  }
   char numeral[48], bars[48];
   int at = 47;
   numeral[at] = bars[at] = '\0';
@@ -538,6 +582,52 @@ void ick_turing_out(uint32_t index, uint32_t next) {
     c = (c & 0x55u) << 1 | (c & 0xAAu) >> 1;
     putchar((int)c);
     if (c == '\n') ICK_FLUSH();
+  }
+}
+
+/* ---- Runtime options (§10.3, decisions T32, T38, Q102) --------------------------------- */
+
+static const char usage[] =
+    "Runtime options, read up to the first argument without a sign:\n"
+    "  +help, -help     print this, then give up with E778, as is tradition\n"
+    "  +traditional     accepted, and does nothing\n"
+    "  +wimpmode        read and write plain decimal numbers instead of words and Roman numerals\n"
+    "  -wimpmode        the default: proper INTERCAL numbers\n"
+    "  +seed <n>        make the % qualifiers' coin flips repeatable\n";
+
+static const char wimp_message[] =
+    "WIMP MODE ENGAGED. Numbers will be read and written in plain decimal, like a spreadsheet.\n"
+    "Your INTERCAL license has been suspended, and your next of kin have been notified.\n";
+
+static void parse_options(int argc, char **argv) {
+  int help = 0;
+  const char *unknown = NULL;
+  for (int i = 1; i < argc; i++) {
+    const char *arg = argv[i];
+    if (arg[0] != '+' && arg[0] != '-') break;
+    const char *name = arg + 1;
+    if (strcmp(name, "help") == 0) {
+      help = 1;
+    } else if (strcmp(name, "traditional") == 0) {
+    } else if (strcmp(name, "wimpmode") == 0) {
+      wimp_mode = arg[0] == '+';
+    } else if (arg[0] == '+' && strcmp(name, "seed") == 0 && i + 1 < argc && parse_seed(argv[i + 1])) {
+      i++;
+    } else {
+      unknown = arg;
+      help = 1;
+      break;
+    }
+  }
+  if (help) {
+    fflush(stdout);
+    if (unknown) fprintf(stderr, "Unknown runtime option: %s\n", unknown);
+    fputs(usage, stderr);
+    ick_fatal(778, 1);
+  }
+  if (wimp_mode) {
+    fputs(wimp_message, stderr);
+    fflush(stderr);
   }
 }
 ''';

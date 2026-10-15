@@ -75,6 +75,26 @@ void main() {
     ]);
   });
 
+  test('T22: by default the % rolls are seeded from the clock, like +seed', () {
+    List<bool> rolls(List<String> args) {
+      ickClock = () => 42;
+      ickInit(
+        args,
+        base: 2,
+        clockface: false,
+        arrayCount: 1,
+        values: Uint32List(0),
+        ignored: Uint8List(0),
+        messages: const {},
+      );
+      return [for (var i = 0; i < 32; i++) ickRoll(50)];
+    }
+
+    final fromClock = rolls(const []);
+    expect(fromClock, rolls(const ['+seed', '42']));
+    expect(fromClock, containsAll([true, false]));
+  });
+
   test('the embedded copy matches runtime.dart', () {
     expect(
       File('lib/src/runtime_source.g.dart').readAsStringSync(),
