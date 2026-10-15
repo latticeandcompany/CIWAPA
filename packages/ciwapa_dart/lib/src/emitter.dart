@@ -184,12 +184,39 @@ class DartEmitter {
         for (final t in targets) {
           _line('ab[$t] = ${abstain ? 1 : 0};');
         }
+      case IrWriteIn(:final items):
+        for (final item in items) {
+          _writeIn(item, next);
+        }
+      case IrReadOut(:final items):
+        for (final item in items) {
+          if (item is IrArrayItem) {
+            _line('ickTuringOut(${item.array.index}, $next);');
+          } else {
+            _line('ickReadOut(${_expr(item, next)});');
+          }
+        }
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):
         _line('ickUndecodable(${_string(text)}, $next);');
       case final op:
         throw ToolchainException('${op.runtimeType} is not implemented yet');
+    }
+  }
+
+  /// Reads one number into [target]: element subscripts are checked first, then the number is
+  /// read, then E275 (even when the target is IGNOREd, decision T24), then the store.
+  void _writeIn(IrExpr target, int next) {
+    switch (target) {
+      case IrScalar() || IrElement():
+        _line('{');
+        _assign(target, IrInput(), next);
+        _line('}');
+      case IrArrayItem(:final array):
+        _line('ickTuringIn(${array.index}, $next);');
+      default:
+        throw StateError('cannot WRITE IN $target');
     }
   }
 
@@ -223,9 +250,8 @@ class DartEmitter {
       'ickSelect(${_expr(left, next)}, ${_expr(right, next)})',
     IrUnary(:final op, :final operand) =>
       'ick${_unaryName(op)}${operand.large ? 32 : 16}(${_expr(operand, next)})',
-    IrArrayItem() => throw ToolchainException(
-      'Turing Text I/O is not implemented yet',
-    ),
+    IrInput() => 'ickWriteIn($next)',
+    IrArrayItem() => throw StateError('a whole array is not a value'),
   };
 
   static String _unaryName(UnaryOp op) => switch (op) {

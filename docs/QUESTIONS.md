@@ -43,3 +43,11 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The code does (a) until this is answered.
 - **Blocks:** no checklist items. The E241 "too large to allocate" test uses a size past 2^61.
 - **Raised:** 2026-10-14
+
+## L6: Should WRITE IN accept CRLF line endings?
+
+- **Context:** T7 strips `\r` from source files only. At run time both runtimes read stdin as raw bytes, so `ONE\r\n` is the word `ONE\r`, which is E579. That's exactly what C-INTERCAL 0.15 does, so the tie-breaker (Q91, Q98) gives today's behavior. But on the Windows release archives, typing at a console may deliver `\r\n`, which would make interactive WRITE IN fail every time.
+- **Options:** (a) keep 0.15's behavior; (b) strip one `\r` before each `\n` in WRITE IN, and record the divergence next to T7/T28.
+- **Lean:** (b), for Windows users. The code does (a), the tie-breaker's answer, until this is answered, because (b) would be a new divergence.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-14

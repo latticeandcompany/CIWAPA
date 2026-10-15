@@ -1,0 +1,4 @@
+PLEASE DO ,1 <- #4
+DO WRITE IN ,1
+DO READ OUT ,1 SUB #1 + ,1 SUB #2 + ,1 SUB #3 + ,1 SUB #4
+DO GIVE UP

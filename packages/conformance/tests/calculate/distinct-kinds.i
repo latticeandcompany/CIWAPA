@@ -1,0 +1,8 @@
+PLEASE DO .123 <- #1
+DO :123 <- #2
+DO ,123 <- #1
+DO ;123 <- #1
+DO ,123 SUB #1 <- #3
+PLEASE DO ;123 SUB #1 <- #4
+DO READ OUT .123 + :123 + #123 + ,123 SUB #1 + ;123 SUB #1
+DO GIVE UP

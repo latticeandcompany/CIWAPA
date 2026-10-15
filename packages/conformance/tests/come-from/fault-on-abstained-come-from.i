@@ -1,0 +1,3 @@
+(1) DO .1 <- #1
+DO GIVE UP
+(0) PLEASE DON'T COME FROM (1)

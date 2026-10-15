@@ -1,0 +1,8 @@
+PLEASE DO ;1 <- #2
+DO ;2 <- #1
+PLEASE ;1 SUB #1 <- #126
+DO ;1 SUB #2 <- #64
+DO ;2 SUB #1 <- #242
+DO READ OUT ;1
+DO READ OUT ;2
+DO GIVE UP

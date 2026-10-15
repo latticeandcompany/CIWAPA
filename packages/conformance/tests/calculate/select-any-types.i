@@ -1,0 +1,6 @@
+DO :1 <- #65535$#0
+DO .1 <- #255
+PLEASE DO :2 <- :1~.1
+DO .2 <- .1~:1
+DO READ OUT :2 + .2
+PLEASE GIVE UP

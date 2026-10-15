@@ -37,6 +37,18 @@ void main() {
   );
   test('§3.4.3 grouping goldens', () => expect(lines[4], '15 34915'));
 
+  test(
+    '§5.2, T31: after the end of input, the next character reads as itself + 1',
+    () {
+      expect(lines[5], '65 256 67');
+    },
+  );
+
+  test('§5.2, T31: Turing Text output is flushed at a newline', () {
+    expect(lines[6], 'A');
+    expect(lines[7], 'flushes 1');
+  });
+
   test('the embedded copy matches runtime.c', () {
     expect(
       File('lib/src/runtime_c.g.dart').readAsStringSync(),

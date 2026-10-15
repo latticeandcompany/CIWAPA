@@ -1,0 +1,5 @@
+(1) PLEASE DO (3) NEXT
+DO .0 <- #1
+(3) DO RESUME #1
+DO COME FROM (1)
+DO :0 <- #1

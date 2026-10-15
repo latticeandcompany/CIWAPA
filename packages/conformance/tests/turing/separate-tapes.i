@@ -1,0 +1,6 @@
+PLEASE DO ,1 <- #1
+DO WRITE IN ,1
+DO ,2 <- #1
+DO ,2 SUB #1 <- #238
+PLEASE READ OUT ,2 + ,1 SUB #1
+DO GIVE UP
