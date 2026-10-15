@@ -6,6 +6,9 @@ static const int fake_input[] = {'A', EOF, 'B'};
 static int fake_at;
 #define ICK_GETCHAR() (fake_at < 3 ? fake_input[fake_at++] : EOF)
 
+/* The clock reads 42, so the default seed can be compared with +seed 42. */
+#define ICK_TIME() 42
+
 /* Counts flushes, to show that output is flushed at every newline. */
 static int flushes;
 #define ICK_FLUSH() (flushes++, fflush(stdout))
@@ -35,5 +38,15 @@ int main(int argc, char **argv) {
   int before = flushes;
   ick_turing_out(0, 0);
   printf("flushes %d\n", flushes - before);
+
+  /* Rolls with the clock's seed, then with +seed 42: they must agree. */
+  char rolls_clock[33] = {0}, rolls_seed[33] = {0};
+  char *no_args[] = {"t"};
+  ick_init(1, no_args, &p);
+  for (int i = 0; i < 32; i++) rolls_clock[i] = ick_roll(50) ? '1' : '0';
+  char *seed_args[] = {"t", "+seed", "42"};
+  ick_init(3, seed_args, &p);
+  for (int i = 0; i < 32; i++) rolls_seed[i] = ick_roll(50) ? '1' : '0';
+  printf("%s %s\n", rolls_clock, rolls_seed);
   return 0;
 }

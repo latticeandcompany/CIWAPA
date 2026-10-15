@@ -49,6 +49,13 @@ void main() {
     expect(lines[7], 'flushes 1');
   });
 
+  test('T22: by default the % rolls are seeded from the clock, like +seed', () {
+    final [clock, seed] = lines[8].split(' ');
+    expect(clock, seed);
+    expect(clock, contains('1'));
+    expect(clock, contains('0'));
+  });
+
   test('the embedded copy matches runtime.c', () {
     expect(
       File('lib/src/runtime_c.g.dart').readAsStringSync(),
