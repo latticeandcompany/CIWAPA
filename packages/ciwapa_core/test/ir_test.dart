@@ -180,7 +180,25 @@ void main() {
       ];
       expect(bugs(7), bugs(7));
       expect(bugs(7), isNot(bugs(8)));
-      expect(bugs(7).length, inInclusiveRange(5, 35));
+      // Pinned, so a different rate (or algorithm) can't slip through.
+      expect(bugs(7), [
+        131,
+        336,
+        343,
+        541,
+        660,
+        721,
+        731,
+        920,
+        966,
+        995,
+        1003,
+        1034,
+        1185,
+        1263,
+        1462,
+        1638,
+      ]);
     });
   });
 

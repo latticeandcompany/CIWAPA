@@ -55,7 +55,7 @@
       "path": "packages/ciwapa_llvm",
       "auto": false,
       "scripts": {
-        "test": "",
+        "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
         "goal-status": ""
