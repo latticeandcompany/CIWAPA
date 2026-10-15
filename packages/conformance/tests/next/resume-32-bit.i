@@ -1,0 +1,3 @@
+DO :1 <- #256$#0
+DO (3) NEXT
+(3) PLEASE RESUME :1

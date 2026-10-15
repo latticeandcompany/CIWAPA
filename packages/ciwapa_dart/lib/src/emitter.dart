@@ -117,20 +117,24 @@ class DartEmitter {
     _line('pc = ${after(s.ordinal)};');
 
     _out.writeln('      case ${after(s.ordinal)}:');
-    final comeFrom = s.comeFrom;
-    if (comeFrom != null) {
-      final c = program.at(comeFrom);
-      final guard = [
-        if (c.percent != null && c.percent! < 100) 'ickRoll(${c.percent})',
-        if (c.abstainable) 'ab[${c.ordinal}] == 0',
-      ];
-      // A COME FROM's own faults fire in place of its jump (QUESTIONS.md L2).
-      final jump = c.faults.isEmpty
-          ? 'pc = ${entry(comeFrom)}; break;'
-          : 'ickFatal(${c.faults.first.code}, ${c.next});';
-      _line(guard.isEmpty ? jump : 'if (${guard.join(' && ')}) { $jump }');
-    }
+    _trap(s);
     _line('pc = ${_fallthrough(s)};');
+  }
+
+  /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own
+  /// guard passes. A COME FROM's own faults fire in place of its jump (QUESTIONS.md L2).
+  void _trap(IrStatement s) {
+    final comeFrom = s.comeFrom;
+    if (comeFrom == null) return;
+    final c = program.at(comeFrom);
+    final guard = [
+      if (c.percent != null && c.percent! < 100) 'ickRoll(${c.percent})',
+      if (c.abstainable) 'ab[${c.ordinal}] == 0',
+    ];
+    final jump = c.faults.isEmpty
+        ? 'pc = ${entry(comeFrom)}; break;'
+        : 'ickFatal(${c.faults.first.code}, ${c.next});';
+    _line(guard.isEmpty ? jump : 'if (${guard.join(' && ')}) { $jump }');
   }
 
   void _body(IrStatement s) {
@@ -142,6 +146,21 @@ class DartEmitter {
         _line(
           'ickDimension(${array.index}, [${dimensions.map((d) => _expr(d, next)).join(', ')}], $next);',
         );
+      case IrNext(:final target):
+        _line('ickNextPush(${after(s.ordinal)}, $target);');
+        _line('pc = ${entry(target)};');
+        _line('break;');
+      case IrForget(:final count):
+        _line('ickForget(${_expr(count, next)});');
+      case IrResume(:final count):
+        // An executed RESUME still springs a COME FROM aimed at it; only an executed NEXT waits
+        // for its RESUME (§4.4.14.2).
+        _line('final r = ickResume(${_expr(count, next)}, $next);');
+        _trap(s);
+        _line('pc = r;');
+        _line('break;');
+      case IrGiveUp():
+        _line('ickGiveUp();');
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):

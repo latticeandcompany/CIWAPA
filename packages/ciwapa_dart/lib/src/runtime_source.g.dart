@@ -65,6 +65,29 @@ Never ickUndecodable(String text, int next) => _error(0, text, next);
 
 Never ickGiveUp() => exit(0);
 
+// ---- The NEXT stack (§4.4.2–§4.4.4, decisions T16, T17) ---------------------------------------
+
+const _nextDepth = 79;
+final _nextStack = Int64List(_nextDepth);
+var _nextCount = 0;
+
+/// [target] is the NEXT's target ordinal: the statement that would have run next.
+void ickNextPush(int id, int target) {
+  if (_nextCount == _nextDepth) ickFatal(123, target);
+  _nextStack[_nextCount++] = id;
+}
+
+void ickForget(int count) {
+  _nextCount = count >= _nextCount ? 0 : _nextCount - count;
+}
+
+int ickResume(int count, int next) {
+  if (count == 0) ickFatal(621, next);
+  if (count > _nextCount) ickFatal(632, next);
+  _nextCount -= count;
+  return _nextStack[_nextCount];
+}
+
 // ---- Randomness (§4.3, decision T22) ------------------------------------------------------------
 
 int _nextRandom() {

@@ -131,24 +131,24 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.2 NEXT
 
-- [ ] §4.4.2 — `(label) NEXT` transfers control to the label and pushes the return point on the NEXT stack, which starts empty. Tests: (none yet)
-- [ ] §4.4.2 — the stack holds at most 79 entries; a NEXT with 79 entries already stored raises E123 `PROGRAM HAS DISAPPEARED INTO THE BLACK LAGOON.` (decision: T16) Tests: (none yet)
-- [ ] §4.4.2, §9.2 — NEXT to a label that doesn't exist raises E129 when it executes. (decision: Q81) Tests: (none yet)
+- [x] §4.4.2 — `(label) NEXT` transfers control to the label and pushes the return point on the NEXT stack, which starts empty. Tests: `packages/conformance/tests/next/next-resume.i`
+- [x] §4.4.2 — the stack holds at most 79 entries; a NEXT with 79 entries already stored raises E123 `PROGRAM HAS DISAPPEARED INTO THE BLACK LAGOON.` (decision: T16) Tests: `packages/conformance/tests/next/depth-79.i`, `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/next/e123-recursion.i`
+- [x] §4.4.2, §9.2 — NEXT to a label that doesn't exist raises E129 when it executes. (decision: Q81) Tests: `packages/conformance/tests/next/e129-missing-label.i`, `packages/conformance/tests/next/e129-not-run.i`
 
 ## §4.4.3 FORGET
 
-- [ ] §4.4.3 — `FORGET exp` evaluates the expression and discards that many NEXT stack entries. Tests: (none yet)
-- [ ] §4.4.3 — forgetting more entries than are stacked empties the stack without an error. Tests: (none yet)
-- [ ] §4.4.3 — `FORGET #0` does nothing. (decision: T17) Tests: (none yet)
-- [ ] §4.4.3 — 32-bit FORGET arguments are handled exactly, with no wraparound. (decision: T17) Tests: (none yet)
+- [x] §4.4.3 — `FORGET exp` evaluates the expression and discards that many NEXT stack entries. Tests: `packages/conformance/tests/next/forget-empties.i`
+- [x] §4.4.3 — forgetting more entries than are stacked empties the stack without an error. Tests: `packages/conformance/tests/next/forget-more-than-stacked.i`
+- [x] §4.4.3 — `FORGET #0` does nothing. (decision: T17) Tests: `packages/conformance/tests/next/forget-zero.i`
+- [x] §4.4.3 — 32-bit FORGET arguments are handled exactly, with no wraparound. (decision: T17) Tests: `packages/conformance/tests/next/forget-32-bit.i`
 
 ## §4.4.4 RESUME
 
-- [ ] §4.4.4 — `RESUME exp` pops that many entries and returns to the statement after the NEXT that stored the last entry popped. Tests: (none yet)
-- [ ] §4.4.4 — **golden:** the computed GO TO fragment `(1) DO (2) NEXT / FORGET #1 / (2) DO RESUME .1` behaves as described. Tests: (none yet)
-- [ ] §4.4.4, §9.2 — `RESUME` of an expression evaluating to #0 raises E621. Tests: (none yet)
-- [ ] §4.4.4, §9.2 — resuming more levels than are stacked raises E632. (decision: T17) Tests: (none yet)
-- [ ] §4.4.4 — 32-bit RESUME arguments are handled exactly, with no wraparound. (decision: T17) Tests: (none yet)
+- [x] §4.4.4 — `RESUME exp` pops that many entries and returns to the statement after the NEXT that stored the last entry popped. Tests: `packages/conformance/tests/next/next-resume.i`, `packages/conformance/tests/next/computed-goto-1.i`
+- [x] §4.4.4 — **golden:** the computed GO TO fragment `(1) DO (2) NEXT / FORGET #1 / (2) DO RESUME .1` behaves as described. Tests: `packages/conformance/tests/next/computed-goto-1.i`, `packages/conformance/tests/next/computed-goto-2.i`
+- [x] §4.4.4, §9.2 — `RESUME` of an expression evaluating to #0 raises E621. Tests: `packages/conformance/tests/next/e621-resume-zero.i`
+- [x] §4.4.4, §9.2 — resuming more levels than are stacked raises E632. (decision: T17) Tests: `packages/conformance/tests/next/e632-resume-empty.i`, `packages/conformance/tests/next/e632-resume-too-many.i`
+- [x] §4.4.4 — 32-bit RESUME arguments are handled exactly, with no wraparound. (decision: T17) Tests: `packages/conformance/tests/next/resume-32-bit.i`
 
 ## §4.4.5 STASH
 
@@ -208,8 +208,8 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.11 GIVE UP
 
-- [ ] §4.4.11 — `GIVE UP` ends the program cleanly with exit status 0. (decision: T18) Tests: (none yet)
-- [ ] §4.4.11 — `DON'T GIVE UP` does nothing. Tests: (none yet)
+- [x] §4.4.11 — `GIVE UP` ends the program cleanly with exit status 0. (decision: T18) Tests: `packages/conformance/tests/next/give-up.i`, `packages/conformance/tests/next/give-up-with-stack.i`
+- [x] §4.4.11 — `DON'T GIVE UP` does nothing. Tests: `packages/conformance/tests/next/dont-give-up.i`
 
 ## §4.4.12 WRITE IN (numbers)
 
@@ -360,8 +360,8 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-ungrouped-chain.i`, `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §9.2 — E079: insufficiently polite. (decision: T35) Tests: (none yet)
 - [ ] §9.2 — E099: excessively polite. (decision: T35) Tests: (none yet)
-- [ ] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: (none yet)
-- [ ] §9.2 — E129: transfer to a non-existent label. Tests: (none yet)
+- [x] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: `packages/conformance/tests/next/e123-depth-80.i`
+- [x] §9.2 — E129: transfer to a non-existent label. Tests: `packages/conformance/tests/next/e129-missing-label.i`
 - [ ] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: (none yet)
 - [ ] §9.2 — E182: label multiply defined. Tests: (none yet)
 - [x] §9.2 — E197: invalid line label. Tests: `packages/conformance/tests/calculate/e197-label.i`
@@ -373,8 +373,8 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §9.2 — E533: WRITE IN or mingle produced a value over 32 bits. Tests: (none yet)
 - [ ] §9.2 — E562: insufficient data. Tests: (none yet)
 - [ ] §9.2 — E579: input data invalid. Tests: (none yet)
-- [ ] §9.2 — E621: RESUME expression evaluated to #0. Tests: (none yet)
-- [ ] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: (none yet)
+- [x] §9.2 — E621: RESUME expression evaluated to #0. Tests: `packages/conformance/tests/next/e621-resume-zero.i`
+- [x] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: `packages/conformance/tests/next/e632-resume-empty.i`
 - [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
 - [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
@@ -430,7 +430,7 @@ The library is a clean-room implementation written from these contracts alone (d
 ## Program-level behavior
 
 - [x] §9.2 — falling off the end of the program raises E633. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
-- [ ] §4.4.11, §9 — GIVE UP exits 0; any error exits with its code mod 256. (decision: T18, T34) Tests: (none yet)
+- [x] §4.4.11, §9 — GIVE UP exits 0; any error exits with its code mod 256. (decision: T18, T34) Tests: `packages/conformance/tests/next/give-up.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
 - [ ] §4.3 — by default the `%` RNG is seeded from the time; `+seed` overrides it. (decision: T22) Tests: (none yet)
 
 ## Excluded by decision

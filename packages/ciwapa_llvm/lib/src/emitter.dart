@@ -26,6 +26,9 @@ declare void @ick_init(i32, ptr, ptr)
 declare void @ick_fatal(i32, i32) noreturn
 declare void @ick_undecodable(ptr, i32, i32) noreturn
 declare void @ick_give_up() noreturn
+declare void @ick_next_push(i32, i32)
+declare void @ick_forget(i32)
+declare i32 @ick_resume(i32, i32)
 declare i32 @ick_roll(i32)
 declare i32 @ick_mingle(i32, i32, i32)
 declare i32 @ick_select(i32, i32)
@@ -50,6 +53,8 @@ declare i32 @ick_array_ignored(i32)
     }
     _block('fell');
     _line('call void @ick_fatal(i32 633, i32 ${program.userStatements + 1})');
+    _line('unreachable');
+    _block('unreachable');
     _line('unreachable');
 
     final scalars = program.scalars.length;
@@ -156,24 +161,26 @@ declare i32 @ick_array_ignored(i32)
     }
 
     _block('a$n');
+    _trap(s, _fallthrough(s));
+  }
+
+  /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own
+  /// guard passes, and to [otherwise] when it doesn't (or when nothing is aimed at [s]). A COME
+  /// FROM's own faults fire in place of its jump (QUESTIONS.md L2).
+  void _trap(IrStatement s, String otherwise) {
     final comeFrom = s.comeFrom;
-    if (comeFrom != null) {
-      final c = program.at(comeFrom);
-      if (c.percent != null && c.percent! < 100) {
-        _guard('ickRoll', c.percent!, _fallthrough(s));
-      }
-      if (c.abstainable) _guard('abstained', c.ordinal, _fallthrough(s));
-      if (c.faults.isEmpty) {
-        _line('br label %s$comeFrom');
-      } else {
-        // A COME FROM's own faults fire in place of its jump (QUESTIONS.md L2).
-        _line(
-          'call void @ick_fatal(i32 ${c.faults.first.code}, i32 ${c.next})',
-        );
-        _line('unreachable');
-      }
+    if (comeFrom == null) {
+      _line('br label %$otherwise');
+      return;
+    }
+    final c = program.at(comeFrom);
+    if (c.percent != null && c.percent! < 100) _guard('ickRoll', c.percent!, otherwise);
+    if (c.abstainable) _guard('abstained', c.ordinal, otherwise);
+    if (c.faults.isEmpty) {
+      _line('br label %s$comeFrom');
     } else {
-      _line('br label %${_fallthrough(s)}');
+      _line('call void @ick_fatal(i32 ${c.faults.first.code}, i32 ${c.next})');
+      _line('unreachable');
     }
   }
 
@@ -207,6 +214,30 @@ declare i32 @ick_array_ignored(i32)
         _line(
           'call void @ick_dimension(i32 ${array.index}, i32 ${values.length}, ptr %subs, i32 $next)',
         );
+      case IrNext(:final target):
+        _line('call void @ick_next_push(i32 ${s.ordinal}, i32 $target)');
+        _line('br label %s$target');
+        _block(_newBlock('dead'));
+      case IrForget(:final count):
+        _line('call void @ick_forget(i32 ${_expr(count, next)})');
+      case IrResume(:final count):
+        final id = _fresh();
+        _line('$id = call i32 @ick_resume(i32 ${_expr(count, next)}, i32 $next)');
+        // An executed RESUME still springs a COME FROM aimed at it; only an executed NEXT waits
+        // for its RESUME (§4.4.14.2).
+        final dispatch = _newBlock('return');
+        _trap(s, dispatch);
+        _block(dispatch);
+        final returns = [
+          for (final t in program.statements)
+            if (t.op is IrNext && t.faults.isEmpty) 'i32 ${t.ordinal}, label %a${t.ordinal}',
+        ];
+        _line('switch i32 $id, label %unreachable [${returns.join(' ')}]');
+        _block(_newBlock('dead'));
+      case IrGiveUp():
+        _line('call void @ick_give_up()');
+        _line('unreachable');
+        _block(_newBlock('dead'));
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):

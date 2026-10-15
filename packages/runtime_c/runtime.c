@@ -103,6 +103,30 @@ void ick_give_up(void) {
   exit(0);
 }
 
+/* ---- The NEXT stack (§4.4.2–§4.4.4, decisions T16, T17) ------------------------------- */
+
+#define NEXT_DEPTH 79
+
+static uint32_t next_stack[NEXT_DEPTH];
+static uint32_t next_depth;
+
+/* [target] is the NEXT's target ordinal: the statement that would have run next. */
+void ick_next_push(uint32_t id, uint32_t target) {
+  if (next_depth == NEXT_DEPTH) ick_fatal(123, target);
+  next_stack[next_depth++] = id;
+}
+
+void ick_forget(uint32_t count) {
+  next_depth = count >= next_depth ? 0 : next_depth - count;
+}
+
+uint32_t ick_resume(uint32_t count, uint32_t next) {
+  if (count == 0) ick_fatal(621, next);
+  if (count > next_depth) ick_fatal(632, next);
+  next_depth -= count;
+  return next_stack[next_depth];
+}
+
 /* ---- Randomness (§4.3, decision T22) ---------------------------------------------------- */
 
 static uint64_t next_random(void) {

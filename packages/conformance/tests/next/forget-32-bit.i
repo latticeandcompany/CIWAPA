@@ -1,0 +1,4 @@
+DO :1 <- #256$#0
+DO (3) NEXT
+(3) DO FORGET :1
+PLEASE RESUME #1

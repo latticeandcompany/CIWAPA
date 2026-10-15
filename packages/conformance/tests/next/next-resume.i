@@ -1,0 +1,3 @@
+DO (10) NEXT
+DO .0 <- #1
+(10) PLEASE RESUME #1
