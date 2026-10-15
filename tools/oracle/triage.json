@@ -1,5 +1,5 @@
 {
- "programs": 389,
+ "programs": 393,
  "oracles": {
   "ick035": "C-INTERCAL 0.35",
   "ick015": "C-INTERCAL 0.15"
@@ -48,7 +48,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_abstain_abstain-give-up-by-label.i",
@@ -57,7 +57,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_abstain_abstain-twice.i",
@@ -348,6 +348,24 @@
    "reason": "not a difference: 0.15 generates C that does not compile"
   },
   {
+   "program": "packages_conformance_tests_abstain_forgetting-stashing-remembering.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "127",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "not a difference: 0.15 generates C that does not compile"
+  },
+  {
+   "program": "packages_conformance_tests_abstain_forgetting-stashing-remembering.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "127",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "not a difference: 0.15 generates C that does not compile"
+  },
+  {
    "program": "packages_conformance_tests_abstain_gerund-list.i",
    "oracle": "ick035",
    "flavor": "llvm",
@@ -444,7 +462,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_abstain_note-has-no-effect.i",
@@ -453,7 +471,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_abstain_reinstate-gerund-after-label.i",
@@ -498,7 +516,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_abstain_reinstate-give-up-does-nothing.i",
@@ -507,7 +525,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_abstain_reinstate-give-up-does-nothing.i",
@@ -516,7 +534,7 @@
    "ick_exit": "0",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a74.4.10 (REINSTATE of GIVE UP by label)"
+   "reason": "§4.4.10 (REINSTATE of GIVE UP by label)"
   },
   {
    "program": "packages_conformance_tests_abstain_reinstate-give-up-does-nothing.i",
@@ -525,7 +543,7 @@
    "ick_exit": "0",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a74.4.10 (REINSTATE of GIVE UP by label)"
+   "reason": "§4.4.10 (REINSTATE of GIVE UP by label)"
   },
   {
    "program": "packages_conformance_tests_abstain_reinstate-not.i",
@@ -678,7 +696,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_dimension-32-bit.i",
@@ -687,7 +705,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_dimension.i",
@@ -696,7 +714,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_dimension.i",
@@ -705,7 +723,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_e000-only-if-executed.i",
@@ -714,7 +732,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_e000-only-if-executed.i",
@@ -723,7 +741,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_e000-shares-lines.i",
@@ -1128,7 +1146,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_e633-after-assignments.i",
@@ -1137,7 +1155,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_golden-lsb.i",
@@ -1218,7 +1236,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_large-fits-small.i",
@@ -1227,7 +1245,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_leading-zeros.i",
@@ -1236,7 +1254,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_leading-zeros.i",
@@ -1245,7 +1263,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_not-skips.i",
@@ -1362,7 +1380,7 @@
    "ick_exit": "0",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "\u00a74.4.1 (redimensioned arrays start at #0)"
+   "reason": "§4.4.1 (redimensioned arrays start at #0)"
   },
   {
    "program": "packages_conformance_tests_calculate_redimension-loses-values.i",
@@ -1371,7 +1389,7 @@
    "ick_exit": "0",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "\u00a74.4.1 (redimensioned arrays start at #0)"
+   "reason": "§4.4.1 (redimensioned arrays start at #0)"
   },
   {
    "program": "packages_conformance_tests_calculate_redimension-loses-values.i",
@@ -1380,7 +1398,7 @@
    "ick_exit": "0",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "\u00a74.4.1 (redimensioned arrays start at #0)"
+   "reason": "§4.4.1 (redimensioned arrays start at #0)"
   },
   {
    "program": "packages_conformance_tests_calculate_redimension-loses-values.i",
@@ -1389,7 +1407,7 @@
    "ick_exit": "0",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "\u00a74.4.1 (redimensioned arrays start at #0)"
+   "reason": "§4.4.1 (redimensioned arrays start at #0)"
   },
   {
    "program": "packages_conformance_tests_calculate_small-takes-65535.i",
@@ -1398,7 +1416,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_calculate_small-takes-65535.i",
@@ -1407,7 +1425,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_come-from_abstain-coming-from.i",
@@ -1938,7 +1956,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "T13"
+   "reason": "T9"
   },
   {
    "program": "packages_conformance_tests_come-from_percent-on-target.i",
@@ -1947,7 +1965,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "T13"
+   "reason": "T9"
   },
   {
    "program": "packages_conformance_tests_come-from_reached-directly.i",
@@ -2190,7 +2208,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_element-store-dropped.i",
@@ -2199,7 +2217,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_remember-never-ignored.i",
@@ -2208,7 +2226,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_remember-never-ignored.i",
@@ -2217,7 +2235,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_retrieve-array-discards.i",
@@ -2226,7 +2244,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_retrieve-array-discards.i",
@@ -2235,7 +2253,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_retrieve-discards.i",
@@ -2244,7 +2262,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_retrieve-discards.i",
@@ -2253,7 +2271,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_ignore_small-store-dropped.i",
@@ -2460,7 +2478,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_next_dont-give-up.i",
@@ -2469,7 +2487,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_next_e123-depth-80.i",
@@ -2838,7 +2856,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_stash_array-dimensions.i",
@@ -2847,7 +2865,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_stash_no-depth-limit.i",
@@ -2874,7 +2892,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_stash_retrieve-into-undimensioned.i",
@@ -2883,7 +2901,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_stash_retrieve-restores-small.i",
@@ -2892,7 +2910,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_stash_retrieve-restores-small.i",
@@ -2901,7 +2919,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_stash_stash-element-undecodable.i",
@@ -3120,6 +3138,42 @@
    "reason": "T13"
   },
   {
+   "program": "packages_conformance_tests_syntax_only-first-subscript-group-second.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "241",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "T1"
+  },
+  {
+   "program": "packages_conformance_tests_syntax_only-first-subscript-group-second.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "241",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "T1"
+  },
+  {
+   "program": "packages_conformance_tests_syntax_only-first-subscript-group-second.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "T1"
+  },
+  {
+   "program": "packages_conformance_tests_syntax_only-first-subscript-group-second.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "T1"
+  },
+  {
    "program": "packages_conformance_tests_syntax_percent-spaces.i",
    "oracle": "ick035",
    "flavor": "llvm",
@@ -3198,7 +3252,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "T13"
+   "reason": "T9"
   },
   {
    "program": "packages_conformance_tests_syntax_qualifier-order.i",
@@ -3207,7 +3261,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "0",
    "status": "divergence",
-   "reason": "T13"
+   "reason": "T9"
   },
   {
    "program": "packages_conformance_tests_syntax_splat-is-junk.i",
@@ -4830,6 +4884,42 @@
    "reason": "not a difference: 0.15 generates C that does not compile"
   },
   {
+   "program": "packages_conformance_tests_syslib_falls-off-end-of-library.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "121",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_syslib_falls-off-end-of-library.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "121",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_syslib_falls-off-end-of-library.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "121",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_syslib_falls-off-end-of-library.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "121",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
    "program": "packages_conformance_tests_syslib_increment-1020.i",
    "oracle": "ick015",
    "flavor": "llvm",
@@ -5592,7 +5682,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "packages_conformance_tests_turing_flush-at-exit.i",
@@ -5601,7 +5691,7 @@
    "ick_exit": "129",
    "ciwapa_exit": "121",
    "status": "divergence",
-   "reason": "\u00a79.2 (running off the end is E633)"
+   "reason": "§9.2 (running off the end is E633)"
   },
   {
    "program": "pit_beer.i",
