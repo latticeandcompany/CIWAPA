@@ -153,6 +153,7 @@ void ickForget(int count) {
   _nextCount = count >= _nextCount ? 0 : _nextCount - count;
 }
 
+@pragma('vm:never-inline')
 int ickResume(int count, int next) {
   if (count == 0) ickFatal(621, next);
   if (count > _nextCount) ickFatal(632, next);
@@ -175,6 +176,7 @@ bool _productOverflows(int a, int b) => b != 0 && a > 0xFFFFFFFF ~/ b;
 /// Runs library routine [label] on [a] and [b]. Returns the result in the low 32 bits, with bit
 /// 32 set when a routine with an overflow flag overflowed, or -1 when the INTERCAL routine has to
 /// run instead because it would take its error exit.
+@pragma('vm:never-inline')
 int ickSyslib(int label, int a, int b) => switch (label) {
   1000 => _exact(a + b, 0xFFFF),
   1009 => _flagged(a + b, 0xFFFF),
@@ -211,6 +213,7 @@ bool ickRoll(int percent) => (_nextRandom() >>> 1) % 100 < percent;
 
 // ---- Binary operators (§3.4) -------------------------------------------------------------------
 
+@pragma('vm:never-inline')
 int ickMingle(int left, int right, int next) {
   if (left > _smallMax || right > _smallMax) ickFatal(533, next);
   var result = 0;
@@ -251,6 +254,7 @@ int _selectDigits(int value, int mask) {
   return result;
 }
 
+@pragma('vm:never-inline')
 int ickSelect(int value, int mask) {
   if (_base != 2) return _selectDigits(value, mask);
   var result = 0, bit = 1;
@@ -324,6 +328,7 @@ int ickCheckSmall(int value, int next) {
 /// it, the allocation itself decides (decisions T26, T27). runtime.c uses the same bound.
 const _maxElements = 1 << 61;
 
+@pragma('vm:never-inline')
 void ickDimension(int index, List<int> dims, int next) {
   final a = _arrays[index];
   for (final d in dims) {
@@ -346,6 +351,7 @@ void ickDimension(int index, List<int> dims, int next) {
 }
 
 /// The offset of an element in [ickArrayData], after checking the subscripts.
+@pragma('vm:never-inline')
 int ickElement(int index, List<int> subscripts, int next) {
   final a = _arrays[index].shape;
   if (subscripts.length != a.rank) ickFatal(241, next);
@@ -356,6 +362,24 @@ int ickElement(int index, List<int> subscripts, int next) {
     offset = offset * a.dims[i] + s - 1;
   }
   return offset;
+}
+
+/// [ickElement] for one subscript, without building a list.
+@pragma('vm:never-inline')
+int ickElement1(int index, int s, int next) {
+  final a = _arrays[index].shape;
+  if (a.rank != 1 || s == 0 || s > a.dims[0]) ickFatal(241, next);
+  return s - 1;
+}
+
+/// [ickElement] for two subscripts, without building a list.
+@pragma('vm:never-inline')
+int ickElement2(int index, int s0, int s1, int next) {
+  final a = _arrays[index].shape;
+  if (a.rank != 2 || s0 == 0 || s0 > a.dims[0] || s1 == 0 || s1 > a.dims[1]) {
+    ickFatal(241, next);
+  }
+  return (s0 - 1) * a.dims[1] + s1 - 1;
 }
 
 Uint32List ickArrayData(int index) => _arrays[index].shape.data;
@@ -376,9 +400,11 @@ void _push<T>(List<T> stash, T Function() copy, int next) {
   }
 }
 
+@pragma('vm:never-inline')
 void ickStashScalar(int slot, int next) =>
     _push(_scalarStashes[slot], () => _values[slot], next);
 
+@pragma('vm:never-inline')
 void ickRetrieveScalar(int slot, int next) {
   final stash = _scalarStashes[slot];
   if (stash.isEmpty) ickFatal(436, next);
@@ -386,6 +412,7 @@ void ickRetrieveScalar(int slot, int next) {
   if (_ignored[slot] == 0) _values[slot] = value;
 }
 
+@pragma('vm:never-inline')
 void ickStashArray(int index, int next) {
   final a = _arrays[index].shape;
   _push(
@@ -396,6 +423,7 @@ void ickStashArray(int index, int next) {
 }
 
 /// Restores the old dimensions too, even into a currently undimensioned array (decision T25).
+@pragma('vm:never-inline')
 void ickRetrieveArray(int index, int next) {
   final stash = _arrayStashes[index];
   if (stash.isEmpty) ickFatal(436, next);
@@ -541,6 +569,7 @@ int _wimpNumber(List<int> line) {
 /// One number per line, each digit a word separated by spaces: E562 for a blank line or the end
 /// of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum. In wimp
 /// mode, a decimal number per line, where a blank line reads as 0 (decision T32).
+@pragma('vm:never-inline')
 int ickWriteIn(int next) {
   final line = _readLine();
   if (line == null) ickFatal(562, next);
@@ -614,6 +643,7 @@ const _romanBars = [
   ' ___',
 ];
 
+@pragma('vm:never-inline')
 void ickReadOut(int value) {
   if (_wimpMode) {
     _write(utf8.encode('$value\n'));
@@ -659,6 +689,7 @@ int _turingArray(int index, int next) {
 /// Each element gets the distance along the input tape from the previous character, mod 256; the
 /// end of input reads as 256. After it, the previous character is -1, so the next character reads
 /// as itself + 1, as in C-INTERCAL.
+@pragma('vm:never-inline')
 void ickTuringIn(int index, int next) {
   final length = _turingArray(index, next);
   final a = _arrays[index];
@@ -673,6 +704,7 @@ void ickTuringIn(int index, int next) {
 
 /// Each element is subtracted from the last character written (the subtraction is kept as is for
 /// the next one), and the result's low 8 bits go out in reverse order.
+@pragma('vm:never-inline')
 void ickTuringOut(int index, int next) {
   final length = _turingArray(index, next);
   final data = _arrays[index].shape.data;

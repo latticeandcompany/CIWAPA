@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# TEMPORARY (goal 2's cleanup removes it): the loose CI check (Q34). Runs one flavor's benchmarks and
+# fails when one is more than 2x slower than tools/bench/results.json recorded. Runs inside
+# ciwapa-toolchain, with the compiler that ci-check.sh built.
+# Usage: tools/bench/regression <dart|llvm>
+set -euo pipefail
+
+flavor="$1"
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+cd "$repo_root"
+[[ -d pit ]] || tools/oracle/fetch-pit >/dev/null
+mkdir -p .cache/bench
+CIWAPA="$repo_root/.cache/build/ciwapa-$flavor" \
+  tools/bench/measure "ciwapa-$flavor" 3 "$repo_root/tools/bench/ciwapa-build" >.cache/bench/regression.jsonl
+dart --suppress-analytics run tools/bench/regression.dart .cache/bench/regression.jsonl tools/bench/results.json

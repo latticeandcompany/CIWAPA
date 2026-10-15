@@ -87,6 +87,16 @@ class LlvmBackend implements Backend {
     'runtime.c': runtimeC,
   };
 
+  /// A release archive ships `lib/runtime-<triple>.o`, the runtime precompiled by the toolchain
+  /// it bundles, so a build doesn't compile runtime.c every time. It is only used for the exact
+  /// triple it was built for; anything else compiles runtime.c.
+  late final String? prebuiltRuntime = () {
+    final root = File(Platform.resolvedExecutable).parent.parent.path;
+    final sep = Platform.pathSeparator;
+    final object = File('$root${sep}lib${sep}runtime-${toolchain.triple}.o');
+    return object.existsSync() ? object.path : null;
+  }();
+
   @override
   Future<void> compile(
     Directory dir,
@@ -99,7 +109,7 @@ class LlvmBackend implements Backend {
       optimize ? '-O2' : '-O0',
       '-w',
       'main.ll',
-      'runtime.c',
+      prebuiltRuntime ?? 'runtime.c',
       '-o',
       File(output).absolute.path,
     ], workingDirectory: dir.path);
@@ -130,6 +140,10 @@ class LlvmBackend implements Backend {
       ),
     ];
     checks.add((true, 'target: ${toolchain.triple}'));
+    checks.add((
+      true,
+      'runtime: ${prebuiltRuntime ?? 'compiled from runtime.c on every build'}',
+    ));
     final temp = Directory.systemTemp.createTempSync('ciwapa-doctor-');
     try {
       File('${temp.path}/main.ll').writeAsStringSync(

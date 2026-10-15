@@ -61,6 +61,19 @@ case "$flavor-$platform" in
     cp "$toolchain/$cpu-w64-mingw32/share/mingw32/"COPYING* "$root/licenses/mingw-w64/"
     ;;
 esac
+if [[ "$flavor" == llvm ]]; then
+  # The runtime, precompiled by the toolchain the archive ships, so builds only compile the program.
+  triple="$("$repo_root/.github/scripts/target-triple.sh" "$platform")"
+  clang=clang
+  flags=()
+  case "$platform" in
+    linux-*) clang="$root/toolchain/bin/clang" flags=(--sysroot="$root/toolchain/sysroot") ;;
+    windows-*) clang="$root/toolchain/bin/clang.exe" ;;
+  esac
+  mkdir -p "$root/lib"
+  "$clang" --target="$triple" ${flags[@]+"${flags[@]}"} -O2 -w -c "$repo_root/packages/runtime_c/runtime.c" \
+    -o "$root/lib/runtime-$triple.o"
+fi
 cp "$repo_root/.github/release/README.txt" "$root/README.txt"
 
 cd "$out"

@@ -98,35 +98,39 @@ void main() {
     });
 
     test(
-      'an ABSTAIN aimed at a library label disables the routines that reach it',
+      'an ABSTAIN aimed at a library label guards the routines that reach it',
       () {
-        final natives = nativesByLabel(
-          build('DO (1009) NEXT\nPLEASE ABSTAIN FROM (1990)\nDO GIVE UP'),
+        final ir = build(
+          'DO (1009) NEXT\nPLEASE ABSTAIN FROM (1990)\nDO GIVE UP',
         );
-        expect(natives.keys, isNot(contains(1009)));
-        expect(natives.keys, containsAll([1060, 1070, 1080, 1525]));
+        final natives = nativesByLabel(ir);
+        expect(natives[1009]!.abstainable, [ordinalOf(ir, 1990)]);
+        expect(natives[1060]!.abstainable, isEmpty);
       },
     );
 
     test(
-      'a REINSTATE alone can never abstain anything, so it disables nothing',
+      'a REINSTATE alone can never abstain anything, so it guards nothing',
       () {
         final natives = nativesByLabel(
           build('DO (1009) NEXT\nPLEASE REINSTATE (1990)\nDO GIVE UP'),
         );
-        expect(natives.keys, unorderedEquals(syslibDepth.keys));
+        expect(natives[1009]!.abstainable, isEmpty);
       },
     );
 
-    test('a gerund that matches library statements disables them', () {
-      final calculating = nativesByLabel(
-        build('DO (1060) NEXT\nPLEASE ABSTAIN FROM CALCULATING\nDO GIVE UP'),
+    test('a gerund that matches library statements guards every routine that has one', () {
+      final calculating = build(
+        'DO (1060) NEXT\nPLEASE ABSTAIN FROM CALCULATING\nDO GIVE UP',
       );
-      expect(calculating, isEmpty);
+      final natives = nativesByLabel(calculating);
+      expect(natives.keys, unorderedEquals(syslibDepth.keys));
+      expect(natives[1060]!.abstainable, [ordinalOf(calculating, 1060)]);
       final nexting = nativesByLabel(
         build('DO (1060) NEXT\nPLEASE ABSTAIN FROM NEXTING\nDO GIVE UP'),
       );
-      expect(nexting.keys, unorderedEquals([1060, 1070, 1080, 1525]));
+      expect(nexting[1060]!.abstainable, isEmpty);
+      expect(nexting[1009]!.abstainable, isNotEmpty);
     });
 
     test('an IGNOREd variable the routine touches is watched', () {

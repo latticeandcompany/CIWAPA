@@ -2,9 +2,11 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 
 /// Generates the Dart program for an [IrProgram].
 ///
-/// Control flow is a `switch` on `pc` inside a loop. Statement N's entry is case 2N and its
-/// "after" point, where any COME FROM trap fires and where a RESUME returns to a NEXT, is 2N + 1.
-/// pc 1 is falling off the end of the program (E633).
+/// Control flow is a `switch` on `pc` inside a loop, but only where control can arrive from
+/// elsewhere: a statement in [_entries], or a NEXT's return point, where a RESUME lands. Those get
+/// consecutive case numbers from 2 ([entry], [after]), so the switches compile as jump tables.
+/// In between, statements run straight on, one after another. pc 1 is falling off the end of the
+/// program (E633).
 ///
 /// The statements are split into chunk functions of [chunkSize], because the Dart AOT compiler
 /// fails on a single function with tens of thousands of cases. Each chunk loops on its own and
@@ -14,13 +16,39 @@ class DartEmitter {
 
   final IrProgram program;
   final EmitOptions options;
-  final _out = StringBuffer();
+  var _out = StringBuffer();
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
 
-  static int entry(int ordinal) => 2 * ordinal;
-  static int after(int ordinal) => 2 * ordinal + 1;
+  /// The statements control reaches other than by running on from the one before: the first,
+  /// NEXT targets, COME FROMs (their traps jump there), and the first of every chunk.
+  late final Set<int> _entries = {
+    1,
+    for (var o = 1; o <= program.statements.length; o += chunkSize) o,
+    for (final s in program.statements) ...[
+      if (s.op case IrNext(:final target) when target != 0) target,
+      ?s.comeFrom,
+    ],
+  };
+
+  late final (Map<int, int>, Map<int, int>, List<int>) _numbers = () {
+    final entries = <int, int>{}, afters = <int, int>{}, chunkStarts = <int>[];
+    var next = 2;
+    for (final s in program.statements) {
+      if ((s.ordinal - 1) % chunkSize == 0) chunkStarts.add(next);
+      if (_entries.contains(s.ordinal)) entries[s.ordinal] = next++;
+      if (s.op is IrNext) afters[s.ordinal] = next++;
+    }
+    return (entries, afters, chunkStarts);
+  }();
+
+  /// The case number of [ordinal]'s entry.
+  int entry(int ordinal) => _numbers.$1[ordinal]!;
+
+  /// The case number of the NEXT [ordinal]'s return point.
+  int after(int ordinal) => _numbers.$2[ordinal]!;
+
   static const fellOff = 1;
   static const chunkSize = 1024;
 
@@ -33,17 +61,17 @@ class DartEmitter {
       ..writeln()
       ..writeln("import 'runtime.dart';")
       ..writeln()
-      ..writeln('final v = Uint32List(${program.scalars.length});')
-      ..writeln('final ig = Uint8List(${program.scalars.length});')
-      ..writeln('final ab = Uint8List(${program.statements.length + 1});')
+      ..writeln('final _v = Uint32List(${program.scalars.length});')
+      ..writeln('final _ig = Uint8List(${program.scalars.length});')
+      ..writeln('final _ab = Uint8List(${program.statements.length + 1});')
       ..writeln()
       ..writeln('void main(List<String> args) {')
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
-        'arrayCount: ${program.arrays.length}, values: v, ignored: ig, messages: _messages);',
+        'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages);',
       );
     for (final s in program.statements) {
-      if (s.initiallyAbstained) _out.writeln('  ab[${s.ordinal}] = 1;');
+      if (s.initiallyAbstained) _out.writeln('  _ab[${s.ordinal}] = 1;');
     }
     final chunks = (program.statements.length + chunkSize - 1) ~/ chunkSize;
     _out
@@ -59,12 +87,17 @@ class DartEmitter {
         '    if (pc == $fellOff) ickFatal(633, ${program.userStatements + 1});',
       )
       ..writeln('    if (pc < 2) throw StateError("no statement at pc \$pc");')
-      ..writeln('    pc = switch (((pc >> 1) - 1) ~/ $chunkSize) {');
-    for (var c = 0; c < chunks; c++) {
-      _out.writeln('      $c => _chunk$c(pc),');
+      ..writeln('    pc = switch (pc) {');
+    final starts = _numbers.$3;
+    for (var c = 0; c < chunks - 1; c++) {
+      _out.writeln('      < ${starts[c + 1]} => _chunk$c(pc),');
     }
     _out
-      ..writeln('      _ => throw StateError("no statement at pc \$pc"),')
+      ..writeln(
+        chunks == 0
+            ? '      _ => throw StateError("no statement at pc \$pc"),'
+            : '      _ => _chunk${chunks - 1}(pc),',
+      )
       ..writeln('    };')
       ..writeln('  }')
       ..writeln('}');
@@ -72,9 +105,16 @@ class DartEmitter {
       _out
         ..writeln()
         ..writeln('int _chunk$c(int pc) {')
+        // Locals, because every access to a lazily initialized top-level checks it first.
+        ..writeln('  final v = _v, ig = _ig, ab = _ab;')
         ..writeln('  while (true) {')
         ..writeln('    switch (pc) {');
       for (final s in program.statements.skip(c * chunkSize).take(chunkSize)) {
+        _out.writeln(
+          _entries.contains(s.ordinal)
+              ? '      case ${entry(s.ordinal)}: // statement ${s.ordinal}'
+              : '        // statement ${s.ordinal}',
+        );
         _statement(s);
       }
       _out
@@ -108,39 +148,51 @@ class DartEmitter {
 
   void _line(String code) => _out.writeln('        $code');
 
-  /// Where control goes after [s] when nothing jumps. Running off the user's program is E633 at
-  /// the user's last ordinal + 1 (decision T37); running off the library, at its own.
-  String _fallthrough(IrStatement s) {
-    if (s.ordinal == program.userStatements) return 'pc = $fellOff;';
+  /// Where control goes after [s] when nothing jumps: on into the next statement, unless that
+  /// one starts a new case. Running off the user's program is E633 at the user's last ordinal + 1
+  /// (decision T37); running off the library, at its own.
+  String? _fallthrough(IrStatement s) {
+    if (s.ordinal == program.userStatements) return 'pc = $fellOff; break;';
     if (s.ordinal == program.statements.length) {
       return 'ickFatal(633, ${program.statements.length + 1});';
     }
-    return 'pc = ${entry(s.ordinal + 1)};';
+    if (_entries.contains(s.ordinal + 1)) {
+      return 'pc = ${entry(s.ordinal + 1)}; break;';
+    }
+    return null;
   }
 
   void _statement(IrStatement s) {
-    final skip = 'pc = ${after(s.ordinal)}; break;';
-    _out.writeln('      case ${entry(s.ordinal)}: // statement ${s.ordinal}');
     if (s.bug) _line('ickFatal(774, ${s.next});');
-    if (s.op is! IrComeFrom) {
-      final percent = s.percent;
-      if (percent != null && percent < 100) {
-        _line('if (!ickRoll($percent)) { $skip }');
-      }
-      if (s.abstainable) _line('if (ab[${s.ordinal}] != 0) { $skip }');
-    }
+    final guard = [
+      if (s.op is! IrComeFrom) ...[
+        if (s.percent case final percent? when percent < 100)
+          'ickRoll($percent)',
+        if (s.abstainable) 'ab[${s.ordinal}] == 0',
+      ],
+    ];
+    final outer = _out;
+    _out = StringBuffer();
     if (s.faults.isNotEmpty && s.op is! IrComeFrom) {
       _line('ickFatal(${s.faults.first.code}, ${s.next});');
     } else {
-      _line('{');
       _body(s);
-      _line('}');
     }
-    _line('pc = ${after(s.ordinal)};');
-
-    _out.writeln('      case ${after(s.ordinal)}:');
+    final body = '$_out';
+    _out = outer;
+    // A block only when the body is guarded or declares a local of its own.
+    final block =
+        guard.isNotEmpty ||
+        body.contains(RegExp(r'^\s*final ', multiLine: true));
+    if (block) _line(guard.isEmpty ? '{' : 'if (${guard.join(' && ')}) {');
+    _out.write(body);
+    if (block) _line('}');
+    if (s.op is IrNext) {
+      _line('pc = ${after(s.ordinal)}; break;');
+      _out.writeln('      case ${after(s.ordinal)}:');
+    }
     _trap(s);
-    _line(_fallthrough(s));
+    if (_fallthrough(s) case final next?) _line(next);
   }
 
   /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own
@@ -209,8 +261,12 @@ class DartEmitter {
           _line('ickRetrieveArray(${a.index}, $next);');
         }
       case IrAbstain(:final abstain, :final targets):
-        for (final t in targets) {
-          _line('ab[$t] = ${abstain ? 1 : 0};');
+        for (final (first, last) in _runs(targets)) {
+          _line(
+            first == last
+                ? 'ab[$first] = ${abstain ? 1 : 0};'
+                : 'ab.fillRange($first, ${last + 1}, ${abstain ? 1 : 0});',
+          );
         }
       case IrWriteIn(:final items):
         for (final item in items) {
@@ -239,6 +295,7 @@ class DartEmitter {
     final guard = [
       'ickNextFree() >= ${call.depth}',
       for (final w in call.watched) 'ig[${w.index}] == 0',
+      for (final o in call.abstainable) 'ab[$o] == 0',
     ];
     final args = [for (final a in call.args) 'v[${a.index}]'];
     if (args.length == 1) args.add('0');
@@ -253,6 +310,20 @@ class DartEmitter {
     _line('    break;');
     _line('  }');
     _line('}');
+  }
+
+  /// [ordinals] as runs of consecutive ordinals, first and last.
+  static List<(int, int)> _runs(List<int> ordinals) {
+    final sorted = ordinals.toSet().toList()..sort();
+    final runs = <(int, int)>[];
+    for (final o in sorted) {
+      if (runs.isNotEmpty && runs.last.$2 == o - 1) {
+        runs.last = (runs.last.$1, o);
+      } else {
+        runs.add((o, o));
+      }
+    }
+    return runs;
   }
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is
@@ -271,29 +342,47 @@ class DartEmitter {
   }
 
   void _assign(IrExpr target, IrExpr value, int next) {
-    String checked(String v) => target.large ? v : 'ickCheckSmall($v, $next)';
+    // Only a large value can exceed a small target; small ones were checked when they were stored.
+    String checked(String v) =>
+        target.large ||
+            !value.large ||
+            (value is IrConst && value.value <= program.smallLimit)
+        ? v
+        : 'ickCheckSmall($v, $next)';
     switch (target) {
+      case IrScalar(:final slot) when !program.ignorable.contains(slot):
+        _line('v[${slot.index}] = ${checked(_expr(value, next))};');
       case IrScalar(:final slot):
         _line('final t = ${checked(_expr(value, next))};');
         _line('if (ig[${slot.index}] == 0) v[${slot.index}] = t;');
       case IrElement(:final array, :final subscripts):
-        _line(
-          'final o = ickElement(${array.index}, [${subscripts.map((e) => _expr(e, next)).join(', ')}], $next);',
-        );
+        _line('final o = ${_element(array, subscripts, next)};');
         _line('final t = ${checked(_expr(value, next))};');
         _line(
-          'if (!ickArrayIgnored(${array.index})) ickArrayData(${array.index})[o] = t;',
+          program.ignorable.contains(array)
+              ? 'if (!ickArrayIgnored(${array.index})) ickArrayData(${array.index})[o] = t;'
+              : 'ickArrayData(${array.index})[o] = t;',
         );
       default:
         throw StateError('cannot assign to $target');
     }
   }
 
+  /// The checked offset of an element; one and two subscripts skip building a list.
+  String _element(Slot array, List<IrExpr> subscripts, int next) {
+    final values = [for (final s in subscripts) _expr(s, next)];
+    return switch (values.length) {
+      1 || 2 =>
+        'ickElement${values.length}(${array.index}, ${values.join(', ')}, $next)',
+      _ => 'ickElement(${array.index}, [${values.join(', ')}], $next)',
+    };
+  }
+
   String _expr(IrExpr e, int next) => switch (e) {
     IrConst(:final value) => '$value',
     IrScalar(:final slot) => 'v[${slot.index}]',
     IrElement(:final array, :final subscripts) =>
-      'ickArrayData(${array.index})[ickElement(${array.index}, [${subscripts.map((s) => _expr(s, next)).join(', ')}], $next)]',
+      'ickArrayData(${array.index})[${_element(array, subscripts, next)}]',
     IrMingle(:final left, :final right) =>
       'ickMingle(${_expr(left, next)}, ${_expr(right, next)}, $next)',
     IrSelect(:final left, :final right) =>

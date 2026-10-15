@@ -352,6 +352,19 @@ class IrProgram {
   /// How many statements are the user's; any after them are the system library's (§7.3).
   final int userStatements;
 
+  /// The variables and arrays some IGNORE names. Nothing else can ever be ignored.
+  late final Set<Slot> ignorable = {
+    for (final s in statements)
+      if (s.op case IrVarList(
+        op: ListOp.ignore,
+        :final scalars,
+        :final arrays,
+      )) ...[
+        ...scalars,
+        ...arrays,
+      ],
+  };
+
   int get smallLimit => smallMax(base);
   int get largeLimit => largeMax(base);
 

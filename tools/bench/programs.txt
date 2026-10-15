@@ -1,0 +1,11 @@
+# name | source | stdin | implementations (all, or a comma list) | blocked by
+tpk | pit/tpk.i | pit/tpk.tst | all |
+unlambda | pit/unlambda.i | pit/unlambda.tst | all |
+beer | pit/beer.i | | all |
+hail_mary | pit/hail_mary.3i | | ick,ciwapa-llvm,ciwapa-dart |
+next-resume | tools/bench/programs/next-resume.i | | all |
+abstain | tools/bench/programs/abstain.i | | all |
+primes | pit/primes.i | | all | L10
+pi | pit/pi.i | | all | L10
+fft | pit/fft.i | pit/fft-tophat.tst | all | L10
+life | pit/life.i | pit/glider | all | L10

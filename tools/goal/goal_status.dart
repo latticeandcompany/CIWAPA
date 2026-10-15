@@ -14,11 +14,14 @@ const flavors = ['dart', 'llvm'];
 const cache = '.cache/goal';
 
 class Criterion {
-  Criterion(this.title, this.met, this.details);
+  Criterion(this.title, this.met, this.details, {this.blocked = false});
 
   final String title;
   final bool met;
   final List<String> details;
+
+  /// Not met, but only because of open QUESTIONS.md entries.
+  final bool blocked;
 }
 
 void main() {
@@ -41,7 +44,12 @@ void main() {
     _oracle(),
   ];
   for (final (i, c) in criteria.indexed) {
-    print('${c.met ? '[MET]    ' : '[NOT MET]'} ${i + 1}. ${c.title}');
+    final state = c.met
+        ? '[MET]    '
+        : c.blocked
+        ? '[BLOCKED]'
+        : '[NOT MET]';
+    print('$state ${i + 1}. ${c.title}');
     for (final d in c.details) {
       print('            $d');
     }
@@ -67,7 +75,12 @@ void main() {
     for (final l in left) {
       print('  $l');
     }
-    print('GOAL: NOT MET');
+    final blocked = criteria.every((c) => c.met || c.blocked);
+    print(
+      blocked
+          ? 'GOAL: BLOCKED (everything left waits on docs/QUESTIONS.md)'
+          : 'GOAL: NOT MET',
+    );
   }
 }
 
@@ -233,10 +246,15 @@ Criterion _performance() {
   final results = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   final guardrails = (results['guardrails'] as List)
       .cast<Map<String, dynamic>>();
-  return Criterion(title, guardrails.every((g) => g['met'] == true), [
+  final unmet = guardrails.where((g) => g['met'] != true);
+  return Criterion(title, unmet.isEmpty, [
     for (final g in guardrails)
-      '${g['met'] == true ? 'ok  ' : 'FAIL'} ${g['name']}: ${g['ratio']} (target ${g['target']})',
-  ]);
+      '${g['met'] == true
+          ? 'ok     '
+          : g['blocked'] != null
+          ? 'BLOCKED'
+          : 'FAIL   '} ${g['name']}: ${g['ratio']} (target ${g['target']})${g['blocked'] != null ? ' (QUESTIONS.md ${g['blocked']})' : ''}',
+  ], blocked: unmet.isNotEmpty && unmet.every((g) => g['blocked'] != null));
 }
 
 Criterion _oracle() {
