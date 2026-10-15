@@ -2,7 +2,7 @@
 // difference from an ick oracle gets the Divergences entry (or decision) that explains it, by the
 // rules below or by tools/oracle/reasons.json. Writes tools/oracle/triage.json when every
 // difference is explained; otherwise lists the ones that aren't and exits 1.
-// Usage: dart run tools/oracle/triage.dart
+// Usage: tools/in-docker dart run tools/oracle/triage.dart
 import 'dart:convert';
 import 'dart:io';
 
@@ -34,6 +34,12 @@ bool same(List<int> a, List<int> b) {
   return true;
 }
 
+/// The ICL code of a run-time error in an exit ("0:ICL000" gives "ICL000"), or null.
+String? runtimeCode(String exit) =>
+    exit.startsWith('compile') || !exit.contains(':')
+    ? null
+    : exit.split(':')[1];
+
 String? rule(
   String name,
   String source,
@@ -43,38 +49,47 @@ String? rule(
   List<int> ickOut,
   List<int> ourOut,
 ) {
-  final percentBounds = RegExp(r'%\s*(0|1\s*0\s*0)\b').hasMatch(source);
-  if (oracle == 'ick015' && ickExit == 'compile:ICL017' && ourExit == '0') {
+  if (name.contains('_syslib_')) return 'Q35, Q38 (clean-room library)';
+  if (name.startsWith('pit_')) {
+    final defined = RegExp(
+      r'^\s*\((\d+)\)',
+      multiLine: true,
+    ).allMatches(source).map((m) => int.parse(m[1]!)).toSet();
+    final called = RegExp(r'\(\s*(1\d\d\d)\s*\)\s*NEXT')
+        .allMatches(source)
+        .map((m) => int.parse(m[1]!));
+    if (called.any((l) => !documented.contains(l) && !defined.contains(l))) {
+      return 'Q35, Q38 (ick-internal library labels)';
+    }
+  }
+  if (oracle == 'ick015' &&
+      ickExit == 'compile:ICL017' &&
+      runtimeCode(ourExit) == 'ICL000') {
     return 'T9';
   }
-  if (percentBounds && ickExit == 'compile:ICL017') return 'T13';
+  if (RegExp(r'%\s*(0|1\s*0\s*0)\b').hasMatch(source) &&
+      ickExit == 'compile:ICL017') {
+    return 'T13';
+  }
   if (RegExp(r'^compile:ICL(017|200|197|129|139)$').hasMatch(ickExit) &&
-      !ourExit.startsWith('compile')) {
+      !ourExit.startsWith('compile') &&
+      runtimeCode(ourExit) != 'ICL000') {
     return 'Q80/Q81';
   }
   if (oracle == 'ick035' &&
-      ickExit == '129' &&
-      ourExit == '121' &&
+      ickExit == '129:ICL129' &&
+      ourExit == '121:ICL633' &&
       same(ickOut, ourOut)) {
     return '§9.2 (running off the end is E633)';
   }
-  if (ourExit == '124') {
+  if (ickExit == '124' && ourExit == '124') {
     final n = ickOut.length < ourOut.length ? ickOut.length : ourOut.length;
     if (n > 0 && same(ickOut.sublist(0, n), ourOut.sublist(0, n))) {
       return 'not a difference: never stops, same output up to the timeout';
     }
   }
-  if (oracle == 'ick015' && ickExit == '127') {
+  if (oracle == 'ick015' && ickExit.startsWith('127')) {
     return 'not a difference: 0.15 generates C that does not compile';
-  }
-  if (name.contains('_syslib_')) return 'Q35, Q38 (clean-room library)';
-  if (name.startsWith('pit_')) {
-    final labels = RegExp(r'\(\s*(1\d\d\d)\s*\)\s*NEXT')
-        .allMatches(source)
-        .map((m) => int.parse(m[1]!));
-    if (labels.any((l) => !documented.contains(l))) {
-      return 'Q35, Q38 (ick-internal library labels)';
-    }
   }
   return null;
 }
@@ -86,6 +101,7 @@ void main() {
   final names = File('$work/list').readAsLinesSync().where((l) => l.isNotEmpty);
   final triaged = <Map<String, String>>[];
   final untriaged = <String>[];
+  final used = <String>{};
   final parity = <String>[];
   for (final name in names) {
     final source = latin1.decode(File('$work/$name').readAsBytesSync());
@@ -105,9 +121,12 @@ void main() {
         final ickExit = read('$work/$name.exit.$oracle')!;
         final ourExit = read('$work/$name.exit.$flavor')!;
         if (same(ickOut, ourOut) && ickExit == ourExit) continue;
+        final key = reasons.containsKey('$name|$oracle')
+            ? '$name|$oracle'
+            : name;
+        if (reasons.containsKey(key)) used.add(key);
         final reason =
-            reasons['$name|$oracle'] ??
-            reasons[name] ??
+            reasons[key] ??
             rule(name, source, oracle, ickExit, ourExit, ickOut, ourOut);
         if (reason == null) {
           untriaged.add('$oracle $flavor $name: ick $ickExit, ours $ourExit');
@@ -119,7 +138,9 @@ void main() {
           'flavor': flavor,
           'ick_exit': ickExit,
           'ciwapa_exit': ourExit,
-          'status': 'divergence',
+          'status': reason.startsWith('not a difference')
+              ? 'not a difference'
+              : 'divergence',
           'reason': reason,
         });
       }
@@ -131,6 +152,13 @@ void main() {
   stdout.writeln(
     'llvm and dart disagree on: ${parity.isEmpty ? 'nothing' : parity.join(', ')}',
   );
+  // The flavors must agree, apart from programs whose `%` rolls come from the clock (T22).
+  for (final name in parity) {
+    if (reasons[name] != 'T22') untriaged.add('llvm and dart differ on $name');
+  }
+  for (final key in reasons.keys.where((k) => !used.contains(k))) {
+    untriaged.add('reasons.json: $key explains no difference');
+  }
   if (untriaged.isNotEmpty) {
     untriaged.forEach(stdout.writeln);
     exit(1);

@@ -9,12 +9,16 @@ sha256=b55e8edc68e2517a067a902766e2f57b97b502553fdcbae2b5ab2463ba58f0e1
 tarball="$repo_root/.cache/intercal-0.35.tar.gz"
 
 mkdir -p "$repo_root/.cache"
-[[ -f "$tarball" ]] || curl -fsSL -o "$tarball" http://www.catb.org/~esr/intercal/intercal-0.35.tar.gz
+if [[ ! -f "$tarball" ]]; then
+  curl -fsSL -o "$tarball.part" http://www.catb.org/~esr/intercal/intercal-0.35.tar.gz
+  mv "$tarball.part" "$tarball"
+fi
 actual="$( (sha256sum "$tarball" 2>/dev/null || shasum -a 256 "$tarball") | cut -d' ' -f1)"
 [[ "$actual" == "$sha256" ]] || { echo "pit: checksum mismatch for $tarball" >&2; exit 1; }
 
 rm -rf "$repo_root/pit"
-tar -xzf "$tarball" -C "$repo_root/.cache" --exclude='*syslib*' --exclude='*floatlib*' intercal-0.35/pit
+tar -xzf "$tarball" -C "$repo_root/.cache" --exclude='*syslib*' --exclude='*floatlib*' \
+  --exclude='intercal-0.35/pit/lib' intercal-0.35/pit
 mv "$repo_root/.cache/intercal-0.35/pit" "$repo_root/pit"
 rmdir "$repo_root/.cache/intercal-0.35"
 echo "pit/ is ready ($(find "$repo_root/pit" -name '*.i' -o -name '*.[3-7]i' | wc -l | tr -d ' ') programs)"
