@@ -24,22 +24,31 @@ case "$flavor" in
     cat >"$work/hello.ll" <<LL
 target triple = "$triple"
 
-@msg = private constant [24 x i8] c"$expected\\00"
-
-declare i32 @puts(ptr)
+declare void @greet(i32)
 
 define i32 @main() {
-  %r = call i32 @puts(ptr @msg)
+  call void @greet(i32 23)
   ret i32 0
 }
 LL
+    cat >"$work/greet.c" <<'C'
+#include <stdint.h>
+#include <stdio.h>
+
+void greet(int32_t llvm_major) {
+  printf("Hello from ciwapa-llvm!\n");
+  fflush(stdout);
+  (void)llvm_major;
+}
+C
+    sources=("$work/hello.ll" "$work/greet.c")
     case "$platform" in
       linux-*)
         "$toolchain/bin/clang" --target="$triple" --sysroot="$toolchain/sysroot" -static -fuse-ld=lld \
-          -rtlib=compiler-rt -unwindlib=none -O2 "$work/hello.ll" -o "$exe"
+          -rtlib=compiler-rt -unwindlib=none -O2 "${sources[@]}" -o "$exe"
         ;;
-      macos-*) clang --target="$triple" -O2 "$work/hello.ll" -o "$exe" ;;
-      windows-*) "$toolchain/bin/clang" --target="$triple" -O2 "$work/hello.ll" -o "$exe" ;;
+      macos-*) clang --target="$triple" -O2 "${sources[@]}" -o "$exe" ;;
+      windows-*) "$toolchain/bin/clang" --target="$triple" -O2 "${sources[@]}" -o "$exe" ;;
     esac
     ;;
 esac

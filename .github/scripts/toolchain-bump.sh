@@ -15,9 +15,21 @@ latest_mingw="$(gh api repos/mstorsjo/llvm-mingw/releases/latest --jq .tag_name)
 latest_musl="$(curl -fsSL https://musl.libc.org/releases.html |
   grep -o 'musl-[0-9][0-9.]*[0-9]\.tar\.gz' | sed 's/^musl-//; s/\.tar\.gz$//' | sort -uV | tail -1)"
 
+require() {
+  local name="$1" value="$2" pattern="$3"
+  if [[ ! "$value" =~ $pattern ]]; then
+    echo "unexpected $name version: '$value'" >&2
+    exit 1
+  fi
+}
+
+require LLVM "$latest_llvm" '^[0-9]+\.[0-9]+\.[0-9]+$'
+require llvm-mingw "$latest_mingw" '^[0-9]{8}$'
+require musl "$latest_musl" '^[0-9]+(\.[0-9]+)+$'
+
 bump() {
   local key="$1" old="$2" new="$3"
-  if [[ -n "$new" && "$old" != "$new" ]]; then
+  if [[ "$old" != "$new" ]]; then
     sed -i.bak "s/^$key=.*/$key=$new/" "$env_file" && rm -f "$env_file.bak"
     echo "$key: $old -> $new"
   fi

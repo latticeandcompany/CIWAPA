@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -33,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CHANGES: ${{ steps.bump.outputs.changes }}
         run: |
-          branch="toolchain-bump/$(date -u +%Y%m%d)"
+          branch="toolchain-bump"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
@@ -48,3 +49,6 @@ jobs:
             '```' "$CHANGES" '```')"
           gh pr create --base mega --head "$branch" --title "Bump bundled toolchains" --body "$body" ||
             gh pr edit "$branch" --body "$body"
+          # Pushes made with GITHUB_TOKEN don't trigger workflows, so start the checks by hand.
+          gh workflow run ci.yml --ref "$branch"
+          gh workflow run release-archives.yml --ref "$branch"

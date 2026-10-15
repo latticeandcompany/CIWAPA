@@ -76,7 +76,13 @@ Criterion _checklist() {
       'Every SPEC_CHECKLIST.md item is checked and links to a passing test (or is blocked)';
   final lines = _read('docs/SPEC_CHECKLIST.md').split('\n');
   final items = <String>[];
+  var inFence = false;
   for (final line in lines) {
+    if (line.startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
     if (line.startsWith('## Excluded by decision')) break;
     if (RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
       items.add(line);
