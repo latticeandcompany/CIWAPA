@@ -188,6 +188,50 @@ uint32_t ick_resume(uint32_t count, uint32_t next) {
   return next_stack[next_depth];
 }
 
+uint32_t ick_next_free(void) { return NEXT_DEPTH - next_depth; }
+
+/* ---- Native system library routines (§7.2, decision Q37) ------------------------------ */
+
+#define OVERFLOW ((uint64_t)1 << 32)
+
+static int64_t exact(uint64_t r, uint64_t max) { return r > max ? -1 : (int64_t)r; }
+
+static int64_t flagged(uint64_t r, uint64_t max) {
+  return (int64_t)((r & max) | (r > max ? OVERFLOW : 0));
+}
+
+static int product_overflows(uint64_t a, uint64_t b) { return b != 0 && a > 0xFFFFFFFFu / b; }
+
+/* Runs library routine [label] on [a] and [b]. Returns the result in the low 32 bits, with bit
+ * 32 set when a routine with an overflow flag overflowed, or -1 when the INTERCAL routine has to
+ * run instead because it would take its error exit. */
+int64_t ick_syslib(uint32_t label, uint32_t a32, uint32_t b32) {
+  uint64_t a = a32, b = b32;
+  switch (label) {
+  case 1000: return exact(a + b, 0xFFFF);
+  case 1009: return flagged(a + b, 0xFFFF);
+  case 1010: return (a - b) & 0xFFFF;
+  case 1020: return (a + 1) & 0xFFFF;
+  case 1030: return exact(a * b, 0xFFFF);
+  case 1039: return flagged(a * b, 0xFFFF);
+  case 1040:
+  case 1550: return b == 0 ? 0 : (int64_t)(a / b);
+  case 1050: return b == 0 ? 0 : exact(a / b, 0xFFFF);
+  case 1060: return a | b;
+  case 1070: return a & b;
+  case 1080: return a ^ b;
+  case 1500: return exact(a + b, 0xFFFFFFFF);
+  case 1509: return flagged(a + b, 0xFFFFFFFF);
+  case 1510: return (a - b) & 0xFFFFFFFF;
+  case 1520: return a << 16 | b;
+  case 1525: return a << 8 & 0xFFFF;
+  case 1530: return (int64_t)(a * b);
+  case 1540: return product_overflows(a, b) ? -1 : (int64_t)(a * b);
+  case 1549: return (int64_t)((a * b & 0xFFFFFFFF) | (product_overflows(a, b) ? OVERFLOW : 0));
+  default: return -1;
+  }
+}
+
 /* ---- Randomness (§4.3, decision T22) ---------------------------------------------------- */
 
 static uint64_t next_random(void) {

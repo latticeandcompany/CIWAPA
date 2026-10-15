@@ -54,6 +54,7 @@ class Parser {
       }
       statements.add(
         Statement(
+          source: source,
           start: _tokens[first].start,
           end: _tokens[_pos - 1].end,
           label: label,
@@ -76,6 +77,7 @@ class Parser {
     if (statements.isEmpty) {
       statements.add(
         Statement(
+          source: source,
           start: _tokens[first].start,
           end: _tokens[_pos - 1].end,
           label: null,

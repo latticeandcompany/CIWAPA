@@ -67,39 +67,39 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §3.4.2 — a unary operator goes between the type character and the number: `.&123`, `#V−123`, `:V1`. Tests: `packages/conformance/tests/calculate/unary-width.i`, `packages/conformance/tests/calculate/golden-unary.i`
 - [x] §3.4.2 — a unary operator on an array name, as in `,&7SUB#1`, applies to the element's value. (decision: T4) Tests: `packages/conformance/tests/calculate/unary-on-element.i`
 - [x] §3.4.3 — a unary operator directly after an opening spark or ears applies to the whole group: `'V−#&123'`, `'V−"&#123"'`. Tests: `packages/conformance/tests/calculate/unary-on-group.i`
-- [ ] §3.4.2 — concatenated unary operators such as `#V−&123` are invalid, so the statement is undecodable. (decision: T4) Tests: (none yet)
-- [ ] §3.4.2 — there is no prefix form: `&.1` is invalid. (decision: T4) Tests: (none yet)
+- [x] §3.4.2 — concatenated unary operators such as `#V−&123` are invalid, so the statement is undecodable. (decision: T4) Tests: `packages/conformance/tests/syntax/concatenated-unary-undecodable.i`
+- [x] §3.4.2 — there is no prefix form: `&.1` is invalid. (decision: T4) Tests: `packages/conformance/tests/syntax/prefix-unary-undecodable.i`
 
 ## §3.4.3 Precedence and grouping
 
 - [x] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: `packages/conformance/tests/calculate/e017-ungrouped-chain.i`
 - [x] §3.4.3 — **golden:** `'#165¢#203'~#358` = 15 and `#165¢'#203~#358'` = 34915. Tests: `packages/conformance/tests/calculate/golden-grouping.i`
-- [ ] §3.4.3 — sparks `'` and rabbit-ears `"` group expressions. Tests: (none yet)
-- [ ] §3.4.3 — a grouper directly after a complete operand closes the current group; anywhere else it opens a new one. As a result, only the first subscript in a list can be a group. (decision: T1) Tests: (none yet)
-- [ ] §3.4.3 — the wow `!` is the same as spark-spot `'.`: `'.1~.2'` ≡ `!1~.2'`, and `'V.1¢.2'` ≡ `"V!1¢.2'"`. (decision: T3) Tests: (none yet)
-- [ ] §3.4.3 — the rabbit `".` gets no special treatment; it is ears followed by a spot. (decision: T3) Tests: (none yet)
-- [ ] §3.4.3 — a subscript list ends at the first binary operator, so `,1SUB#1#1¢#1` parses as `(,1 SUB #1 #1)¢#1`. (decision: T2) Tests: (none yet)
-- [ ] §3.4.3 — the spec's ambiguous examples (`,1 SUB #1 ~ #2`, `,1 SUB ,2 SUB #1 #2 #3`, `,1 SUB " ,2 SUB " ,3 SUB #1 " #2 " " #3 "`) each parse the way T1/T2 dictate, and that result is pinned by a test. (decision: T1, T2) Tests: (none yet)
-- [ ] §12 — **golden:** `",1SUB',2SUB#1'#2"`, with alternating sparks and ears, parses as nested subscripts. Tests: (none yet)
+- [x] §3.4.3 — sparks `'` and rabbit-ears `"` group expressions. Tests: `packages/conformance/tests/calculate/golden-grouping.i`, `packages/conformance/tests/syntax/wow-is-spark-spot.i`, `packages/conformance/tests/syntax/rabbit-is-ears-and-spot.i`
+- [x] §3.4.3 — a grouper directly after a complete operand closes the current group; anywhere else it opens a new one. As a result, only the first subscript in a list can be a group. (decision: T1) Tests: `packages/conformance/tests/syntax/only-first-subscript-group.i`, `packages/conformance/tests/syntax/only-first-subscript-group-second.i`, `packages/conformance/tests/syntax/ambiguous-third-undecodable.i`, `packages/conformance/tests/syntax/golden-12-alternating.i`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] §3.4.3 — the wow `!` is the same as spark-spot `'.`: `'.1~.2'` ≡ `!1~.2'`, and `'V.1¢.2'` ≡ `"V!1¢.2'"`. (decision: T3) Tests: `packages/conformance/tests/syntax/wow-is-spark-spot.i`
+- [x] §3.4.3 — the rabbit `".` gets no special treatment; it is ears followed by a spot. (decision: T3) Tests: `packages/conformance/tests/syntax/rabbit-is-ears-and-spot.i`, `packages/conformance/tests/syntax/rabbit-closes-then-spot.i`
+- [x] §3.4.3 — a subscript list ends at the first binary operator, so `,1SUB#1#1¢#1` parses as `(,1 SUB #1 #1)¢#1`. (decision: T2) Tests: `packages/conformance/tests/syntax/subscripts-end-at-operator.i`
+- [x] §3.4.3 — the spec's ambiguous examples (`,1 SUB #1 ~ #2`, `,1 SUB ,2 SUB #1 #2 #3`, `,1 SUB " ,2 SUB " ,3 SUB #1 " #2 " " #3 "`) each parse the way T1/T2 dictate, and that result is pinned by a test. (decision: T1, T2) Tests: `packages/conformance/tests/syntax/subscripts-end-at-operator.i`, `packages/conformance/tests/syntax/nested-subscript-takes-rest.i`, `packages/conformance/tests/syntax/ambiguous-third-undecodable.i`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] §12 — **golden:** `",1SUB',2SUB#1'#2"`, with alternating sparks and ears, parses as nested subscripts. Tests: `packages/conformance/tests/syntax/golden-12-alternating.i`
 
 ## §4.1 General format
 
-- [ ] §4.1 — free format: several statements may share a line, and one statement may span lines. Tests: (none yet)
-- [ ] §4.1 — statements cannot interlace: all the text between a statement's start and end belongs to it. Tests: (none yet)
-- [ ] §4.1 — spaces, tabs and newlines between tokens are ignored. (decision: T5) Tests: (none yet)
-- [ ] §4.1 — spaces inside a number join its digits: `#1 2` = `#12`. (decision: T5) Tests: (none yet)
-- [ ] §4.1 — no single word of a statement identifier or keyword may contain spaces: `FOR GET` and `D O` don't work, and neither does a split `<-`. (decision: T5) Tests: (none yet)
-- [ ] §4.1 — multi-word keywords may be written with or without their internal spaces: `READOUT`, `GIVEUP`, `WRITEIN`, `COMEFROM`, `PLEASEDO`. (decision: T5) Tests: (none yet)
-- [ ] §4.1 — source is uppercase only; lowercase text is undecodable. (decision: T6) Tests: (none yet)
-- [ ] §4.1 — CRLF line endings are accepted (the `\r` is stripped). (decision: T7) Tests: (none yet)
-- [ ] §4.1 — source files are UTF-8. (decision: T14) Tests: (none yet)
+- [x] §4.1 — free format: several statements may share a line, and one statement may span lines. Tests: `packages/conformance/tests/syntax/free-format.i`
+- [x] §4.1 — statements cannot interlace: all the text between a statement's start and end belongs to it. Tests: `packages/conformance/tests/syntax/no-interlacing.i`
+- [x] §4.1 — spaces, tabs and newlines between tokens are ignored. (decision: T5) Tests: `packages/conformance/tests/syntax/whitespace-between-tokens.i`
+- [x] §4.1 — spaces inside a number join its digits: `#1 2` = `#12`. (decision: T5) Tests: `packages/conformance/tests/syntax/spaces-join-digits.i`
+- [x] §4.1 — no single word of a statement identifier or keyword may contain spaces: `FOR GET` and `D O` don't work, and neither does a split `<-`. (decision: T5) Tests: `packages/conformance/tests/syntax/split-keyword-undecodable.i`, `packages/conformance/tests/syntax/split-gets-undecodable.i`, `packages/conformance/tests/syntax/split-identifier-not-a-statement.i`
+- [x] §4.1 — multi-word keywords may be written with or without their internal spaces: `READOUT`, `GIVEUP`, `WRITEIN`, `COMEFROM`, `PLEASEDO`. (decision: T5) Tests: `packages/conformance/tests/syntax/keywords-without-spaces.i`
+- [x] §4.1 — source is uppercase only; lowercase text is undecodable. (decision: T6) Tests: `packages/conformance/tests/syntax/lowercase-undecodable.i`
+- [x] §4.1 — CRLF line endings are accepted (the `\r` is stripped). (decision: T7) Tests: `packages/conformance/tests/syntax/crlf-source.i`
+- [x] §4.1 — source files are UTF-8. (decision: T14) Tests: `packages/conformance/tests/syntax/utf8-change-sign.i`
 - [x] §4.1 — there is no column or line-length limit, and no statement or variable count limit. (decision: T27) Tests: `packages/conformance/tests/errors/many-statements.i`, `packages/conformance/tests/errors/many-variables.i`, `packages/conformance/tests/calculate/e000-long-text.i`
 
 ## §4.2 Labels
 
-- [ ] §4.2 — an optional label `(n)` with n from 1 to 65535 may precede a statement. Tests: (none yet)
-- [ ] §4.2 — a statement has at most one label. Tests: (none yet)
-- [ ] §4.2 — spaces are allowed inside the parentheses: `( 123 )`. (decision: T5) Tests: (none yet)
+- [x] §4.2 — an optional label `(n)` with n from 1 to 65535 may precede a statement. Tests: `packages/conformance/tests/syntax/labels.i`, `packages/conformance/tests/syntax/label-spaces.i`
+- [x] §4.2 — a statement has at most one label. Tests: `packages/conformance/tests/syntax/label-twice.i`
+- [x] §4.2 — spaces are allowed inside the parentheses: `( 123 )`. (decision: T5) Tests: `packages/conformance/tests/syntax/label-spaces.i`
 - [x] §4.2, §9.2 — a duplicate label is a compile-time E182. (decision: Q80) Tests: `packages/conformance/tests/errors/e182-duplicate-label.i`
 - [x] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: `packages/conformance/tests/calculate/e197-label.i`, `packages/conformance/tests/calculate/e197-label-too-big.i`
 
@@ -111,8 +111,8 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-each-time-reached.i`, `packages/conformance/tests/options/seed-rolls-percentages.i`
 - [x] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: `packages/conformance/tests/calculate/percent-0-never-runs.i`, `packages/conformance/tests/calculate/percent-100-always-runs.i`
 - [x] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: `packages/conformance/tests/calculate/e017-percent-101.i`
-- [ ] §4.3 — spaces are allowed between `%` and its number. (decision: T5) Tests: (none yet)
-- [ ] §4.3 — the qualifier order is NOT, then `%`. `DO %50 NOT …` is undecodable. (decision: T12) Tests: (none yet)
+- [x] §4.3 — spaces are allowed between `%` and its number. (decision: T5) Tests: `packages/conformance/tests/syntax/percent-spaces.i`
+- [x] §4.3 — the qualifier order is NOT, then `%`. `DO %50 NOT …` is undecodable. (decision: T12) Tests: `packages/conformance/tests/syntax/qualifier-order.i`, `packages/conformance/tests/syntax/not-before-percent.i`
 - [x] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-each-time-reached.i`
 
 ## §4.4.1 Calculate
@@ -122,8 +122,8 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.1 — a 32-bit value up to 65535 can be assigned to a 16-bit variable. (decision: Q76) Tests: `packages/conformance/tests/calculate/large-fits-small.i`, `packages/conformance/tests/calculate/small-takes-65535.i`
 - [x] §4.4.1, §9.2 — assigning a value above 65535 to a 16-bit variable raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e275-element.i`
 - [x] §4.4.1 — **golden:** `,1SUB#1#1 <- 'V−,1SUB#1#1¢#1'~'#0¢#65535'` inverts the element's least significant bit (with a DO identifier added). (decision: T2) Tests: `packages/conformance/tests/calculate/golden-lsb.i`
-- [ ] §4.4.1 — `<-` with a `BY` list dimensions an array: `;7 <- #7 BY .7 BY …`. Tests: (none yet)
-- [ ] §4.4.1 — **golden:** the two `;7` dimensioning statements differ as the spec describes. Tests: (none yet)
+- [x] §4.4.1 — `<-` with a `BY` list dimensions an array: `;7 <- #7 BY .7 BY …`. Tests: `packages/conformance/tests/syntax/golden-dimension-a.i`, `packages/conformance/tests/syntax/golden-dimension-b.i`
+- [x] §4.4.1 — **golden:** the two `;7` dimensioning statements differ as the spec describes. Tests: `packages/conformance/tests/syntax/golden-dimension-a.i`, `packages/conformance/tests/syntax/golden-dimension-b.i`
 - [x] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: `packages/conformance/tests/calculate/dimension-32-bit.i`
 - [x] §4.4.1 — redimensioning loses all element values. Tests: `packages/conformance/tests/calculate/redimension-loses-values.i`
 - [x] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
@@ -189,7 +189,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.9 — an abstained statement is skipped, and control moves to the next statement. Tests: `packages/conformance/tests/abstain/skipped-moves-on.i`
 - [x] §4.4.9 — abstention is a single on/off flag; abstaining twice equals abstaining once. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-twice.i`
 - [x] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: `packages/conformance/tests/abstain/mixed-undecodable.i`, `packages/conformance/tests/abstain/mixed-undecodable-reversed.i`
-- [ ] §4.4.9 — the gerunds are CALCULATING, NEXTING, FORGETTING, RESUMING, STASHING, RETRIEVING, IGNORING, REMEMBERING, ABSTAINING, REINSTATING, READING OUT, WRITING IN and COMING FROM. (decision: T21) Tests: (none yet)
+- [x] §4.4.9 — the gerunds are CALCULATING, NEXTING, FORGETTING, RESUMING, STASHING, RETRIEVING, IGNORING, REMEMBERING, ABSTAINING, REINSTATING, READING OUT, WRITING IN and COMING FROM. (decision: T21) Tests: `packages/conformance/tests/abstain/every-gerund.i`, `packages/conformance/tests/abstain/forgetting-stashing-remembering.i`, `packages/conformance/tests/abstain/calculating.i`, `packages/conformance/tests/abstain/gerund-list.i`, `packages/conformance/tests/abstain/gerund-other-types-run.i`, `packages/conformance/tests/abstain/abstaining.i`, `packages/conformance/tests/abstain/abstain-from-reinstating.i`, `packages/conformance/tests/come-from/abstain-coming-from.i`
 - [x] §4.4.9 — CALCULATING covers both assignment and array dimensioning. (decision: T21) Tests: `packages/conformance/tests/abstain/calculating.i`
 - [x] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: `packages/conformance/tests/abstain/abstaining.i`, `packages/conformance/tests/abstain/abstaining-itself.i`
 - [x] §4.4.9 — `ABSTAIN FROM REINSTATING` is valid. Tests: `packages/conformance/tests/abstain/abstain-from-reinstating.i`
@@ -256,12 +256,12 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.5, §9.1 — E000's message is the statement's source text verbatim. Lines after the first are indented with a tab, and very long text is cut off at about 500 characters. (decision: T10) Tests: `packages/conformance/tests/calculate/e000-shares-lines.i`, `packages/conformance/tests/calculate/e000-long-text.i`
 - [x] §4.5 — **golden:** `PLEASE NOTE THAT THIS LINE HAS NO EFFECT` (abstained by NOT) is ignored. Tests: `packages/conformance/tests/abstain/note-has-no-effect.i`
 - [x] §4.5 — **golden:** the `DON'T YOU REALIZE THIS STATEMENT SHOULD ONLY BE ENCOUNTERED ONCE?` + `PLEASE REINSTATE (123)` pair raises E000 the second time. Tests: `packages/conformance/tests/abstain/encountered-once.i`
-- [ ] §4.5 — `DO`, `PLEASE` and `(n)` are recognized anywhere, even inside a word: "NOTE THAT THIS LINE DOES NOTHING" breaks at "DOES". (decision: T8) Tests: (none yet)
-- [ ] §4.5 — "D-space-O" is not an identifier. Tests: (none yet)
-- [ ] §4.5 — undecodable text runs up to the next `DO`/`PLEASE`/label token, and a following label starts the next statement. (decision: T8) Tests: (none yet)
-- [ ] §4.5 — junk after a complete statement makes that statement undecodable (E000 if it executes). (decision: T9) Tests: (none yet)
-- [ ] §4.5 — a `*` in the source is junk; it isn't the listing's splat marker. (decision: T15) Tests: (none yet)
-- [ ] §4.5, TONSIL — any character with no use in TONSIL A makes its statement undecodable. (decision: T14) Tests: (none yet)
+- [x] §4.5 — `DO`, `PLEASE` and `(n)` are recognized anywhere, even inside a word: "NOTE THAT THIS LINE DOES NOTHING" breaks at "DOES". (decision: T8) Tests: `packages/conformance/tests/syntax/do-mid-word.i`
+- [x] §4.5 — "D-space-O" is not an identifier. Tests: `packages/conformance/tests/syntax/d-space-o.i`, `packages/conformance/tests/syntax/split-identifier-not-a-statement.i`
+- [x] §4.5 — undecodable text runs up to the next `DO`/`PLEASE`/label token, and a following label starts the next statement. (decision: T8) Tests: `packages/conformance/tests/syntax/label-ends-garbage.i`, `packages/conformance/tests/syntax/do-mid-word.i`
+- [x] §4.5 — junk after a complete statement makes that statement undecodable (E000 if it executes). (decision: T9) Tests: `packages/conformance/tests/syntax/junk-after-statement.i`, `packages/conformance/tests/syntax/label-twice.i`
+- [x] §4.5 — a `*` in the source is junk; it isn't the listing's splat marker. (decision: T15) Tests: `packages/conformance/tests/syntax/splat-is-junk.i`
+- [x] §4.5, TONSIL — any character with no use in TONSIL A makes its statement undecodable. (decision: T14) Tests: `packages/conformance/tests/syntax/tonsil-unused-0.i`, `packages/conformance/tests/syntax/tonsil-unused-1.i`, `packages/conformance/tests/syntax/tonsil-unused-2.i`, `packages/conformance/tests/syntax/tonsil-unused-3.i`, `packages/conformance/tests/syntax/tonsil-unused-4.i`, `packages/conformance/tests/syntax/tonsil-unused-5.i`, `packages/conformance/tests/syntax/tonsil-unused-6.i`, `packages/conformance/tests/syntax/tonsil-unused-7.i`, `packages/conformance/tests/syntax/tonsil-unused-8.i`, `packages/conformance/tests/syntax/tonsil-unused-9.i`, `packages/conformance/tests/syntax/tonsil-unused-10.i`, `packages/conformance/tests/syntax/tonsil-unused-11.i`
 - [x] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: `packages/conformance/tests/abstain/encountered-once.i`, `packages/conformance/tests/abstain/undecodable-keeps-percent.i`
 
 ## §5.2 Turing Text character I/O
@@ -279,7 +279,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §5.2 — newlines get no special treatment. (decision: T31) Tests: `packages/conformance/tests/turing/input.i`
 - [x] §5.2 — output is flushed at every newline and when the program exits. (decision: T31) Tests: `packages/conformance/tests/turing/flush-at-exit.i`, `packages/runtime_c/test/runtime_test.dart`, `packages/ciwapa_dart/test/runtime_test.dart`
 - [x] §5.2 — number I/O and Turing Text I/O can be mixed in one list. Tests: `packages/conformance/tests/turing/mixed-list.i`, `packages/conformance/tests/turing/separate-tapes.i`
-- [ ] §5.3 — **golden:** the `cat` program as printed fails politeness with E079 (3 polite statements out of 22), and a polite variant of it copies its input to its output exactly. (decision: T35) Tests: (none yet)
+- [x] §5.3 — **golden:** the `cat` program as printed fails politeness with E079 (3 polite statements out of 22), and a polite variant of it copies its input to its output exactly. (decision: T35) Tests: `packages/conformance/tests/golden/cat-5.3-impolite.i`, `packages/conformance/tests/golden/cat-5.3-polite.i`
 
 ## §6 TriINTERCAL and other bases
 
@@ -312,35 +312,35 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 The library is a clean-room implementation written from these contracts alone (decision: Q35, Q37, Q38). Its source and native fast paths must match them.
 
-- [ ] §7.1 — operands go in `.1`/`.2` (or `:1`/`:2`), and results go in the next variable(s). Tests: (none yet)
-- [ ] §7.1 — every variable not used for a result is left unchanged. Tests: (none yet)
-- [ ] §7.2 — (1000): `.3 <- .1 + .2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1009): `.3 <- .1 + .2`, and `.4 <- #1` if no overflow, otherwise `#2`. Tests: (none yet)
-- [ ] §7.2 — (1010): `.3 <- .1 − .2`, with no action on overflow. Tests: (none yet)
-- [ ] §7.2 — (1020): `.1 <- .1 + #1`, with no action on overflow. Tests: (none yet)
-- [ ] §7.2 — (1030): `.3 <- .1 × .2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1039): `.3 <- .1 × .2`, with the `.4` overflow flag as in (1009). Tests: (none yet)
-- [ ] §7.2 — (1040): `.3 <- .1 ÷ .2`, or `#0` if `.2` is `#0`. Tests: (none yet)
-- [ ] §7.2 — (1050): `.2 <- :1 ÷ .1`, with an error exit on overflow, or `#0` if `.1` is `#0`. Tests: (none yet)
-- [ ] §7.2 — (1060): `.3 <-` the bitwise OR of `.1` and `.2`. Tests: (none yet)
-- [ ] §7.2 — (1070): `.3 <-` the bitwise AND of `.1` and `.2`. Tests: (none yet)
-- [ ] §7.2 — (1080): `.3 <-` the bitwise XOR of `.1` and `.2`. Tests: (none yet)
-- [ ] §7.2 — (1500): `:3 <- :1 + :2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1509): `:3 <- :1 + :2`, and `:4 <- #1` if no overflow, otherwise `#2`. Tests: (none yet)
-- [ ] §7.2 — (1510): `:3 <- :1 − :2`, with no action on overflow. Tests: (none yet)
-- [ ] §7.2 — (1520): `:1 <- .1` concatenated with `.2`. Tests: (none yet)
-- [ ] §7.2 — (1525): internal routine that shifts `.3` left 8 bits. Tests: (none yet)
-- [ ] §7.2 — (1530): `:1 <- .1 × .2`. Tests: (none yet)
-- [ ] §7.2 — (1540): `:3 <- :1 × :2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1549): `:3 <- :1 × :2`, with the `:4` overflow flag. Tests: (none yet)
-- [ ] §7.2 — (1550): `:3 <- :1 ÷ :2`, or `#0` if `:2` is `#0`. Tests: (none yet)
-- [ ] §7.2 — (1900): `.1 <-` a uniform random number from #0 to #65535. Tests: (none yet)
-- [ ] §7.2 — (1910): `.2 <-` a normal random number from #0 to `.1`, with standard deviation `.1`/#12. Tests: (none yet)
-- [ ] §7.2 — an "error exit" is E000 whose message is the statement text `DOUBLE OR SINGLE PRECISION OVERFLOW`. (decision: Q38) Tests: (none yet)
-- [ ] §7 — a library call uses NEXT stack levels as a real INTERCAL routine would, so E123 depth behavior is the same whether the native fast path runs or not. (decision: Q37) Tests: (none yet)
-- [ ] §7 — the INTERCAL reference version is used whenever a program can observe library internals (COME FROM, ABSTAIN or REINSTATE on a library label, and the like). (decision: Q37) Tests: (none yet)
-- [ ] §7.3 — the library is included only when a NEXT targets a label in 1000–1999 and the program defines no label in that range. ABSTAIN and other references don't trigger it. (decision: T36) Tests: (none yet)
-- [ ] §7.3 — running off the end of the user's program raises E633; it never falls into the included library. (decision: T37) Tests: (none yet)
+- [x] §7.1 — operands go in `.1`/`.2` (or `:1`/`:2`), and results go in the next variable(s). Tests: `packages/conformance/tests/syslib/add16-1000.i`, `packages/conformance/tests/syslib/add32-1500.i`, `packages/conformance/tests/syslib/div32by16-1050.i`, `packages/conformance/tests/syslib/concat-1520.i`, `packages/conformance/tests/syslib/native-matches-reference.i`
+- [x] §7.1 — every variable not used for a result is left unchanged. Tests: `packages/conformance/tests/syslib/preserves-variables.i`, `packages/conformance/tests/syslib/next-stack-unchanged.i`
+- [x] §7.2 — (1000): `.3 <- .1 + .2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/add16-1000.i`, `packages/conformance/tests/syslib/add16-1000-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1009): `.3 <- .1 + .2`, and `.4 <- #1` if no overflow, otherwise `#2`. Tests: `packages/conformance/tests/syslib/add16-1009.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1010): `.3 <- .1 − .2`, with no action on overflow. Tests: `packages/conformance/tests/syslib/sub16-1010.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1020): `.1 <- .1 + #1`, with no action on overflow. Tests: `packages/conformance/tests/syslib/increment-1020.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1030): `.3 <- .1 × .2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/mul16-1030.i`, `packages/conformance/tests/syslib/mul16-1030-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1039): `.3 <- .1 × .2`, with the `.4` overflow flag as in (1009). Tests: `packages/conformance/tests/syslib/mul16-1039.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1040): `.3 <- .1 ÷ .2`, or `#0` if `.2` is `#0`. Tests: `packages/conformance/tests/syslib/div16-1040.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1050): `.2 <- :1 ÷ .1`, with an error exit on overflow, or `#0` if `.1` is `#0`. Tests: `packages/conformance/tests/syslib/div32by16-1050.i`, `packages/conformance/tests/syslib/div32by16-1050-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1060): `.3 <-` the bitwise OR of `.1` and `.2`. Tests: `packages/conformance/tests/syslib/or-1060.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1070): `.3 <-` the bitwise AND of `.1` and `.2`. Tests: `packages/conformance/tests/syslib/and-1070.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1080): `.3 <-` the bitwise XOR of `.1` and `.2`. Tests: `packages/conformance/tests/syslib/xor-1080.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1500): `:3 <- :1 + :2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/add32-1500.i`, `packages/conformance/tests/syslib/add32-1500-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1509): `:3 <- :1 + :2`, and `:4 <- #1` if no overflow, otherwise `#2`. Tests: `packages/conformance/tests/syslib/add32-1509.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1510): `:3 <- :1 − :2`, with no action on overflow. Tests: `packages/conformance/tests/syslib/sub32-1510.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1520): `:1 <- .1` concatenated with `.2`. Tests: `packages/conformance/tests/syslib/concat-1520.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1525): internal routine that shifts `.3` left 8 bits. Tests: `packages/conformance/tests/syslib/shift-1525.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1530): `:1 <- .1 × .2`. Tests: `packages/conformance/tests/syslib/mul16to32-1530.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1540): `:3 <- :1 × :2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/mul32-1540.i`, `packages/conformance/tests/syslib/mul32-1540-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1549): `:3 <- :1 × :2`, with the `:4` overflow flag. Tests: `packages/conformance/tests/syslib/mul32-1549.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1550): `:3 <- :1 ÷ :2`, or `#0` if `:2` is `#0`. Tests: `packages/conformance/tests/syslib/div32-1550.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1900): `.1 <-` a uniform random number from #0 to #65535. Tests: `packages/conformance/tests/syslib/random-1900.i`
+- [x] §7.2 — (1910): `.2 <-` a normal random number from #0 to `.1`, with standard deviation `.1`/#12. Tests: `packages/conformance/tests/syslib/random-1910.i`
+- [x] §7.2 — an "error exit" is E000 whose message is the statement text `DOUBLE OR SINGLE PRECISION OVERFLOW`. (decision: Q38) Tests: `packages/conformance/tests/syslib/add16-1000-overflow.i`, `packages/conformance/tests/syslib/add16-1000-overflow-large.i`, `packages/conformance/tests/syslib/mul16-1030-overflow.i`, `packages/conformance/tests/syslib/div32by16-1050-overflow.i`, `packages/conformance/tests/syslib/add32-1500-overflow.i`, `packages/conformance/tests/syslib/mul32-1540-overflow.i`, `packages/conformance/tests/syslib/mul32-1540-overflow-top-bit.i`
+- [x] §7 — a library call uses NEXT stack levels as a real INTERCAL routine would, so E123 depth behavior is the same whether the native fast path runs or not. (decision: Q37) Tests: `packages/conformance/tests/syslib/depth-1000.i`, `packages/conformance/tests/syslib/depth-1009.i`, `packages/conformance/tests/syslib/depth-1010.i`, `packages/conformance/tests/syslib/depth-1020.i`, `packages/conformance/tests/syslib/depth-1030.i`, `packages/conformance/tests/syslib/depth-1039.i`, `packages/conformance/tests/syslib/depth-1040-zero.i`, `packages/conformance/tests/syslib/depth-1040.i`, `packages/conformance/tests/syslib/depth-1050-zero.i`, `packages/conformance/tests/syslib/depth-1050.i`, `packages/conformance/tests/syslib/depth-1060.i`, `packages/conformance/tests/syslib/depth-1070.i`, `packages/conformance/tests/syslib/depth-1080.i`, `packages/conformance/tests/syslib/depth-1500.i`, `packages/conformance/tests/syslib/depth-1509.i`, `packages/conformance/tests/syslib/depth-1510.i`, `packages/conformance/tests/syslib/depth-1520.i`, `packages/conformance/tests/syslib/depth-1525.i`, `packages/conformance/tests/syslib/depth-1530.i`, `packages/conformance/tests/syslib/depth-1540.i`, `packages/conformance/tests/syslib/depth-1549.i`, `packages/conformance/tests/syslib/depth-1550-zero.i`, `packages/conformance/tests/syslib/depth-1550.i`, `packages/conformance/tests/syslib/depth-1900.i`, `packages/conformance/tests/syslib/depth-1910.i`
+- [x] §7 — the INTERCAL reference version is used whenever a program can observe library internals (COME FROM, ABSTAIN or REINSTATE on a library label, and the like). (decision: Q37) Tests: `packages/conformance/tests/syslib/fallback-come-from-inside.i`, `packages/conformance/tests/syslib/fallback-abstain-gerund.i`, `packages/conformance/tests/syslib/fallback-abstain-label.i`, `packages/conformance/tests/syslib/fallback-reinstate-label.i`, `packages/conformance/tests/syslib/fallback-ignore-scratch.i`, `packages/ciwapa_core/test/syslib_test.dart`
+- [x] §7.3 — the library is included only when a NEXT targets a label in 1000–1999 and the program defines no label in that range. ABSTAIN and other references don't trigger it. (decision: T36) Tests: `packages/conformance/tests/syslib/abstain-does-not-include.i`, `packages/conformance/tests/syslib/user-label-in-range.i`, `packages/conformance/tests/tri/syslib-not-included.3i`, `packages/ciwapa_core/test/syslib_test.dart`
+- [x] §7.3 — running off the end of the user's program raises E633; it never falls into the included library. (decision: T37) Tests: `packages/conformance/tests/syslib/falls-off-before-library.i`
 
 ## §9 Error messages
 
@@ -351,7 +351,7 @@ The library is a clean-room implementation written from these contracts alone (d
   - line 4: eight spaces, then `CORRECT SOURCE AND RESUBMIT`
 
   (decision: T33, Q90) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e079-impolite.i`
-- [x] §9.1 — `<n>` is the ordinal of the statement that would have run next, not zero-padded. For a NEXT that's its target; for a COME FROM target it's the COME FROM; for E633 it's the last ordinal + 1; for compile-time errors it's the offending statement's ordinal. (decision: T33) Tests: `packages/conformance/tests/next/e123-recursion.i`, `packages/conformance/tests/come-from/line-3-names-come-from.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e182-duplicate-label.i`, `packages/conformance/tests/come-from/e555.i`
+- [x] §9.1 — `<n>` is the ordinal of the statement that would have run next, not zero-padded. For a NEXT that's its target; for a COME FROM target it's the COME FROM; for E633 it's the last ordinal + 1; for compile-time errors it's the offending statement's ordinal. (decision: T33) Tests: `packages/conformance/tests/next/e123-recursion.i`, `packages/conformance/tests/come-from/line-3-names-come-from.i`, `packages/conformance/tests/calculate/e633-after-assignments.i`, `packages/conformance/tests/errors/e182-duplicate-label.i`, `packages/conformance/tests/come-from/e555.i`, `packages/conformance/tests/syslib/falls-off-end-of-library.i`
 - [x] §9.1 — the official text is the spec's literal message where §4 gives one (E123, E436, and E275 for every trigger); otherwise it is the §9.2 description verbatim, uppercased. (decision: Q83, Q84, Q134) Tests: `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/io/e275-write-in.i`
 - [x] §9.1 — every error code has its own original joke line printed under the official text. (decision: Q90) Tests: `packages/ciwapa_core/test/frontend_test.dart`
 - [x] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
@@ -391,13 +391,13 @@ The library is a clean-room implementation written from these contracts alone (d
 
 ## §10 The C-INTERCAL compiler (CIWAPA equivalents)
 
-- [ ] §10.1 — ASCII substitutes are accepted: `$` for ¢ and `?` for V−. Tests: (none yet)
+- [x] §10.1 — ASCII substitutes are accepted: `$` for ¢ and `?` for V−. Tests: `packages/conformance/tests/syntax/ascii-substitutes.i`
 - [x] §10.2 — `--traditional` (`ick -t`) requires strict INTERCAL-72: COME FROM and other bases raise E111. (decision: Q15, Q101, T39) Tests: `packages/conformance/tests/tri/e111-traditional-base.3i`, `packages/conformance/tests/come-from/e111-traditional.i`
 - [x] §10.2, §12 — `--no-random-bug` (`ick -b`) turns off E774. (decision: Q101) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
 - [x] §10.2 — `--clockface` (`ick -C`) prints IIII, and MMMM for 4000. (decision: Q101, T30) Tests: `packages/conformance/tests/io/read-out-clockface.i`
-- [ ] §10.2 — `--keep` (`ick -c`) keeps the generated `.dart`/`.ll` source. (decision: Q101) Tests: (none yet)
-- [ ] §10.2 — `--dump=ast|ir` (`ick -d`) prints the parse or IR. (decision: Q101) Tests: (none yet)
-- [ ] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: (none yet)
+- [x] §10.2 — `--keep` (`ick -c`) keeps the generated `.dart`/`.ll` source. (decision: Q101) Tests: `packages/ciwapa_dart/test/flags_test.dart`, `packages/ciwapa_llvm/test/flags_test.dart`, `packages/ciwapa_core/test/cli_test.dart`
+- [x] §10.2 — `--dump=ast|ir` (`ick -d`) prints the parse or IR. (decision: Q101) Tests: `packages/ciwapa_core/test/cli_test.dart`
+- [x] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
 - [x] §10.2 — `--seed <n>` makes E774 placement reproducible. (decision: Q101, T23) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`, `packages/ciwapa_core/test/ir_test.dart`
 - [x] §10.3 — compiled programs accept the `+`/`-` runtime options, read until the first argument without a sign. (decision: Q102) Tests: `packages/conformance/tests/options/options-stop-at-first-plain-argument.i`, `packages/conformance/tests/options/unknown-option.i`, `packages/conformance/tests/options/minus-seed-unknown.i`
 - [x] §10.3 — `+help`/`-help` print usage and exit with E778, with no 3-second sleep. (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/conformance/tests/options/help-minus.i`
@@ -409,7 +409,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §10.4 — exactly 1/5 and exactly 1/3 both pass, because the comparisons use exact fractions. (decision: T35) Tests: `packages/conformance/tests/errors/polite-exactly-one-fifth.i`, `packages/conformance/tests/errors/polite-exactly-one-third.i`
 - [x] §10.4 — the check counts statements whose identifier includes PLEASE (`PLEASE`, `PLEASE DO`, `DO PLEASE`), not PLEASE text anywhere. (decision: T35, T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`, `packages/conformance/tests/errors/please-text-not-counted.i`
 - [x] §10.4 — comments and undecodable statements count as statements. (decision: T35) Tests: `packages/conformance/tests/errors/comments-count.i`
-- [ ] §10.4, §7.3 — the auto-included library does not count. (decision: T35) Tests: (none yet)
+- [x] §10.4, §7.3 — the auto-included library does not count. (decision: T35) Tests: `packages/conformance/tests/syslib/library-not-polite-enough.i`
 - [x] §10.4 — the check applies only to programs with more than 2 statements. (decision: T35) Tests: `packages/conformance/tests/errors/two-statements-unchecked.i`, `packages/conformance/tests/errors/two-statements-all-polite.i`, `packages/conformance/tests/errors/three-statements-checked.i`
 
 ## §12 Princeton compiler (BUG option only)
@@ -420,13 +420,13 @@ The library is a clean-room implementation written from these contracts alone (d
 
 ## TONSIL A — character set
 
-- [ ] TONSIL — `.` `:` `,` `;` `#` mark 16-bit variables, 32-bit variables, 16-bit arrays, 32-bit arrays and constants. Tests: (none yet)
-- [ ] TONSIL — `'` and `"` are groupers. `!` is spark-spot. Tests: (none yet)
-- [ ] TONSIL — `%` is the percentage qualifier; `<` and `-` form `<-`; `(` and `)` wrap labels; `+` separates list items. Tests: (none yet)
-- [ ] TONSIL — `&`, `V`, `V−`/`?` are the unary operators; `$`/`¢` mingle; `~` selects. Tests: (none yet)
+- [x] TONSIL — `.` `:` `,` `;` `#` mark 16-bit variables, 32-bit variables, 16-bit arrays, 32-bit arrays and constants. Tests: `packages/conformance/tests/calculate/distinct-kinds.i`, `packages/conformance/tests/syntax/golden-dimension-a.i`
+- [x] TONSIL — `'` and `"` are groupers. `!` is spark-spot. Tests: `packages/conformance/tests/syntax/wow-is-spark-spot.i`, `packages/conformance/tests/syntax/rabbit-is-ears-and-spot.i`, `packages/conformance/tests/syntax/rabbit-closes-then-spot.i`
+- [x] TONSIL — `%` is the percentage qualifier; `<` and `-` form `<-`; `(` and `)` wrap labels; `+` separates list items. Tests: `packages/conformance/tests/syntax/percent-spaces.i`, `packages/conformance/tests/syntax/labels.i`, `packages/conformance/tests/syntax/free-format.i`, `packages/conformance/tests/calculate/golden-lsb.i`
+- [x] TONSIL — `&`, `V`, `V−`/`?` are the unary operators; `$`/`¢` mingle; `~` selects. Tests: `packages/conformance/tests/calculate/golden-unary.i`, `packages/conformance/tests/calculate/golden-mingle.i`, `packages/conformance/tests/calculate/golden-select.i`, `packages/conformance/tests/syntax/ascii-substitutes.i`
 - [x] TONSIL, §6 — `@` and `^` are operators only in bases 3–7. (decision: T40) Tests: `packages/conformance/tests/tri/e997-sharkfin-binary.2i`, `packages/conformance/tests/tri/golden-but.3i`
-- [ ] TONSIL — `=`, `` ` ``, `|`, `>`, `[`, `]`, `{`, `}`, `_`, `/`, `\`, `¬` and the blotch have no use, so they make their statement undecodable. (decision: T14) Tests: (none yet)
-- [ ] TONSIL — `V` is also an ordinary letter inside keywords (GIVE, REMEMBER, …). Tests: (none yet)
+- [x] TONSIL — `=`, `` ` ``, `|`, `>`, `[`, `]`, `{`, `}`, `_`, `/`, `\`, `¬` and the blotch have no use, so they make their statement undecodable. (decision: T14) Tests: `packages/conformance/tests/syntax/tonsil-unused-0.i`, `packages/conformance/tests/syntax/tonsil-unused-1.i`, `packages/conformance/tests/syntax/tonsil-unused-2.i`, `packages/conformance/tests/syntax/tonsil-unused-3.i`, `packages/conformance/tests/syntax/tonsil-unused-4.i`, `packages/conformance/tests/syntax/tonsil-unused-5.i`, `packages/conformance/tests/syntax/tonsil-unused-6.i`, `packages/conformance/tests/syntax/tonsil-unused-7.i`, `packages/conformance/tests/syntax/tonsil-unused-8.i`, `packages/conformance/tests/syntax/tonsil-unused-9.i`, `packages/conformance/tests/syntax/tonsil-unused-10.i`, `packages/conformance/tests/syntax/tonsil-unused-11.i`, `packages/conformance/tests/syntax/tonsil-blotch.i`
+- [x] TONSIL — `V` is also an ordinary letter inside keywords (GIVE, REMEMBER, …). Tests: `packages/conformance/tests/syntax/v-inside-keywords.i`
 
 ## Program-level behavior
 

@@ -13,6 +13,9 @@ class LlvmEmitter {
   final IrProgram program;
   final EmitOptions options;
   final String triple;
+  late final _natives = options.optimize
+      ? findNativeCalls(program)
+      : const <int, NativeCall>{};
 
   final _globals = StringBuffer();
   final _body = StringBuffer();
@@ -31,6 +34,8 @@ declare void @ick_fatal(i32, i32) noreturn
 declare void @ick_undecodable(ptr, i32, i32) noreturn
 declare void @ick_give_up() noreturn
 declare void @ick_next_push(i32, i32)
+declare i32 @ick_next_free()
+declare i64 @ick_syslib(i32, i32, i32)
 declare void @ick_forget(i32)
 declare i32 @ick_resume(i32, i32)
 declare i32 @ick_roll(i32)
@@ -67,6 +72,13 @@ declare void @ick_array_set_ignored(i32, i32)
     _block('fell');
     _line('call void @ick_fatal(i32 633, i32 ${program.userStatements + 1})');
     _line('unreachable');
+    if (program.statements.length > program.userStatements) {
+      _block('fell.library');
+      _line(
+        'call void @ick_fatal(i32 633, i32 ${program.statements.length + 1})',
+      );
+      _line('unreachable');
+    }
     _block('unreachable');
     _line('unreachable');
     if (_resumes.isNotEmpty) {
@@ -154,11 +166,11 @@ declare void @ick_array_set_ignored(i32, i32)
     return name;
   });
 
+  /// Running off the user's program is E633 at the user's last ordinal + 1 (decision T37);
+  /// running off the library, at its own.
   String _fallthrough(IrStatement s) {
-    if (s.ordinal == program.userStatements ||
-        s.ordinal == program.statements.length) {
-      return 'fell';
-    }
+    if (s.ordinal == program.userStatements) return 'fell';
+    if (s.ordinal == program.statements.length) return 'fell.library';
     return 's${s.ordinal + 1}';
   }
 
@@ -243,6 +255,7 @@ declare void @ick_array_set_ignored(i32, i32)
           'call void @ick_dimension(i32 ${array.index}, i32 ${values.length}, ptr %subs, i32 $next)',
         );
       case IrNext(:final target):
+        if (_natives[target] case final call?) _native(s, call);
         _line('call void @ick_next_push(i32 ${s.ordinal}, i32 $target)');
         _line('br label %s$target');
         _block(_newBlock('dead'));
@@ -379,6 +392,51 @@ declare void @ick_array_set_ignored(i32, i32)
       default:
         throw StateError('cannot assign to $target');
     }
+  }
+
+  /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
+  /// continues to the NEXT otherwise.
+  void _native(IrStatement s, NativeCall call) {
+    final native = _newBlock('native'), fallback = _newBlock('fallback');
+    final free = _fresh(), room = _fresh();
+    _line('$free = call i32 @ick_next_free()');
+    _line('$room = icmp uge i32 $free, ${call.depth}');
+    _line('br i1 $room, label %$native, label %$fallback');
+    _block(native);
+    for (final w in call.watched) {
+      final flagPointer = _fresh(), flag = _fresh(), clear = _fresh();
+      _line(
+        '$flagPointer = getelementptr inbounds [${program.scalars.length} x i8], ptr @ig, i64 0, i64 ${w.index}',
+      );
+      _line('$flag = load i8, ptr $flagPointer');
+      _line('$clear = icmp eq i8 $flag, 0');
+      final next = _newBlock('native');
+      _line('br i1 $clear, label %$next, label %$fallback');
+      _block(next);
+    }
+    final args = [
+      for (final a in call.args) _expr(IrScalar(a), s.next),
+      if (call.args.length == 1) '0',
+    ];
+    final r = _fresh(), ran = _fresh(), store = _newBlock('native');
+    _line(
+      '$r = call i64 @ick_syslib(i32 ${call.label}, ${args.map((a) => 'i32 $a').join(', ')})',
+    );
+    _line('$ran = icmp sge i64 $r, 0');
+    _line('br i1 $ran, label %$store, label %$fallback');
+    _block(store);
+    final result = _fresh();
+    _line('$result = trunc i64 $r to i32');
+    _line('store i32 $result, ptr ${_scalarPointer(call.result)}');
+    if (call.flag case final flag?) {
+      final high = _fresh(), overflowed = _fresh(), value = _fresh();
+      _line('$high = lshr i64 $r, 32');
+      _line('$overflowed = icmp ne i64 $high, 0');
+      _line('$value = select i1 $overflowed, i32 2, i32 1');
+      _line('store i32 $value, ptr ${_scalarPointer(flag)}');
+    }
+    _line('br label %a${s.ordinal}');
+    _block(fallback);
   }
 
   String _scalarPointer(Slot slot) {

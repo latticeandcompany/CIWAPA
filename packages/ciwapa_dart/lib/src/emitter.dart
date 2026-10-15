@@ -15,6 +15,9 @@ class DartEmitter {
   final IrProgram program;
   final EmitOptions options;
   final _out = StringBuffer();
+  late final _natives = options.optimize
+      ? findNativeCalls(program)
+      : const <int, NativeCall>{};
 
   static int entry(int ordinal) => 2 * ordinal;
   static int after(int ordinal) => 2 * ordinal + 1;
@@ -105,12 +108,14 @@ class DartEmitter {
 
   void _line(String code) => _out.writeln('        $code');
 
-  int _fallthrough(IrStatement s) {
-    if (s.ordinal == program.userStatements ||
-        s.ordinal == program.statements.length) {
-      return fellOff;
+  /// Where control goes after [s] when nothing jumps. Running off the user's program is E633 at
+  /// the user's last ordinal + 1 (decision T37); running off the library, at its own.
+  String _fallthrough(IrStatement s) {
+    if (s.ordinal == program.userStatements) return 'pc = $fellOff;';
+    if (s.ordinal == program.statements.length) {
+      return 'ickFatal(633, ${program.statements.length + 1});';
     }
-    return entry(s.ordinal + 1);
+    return 'pc = ${entry(s.ordinal + 1)};';
   }
 
   void _statement(IrStatement s) {
@@ -135,7 +140,7 @@ class DartEmitter {
 
     _out.writeln('      case ${after(s.ordinal)}:');
     _trap(s);
-    _line('pc = ${_fallthrough(s)};');
+    _line(_fallthrough(s));
   }
 
   /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own
@@ -165,6 +170,7 @@ class DartEmitter {
           'ickDimension(${array.index}, [${dimensions.map((d) => _expr(d, next)).join(', ')}], $next);',
         );
       case IrNext(:final target):
+        if (_natives[target] case final call?) _native(s, call);
         _line('ickNextPush(${after(s.ordinal)}, $target);');
         _line('pc = ${entry(target)};');
         _line('break;');
@@ -225,6 +231,28 @@ class DartEmitter {
       case final op:
         throw ToolchainException('${op.runtimeType} is not implemented yet');
     }
+  }
+
+  /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
+  /// falls through to the NEXT otherwise.
+  void _native(IrStatement s, NativeCall call) {
+    final guard = [
+      'ickNextFree() >= ${call.depth}',
+      for (final w in call.watched) 'ig[${w.index}] == 0',
+    ];
+    final args = [for (final a in call.args) 'v[${a.index}]'];
+    if (args.length == 1) args.add('0');
+    _line('if (${guard.join(' && ')}) {');
+    _line('  final r = ickSyslib(${call.label}, ${args.join(', ')});');
+    _line('  if (r >= 0) {');
+    _line('    v[${call.result.index}] = r;');
+    if (call.flag case final flag?) {
+      _line('    v[${flag.index}] = r >> 32 == 0 ? 1 : 2;');
+    }
+    _line('    pc = ${after(s.ordinal)};');
+    _line('    break;');
+    _line('  }');
+    _line('}');
   }
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is

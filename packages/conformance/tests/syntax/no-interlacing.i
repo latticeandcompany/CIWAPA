@@ -1,0 +1,4 @@
+DO :1 <- #1
+¢#2
+DO READ OUT :1
+PLEASE GIVE UP

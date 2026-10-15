@@ -450,7 +450,7 @@ class _Lowering {
       ir,
       _scalars.values.toList(),
       _arrays.values.toList(),
-      statements.length,
+      program.userStatements,
     );
   }
 
@@ -492,7 +492,7 @@ class _Lowering {
   }
 
   String _text(Statement s) {
-    final source = program.source;
+    final source = s.source;
     final first = source.lineOf(s.start);
     final last = source.lineOf(s.end > s.start ? s.end - 1 : s.start);
     return undecodableText([

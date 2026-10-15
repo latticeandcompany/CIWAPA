@@ -36,7 +36,7 @@ class FakeBackend implements Backend {
   Future<List<(bool, String)>> doctor() async => [(true, 'fake')];
 }
 
-class _Capture implements Stdout {
+class Capture implements Stdout {
   final buffer = BytesBuilder();
 
   @override
@@ -59,12 +59,13 @@ Future<(int, String)> cli(
   List<String> args,
   Backend backend, {
   Directory? systemTemp,
+  Capture? out,
 }) async {
-  final err = _Capture();
+  final err = Capture();
   final status = await IOOverrides.runZoned(
     () => runCli(args, backend),
     stderr: () => err,
-    stdout: () => _Capture(),
+    stdout: () => out ?? Capture(),
     getSystemTempDirectory: systemTemp == null ? null : () => systemTemp,
   );
   return (status, err.text);
@@ -153,6 +154,61 @@ void main() {
     ], FakeBackend(toolchainError: 'no'));
     expect(File('${temp.path}/new').existsSync(), isFalse);
   });
+
+  test('--dump=ast prints each statement as parsed (§10.2, Q101)', () async {
+    final out = Capture();
+    final (status, _) = await cli(
+      [
+        'build',
+        source('(5) PLEASE NOT %50 GIVE UP'),
+        '--dump=ast',
+        '-o',
+        '${temp.path}/prog',
+      ],
+      FakeBackend(),
+      out: out,
+    );
+    expect(status, 0);
+    expect(out.text, '1 (5) PLEASE NOT %50 GiveUp\n');
+  });
+
+  test('--dump=ir prints the IR (§10.2, Q101)', () async {
+    final out = Capture();
+    final (status, _) = await cli(
+      [
+        'build',
+        '--no-random-bug',
+        source('PLEASE DO (2) NEXT\n(2) DO GIVE UP'),
+        '--dump=ir',
+        '-o',
+        '${temp.path}/prog',
+      ],
+      FakeBackend(),
+      out: out,
+    );
+    expect(status, 0);
+    expect(out.text, '1 NEXT 2 next=2\n2 (2) GIVE UP next=3\n');
+  });
+
+  test(
+    '--keep writes the generated source beside the executable (§10.2, Q101)',
+    () async {
+      final path = source('DO GIVE UP');
+      await cli(['build', path, '-o', '${temp.path}/prog'], FakeBackend());
+      expect(File('${temp.path}/prog.txt').existsSync(), isFalse);
+      await cli([
+        'build',
+        '--keep',
+        path,
+        '-o',
+        '${temp.path}/prog',
+      ], FakeBackend());
+      expect(
+        File('${temp.path}/prog.txt').readAsStringSync(),
+        startsWith('1 '),
+      );
+    },
+  );
 
   test('--seed must be a whole number', () async {
     final (status, err) = await cli([
