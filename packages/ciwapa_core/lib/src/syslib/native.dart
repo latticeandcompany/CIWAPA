@@ -58,10 +58,6 @@ const Map<int, _Routine> _routines = {
 Map<int, NativeCall> findNativeCalls(IrProgram program) {
   if (program.statements.length == program.userStatements) return const {};
   final slots = {for (final s in program.scalars) s.ref: s};
-  final abstained = {
-    for (final s in program.statements)
-      if (s.op case IrAbstain(:final targets)) ...targets,
-  };
   final ignorable = {
     for (final s in program.statements)
       if (s.op case IrVarList(op: ListOp.ignore, :final scalars)) ...scalars,
@@ -83,7 +79,7 @@ Map<int, NativeCall> findNativeCalls(IrProgram program) {
           s.comeFrom == null &&
           s.op is! IrComeFrom &&
           (s.percent == null || s.percent == 100) &&
-          !abstained.contains(ordinal);
+          !s.abstainable;
       final (scalars, arrays) = _variables(s.op);
       touched.addAll(scalars);
       native &= !arrays;

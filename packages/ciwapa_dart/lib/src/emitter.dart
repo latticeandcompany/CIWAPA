@@ -108,12 +108,14 @@ class DartEmitter {
 
   void _line(String code) => _out.writeln('        $code');
 
-  int _fallthrough(IrStatement s) {
-    if (s.ordinal == program.userStatements ||
-        s.ordinal == program.statements.length) {
-      return fellOff;
+  /// Where control goes after [s] when nothing jumps. Running off the user's program is E633 at
+  /// the user's last ordinal + 1 (decision T37); running off the library, at its own.
+  String _fallthrough(IrStatement s) {
+    if (s.ordinal == program.userStatements) return 'pc = $fellOff;';
+    if (s.ordinal == program.statements.length) {
+      return 'ickFatal(633, ${program.statements.length + 1});';
     }
-    return entry(s.ordinal + 1);
+    return 'pc = ${entry(s.ordinal + 1)};';
   }
 
   void _statement(IrStatement s) {
@@ -138,7 +140,7 @@ class DartEmitter {
 
     _out.writeln('      case ${after(s.ordinal)}:');
     _trap(s);
-    _line('pc = ${_fallthrough(s)};');
+    _line(_fallthrough(s));
   }
 
   /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own

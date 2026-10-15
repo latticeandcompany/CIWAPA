@@ -72,6 +72,13 @@ declare void @ick_array_set_ignored(i32, i32)
     _block('fell');
     _line('call void @ick_fatal(i32 633, i32 ${program.userStatements + 1})');
     _line('unreachable');
+    if (program.statements.length > program.userStatements) {
+      _block('fell.library');
+      _line(
+        'call void @ick_fatal(i32 633, i32 ${program.statements.length + 1})',
+      );
+      _line('unreachable');
+    }
     _block('unreachable');
     _line('unreachable');
     if (_resumes.isNotEmpty) {
@@ -159,11 +166,11 @@ declare void @ick_array_set_ignored(i32, i32)
     return name;
   });
 
+  /// Running off the user's program is E633 at the user's last ordinal + 1 (decision T37);
+  /// running off the library, at its own.
   String _fallthrough(IrStatement s) {
-    if (s.ordinal == program.userStatements ||
-        s.ordinal == program.statements.length) {
-      return 'fell';
-    }
+    if (s.ordinal == program.userStatements) return 'fell';
+    if (s.ordinal == program.statements.length) return 'fell.library';
     return 's${s.ordinal + 1}';
   }
 

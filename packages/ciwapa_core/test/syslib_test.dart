@@ -97,15 +97,26 @@ void main() {
       expect(natives.keys, containsAll([1060, 1520, 1525]));
     });
 
-    test('an ABSTAIN or REINSTATE aimed at a library label disables the routines that reach it', () {
-      for (final verb in ['ABSTAIN FROM', 'REINSTATE']) {
+    test(
+      'an ABSTAIN aimed at a library label disables the routines that reach it',
+      () {
         final natives = nativesByLabel(
-          build('DO (1009) NEXT\nPLEASE $verb (1990)\nDO GIVE UP'),
+          build('DO (1009) NEXT\nPLEASE ABSTAIN FROM (1990)\nDO GIVE UP'),
         );
-        expect(natives.keys, isNot(contains(1009)), reason: verb);
+        expect(natives.keys, isNot(contains(1009)));
         expect(natives.keys, containsAll([1060, 1070, 1080, 1525]));
-      }
-    });
+      },
+    );
+
+    test(
+      'a REINSTATE alone can never abstain anything, so it disables nothing',
+      () {
+        final natives = nativesByLabel(
+          build('DO (1009) NEXT\nPLEASE REINSTATE (1990)\nDO GIVE UP'),
+        );
+        expect(natives.keys, unorderedEquals(syslibDepth.keys));
+      },
+    );
 
     test('a gerund that matches library statements disables them', () {
       final calculating = nativesByLabel(
@@ -113,7 +124,7 @@ void main() {
       );
       expect(calculating, isEmpty);
       final nexting = nativesByLabel(
-        build('DO (1060) NEXT\nPLEASE REINSTATE NEXTING\nDO GIVE UP'),
+        build('DO (1060) NEXT\nPLEASE ABSTAIN FROM NEXTING\nDO GIVE UP'),
       );
       expect(nexting.keys, unorderedEquals([1060, 1070, 1080, 1525]));
     });
