@@ -6,8 +6,10 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_dart/ciwapa_dart.dart';
 import 'package:test/test.dart';
 
-/// --seed 486 plants a bug on the first statement and not on the second.
+/// Among four statements, --seed 486 plants a bug on statement 1 only and --seed 43 on
+/// statement 3 only.
 const seed = '486';
+const seedThird = '43';
 
 void main() {
   late Directory temp;
@@ -50,6 +52,24 @@ void main() {
       seed,
     ]);
     expect(result.stderr, IclError.of(774).format(2));
+  });
+
+  test('T23: it fires before the % roll', () async {
+    final result = await buildAndRun('PLEASE %0 GIVE UP\nDO GIVE UP\n', [
+      '--seed',
+      seed,
+    ]);
+    expect(result.stderr, IclError.of(774).format(2));
+  });
+
+  test('T23: a bug on a COME FROM fires when its jump arrives, ahead of its own faults', () async {
+    for (final percent in ['', '%101 ']) {
+      final result = await buildAndRun(
+        '(1) DO .1 <- #1\nDO GIVE UP\nPLEASE ${percent}COME FROM (1)\nDO GIVE UP\n',
+        ['--seed', seedThird],
+      );
+      expect(result.stderr, IclError.of(774).format(4), reason: percent);
+    }
   });
 
   test('§10.2: --no-random-bug plants nothing', () async {

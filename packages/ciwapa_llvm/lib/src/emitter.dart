@@ -203,7 +203,8 @@ declare void @ick_array_set_ignored(i32, i32)
       _guard('ickRoll', c.percent!, otherwise);
     }
     if (c.abstainable) _guard('abstained', c.ordinal, otherwise);
-    if (c.faults.isEmpty) {
+    // A bug planted on the COME FROM fires at its entry, ahead of its faults (decision T23).
+    if (c.faults.isEmpty || c.bug) {
       _line('br label %s$comeFrom');
     } else {
       _line('call void @ick_fatal(i32 ${c.faults.first.code}, i32 ${c.next})');

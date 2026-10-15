@@ -266,7 +266,8 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
       if (placeholder) outputFile.deleteSync();
       _fail(IclError.of(778), 1, detail: e.message);
     }
-    if (outputFile.lengthSync() == 0) {
+    // A device such as /dev/null is never "empty"; only a regular file can be left unwritten.
+    if (FileSystemEntity.isFileSync(output) && outputFile.lengthSync() == 0) {
       outputFile.deleteSync();
       _fail(IclError.of(888), 1);
     }

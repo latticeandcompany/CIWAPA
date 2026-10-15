@@ -148,7 +148,8 @@ class DartEmitter {
       if (c.percent != null && c.percent! < 100) 'ickRoll(${c.percent})',
       if (c.abstainable) 'ab[${c.ordinal}] == 0',
     ];
-    final jump = c.faults.isEmpty
+    // A bug planted on the COME FROM fires at its entry, ahead of its faults (decision T23).
+    final jump = c.faults.isEmpty || c.bug
         ? 'pc = ${entry(comeFrom)}; break;'
         : 'ickFatal(${c.faults.first.code}, ${c.next});';
     _line(guard.isEmpty ? jump : 'if (${guard.join(' && ')}) { $jump }');

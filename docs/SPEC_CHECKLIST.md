@@ -415,7 +415,7 @@ The library is a clean-room implementation written from these contracts alone (d
 ## §12 Princeton compiler (BUG option only)
 
 - [x] §12 — by default each statement has a fixed 1-in-128 chance, chosen at compile time, of getting a random compiler bug. It fires E774 whenever that statement is reached, even if abstained. (decision: T23) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`, `packages/ciwapa_core/test/ir_test.dart`
-- [x] §12 — the BUG option doesn't affect E778. Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
+- [x] §12 — the BUG option doesn't affect E778. Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`, `packages/conformance/tests/options/help.i`
 - [x] §12 — the conformance suite always compiles with `--no-random-bug`. (decision: T23) Tests: `packages/conformance/bin/conformance.dart`
 
 ## TONSIL A — character set
