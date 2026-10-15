@@ -1,3 +1,3 @@
-DO :1 <- #256$#0
+PLEASE DO :1 <- #65280$#0
 DO (3) NEXT
-(3) PLEASE RESUME :1
+(3) DO RESUME :1

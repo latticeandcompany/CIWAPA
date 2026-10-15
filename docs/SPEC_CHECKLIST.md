@@ -131,7 +131,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.2 NEXT
 
-- [x] §4.4.2 — `(label) NEXT` transfers control to the label and pushes the return point on the NEXT stack, which starts empty. Tests: `packages/conformance/tests/next/next-resume.i`
+- [x] §4.4.2 — `(label) NEXT` transfers control to the label and pushes the return point on the NEXT stack, which starts empty. Tests: `packages/conformance/tests/next/next-resume.i`, `packages/conformance/tests/next/e632-resume-empty.i`
 - [x] §4.4.2 — the stack holds at most 79 entries; a NEXT with 79 entries already stored raises E123 `PROGRAM HAS DISAPPEARED INTO THE BLACK LAGOON.` (decision: T16) Tests: `packages/conformance/tests/next/depth-79.i`, `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/next/e123-recursion.i`
 - [x] §4.4.2, §9.2 — NEXT to a label that doesn't exist raises E129 when it executes. (decision: Q81) Tests: `packages/conformance/tests/next/e129-missing-label.i`, `packages/conformance/tests/next/e129-not-run.i`
 

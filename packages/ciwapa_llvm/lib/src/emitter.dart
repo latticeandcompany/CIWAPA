@@ -21,6 +21,10 @@ class LlvmEmitter {
   var _maxSubscripts = 1;
   var _blockCount = 0;
 
+  /// Every RESUME's popped return point and the block it comes from, for the one shared `resume`
+  /// block that dispatches them all.
+  final _resumes = <(String, String)>[];
+
   static const _declarations = '''
 declare void @ick_init(i32, ptr, ptr)
 declare void @ick_fatal(i32, i32) noreturn
@@ -56,6 +60,18 @@ declare i32 @ick_array_ignored(i32)
     _line('unreachable');
     _block('unreachable');
     _line('unreachable');
+    if (_resumes.isNotEmpty) {
+      _block('resume');
+      _line(
+        '%return.id = phi i32 ${_resumes.map((r) => '[ ${r.$1}, %${r.$2} ]').join(', ')}',
+      );
+      final returns = [
+        for (final t in program.statements)
+          if (t.op is IrNext && t.faults.isEmpty)
+            'i32 ${t.ordinal}, label %a${t.ordinal}',
+      ];
+      _line('switch i32 %return.id, label %unreachable [${returns.join(' ')}]');
+    }
 
     final scalars = program.scalars.length;
     final statements = program.statements.length;
@@ -174,7 +190,9 @@ declare i32 @ick_array_ignored(i32)
       return;
     }
     final c = program.at(comeFrom);
-    if (c.percent != null && c.percent! < 100) _guard('ickRoll', c.percent!, otherwise);
+    if (c.percent != null && c.percent! < 100) {
+      _guard('ickRoll', c.percent!, otherwise);
+    }
     if (c.abstainable) _guard('abstained', c.ordinal, otherwise);
     if (c.faults.isEmpty) {
       _line('br label %s$comeFrom');
@@ -222,17 +240,16 @@ declare i32 @ick_array_ignored(i32)
         _line('call void @ick_forget(i32 ${_expr(count, next)})');
       case IrResume(:final count):
         final id = _fresh();
-        _line('$id = call i32 @ick_resume(i32 ${_expr(count, next)}, i32 $next)');
+        _line(
+          '$id = call i32 @ick_resume(i32 ${_expr(count, next)}, i32 $next)',
+        );
         // An executed RESUME still springs a COME FROM aimed at it; only an executed NEXT waits
         // for its RESUME (§4.4.14.2).
         final dispatch = _newBlock('return');
         _trap(s, dispatch);
         _block(dispatch);
-        final returns = [
-          for (final t in program.statements)
-            if (t.op is IrNext && t.faults.isEmpty) 'i32 ${t.ordinal}, label %a${t.ordinal}',
-        ];
-        _line('switch i32 $id, label %unreachable [${returns.join(' ')}]');
+        _resumes.add((id, dispatch));
+        _line('br label %resume');
         _block(_newBlock('dead'));
       case IrGiveUp():
         _line('call void @ick_give_up()');
