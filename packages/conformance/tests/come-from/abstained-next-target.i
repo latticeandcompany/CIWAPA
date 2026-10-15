@@ -1,0 +1,5 @@
+(1) DON'T (3) NEXT
+DO .0 <- #1
+(3) PLEASE GIVE UP
+DO COME FROM (1)
+DO :0 <- #1

@@ -1,0 +1,3 @@
+(1) DO .0 <- #1
+DO GIVE UP
+PLEASE COME FROM (1)

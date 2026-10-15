@@ -239,16 +239,16 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.14 COME FROM
 
-- [ ] §4.4.14.2 — `COME FROM (label)` jumps to itself immediately after the labeled statement executes or is abstained from. Tests: (none yet)
-- [ ] §4.4.14.2 — when the target is an executed NEXT, the jump happens when a RESUME returns to that NEXT. Tests: (none yet)
-- [ ] §4.4.14.2 — an ABSTAIN or `%` on the target affects only the target, not the jump. Tests: (none yet)
-- [ ] §4.4.14.2 — an ABSTAIN or `%` on the COME FROM itself does affect the jump. Tests: (none yet)
-- [ ] §4.4.14.2 — reaching the COME FROM statement itself does nothing. Tests: (none yet)
-- [ ] §4.4.14.2 — a target that raises an error, or a GIVE UP target, exits before any jump. (decision: T19) Tests: (none yet)
-- [ ] §4.4.14.2 — a COME FROM that targets itself loops forever. (decision: T19) Tests: (none yet)
-- [ ] §4.4.14.2 — chained COME FROMs work: arriving at one triggers any COME FROM aimed at it. (decision: T19) Tests: (none yet)
-- [ ] §4.4.14.2, §9.2 — two or more COME FROMs aimed at one label are a compile-time E555. Abstained COME FROMs count too. (decision: T19) Tests: (none yet)
-- [ ] §9.2 — a COME FROM aimed at a label that doesn't exist is a compile-time E444. (decision: T19) Tests: (none yet)
+- [x] §4.4.14.2 — `COME FROM (label)` jumps to itself immediately after the labeled statement executes or is abstained from. Tests: `packages/conformance/tests/come-from/jump.i`, `packages/conformance/tests/come-from/abstained-target.i`, `packages/conformance/tests/come-from/resume-target.i`
+- [x] §4.4.14.2 — when the target is an executed NEXT, the jump happens when a RESUME returns to that NEXT. Tests: `packages/conformance/tests/come-from/next-target-on-resume.i`, `packages/conformance/tests/come-from/next-target-not-before.i`, `packages/conformance/tests/come-from/abstained-next-target.i`
+- [x] §4.4.14.2 — an ABSTAIN or `%` on the target affects only the target, not the jump. Tests: `packages/conformance/tests/come-from/abstained-target.i`, `packages/conformance/tests/come-from/percent-on-target.i`
+- [x] §4.4.14.2 — an ABSTAIN or `%` on the COME FROM itself does affect the jump. Tests: `packages/conformance/tests/come-from/abstained-come-from.i`, `packages/conformance/tests/come-from/percent-on-come-from.i`, `packages/conformance/tests/come-from/come-from-reinstated.i`, `packages/conformance/tests/come-from/abstain-coming-from.i`
+- [x] §4.4.14.2 — reaching the COME FROM statement itself does nothing. Tests: `packages/conformance/tests/come-from/reached-directly.i`
+- [x] §4.4.14.2 — a target that raises an error, or a GIVE UP target, exits before any jump. (decision: T19) Tests: `packages/conformance/tests/come-from/target-errors-first.i`, `packages/conformance/tests/come-from/give-up-target.i`
+- [x] §4.4.14.2 — a COME FROM that targets itself loops forever. (decision: T19) Tests: `packages/conformance/tests/come-from/self-loop.i`
+- [x] §4.4.14.2 — chained COME FROMs work: arriving at one triggers any COME FROM aimed at it. (decision: T19) Tests: `packages/conformance/tests/come-from/chain.i`
+- [x] §4.4.14.2, §9.2 — two or more COME FROMs aimed at one label are a compile-time E555. Abstained COME FROMs count too. (decision: T19) Tests: `packages/conformance/tests/come-from/e555.i`
+- [x] §9.2 — a COME FROM aimed at a label that doesn't exist is a compile-time E444. (decision: T19) Tests: `packages/conformance/tests/come-from/e444.i`
 
 ## §4.5 Comments and undecodable statements
 
@@ -378,11 +378,11 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
 - [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
-- [ ] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: (none yet)
+- [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
 - [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) Tests: (none yet)
 - [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) Tests: (none yet)
-- [ ] §9.2 — E444: COME FROM to a non-existent label. Tests: (none yet)
-- [ ] §9.2 — E555: more than one COME FROM to one label. Tests: (none yet)
+- [x] §9.2 — E444: COME FROM to a non-existent label. Tests: `packages/conformance/tests/come-from/e444.i`
+- [x] §9.2 — E555: more than one COME FROM to one label. Tests: `packages/conformance/tests/come-from/e555.i`
 - [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) Tests: (none yet)
 - [ ] §9.2 — E777: no such source file. Tests: (none yet)
 - [ ] §9.2 — E888: can't write the output executable or temp files. (decision: Q133) Tests: (none yet)

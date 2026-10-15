@@ -10,6 +10,8 @@
 //   .out    expected stdout (empty when missing)
 //   .err    expected stderr (empty when missing)
 //   .exit   expected exit status (0 when missing)
+//   .timeout  seconds the program must still be running after; it is then killed, and only its
+//             output so far is compared (for programs that loop forever by design)
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
 import 'dart:convert';
@@ -19,11 +21,12 @@ import 'dart:isolate';
 import 'package:args/args.dart';
 
 class Outcome {
-  Outcome(this.stdout, this.stderr, this.exitCode);
+  Outcome(this.stdout, this.stderr, this.exitCode, {this.timedOut = false});
 
   final List<int> stdout;
   final List<int> stderr;
   final int exitCode;
+  final bool timedOut;
 }
 
 Future<void> main(List<String> arguments) async {
@@ -108,6 +111,10 @@ Future<String?> _check(String compiler, String path) async {
       '-o',
       exe,
     ], const []);
+    final timeoutFile = File('$stem.timeout');
+    final timeout = timeoutFile.existsSync()
+        ? Duration(seconds: int.parse(timeoutFile.readAsStringSync().trim()))
+        : null;
     final outcome = build.exitCode != 0
         ? build
         : await _run(
@@ -116,7 +123,12 @@ Future<String?> _check(String compiler, String path) async {
             File('$stem.in').existsSync()
                 ? File('$stem.in').readAsBytesSync()
                 : const [],
+            timeout: timeout,
           );
+    if (timeout != null && build.exitCode == 0 && !outcome.timedOut) {
+      return 'expected the program to still be running after ${timeout.inSeconds}s, '
+          'but it exited with ${outcome.exitCode}';
+    }
     return _compare(stem, outcome);
   } finally {
     temp.deleteSync(recursive: true);
@@ -161,11 +173,25 @@ String _diff(String what, List<int> expected, List<int> actual) {
   return '$what differs\n--- expected\n${show(expected)}\n--- actual\n${show(actual)}';
 }
 
-Future<Outcome> _run(String exe, List<String> args, List<int> stdin) async {
+Future<Outcome> _run(
+  String exe,
+  List<String> args,
+  List<int> stdin, {
+  Duration? timeout,
+}) async {
   final process = await Process.start(exe, args);
   final out = process.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
   final err = process.stderr.fold<List<int>>([], (a, b) => a..addAll(b));
   process.stdin.add(stdin);
   await process.stdin.close().catchError((_) {});
+  if (timeout != null) {
+    final exited = await process.exitCode.timeout(timeout, onTimeout: () => -1);
+    if (exited == -1) {
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
+      // The expected exit status of a program that never ends is "still running": 0 here.
+      return Outcome(await out, await err, 0, timedOut: true);
+    }
+  }
   return Outcome(await out, await err, await process.exitCode);
 }
