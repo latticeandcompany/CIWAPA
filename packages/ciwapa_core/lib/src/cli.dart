@@ -251,6 +251,12 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
     } on FileSystemException {
       _fail(IclError.of(888), 1);
     }
+    // The output has to be writable before the toolchain runs; otherwise it would fail as E778.
+    try {
+      File(output).writeAsBytesSync(const []);
+    } on FileSystemException {
+      _fail(IclError.of(888), 1);
+    }
     try {
       await backend.compile(temp, output, optimize: options.optimize);
     } on ToolchainException catch (e) {

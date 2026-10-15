@@ -1,0 +1,2 @@
+(1) PLEASE GIVE UP
+(1) DO GIVE UP
