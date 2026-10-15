@@ -29,6 +29,9 @@ doc/api/
 .lattice/setup/
 .lattice-setup-marker
 
+# Subagent memory stays local
+.claude/agent-memory/
+
 # Toolchain container caches (see tools/in-docker)
 .cache/
 
