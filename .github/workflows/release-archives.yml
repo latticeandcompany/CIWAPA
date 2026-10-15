@@ -72,6 +72,8 @@ jobs:
           archive="$(.github/scripts/assemble-archive.sh ${{ matrix.platform.name }} ${{ matrix.flavor }} "$RUNNER_TEMP/toolchain" "$RUNNER_TEMP/archives")"
           name="$(basename "$archive")"
           name="${name%.zip}"
+          # upload-artifact needs a Windows path there, not Git Bash's /d/a/...
+          [[ "$RUNNER_OS" == Windows ]] && archive="$(cygpath -w "$archive")"
           echo "path=$archive" >>"$GITHUB_OUTPUT"
           echo "name=${name%.tar.xz}" >>"$GITHUB_OUTPUT"
 
