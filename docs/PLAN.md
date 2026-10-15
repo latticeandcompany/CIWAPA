@@ -210,7 +210,7 @@ docs/
 
 Ryan does these by hand (Q105):
 
-- [ ] **Remove the spec PDF from git history** (Q132). The rewrite was blocked by permissions during the planning session. There are three unpushed commits:
+- [x] **Remove the spec PDF from git history** (Q132). The rewrite was blocked by permissions during the planning session. There are three unpushed commits:
   ```sh
   git branch backup/pre-pdf-removal mega
   FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --index-filter 'git rm --cached --ignore-unmatch spec/intercal.pdf' -- mega
@@ -218,11 +218,11 @@ Ryan does these by hand (Q105):
   git log --oneline mega -- spec/intercal.pdf   # must print nothing
   git branch -D backup/pre-pdf-removal           # once you're happy
   ```
-- [ ] Create the **public** GitHub repo (Q104) and push `mega` as the default branch.
-- [ ] Turn on GitHub Actions and Dependabot.
-- [ ] Make sure the README carries the 🚨 DO NOT USE banner (`docs/assets/do-not-use.png`). The loop never removes it (Q130).
-- [ ] Start Docker.
-- [ ] Authenticate `gh` with the `repo` and `workflow` scopes. `gh stack` (v0.2.0) is already installed.
+- [x] Create the **public** GitHub repo (Q104) and push `mega` as the default branch.
+- [x] Turn on GitHub Actions and Dependabot.
+- [x] Make sure the README carries the 🚨 DO NOT USE banner (`docs/assets/do-not-use.png`). The loop never removes it (Q130).
+- [x] Start Docker.
+- [x] Authenticate `gh` with the `repo` and `workflow` scopes. `gh stack` (v0.2.0) is already installed.
 - [ ] Start Claude Code in **auto mode**, then paste the [goal prompt](#goal-prompt).
 
 ## Loop rules

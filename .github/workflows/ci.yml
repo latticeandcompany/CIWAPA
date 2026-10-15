@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [mega]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci (${{ matrix.platform.name }}, ${{ matrix.flavor }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux-x64, runner: ubuntu-24.04, os: linux, arch: x64 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
+          - { name: macos-arm64, runner: macos-latest, os: macos, arch: arm64 }
+          - { name: windows-x64, runner: windows-latest, os: windows, arch: x64 }
+          - { name: windows-arm64, runner: windows-11-arm, os: windows, arch: arm64 }
+        flavor: [dart, llvm]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the pinned Dart version
+        id: dart
+        run: echo "version=$(.github/scripts/dart-version.sh)" >>"$GITHUB_OUTPUT"
+
+      - name: Set up Dart
+        if: matrix.platform.os != 'linux'
+        uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: ${{ steps.dart.outputs.version }}
+
+      - name: Fetch llvm-mingw
+        if: matrix.flavor == 'llvm' && matrix.platform.os == 'windows'
+        run: |
+          .github/scripts/fetch-llvm-mingw.sh ${{ matrix.platform.arch }} "$RUNNER_TEMP/llvm-mingw"
+          echo "$RUNNER_TEMP/llvm-mingw/bin" >>"$GITHUB_PATH"
+
+      - name: Check (in ciwapa-toolchain)
+        if: matrix.platform.os == 'linux'
+        run: tools/in-docker .github/scripts/ci-check.sh ${{ matrix.platform.name }} ${{ matrix.flavor }}
+
+      - name: Check
+        if: matrix.platform.os != 'linux'
+        run: .github/scripts/ci-check.sh ${{ matrix.platform.name }} ${{ matrix.flavor }}

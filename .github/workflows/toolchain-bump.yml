@@ -1,0 +1,50 @@
+name: Toolchain bump
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Bump the pinned toolchains
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          changes="$(.github/scripts/toolchain-bump.sh)"
+          {
+            echo "changes<<EOF"
+            echo "$changes"
+            echo "EOF"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Open a pull request
+        if: steps.bump.outputs.changes != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGES: ${{ steps.bump.outputs.changes }}
+        run: |
+          branch="toolchain-bump/$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "Bump bundled toolchains" -m "$CHANGES"
+          git push --force origin "$branch"
+          body="$(printf '%s\n' \
+            '> [!NOTE]' \
+            '> This content was created by an AI agent acting on behalf of Ryan.' \
+            '' \
+            'Scheduled bump of the pinned toolchains in `.github/toolchain.env` and the Dockerfile:' \
+            '' \
+            '```' "$CHANGES" '```')"
+          gh pr create --base mega --head "$branch" --title "Bump bundled toolchains" --body "$body" ||
+            gh pr edit "$branch" --body "$body"

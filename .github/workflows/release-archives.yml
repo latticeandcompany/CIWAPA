@@ -1,0 +1,61 @@
+name: Release archives
+
+on:
+  pull_request:
+  push:
+    branches: [mega]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-archives-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  archive:
+    name: archive (${{ matrix.platform.name }}, ${{ matrix.flavor }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux-x64, runner: ubuntu-24.04, os: linux, arch: x64 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
+          - { name: macos-arm64, runner: macos-latest, os: macos, arch: arm64 }
+          - { name: windows-x64, runner: windows-latest, os: windows, arch: x64 }
+          - { name: windows-arm64, runner: windows-11-arm, os: windows, arch: arm64 }
+        flavor: [dart, llvm]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the Dart SDK
+        if: matrix.flavor == 'dart'
+        run: .github/scripts/fetch-dart-sdk.sh ${{ matrix.platform.os }} ${{ matrix.platform.arch }} "$RUNNER_TEMP/toolchain"
+
+      - name: Restore the Linux LLVM bundle
+        if: matrix.flavor == 'llvm' && matrix.platform.os == 'linux'
+        id: linux-bundle
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/toolchain
+          key: llvm-linux-bundle-${{ matrix.platform.arch }}-${{ hashFiles('.github/toolchain.env', '.github/scripts/llvm-linux-bundle.sh') }}
+
+      - name: Build the Linux LLVM bundle
+        if: matrix.flavor == 'llvm' && matrix.platform.os == 'linux' && steps.linux-bundle.outputs.cache-hit != 'true'
+        run: .github/scripts/llvm-linux-bundle.sh ${{ matrix.platform.arch }} "$RUNNER_TEMP/toolchain"
+
+      - name: Fetch llvm-mingw
+        if: matrix.flavor == 'llvm' && matrix.platform.os == 'windows'
+        run: .github/scripts/fetch-llvm-mingw.sh ${{ matrix.platform.arch }} "$RUNNER_TEMP/toolchain"
+
+      - name: Use Apple clang
+        if: matrix.flavor == 'llvm' && matrix.platform.os == 'macos'
+        run: mkdir -p "$RUNNER_TEMP/toolchain" && clang --version
+
+      - name: Build and run hello world
+        run: .github/scripts/spike-hello.sh ${{ matrix.platform.name }} ${{ matrix.flavor }} "$RUNNER_TEMP/toolchain"
