@@ -312,35 +312,35 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 The library is a clean-room implementation written from these contracts alone (decision: Q35, Q37, Q38). Its source and native fast paths must match them.
 
-- [ ] §7.1 — operands go in `.1`/`.2` (or `:1`/`:2`), and results go in the next variable(s). Tests: (none yet)
-- [ ] §7.1 — every variable not used for a result is left unchanged. Tests: (none yet)
-- [ ] §7.2 — (1000): `.3 <- .1 + .2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1009): `.3 <- .1 + .2`, and `.4 <- #1` if no overflow, otherwise `#2`. Tests: (none yet)
-- [ ] §7.2 — (1010): `.3 <- .1 − .2`, with no action on overflow. Tests: (none yet)
-- [ ] §7.2 — (1020): `.1 <- .1 + #1`, with no action on overflow. Tests: (none yet)
-- [ ] §7.2 — (1030): `.3 <- .1 × .2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1039): `.3 <- .1 × .2`, with the `.4` overflow flag as in (1009). Tests: (none yet)
-- [ ] §7.2 — (1040): `.3 <- .1 ÷ .2`, or `#0` if `.2` is `#0`. Tests: (none yet)
-- [ ] §7.2 — (1050): `.2 <- :1 ÷ .1`, with an error exit on overflow, or `#0` if `.1` is `#0`. Tests: (none yet)
-- [ ] §7.2 — (1060): `.3 <-` the bitwise OR of `.1` and `.2`. Tests: (none yet)
-- [ ] §7.2 — (1070): `.3 <-` the bitwise AND of `.1` and `.2`. Tests: (none yet)
-- [ ] §7.2 — (1080): `.3 <-` the bitwise XOR of `.1` and `.2`. Tests: (none yet)
-- [ ] §7.2 — (1500): `:3 <- :1 + :2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1509): `:3 <- :1 + :2`, and `:4 <- #1` if no overflow, otherwise `#2`. Tests: (none yet)
-- [ ] §7.2 — (1510): `:3 <- :1 − :2`, with no action on overflow. Tests: (none yet)
-- [ ] §7.2 — (1520): `:1 <- .1` concatenated with `.2`. Tests: (none yet)
-- [ ] §7.2 — (1525): internal routine that shifts `.3` left 8 bits. Tests: (none yet)
-- [ ] §7.2 — (1530): `:1 <- .1 × .2`. Tests: (none yet)
-- [ ] §7.2 — (1540): `:3 <- :1 × :2`, with an error exit on overflow. Tests: (none yet)
-- [ ] §7.2 — (1549): `:3 <- :1 × :2`, with the `:4` overflow flag. Tests: (none yet)
-- [ ] §7.2 — (1550): `:3 <- :1 ÷ :2`, or `#0` if `:2` is `#0`. Tests: (none yet)
-- [ ] §7.2 — (1900): `.1 <-` a uniform random number from #0 to #65535. Tests: (none yet)
-- [ ] §7.2 — (1910): `.2 <-` a normal random number from #0 to `.1`, with standard deviation `.1`/#12. Tests: (none yet)
-- [ ] §7.2 — an "error exit" is E000 whose message is the statement text `DOUBLE OR SINGLE PRECISION OVERFLOW`. (decision: Q38) Tests: (none yet)
-- [ ] §7 — a library call uses NEXT stack levels as a real INTERCAL routine would, so E123 depth behavior is the same whether the native fast path runs or not. (decision: Q37) Tests: (none yet)
-- [ ] §7 — the INTERCAL reference version is used whenever a program can observe library internals (COME FROM, ABSTAIN or REINSTATE on a library label, and the like). (decision: Q37) Tests: (none yet)
-- [ ] §7.3 — the library is included only when a NEXT targets a label in 1000–1999 and the program defines no label in that range. ABSTAIN and other references don't trigger it. (decision: T36) Tests: (none yet)
-- [ ] §7.3 — running off the end of the user's program raises E633; it never falls into the included library. (decision: T37) Tests: (none yet)
+- [x] §7.1 — operands go in `.1`/`.2` (or `:1`/`:2`), and results go in the next variable(s). Tests: `packages/conformance/tests/syslib/add16-1000.i`, `packages/conformance/tests/syslib/add32-1500.i`, `packages/conformance/tests/syslib/div32by16-1050.i`, `packages/conformance/tests/syslib/concat-1520.i`, `packages/conformance/tests/syslib/native-matches-reference.i`
+- [x] §7.1 — every variable not used for a result is left unchanged. Tests: `packages/conformance/tests/syslib/preserves-variables.i`, `packages/conformance/tests/syslib/next-stack-unchanged.i`
+- [x] §7.2 — (1000): `.3 <- .1 + .2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/add16-1000.i`, `packages/conformance/tests/syslib/add16-1000-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1009): `.3 <- .1 + .2`, and `.4 <- #1` if no overflow, otherwise `#2`. Tests: `packages/conformance/tests/syslib/add16-1009.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1010): `.3 <- .1 − .2`, with no action on overflow. Tests: `packages/conformance/tests/syslib/sub16-1010.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1020): `.1 <- .1 + #1`, with no action on overflow. Tests: `packages/conformance/tests/syslib/increment-1020.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1030): `.3 <- .1 × .2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/mul16-1030.i`, `packages/conformance/tests/syslib/mul16-1030-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1039): `.3 <- .1 × .2`, with the `.4` overflow flag as in (1009). Tests: `packages/conformance/tests/syslib/mul16-1039.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1040): `.3 <- .1 ÷ .2`, or `#0` if `.2` is `#0`. Tests: `packages/conformance/tests/syslib/div16-1040.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1050): `.2 <- :1 ÷ .1`, with an error exit on overflow, or `#0` if `.1` is `#0`. Tests: `packages/conformance/tests/syslib/div32by16-1050.i`, `packages/conformance/tests/syslib/div32by16-1050-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1060): `.3 <-` the bitwise OR of `.1` and `.2`. Tests: `packages/conformance/tests/syslib/or-1060.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1070): `.3 <-` the bitwise AND of `.1` and `.2`. Tests: `packages/conformance/tests/syslib/and-1070.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1080): `.3 <-` the bitwise XOR of `.1` and `.2`. Tests: `packages/conformance/tests/syslib/xor-1080.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1500): `:3 <- :1 + :2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/add32-1500.i`, `packages/conformance/tests/syslib/add32-1500-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1509): `:3 <- :1 + :2`, and `:4 <- #1` if no overflow, otherwise `#2`. Tests: `packages/conformance/tests/syslib/add32-1509.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1510): `:3 <- :1 − :2`, with no action on overflow. Tests: `packages/conformance/tests/syslib/sub32-1510.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1520): `:1 <- .1` concatenated with `.2`. Tests: `packages/conformance/tests/syslib/concat-1520.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1525): internal routine that shifts `.3` left 8 bits. Tests: `packages/conformance/tests/syslib/shift-1525.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1530): `:1 <- .1 × .2`. Tests: `packages/conformance/tests/syslib/mul16to32-1530.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1540): `:3 <- :1 × :2`, with an error exit on overflow. Tests: `packages/conformance/tests/syslib/mul32-1540.i`, `packages/conformance/tests/syslib/mul32-1540-overflow.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1549): `:3 <- :1 × :2`, with the `:4` overflow flag. Tests: `packages/conformance/tests/syslib/mul32-1549.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1550): `:3 <- :1 ÷ :2`, or `#0` if `:2` is `#0`. Tests: `packages/conformance/tests/syslib/div32-1550.i`, `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
+- [x] §7.2 — (1900): `.1 <-` a uniform random number from #0 to #65535. Tests: `packages/conformance/tests/syslib/random-1900.i`
+- [x] §7.2 — (1910): `.2 <-` a normal random number from #0 to `.1`, with standard deviation `.1`/#12. Tests: `packages/conformance/tests/syslib/random-1910.i`
+- [x] §7.2 — an "error exit" is E000 whose message is the statement text `DOUBLE OR SINGLE PRECISION OVERFLOW`. (decision: Q38) Tests: `packages/conformance/tests/syslib/add16-1000-overflow.i`, `packages/conformance/tests/syslib/add16-1000-overflow-large.i`, `packages/conformance/tests/syslib/mul16-1030-overflow.i`, `packages/conformance/tests/syslib/div32by16-1050-overflow.i`, `packages/conformance/tests/syslib/add32-1500-overflow.i`, `packages/conformance/tests/syslib/mul32-1540-overflow.i`, `packages/conformance/tests/syslib/mul32-1540-overflow-top-bit.i`
+- [x] §7 — a library call uses NEXT stack levels as a real INTERCAL routine would, so E123 depth behavior is the same whether the native fast path runs or not. (decision: Q37) Tests: `packages/conformance/tests/syslib/depth-1000.i`, `packages/conformance/tests/syslib/depth-1009.i`, `packages/conformance/tests/syslib/depth-1010.i`, `packages/conformance/tests/syslib/depth-1020.i`, `packages/conformance/tests/syslib/depth-1030.i`, `packages/conformance/tests/syslib/depth-1039.i`, `packages/conformance/tests/syslib/depth-1040-zero.i`, `packages/conformance/tests/syslib/depth-1040.i`, `packages/conformance/tests/syslib/depth-1050-zero.i`, `packages/conformance/tests/syslib/depth-1050.i`, `packages/conformance/tests/syslib/depth-1060.i`, `packages/conformance/tests/syslib/depth-1070.i`, `packages/conformance/tests/syslib/depth-1080.i`, `packages/conformance/tests/syslib/depth-1500.i`, `packages/conformance/tests/syslib/depth-1509.i`, `packages/conformance/tests/syslib/depth-1510.i`, `packages/conformance/tests/syslib/depth-1520.i`, `packages/conformance/tests/syslib/depth-1525.i`, `packages/conformance/tests/syslib/depth-1530.i`, `packages/conformance/tests/syslib/depth-1540.i`, `packages/conformance/tests/syslib/depth-1549.i`, `packages/conformance/tests/syslib/depth-1550-zero.i`, `packages/conformance/tests/syslib/depth-1550.i`, `packages/conformance/tests/syslib/depth-1900.i`, `packages/conformance/tests/syslib/depth-1910.i`
+- [x] §7 — the INTERCAL reference version is used whenever a program can observe library internals (COME FROM, ABSTAIN or REINSTATE on a library label, and the like). (decision: Q37) Tests: `packages/conformance/tests/syslib/fallback-come-from-inside.i`, `packages/conformance/tests/syslib/fallback-abstain-gerund.i`, `packages/conformance/tests/syslib/fallback-abstain-label.i`, `packages/conformance/tests/syslib/fallback-reinstate-label.i`, `packages/conformance/tests/syslib/fallback-ignore-scratch.i`, `packages/ciwapa_core/test/syslib_test.dart`
+- [x] §7.3 — the library is included only when a NEXT targets a label in 1000–1999 and the program defines no label in that range. ABSTAIN and other references don't trigger it. (decision: T36) Tests: `packages/conformance/tests/syslib/abstain-does-not-include.i`, `packages/conformance/tests/syslib/user-label-in-range.i`, `packages/conformance/tests/tri/syslib-not-included.3i`, `packages/ciwapa_core/test/syslib_test.dart`
+- [x] §7.3 — running off the end of the user's program raises E633; it never falls into the included library. (decision: T37) Tests: `packages/conformance/tests/syslib/falls-off-before-library.i`
 
 ## §9 Error messages
 
@@ -397,7 +397,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §10.2 — `--clockface` (`ick -C`) prints IIII, and MMMM for 4000. (decision: Q101, T30) Tests: `packages/conformance/tests/io/read-out-clockface.i`
 - [ ] §10.2 — `--keep` (`ick -c`) keeps the generated `.dart`/`.ll` source. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — `--dump=ast|ir` (`ick -d`) prints the parse or IR. (decision: Q101) Tests: (none yet)
-- [ ] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: (none yet)
+- [x] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: `packages/conformance/tests/syslib/native-matches-reference.i`, `packages/conformance/tests/syslib/native-matches-reference-no-opt.i`
 - [x] §10.2 — `--seed <n>` makes E774 placement reproducible. (decision: Q101, T23) Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`, `packages/ciwapa_core/test/ir_test.dart`
 - [x] §10.3 — compiled programs accept the `+`/`-` runtime options, read until the first argument without a sign. (decision: Q102) Tests: `packages/conformance/tests/options/options-stop-at-first-plain-argument.i`, `packages/conformance/tests/options/unknown-option.i`, `packages/conformance/tests/options/minus-seed-unknown.i`
 - [x] §10.3 — `+help`/`-help` print usage and exit with E778, with no 3-second sleep. (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/conformance/tests/options/help-minus.i`
@@ -409,7 +409,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §10.4 — exactly 1/5 and exactly 1/3 both pass, because the comparisons use exact fractions. (decision: T35) Tests: `packages/conformance/tests/errors/polite-exactly-one-fifth.i`, `packages/conformance/tests/errors/polite-exactly-one-third.i`
 - [x] §10.4 — the check counts statements whose identifier includes PLEASE (`PLEASE`, `PLEASE DO`, `DO PLEASE`), not PLEASE text anywhere. (decision: T35, T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`, `packages/conformance/tests/errors/please-text-not-counted.i`
 - [x] §10.4 — comments and undecodable statements count as statements. (decision: T35) Tests: `packages/conformance/tests/errors/comments-count.i`
-- [ ] §10.4, §7.3 — the auto-included library does not count. (decision: T35) Tests: (none yet)
+- [x] §10.4, §7.3 — the auto-included library does not count. (decision: T35) Tests: `packages/conformance/tests/syslib/library-not-polite-enough.i`
 - [x] §10.4 — the check applies only to programs with more than 2 statements. (decision: T35) Tests: `packages/conformance/tests/errors/two-statements-unchecked.i`, `packages/conformance/tests/errors/two-statements-all-polite.i`, `packages/conformance/tests/errors/three-statements-checked.i`
 
 ## §12 Princeton compiler (BUG option only)

@@ -1,0 +1,50 @@
+DO .1 <- #0
+DO .3 <- #9
+DO :2 <- #8
+PLEASE DO (1910) NEXT
+DO READ OUT .2 + .1 + .3 + :2
+DO (1910) NEXT
+DO READ OUT .2
+DO :5 <- #0
+DO .5 <- #0
+DO .9 <- #65535
+DO .6 <- #65535
+PLEASE DO (10) NEXT
+(10) DO FORGET #1
+DO .1 <- #1000
+DO (1910) NEXT
+DO (1010) NEXT
+PLEASE DO .5 <- "V'.5$.3'"~'#0$#65535'
+DO :1 <- :5
+DO :2 <- .2
+DO (1500) NEXT
+PLEASE DO :5 <- :3
+DO .6 <- .6~#65534
+DO .8 <- '.6~.6'~#1
+PLEASE DO .8 <- "?'.8$#1'"~#3
+DO (20) NEXT
+DO (10) NEXT
+(20) DO (30) NEXT
+DO FORGET #1
+PLEASE DO .9 <- .9~#65534
+DO .8 <- '.9~.9'~#1
+DO .8 <- "?'.8$#1'"~#3
+DO (40) NEXT
+DO .6 <- #65535
+PLEASE DO (10) NEXT
+(40) DO (30) NEXT
+DO FORGET #1
+DO .5 <- .5~#32768
+DO READ OUT .5
+DO :1 <- :5
+PLEASE DO :2 <- #256
+DO (1550) NEXT
+DO .1 <- :3
+DO .2 <- #460
+DO (1010) NEXT
+PLEASE DO .1 <- .3
+DO .2 <- #80
+DO (1040) NEXT
+DO READ OUT .3
+PLEASE GIVE UP
+(30) DO RESUME .8

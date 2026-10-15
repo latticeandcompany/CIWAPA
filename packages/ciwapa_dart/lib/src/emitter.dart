@@ -15,6 +15,9 @@ class DartEmitter {
   final IrProgram program;
   final EmitOptions options;
   final _out = StringBuffer();
+  late final _natives = options.optimize
+      ? findNativeCalls(program)
+      : const <int, NativeCall>{};
 
   static int entry(int ordinal) => 2 * ordinal;
   static int after(int ordinal) => 2 * ordinal + 1;
@@ -165,6 +168,7 @@ class DartEmitter {
           'ickDimension(${array.index}, [${dimensions.map((d) => _expr(d, next)).join(', ')}], $next);',
         );
       case IrNext(:final target):
+        if (_natives[target] case final call?) _native(s, call);
         _line('ickNextPush(${after(s.ordinal)}, $target);');
         _line('pc = ${entry(target)};');
         _line('break;');
@@ -225,6 +229,28 @@ class DartEmitter {
       case final op:
         throw ToolchainException('${op.runtimeType} is not implemented yet');
     }
+  }
+
+  /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
+  /// falls through to the NEXT otherwise.
+  void _native(IrStatement s, NativeCall call) {
+    final guard = [
+      'ickNextFree() >= ${call.depth}',
+      for (final w in call.watched) 'ig[${w.index}] == 0',
+    ];
+    final args = [for (final a in call.args) 'v[${a.index}]'];
+    if (args.length == 1) args.add('0');
+    _line('if (${guard.join(' && ')}) {');
+    _line('  final r = ickSyslib(${call.label}, ${args.join(', ')});');
+    _line('  if (r >= 0) {');
+    _line('    v[${call.result.index}] = r;');
+    if (call.flag case final flag?) {
+      _line('    v[${flag.index}] = r >> 32 == 0 ? 1 : 2;');
+    }
+    _line('    pc = ${after(s.ordinal)};');
+    _line('    break;');
+    _line('  }');
+    _line('}');
   }
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is

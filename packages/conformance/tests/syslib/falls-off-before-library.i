@@ -1,0 +1,4 @@
+DO .1 <- #1
+PLEASE DO .2 <- #2
+DO (1000) NEXT
+DO READ OUT .3

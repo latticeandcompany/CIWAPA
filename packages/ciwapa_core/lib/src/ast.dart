@@ -1,4 +1,5 @@
 import 'lexer.dart';
+import 'source.dart';
 
 /// The two scalar and two array kinds, with their sigils (§3.1, §3.3).
 enum VarKind {
@@ -236,6 +237,7 @@ class Undecodable extends Body {
 /// One statement as parsed: its qualifiers, its body and where its text lies in the source.
 class Statement {
   Statement({
+    required this.source,
     required this.start,
     required this.end,
     required this.label,
@@ -245,6 +247,9 @@ class Statement {
     required this.body,
     this.chain = false,
   });
+
+  /// The file the statement comes from: the user's program or the system library.
+  final Source source;
 
   /// Rune offsets of the statement's text: from its label or identifier up to the next statement.
   final int start;

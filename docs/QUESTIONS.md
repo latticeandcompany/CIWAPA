@@ -70,3 +70,11 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The flavors keep today's behavior until this is answered.
 - **Blocks:** no checklist items; the conformance suite only passes valid UTF-8 arguments.
 - **Raised:** 2026-10-14
+
+## L9: Is the system library included in bases 3–7?
+
+- **Context:** §7.3 and T36 say when the library is included, but not for which bases. The library is binary: its constants and operator tricks assume bits, and many of its constants are above base 3's #59048 limit. C-INTERCAL 0.15 includes the same binary `syslib.i` whatever the base, which can't work in bases 3–7. (0.35 ships separate per-base libraries, but those are outside Mode 1.)
+- **Options:** (a) include the binary library only in base 2; a NEXT to 1000–1999 in bases 3–7 is then E129 when it executes, like any missing label; (b) include it anyway, as 0.15 does, so such programs fail in odd ways; (c) write clean-room libraries for bases 3–7 (a goal of its own).
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-14

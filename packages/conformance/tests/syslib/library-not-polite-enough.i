@@ -1,0 +1,3 @@
+DO .1 <- #1
+DO (1000) NEXT
+DO GIVE UP

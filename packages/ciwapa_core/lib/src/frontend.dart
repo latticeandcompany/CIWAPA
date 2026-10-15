@@ -3,6 +3,7 @@ import 'errors.dart';
 import 'lexer.dart';
 import 'parser.dart';
 import 'source.dart';
+import 'syslib/syslib.g.dart';
 
 /// A whole-program error, reported at compile time (decision Q80).
 class CompileError implements Exception {
@@ -20,13 +21,18 @@ class CompileError implements Exception {
 
 /// A parsed program that passed every whole-program check.
 class Program {
-  Program(this.source, this.base, this.statements);
+  Program(this.source, this.base, this.statements, this.userStatements);
 
   final Source source;
 
   /// The numeric base picked by the file extension, 2 through 7.
   final int base;
+
+  /// The user's statements, followed by the system library's when it was included (§7.3).
   final List<Statement> statements;
+
+  /// How many of [statements] are the user's.
+  final int userStatements;
 }
 
 bool isValidLabel(int label) => label >= 1 && label <= 65535;
@@ -44,9 +50,27 @@ Program analyze(Source source, {bool traditional = false}) {
     }
   }
   _checkPoliteness(statements);
+  final userStatements = statements.length;
+  if (_needsLibrary(statements, base)) {
+    statements.addAll(Parser(Source('syslib.i', syslibSource)).parse());
+  }
   _checkLabels(statements);
   _checkOperators(statements, base);
-  return Program(source, base, statements);
+  return Program(source, base, statements, userStatements);
+}
+
+/// §7.3 and decision T36: the library is included when a NEXT targets a label from 1000 to 1999
+/// and the program defines no label in that range. It is binary, so only base 2 programs get it
+/// (QUESTIONS.md L9).
+bool _needsLibrary(List<Statement> statements, int base) {
+  bool inRange(int? label) => label != null && label >= 1000 && label <= 1999;
+  if (base != 2 || statements.any((s) => inRange(s.label))) return false;
+  return statements.any(
+    (s) => switch (s.body) {
+      Next(:final label) => inRange(label),
+      _ => false,
+    },
+  );
 }
 
 /// §10.4 and decision T35: fewer than 1/5 polite statements is E079, more than 1/3 is E099, using

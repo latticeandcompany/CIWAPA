@@ -160,6 +160,44 @@ int ickResume(int count, int next) {
   return _nextStack[_nextCount];
 }
 
+int ickNextFree() => _nextDepth - _nextCount;
+
+// ---- Native system library routines (§7.2, decision Q37) ---------------------------------------
+
+const _overflow = 1 << 32;
+
+int _exact(int r, int max) => r > max ? -1 : r;
+
+int _flagged(int r, int max) => (r & max) | (r > max ? _overflow : 0);
+
+bool _productOverflows(int a, int b) => b != 0 && a > 0xFFFFFFFF ~/ b;
+
+/// Runs library routine [label] on [a] and [b]. Returns the result in the low 32 bits, with bit
+/// 32 set when a routine with an overflow flag overflowed, or -1 when the INTERCAL routine has to
+/// run instead because it would take its error exit.
+int ickSyslib(int label, int a, int b) => switch (label) {
+  1000 => _exact(a + b, 0xFFFF),
+  1009 => _flagged(a + b, 0xFFFF),
+  1010 => (a - b) & 0xFFFF,
+  1020 => (a + 1) & 0xFFFF,
+  1030 => _exact(a * b, 0xFFFF),
+  1039 => _flagged(a * b, 0xFFFF),
+  1040 || 1550 => b == 0 ? 0 : a ~/ b,
+  1050 => b == 0 ? 0 : _exact(a ~/ b, 0xFFFF),
+  1060 => a | b,
+  1070 => a & b,
+  1080 => a ^ b,
+  1500 => _exact(a + b, 0xFFFFFFFF),
+  1509 => _flagged(a + b, 0xFFFFFFFF),
+  1510 => (a - b) & 0xFFFFFFFF,
+  1520 => a << 16 | b,
+  1525 => a << 8 & 0xFFFF,
+  1530 => a * b,
+  1540 => _productOverflows(a, b) ? -1 : a * b,
+  1549 => (a * b & 0xFFFFFFFF) | (_productOverflows(a, b) ? _overflow : 0),
+  _ => -1,
+};
+
 // ---- Randomness (§4.3, decision T22) ------------------------------------------------------------
 
 int _nextRandom() {
