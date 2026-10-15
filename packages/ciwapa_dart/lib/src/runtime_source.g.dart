@@ -212,7 +212,8 @@ void _push<T>(List<T> stash, T Function() copy, int next) {
   }
 }
 
-void ickStashScalar(int slot, int next) => _push(_scalarStashes[slot], () => _values[slot], next);
+void ickStashScalar(int slot, int next) =>
+    _push(_scalarStashes[slot], () => _values[slot], next);
 
 void ickRetrieveScalar(int slot, int next) {
   final stash = _scalarStashes[slot];
@@ -223,7 +224,11 @@ void ickRetrieveScalar(int slot, int next) {
 
 void ickStashArray(int index, int next) {
   final a = _arrays[index].shape;
-  _push(_arrayStashes[index], () => _Shape(Uint32List.fromList(a.dims), Uint32List.fromList(a.data)), next);
+  _push(
+    _arrayStashes[index],
+    () => _Shape(Uint32List.fromList(a.dims), Uint32List.fromList(a.data)),
+    next,
+  );
 }
 
 /// Restores the old dimensions too, even into a currently undimensioned array (decision T25).

@@ -162,7 +162,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 - [x] §4.4.6 — `RETRIEVE list` restores the most recently STASHed values, and a second RETRIEVE restores the next most recent. Tests: `packages/conformance/tests/stash/retrieve-restores.i`, `packages/conformance/tests/stash/last-in-first-out.i`
 - [x] §4.4.6 — RETRIEVE of an array restores its old dimensions as well as its values. Tests: `packages/conformance/tests/stash/array-dimensions.i`
-- [x] §4.4.6 — RETRIEVE into a currently undimensioned array restores it normally. (decision: T25) Tests: `packages/conformance/tests/stash/array-undimensioned-snapshot.i`
+- [x] §4.4.6 — RETRIEVE into a currently undimensioned array restores it normally. (decision: T25) Tests: `packages/conformance/tests/stash/retrieve-into-undimensioned.i`, `packages/conformance/tests/stash/array-undimensioned-snapshot.i`
 - [x] §4.4.6, §9.2 — RETRIEVE of something never STASHed raises E436 `THROW STICK BEFORE RETRIEVING.` Tests: `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/stash/e436-array.i`, `packages/conformance/tests/stash/e436-after-emptying.i`
 
 ## §4.4.7 IGNORE

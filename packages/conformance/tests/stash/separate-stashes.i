@@ -1,6 +1,7 @@
-PLEASE DO :1 <- #256$#0
+DO :1 <- #256$#0
 DO :2 <- #1
-PLEASE STASH :1 + :2
+PLEASE STASH :1
+DO STASH :2
 DO :1 <- #1
-DO RETRIEVE :2
-DO .1 <- :1
+DO RETRIEVE :1
+PLEASE DO .1 <- :1

@@ -1,0 +1,4 @@
+DO STASH ,1
+DO RETRIEVE ,1
+PLEASE DO ,1 <- #2
+DO ,1 SUB #2 <- #1
