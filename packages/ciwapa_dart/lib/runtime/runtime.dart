@@ -11,14 +11,25 @@ class IckMessage {
   final String joke;
 }
 
+class _Shape {
+  _Shape(this.dims, this.data);
+
+  final Uint32List dims;
+  final Uint32List data;
+
+  int get rank => dims.length;
+}
+
 class _Array {
-  int rank = 0;
-  Uint32List dims = Uint32List(0);
-  Uint32List data = Uint32List(0);
+  _Shape shape = _Shape(Uint32List(0), Uint32List(0));
   bool ignored = false;
 }
 
 late Map<int, IckMessage> _messages;
+late Uint32List _values;
+late Uint8List _ignored;
+late List<List<int>> _scalarStashes;
+late List<List<_Shape>> _arrayStashes;
 late int _smallMax;
 late List<_Array> _arrays;
 int _rngState = 0;
@@ -30,9 +41,15 @@ void ickInit(
   required int base,
   required bool clockface,
   required int arrayCount,
+  required Uint32List values,
+  required Uint8List ignored,
   required Map<int, IckMessage> messages,
 }) {
   _messages = messages;
+  _values = values;
+  _ignored = ignored;
+  _scalarStashes = List.generate(values.length, (_) => <int>[]);
+  _arrayStashes = List.generate(arrayCount, (_) => <_Shape>[]);
   var max = 1;
   for (var i = 0; i < _smallDigits[base]; i++) {
     max *= base;
@@ -162,15 +179,12 @@ void ickDimension(int index, List<int> dims, int next) {
     // Too large to allocate (decision T26). There is no artificial cap (decision T27).
     ickFatal(241, next);
   }
-  a
-    ..rank = dims.length
-    ..dims = Uint32List.fromList(dims)
-    ..data = data;
+  a.shape = _Shape(Uint32List.fromList(dims), data);
 }
 
 /// The offset of an element in [ickArrayData], after checking the subscripts.
 int ickElement(int index, List<int> subscripts, int next) {
-  final a = _arrays[index];
+  final a = _arrays[index].shape;
   if (subscripts.length != a.rank) ickFatal(241, next);
   var offset = 0;
   for (var i = 0; i < subscripts.length; i++) {
@@ -181,6 +195,44 @@ int ickElement(int index, List<int> subscripts, int next) {
   return offset;
 }
 
-Uint32List ickArrayData(int index) => _arrays[index].data;
+Uint32List ickArrayData(int index) => _arrays[index].shape.data;
 
 bool ickArrayIgnored(int index) => _arrays[index].ignored;
+
+// ---- STASH and RETRIEVE (§4.4.5, §4.4.6, decisions T24, T25) ------------------------------------
+
+/// The only limit on a stash is memory; running out is E222.
+void _push<T>(List<T> stash, T Function() copy, int next) {
+  try {
+    stash.add(copy());
+  } on OutOfMemoryError {
+    ickFatal(222, next);
+  }
+}
+
+void ickStashScalar(int slot, int next) =>
+    _push(_scalarStashes[slot], () => _values[slot], next);
+
+void ickRetrieveScalar(int slot, int next) {
+  final stash = _scalarStashes[slot];
+  if (stash.isEmpty) ickFatal(436, next);
+  final value = stash.removeLast();
+  if (_ignored[slot] == 0) _values[slot] = value;
+}
+
+void ickStashArray(int index, int next) {
+  final a = _arrays[index].shape;
+  _push(
+    _arrayStashes[index],
+    () => _Shape(Uint32List.fromList(a.dims), Uint32List.fromList(a.data)),
+    next,
+  );
+}
+
+/// Restores the old dimensions too, even into a currently undimensioned array (decision T25).
+void ickRetrieveArray(int index, int next) {
+  final stash = _arrayStashes[index];
+  if (stash.isEmpty) ickFatal(436, next);
+  final saved = stash.removeLast();
+  if (!_arrays[index].ignored) _arrays[index].shape = saved;
+}

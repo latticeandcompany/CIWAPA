@@ -1,0 +1,6 @@
+PLEASE DO ;1 <- #1
+DO ;1 SUB #1 <- #256$#0
+PLEASE STASH ;1
+DO ;1 SUB #1 <- #1
+DO RETRIEVE ;1
+DO .1 <- ;1 SUB #1

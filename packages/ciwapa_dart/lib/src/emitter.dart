@@ -39,7 +39,7 @@ class DartEmitter {
       ..writeln('void main(List<String> args) {')
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
-        'arrayCount: ${program.arrays.length}, messages: _messages);',
+        'arrayCount: ${program.arrays.length}, values: v, ignored: ig, messages: _messages);',
       );
     for (final s in program.statements) {
       if (s.initiallyAbstained) _out.writeln('  ab[${s.ordinal}] = 1;');
@@ -161,6 +161,20 @@ class DartEmitter {
         _line('break;');
       case IrGiveUp():
         _line('ickGiveUp();');
+      case IrVarList(op: ListOp.stash, :final scalars, :final arrays):
+        for (final v in scalars) {
+          _line('ickStashScalar(${v.index}, $next);');
+        }
+        for (final a in arrays) {
+          _line('ickStashArray(${a.index}, $next);');
+        }
+      case IrVarList(op: ListOp.retrieve, :final scalars, :final arrays):
+        for (final v in scalars) {
+          _line('ickRetrieveScalar(${v.index}, $next);');
+        }
+        for (final a in arrays) {
+          _line('ickRetrieveArray(${a.index}, $next);');
+        }
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):

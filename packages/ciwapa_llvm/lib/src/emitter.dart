@@ -34,6 +34,10 @@ declare void @ick_next_push(i32, i32)
 declare void @ick_forget(i32)
 declare i32 @ick_resume(i32, i32)
 declare i32 @ick_roll(i32)
+declare void @ick_stash_scalar(i32, i32)
+declare void @ick_retrieve_scalar(i32, i32)
+declare void @ick_stash_array(i32, i32)
+declare void @ick_retrieve_array(i32, i32)
 declare i32 @ick_mingle(i32, i32, i32)
 declare i32 @ick_select(i32, i32)
 declare i32 @ick_and16(i32)
@@ -255,6 +259,15 @@ declare i32 @ick_array_ignored(i32)
         _line('call void @ick_give_up()');
         _line('unreachable');
         _block(_newBlock('dead'));
+      case IrVarList(:final op, :final scalars, :final arrays)
+          when op == ListOp.stash || op == ListOp.retrieve:
+        final verb = op == ListOp.stash ? 'stash' : 'retrieve';
+        for (final v in scalars) {
+          _line('call void @ick_${verb}_scalar(i32 ${v.index}, i32 $next)');
+        }
+        for (final a in arrays) {
+          _line('call void @ick_${verb}_array(i32 ${a.index}, i32 $next)');
+        }
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):

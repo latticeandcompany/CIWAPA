@@ -23,8 +23,23 @@ typedef struct {
   uint32_t rank;
   uint32_t *dims;
   uint32_t *data;
+  size_t size;
+} ick_shape;
+
+typedef struct {
+  ick_shape shape;
   uint32_t ignored;
 } ick_array;
+
+typedef struct {
+  uint32_t *items;
+  size_t count, capacity;
+} ick_value_stash;
+
+typedef struct {
+  ick_shape *items;
+  size_t count, capacity;
+} ick_array_stash;
 
 typedef struct {
   uint32_t base;
@@ -40,6 +55,8 @@ typedef struct {
 static const ick_program *program;
 static uint32_t small_max;
 static ick_array *arrays;
+static ick_value_stash *scalar_stashes;
+static ick_array_stash *array_stashes;
 static uint64_t rng_state;
 
 static uint32_t pow_u32(uint32_t base, uint32_t exponent) {
@@ -64,6 +81,8 @@ void ick_init(int argc, char **argv, const ick_program *p) {
   program = p;
   small_max = p->base == 2 ? 65535u : pow_u32(p->base, small_digits(p->base)) - 1;
   arrays = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array));
+  scalar_stashes = calloc(p->scalar_count ? p->scalar_count : 1, sizeof(ick_value_stash));
+  array_stashes = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array_stash));
   rng_state = (uint64_t)time(NULL);
 }
 
@@ -202,15 +221,13 @@ void ick_dimension(uint32_t index, uint32_t rank, const uint32_t *dims, uint32_t
   uint32_t *copy = malloc(rank * sizeof(uint32_t));
   if (!data || !copy) ick_fatal(241, next);
   memcpy(copy, dims, rank * sizeof(uint32_t));
-  free(a->data);
-  free(a->dims);
-  a->rank = rank;
-  a->dims = copy;
-  a->data = data;
+  free(a->shape.data);
+  free(a->shape.dims);
+  a->shape = (ick_shape){rank, copy, data, (size_t)size};
 }
 
 uint32_t *ick_element(uint32_t index, uint32_t count, const uint32_t *subscripts, uint32_t next) {
-  ick_array *a = &arrays[index];
+  ick_shape *a = &arrays[index].shape;
   if (count != a->rank) ick_fatal(241, next);
   size_t offset = 0;
   for (uint32_t i = 0; i < count; i++) {
@@ -221,4 +238,59 @@ uint32_t *ick_element(uint32_t index, uint32_t count, const uint32_t *subscripts
 }
 
 uint32_t ick_array_ignored(uint32_t index) { return arrays[index].ignored; }
+
+/* ---- STASH and RETRIEVE (§4.4.5, §4.4.6, decisions T24, T25) --------------------------- */
+
+/* Grows a stash; the only limit is memory, and running out is E222. */
+static void *grow(void *items, size_t *capacity, size_t item_size, uint32_t next) {
+  size_t wanted = *capacity ? *capacity * 2 : 4;
+  void *grown = realloc(items, wanted * item_size);
+  if (!grown) ick_fatal(222, next);
+  *capacity = wanted;
+  return grown;
+}
+
+void ick_stash_scalar(uint32_t slot, uint32_t next) {
+  ick_value_stash *s = &scalar_stashes[slot];
+  if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(uint32_t), next);
+  s->items[s->count++] = program->values[slot];
+}
+
+void ick_retrieve_scalar(uint32_t slot, uint32_t next) {
+  ick_value_stash *s = &scalar_stashes[slot];
+  if (s->count == 0) ick_fatal(436, next);
+  uint32_t value = s->items[--s->count];
+  if (!program->ignored[slot]) program->values[slot] = value;
+}
+
+void ick_stash_array(uint32_t index, uint32_t next) {
+  ick_array_stash *s = &array_stashes[index];
+  ick_shape *a = &arrays[index].shape;
+  if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(ick_shape), next);
+  ick_shape copy = {a->rank, NULL, NULL, a->size};
+  if (a->rank) {
+    copy.dims = malloc(a->rank * sizeof(uint32_t));
+    copy.data = malloc(a->size * sizeof(uint32_t));
+    if (!copy.dims || !copy.data) ick_fatal(222, next);
+    memcpy(copy.dims, a->dims, a->rank * sizeof(uint32_t));
+    memcpy(copy.data, a->data, a->size * sizeof(uint32_t));
+  }
+  s->items[s->count++] = copy;
+}
+
+/* Restores the old dimensions too, even into a currently undimensioned array (decision T25). */
+void ick_retrieve_array(uint32_t index, uint32_t next) {
+  ick_array_stash *s = &array_stashes[index];
+  if (s->count == 0) ick_fatal(436, next);
+  ick_shape saved = s->items[--s->count];
+  ick_array *a = &arrays[index];
+  if (a->ignored) {
+    free(saved.dims);
+    free(saved.data);
+    return;
+  }
+  free(a->shape.dims);
+  free(a->shape.data);
+  a->shape = saved;
+}
 ''';

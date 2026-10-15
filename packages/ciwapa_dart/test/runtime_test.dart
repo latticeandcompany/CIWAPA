@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ciwapa_dart/runtime/runtime.dart';
 import 'package:test/test.dart';
@@ -12,6 +13,8 @@ void main() {
       base: 2,
       clockface: false,
       arrayCount: 0,
+      values: Uint32List(0),
+      ignored: Uint8List(0),
       messages: const {},
     ),
   );
