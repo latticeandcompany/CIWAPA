@@ -403,8 +403,6 @@ List<int>? _readLine() {
   }
 }
 
-/// One number per line, each digit a word separated by spaces: E562 for a blank line or the end
-/// of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum.
 /// Wimp mode reads a line the way C's atoi does, with a 64-bit long: whitespace, a sign and
 /// digits, saturating at the long's range, and keeping the low 32 bits (decision T32).
 int _wimpNumber(List<int> line) {
@@ -430,6 +428,9 @@ int _wimpNumber(List<int> line) {
   return (negative ? -magnitude : magnitude) & 0xFFFFFFFF;
 }
 
+/// One number per line, each digit a word separated by spaces: E562 for a blank line or the end
+/// of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum. In wimp
+/// mode, a decimal number per line, where a blank line reads as 0 (decision T32).
 int ickWriteIn(int next) {
   final line = _readLine();
   if (line == null) ickFatal(562, next);

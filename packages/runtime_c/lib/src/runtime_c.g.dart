@@ -443,8 +443,6 @@ static int read_line(size_t *length, uint32_t next) {
   return 1;
 }
 
-/* One number per line, each digit a word separated by spaces: E562 for a blank line or the end
- * of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum. */
 /* Wimp mode reads a line the way C's atoi does, with a 64-bit long: whitespace, a sign and
  * digits, saturating at the long's range, and keeping the low 32 bits (decision T32). */
 static uint32_t wimp_number(void) {
@@ -461,6 +459,9 @@ static uint32_t wimp_number(void) {
   return (uint32_t)(negative ? 0 - magnitude : magnitude);
 }
 
+/* One number per line, each digit a word separated by spaces: E562 for a blank line or the end
+ * of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum. In
+ * wimp mode, a decimal number per line, where a blank line reads as 0 (decision T32). */
 uint32_t ick_write_in(uint32_t next) {
   size_t length;
   if (!read_line(&length, next)) ick_fatal(562, next);

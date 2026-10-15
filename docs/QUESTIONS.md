@@ -62,3 +62,11 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (b), which proves the behavior without an artificial limit in normal runs.
 - **Blocks:** the §9.2 items E222, E333 and E666, and the §4.4.5 item "stashes have no depth limit; E222 fires only when memory runs out".
 - **Raised:** 2026-10-14
+
+## L8: Program arguments that aren't valid UTF-8
+
+- **Context:** A program built by ciwapa-dart can't start at all when an argument isn't valid UTF-8 (`./prog $'\xff'`). The Dart VM rejects it before `main` runs, prints its own message and exits with 255. The ciwapa-llvm program takes the bytes as they are: it ignores the argument, or for an unknown option prints usage and gives up with E778. Nothing in the runtime can change the Dart side. On Windows the flavors may also see non-ASCII arguments in different encodings (UTF-8 against the ANSI code page).
+- **Options:** (a) accept it as a known difference between the flavors, since only arguments that aren't text trigger it; (b) make ciwapa-llvm refuse invalid UTF-8 arguments the same way, so the flavors match.
+- **Lean:** (a). The flavors keep today's behavior until this is answered.
+- **Blocks:** no checklist items; the conformance suite only passes valid UTF-8 arguments.
+- **Raised:** 2026-10-14

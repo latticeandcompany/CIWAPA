@@ -108,12 +108,12 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.3 — the statement identifiers are `DO`, `PLEASE` and `PLEASE DO`, interchangeable. Tests: `packages/conformance/tests/next/computed-goto-1.i`
 - [x] §4.3, §10.4 — `DO PLEASE` is also accepted and counts as polite. (decision: T11) Tests: `packages/conformance/tests/errors/do-please-counts.i`
 - [x] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: `packages/conformance/tests/calculate/not-skips.i`
-- [x] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-other-seed.i`
+- [x] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-each-time-reached.i`, `packages/conformance/tests/options/seed-rolls-percentages.i`
 - [x] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: `packages/conformance/tests/calculate/percent-0-never-runs.i`, `packages/conformance/tests/calculate/percent-100-always-runs.i`
 - [x] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §4.3 — spaces are allowed between `%` and its number. (decision: T5) Tests: (none yet)
 - [ ] §4.3 — the qualifier order is NOT, then `%`. `DO %50 NOT …` is undecodable. (decision: T12) Tests: (none yet)
-- [x] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`
+- [x] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: `packages/conformance/tests/options/seed-rolls.i`, `packages/conformance/tests/options/seed-rolls-each-time-reached.i`
 
 ## §4.4.1 Calculate
 
