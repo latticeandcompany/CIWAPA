@@ -12,7 +12,7 @@ void main() {
       const [],
       base: 2,
       clockface: false,
-      arrayCount: 0,
+      arrayCount: 1,
       values: Uint32List(0),
       ignored: Uint8List(0),
       messages: const {},
@@ -49,6 +49,17 @@ void main() {
     expect(ickSelect(ickMingle(165, 203, 0), 358), 15);
     expect(ickMingle(165, ickSelect(203, 358), 0), 34915);
   });
+
+  test(
+    '§5.2, T31: after the end of input, the next character reads as itself + 1',
+    () {
+      final input = [0x41, -1, 0x42].iterator;
+      ickReadByte = () => input.moveNext() ? input.current : -1;
+      ickDimension(0, [3], 0);
+      ickTuringIn(0, 0);
+      expect(ickArrayData(0), [65, 256, 67]);
+    },
+  );
 
   test('the embedded copy matches runtime.dart', () {
     expect(

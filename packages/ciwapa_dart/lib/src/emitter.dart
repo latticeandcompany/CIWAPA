@@ -190,7 +190,11 @@ class DartEmitter {
         }
       case IrReadOut(:final items):
         for (final item in items) {
-          _line('ickReadOut(${_expr(item, next)});');
+          if (item is IrArrayItem) {
+            _line('ickTuringOut(${item.array.index}, $next);');
+          } else {
+            _line('ickReadOut(${_expr(item, next)});');
+          }
         }
       case IrComeFrom():
         break;
@@ -209,8 +213,10 @@ class DartEmitter {
         _line('{');
         _assign(target, IrInput(), next);
         _line('}');
+      case IrArrayItem(:final array):
+        _line('ickTuringIn(${array.index}, $next);');
       default:
-        throw ToolchainException('Turing Text I/O is not implemented yet');
+        throw StateError('cannot WRITE IN $target');
     }
   }
 
@@ -245,9 +251,7 @@ class DartEmitter {
     IrUnary(:final op, :final operand) =>
       'ick${_unaryName(op)}${operand.large ? 32 : 16}(${_expr(operand, next)})',
     IrInput() => 'ickWriteIn($next)',
-    IrArrayItem() => throw ToolchainException(
-      'Turing Text I/O is not implemented yet',
-    ),
+    IrArrayItem() => throw StateError('a whole array is not a value'),
   };
 
   static String _unaryName(UnaryOp op) => switch (op) {

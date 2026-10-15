@@ -8,6 +8,11 @@ const runtimeC = r'''
 #include <string.h>
 #include <time.h>
 
+/* Where input bytes come from; runtime_test.c substitutes its own source. */
+#ifndef ICK_GETCHAR
+#define ICK_GETCHAR() getchar()
+#endif
+
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
@@ -397,7 +402,7 @@ static size_t line_capacity;
 static int read_line(size_t *length, uint32_t next) {
   size_t n = 0;
   int c;
-  while ((c = getchar()) != EOF && c != '\n') {
+  while ((c = ICK_GETCHAR()) != EOF && c != '\n') {
     if (n + 1 >= line_capacity) line_buffer = grow(line_buffer, &line_capacity, 1, next);
     line_buffer[n++] = (char)c;
   }
@@ -482,5 +487,44 @@ void ick_read_out(uint32_t value) {
   }
   printf("%s\n%s\n", bars + at, numeral + at);
   fflush(stdout);
+}
+
+/* ---- Turing Text (§5.2, decision T31) -------------------------------------------------- */
+
+static uint32_t last_in, last_out;
+
+static ick_shape *turing_array(uint32_t index, uint32_t next) {
+  ick_shape *a = &arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  return a;
+}
+
+/* Each element gets the distance along the input tape from the previous character, mod 256; the
+ * end of input reads as 256. After it, the previous character is -1, so the next character reads
+ * as itself + 1, as in C-INTERCAL. */
+void ick_turing_in(uint32_t index, uint32_t next) {
+  ick_shape *a = turing_array(index, next);
+  for (uint32_t i = 0; i < a->dims[0]; i++) {
+    int c = ICK_GETCHAR();
+    uint32_t value = c == EOF ? 256 : ((uint32_t)c - last_in) & 0xFFu;
+    last_in = (uint32_t)c;
+    if (!arrays[index].ignored) a->data[i] = value;
+  }
+}
+
+/* Each element is subtracted from the last character written (the subtraction is kept as is for
+ * the next one), and the result's low 8 bits go out in reverse order. */
+void ick_turing_out(uint32_t index, uint32_t next) {
+  ick_shape *a = turing_array(index, next);
+  for (uint32_t i = 0; i < a->dims[0]; i++) {
+    uint32_t c = last_out - a->data[i];
+    last_out = c;
+    c &= 0xFFu;
+    c = (c & 0x0Fu) << 4 | (c & 0xF0u) >> 4;
+    c = (c & 0x33u) << 2 | (c & 0xCCu) >> 2;
+    c = (c & 0x55u) << 1 | (c & 0xAAu) >> 1;
+    putchar((int)c);
+    if (c == '\n') fflush(stdout);
+  }
 }
 ''';

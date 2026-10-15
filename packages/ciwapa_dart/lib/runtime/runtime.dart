@@ -65,7 +65,23 @@ void ickInit(
 
 // ---- Errors (§9) -----------------------------------------------------------------------------
 
+// ---- Output ----------------------------------------------------------------------------------
+
+/// Everything bound for stdout goes through one buffer, flushed at every newline and at exit, so
+/// numbers and Turing Text characters keep their order (decision T31).
+final _output = BytesBuilder(copy: false);
+
+void _write(List<int> bytes) => _output.add(bytes);
+
+void _flush() {
+  if (_output.isNotEmpty) stdout.add(_output.takeBytes());
+}
+
+/// Where input bytes come from: stdin, or a test's own source. -1 is the end of input.
+int Function() ickReadByte = stdin.readByteSync;
+
 Never _error(int code, String? text, int next) {
+  _flush();
   final message = _messages[code];
   stderr.add(
     utf8.encode(
@@ -82,7 +98,10 @@ Never ickFatal(int code, int next) => _error(code, null, next);
 
 Never ickUndecodable(String text, int next) => _error(0, text, next);
 
-Never ickGiveUp() => exit(0);
+Never ickGiveUp() {
+  _flush();
+  exit(0);
+}
 
 // ---- The NEXT stack (§4.4.2–§4.4.4, decisions T16, T17) ---------------------------------------
 
@@ -346,7 +365,7 @@ final _numeralBytes = {
 List<int>? _readLine() {
   final line = <int>[];
   while (true) {
-    final c = stdin.readByteSync();
+    final c = ickReadByte();
     if (c == -1) return line.isEmpty ? null : line;
     if (c == 0x0A) return line;
     line.add(c);
@@ -425,7 +444,8 @@ const _romanBars = [
 
 void ickReadOut(int value) {
   if (value == 0) {
-    stdout.add(const [0x5F, 0x0A, 0x0A]);
+    _write(const [0x5F, 0x0A, 0x0A]);
+    _flush();
     return;
   }
   final numeral = StringBuffer(), bars = StringBuffer();
@@ -445,5 +465,47 @@ void ickReadOut(int value) {
     numeral.write(symbols[i]);
     bars.write(marks[i]);
   }
-  stdout.add(utf8.encode('$bars\n$numeral\n'));
+  _write(utf8.encode('$bars\n$numeral\n'));
+  _flush();
+}
+
+// ---- Turing Text (§5.2, decision T31) -----------------------------------------------------------
+
+var _lastIn = 0, _lastOut = 0;
+
+int _turingArray(int index, int next) {
+  final shape = _arrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  return shape.dims[0];
+}
+
+/// Each element gets the distance along the input tape from the previous character, mod 256; the
+/// end of input reads as 256. After it, the previous character is -1, so the next character reads
+/// as itself + 1, as in C-INTERCAL.
+void ickTuringIn(int index, int next) {
+  final length = _turingArray(index, next);
+  final a = _arrays[index];
+  for (var i = 0; i < length; i++) {
+    final c = ickReadByte();
+    final value = c == -1 ? 256 : (c - _lastIn) & 0xFF;
+    _lastIn = c & 0xFFFFFFFF;
+    if (!a.ignored) a.shape.data[i] = value;
+  }
+}
+
+/// Each element is subtracted from the last character written (the subtraction is kept as is for
+/// the next one), and the result's low 8 bits go out in reverse order.
+void ickTuringOut(int index, int next) {
+  final length = _turingArray(index, next);
+  final data = _arrays[index].shape.data;
+  for (var i = 0; i < length; i++) {
+    final c = (_lastOut - data[i]) & 0xFFFFFFFF;
+    _lastOut = c;
+    var b = c & 0xFF;
+    b = ((b & 0x0F) << 4) | ((b & 0xF0) >> 4);
+    b = ((b & 0x33) << 2) | ((b & 0xCC) >> 2);
+    b = ((b & 0x55) << 1) | ((b & 0xAA) >> 1);
+    _write([b]);
+    if (b == 0x0A) _flush();
+  }
 }
