@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# TEMPORARY (goal 2's cleanup removes it): runs programs through C-INTERCAL (0.35 and 0.15) and
+# both CIWAPA flavors, and lists every program whose stdout or exit status differs (Q36, Q98).
+# Stderr isn't compared: CIWAPA's messages and statement numbering differ on purpose (Q83, T33).
+#
+# Usage: tools/oracle/differential [conformance|pit|all]
+# Writes .cache/oracle/differences.json: [{program, input, oracle, ciwapa, ick}] for triage into
+# tools/oracle/triage.json.
+set -euo pipefail
+
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+cd "$repo_root"
+what="${1:-all}"
+work="$repo_root/.cache/oracle"
+rm -rf "$work"
+mkdir -p "$work/programs"
+
+# Copy the programs into one directory that every container can see; ick wants ASCII mingle.
+list="$work/programs.txt"
+: >"$list"
+add() { # source-file input-file-or-empty
+  local name
+  name="$(echo "${1#"$repo_root/"}" | tr '/' '_')"
+  LC_ALL=C sed 's/¢/$/g' "$1" >"$work/programs/$name"
+  [[ -n "$2" && -f "$2" ]] && cp "$2" "$work/programs/$name.in"
+  echo "$name" >>"$list"
+}
+if [[ "$what" != pit ]]; then
+  while IFS= read -r f; do
+    stem="${f%.*}"
+    [[ -f "$stem.flags" || -f "$stem.args" || -f "$stem.timeout" ]] && continue
+    add "$f" "$stem.in"
+  done < <(find "$repo_root/packages/conformance/tests" -type f \( -name '*.i' -o -name '*.[2-7]i' \) | sort)
+fi
+if [[ "$what" != conformance ]]; then
+  [[ -d "$repo_root/pit" ]] || "$repo_root/tools/oracle/fetch-pit" >/dev/null
+  while IFS= read -r f; do
+    stem="${f%.*}"
+    add "$f" "$stem.tst"
+  done < <(find "$repo_root/pit" -maxdepth 1 -type f \( -name '*.i' -o -name '*.[3-7]i' \) | sort)
+fi
+
+run_oracle() { # image tag
+  docker run --rm -v "$work/programs:/work" "ciwapa-oracle-ick:$2" sh -c '
+    for f in $(cat /work/list); do
+      base="${f%.*}"; ext="${f##*.}"
+      mkdir -p /tmp/b && cp "/work/$f" "/tmp/b/p.$ext"
+      if (cd /tmp/b && timeout 60 ick -b "p.$ext" >/tmp/b/cerr 2>&1); then
+        if [ -f "/work/$f.in" ]; then timeout 10 /tmp/b/p < "/work/$f.in" > "/work/$f.out.'"$1"'" 2>/dev/null; else timeout 10 /tmp/b/p < /dev/null > "/work/$f.out.'"$1"'" 2>/dev/null; fi
+        echo $? > "/work/$f.exit.'"$1"'"
+      else
+        : > "/work/$f.out.'"$1"'"; echo "compile:$(grep -o "ICL[0-9][0-9][0-9]" /tmp/b/cerr | head -n 1)" > "/work/$f.exit.'"$1"'"
+      fi
+      rm -rf /tmp/b
+    done'
+}
+cp "$list" "$work/programs/list"
+run_oracle ick035 0.35
+run_oracle ick015 0.15
+
+# Fresh compilers of their own, so a concurrent CI check rebuilding .cache/build can't interfere.
+"$repo_root/tools/in-docker" sh -c 'for flavor in llvm dart; do
+  dart --suppress-analytics compile exe "packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" -o ".cache/oracle/ciwapa-$flavor" >/dev/null
+done'
+for flavor in llvm dart; do
+  "$repo_root/tools/in-docker" sh -c '
+    cd /work/.cache/oracle/programs
+    for f in $(cat list); do
+      if /work/.cache/oracle/ciwapa-'"$flavor"' build --no-random-bug "$f" -o /tmp/p >/dev/null 2>/tmp/cerr; then
+        if [ -f "$f.in" ]; then timeout 10 /tmp/p < "$f.in" > "$f.out.'"$flavor"'" 2>/dev/null; else timeout 10 /tmp/p < /dev/null > "$f.out.'"$flavor"'" 2>/dev/null; fi
+        echo $? > "$f.exit.'"$flavor"'"
+      else
+        : > "$f.out.'"$flavor"'"; echo "compile:$(grep -o "ICL[0-9][0-9][0-9]" /tmp/cerr | head -n 1)" > "$f.exit.'"$flavor"'"
+      fi
+    done'
+done
+
+{
+  echo '['
+  first=1
+  while IFS= read -r f; do
+    for oracle in ick035 ick015; do
+      for flavor in llvm dart; do
+        if ! cmp -s "$work/programs/$f.out.$oracle" "$work/programs/$f.out.$flavor" ||
+          ! cmp -s "$work/programs/$f.exit.$oracle" "$work/programs/$f.exit.$flavor"; then
+          [[ $first == 1 ]] || echo ','
+          first=0
+          printf '{"program": "%s", "oracle": "%s", "flavor": "%s", "ick_exit": "%s", "ciwapa_exit": "%s"}' \
+            "$f" "$oracle" "$flavor" "$(cat "$work/programs/$f.exit.$oracle")" "$(cat "$work/programs/$f.exit.$flavor")"
+        fi
+      done
+    done
+  done <"$list"
+  echo ']'
+} >"$work/differences.json"
+echo "$(jq length "$work/differences.json") differences across $(wc -l <"$list" | tr -d ' ') programs: $work/differences.json"

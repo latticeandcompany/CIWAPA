@@ -483,3 +483,18 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - Q97, L4 a chain inside a group is also E017. 0.15 makes that statement undecodable.
 - T39 with `--traditional`, a COME FROM followed by junk is undecodable (E000 when it executes), like any other junk. 0.15 reports E111 because it checks traditional mode before it sees the junk.
 - Q97 ungrouped operator chains are rejected, as in 0.15. 0.35 groups them to the right. Timing follows Q80, not 0.15's compile-time error.
+- T4 there is no prefix unary form, so `&.1` is undecodable. 0.35 accepts it.
+- T22 `%` rolls come from CIWAPA's own generator, so programs that use `%` (pit's `iching1`, `iching2`, `random`, `random2`) print different values than either version.
+- T26 an array whose total size passes 2^61 elements, or wraps to zero, raises E241 (QUESTIONS.md L5). Both versions overflow the size computation, then crash or run on with a too-small array.
+- §4.4.1 a redimensioned array starts with every element at #0. Both versions reuse the old allocation, so stale values leak through.
+- §4.4.10 REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` stays a no-op (the spec's rule). 0.15 reinstates it.
+- §9.2 running off the end of the program is E633, as in 0.15. 0.35 reports E129.
+- Q78 in bases 3–7, mingle operands above the base's small maximum raise E533 too. 0.35 only checks binary.
+- Q35, Q38 the clean-room library implements exactly the §7.2 entry points, including (1060)–(1080), which neither version's library has (E129 there). Its NEXT depth, scratch variables and internal labels are its own. So the `syslib/` depth and fallback tests differ from ick, and pit programs that call ick's undocumented internal labels ((1001), (1021), (1999), (1902)–(1904)) don't work. In the differential that's `primes`, `quine`, `flonck`, `ins` and `pow`.
+- L9 the binary library is included only in base 2. Both versions include it in every base.
+- Mode 1 only: pit programs that use 0.35 extensions (computed ABSTAIN, TRY AGAIN and threading in `sort` and `continuation`) are rejected. Their extension statements are undecodable, and a label inside one starts a new statement (T8), so they fail with E182.
+
+Not differences in CIWAPA:
+
+- Programs that never stop (pit's `hail_mary.3i`) print different amounts before the differential's 10-second timeout. Their output agrees up to the cut-off.
+- 0.15 generates C that doesn't compile for some programs: a `goto top` without a NEXT in the program, and the multi-line strings from T10. The differential shows those as 0.15 exiting 127.

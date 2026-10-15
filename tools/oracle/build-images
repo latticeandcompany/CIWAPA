@@ -3,3 +3,4 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 docker build --tag ciwapa-oracle-ick:0.15 "$here/ick-0.15"
+docker build --tag ciwapa-oracle-ick:0.35 "$here/ick-0.35"
