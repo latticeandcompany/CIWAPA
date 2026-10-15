@@ -7,5 +7,8 @@ resolution: workspace
 environment:
   sdk: ^3.13.5
 
+dependencies:
+  args: ^2.7.0
+
 dev_dependencies:
   test: ^1.33.0

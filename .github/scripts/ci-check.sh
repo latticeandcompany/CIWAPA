@@ -17,4 +17,14 @@ for dir in packages/*/test tools/*/test; do
   fi
 done
 
+exe=""
+case "$platform" in windows-*) exe=".exe" ;; esac
+mkdir -p .cache/build .cache/conformance
+dart --suppress-analytics compile exe "packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" -o ".cache/build/ciwapa-$flavor$exe"
+(
+  cd packages/conformance
+  dart --suppress-analytics run bin/conformance.dart \
+    --compiler "../../.cache/build/ciwapa-$flavor$exe" --results ../../.cache/conformance/results.json
+)
+
 echo "ci-check passed for $platform $flavor"

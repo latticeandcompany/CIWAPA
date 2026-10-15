@@ -44,7 +44,7 @@ jobs:
           sdk: ${{ steps.dart.outputs.version }}
 
       - name: Fetch llvm-mingw
-        if: matrix.flavor == 'llvm' && matrix.platform.os == 'windows'
+        if: matrix.platform.os == 'windows'
         run: |
           .github/scripts/fetch-llvm-mingw.sh ${{ matrix.platform.arch }} "$RUNNER_TEMP/llvm-mingw"
           echo "$RUNNER_TEMP/llvm-mingw/bin" >>"$GITHUB_PATH"
@@ -56,3 +56,11 @@ jobs:
       - name: Check
         if: matrix.platform.os != 'linux'
         run: .github/scripts/ci-check.sh ${{ matrix.platform.name }} ${{ matrix.flavor }}
+
+      - name: Upload conformance results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: conformance-${{ matrix.platform.name }}-${{ matrix.flavor }}
+          path: .cache/conformance/results.json
+          if-no-files-found: ignore

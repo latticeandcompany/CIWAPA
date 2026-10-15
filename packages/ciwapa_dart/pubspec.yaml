@@ -13,3 +13,6 @@ dependencies:
 
 dev_dependencies:
   test: ^1.33.0
+
+executables:
+  ciwapa-dart: ciwapa_dart

@@ -23,13 +23,13 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §3.1 — variable numbers range from 1 to 65535. Tests: (none yet)
 - [ ] §3.1 — `.123` and `:123` are distinct variables. Tests: (none yet)
 - [ ] §3.1 — leading zeros don't matter: `.1` and `.0001` are the same variable. Tests: (none yet)
-- [ ] §3.1 — a variable numbered 0 or above 65535 raises E200 when its statement executes. (decision: Q80, Q81) Tests: (none yet)
+- [x] §3.1 — a variable numbered 0 or above 65535 raises E200 when its statement executes. (decision: Q80, Q81) Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`, `packages/conformance/tests/calculate/e200-variable-too-big.i`
 - [ ] §3.1 — every variable starts at 0. (decision: Q82) Tests: (none yet)
 
 ## §3.2 Constants
 
 - [ ] §3.2 — `#n` is a 16-bit constant from 0 to 65535. Tests: (none yet)
-- [ ] §3.2 — a constant above 65535 raises E017 when its statement executes. (decision: Q80, Q81) Tests: (none yet)
+- [x] §3.2 — a constant above 65535 raises E017 when its statement executes. (decision: Q80, Q81) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-constant-not-run.i`
 
 ## §3.3 Arrays
 
@@ -38,15 +38,15 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §3.3 — elements are written `SUB` followed by the subscripts, optionally separated by spaces. Tests: (none yet)
 - [ ] §3.3 — a subscript can be any expression, including another subscripted element. Tests: (none yet)
 - [ ] §3.3 — subscripts are 1-based. Tests: (none yet)
-- [ ] §3.3 — using an array that has never been dimensioned raises E241. (decision: Q82, T26) Tests: (none yet)
-- [ ] §3.3 — a wrong number of subscripts, a subscript of 0, or a subscript past the dimension raises E241. (decision: T26) Tests: (none yet)
+- [x] §3.3 — using an array that has never been dimensioned raises E241. (decision: Q82, T26) Tests: `packages/conformance/tests/calculate/e241-undimensioned.i`
+- [x] §3.3 — a wrong number of subscripts, a subscript of 0, or a subscript past the dimension raises E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-wrong-count.i`, `packages/conformance/tests/calculate/e241-subscript-zero.i`, `packages/conformance/tests/calculate/e241-past-dimension.i`
 
 ## §3.4.1 Mingle
 
 - [ ] §3.4.1 — mingle interleaves the bits of two 16-bit operands into a 32-bit result. The first operand supplies the high bit of each pair. Tests: (none yet)
 - [ ] §3.4.1 — **golden:** `#65535¢#0` = 2863311530, `#0¢#65535` = 1431655765, and `#255¢#255` equals `#65535`. Tests: (none yet)
 - [ ] §3.4.1 — a mingle result is 32-bit typed. Tests: (none yet)
-- [ ] §3.4.1, §9.2 — if either operand's value exceeds 65535 at run time, mingle raises E533. (decision: Q78) Tests: (none yet)
+- [x] §3.4.1, §9.2 — if either operand's value exceeds 65535 at run time, mingle raises E533. (decision: Q78) Tests: `packages/conformance/tests/calculate/e533-mingle-operand.i`
 - [ ] §3.4.1, §10.1, §11 — mingle can be written `$`, `¢` (UTF-8) or the overpunch `c<backspace>/`. (decision: T14) Tests: (none yet)
 
 ## §3.4.1 Select
@@ -72,7 +72,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §3.4.3 Precedence and grouping
 
-- [ ] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: (none yet)
+- [x] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: `packages/conformance/tests/calculate/e017-ungrouped-chain.i`
 - [ ] §3.4.3 — **golden:** `'#165¢#203'~#358` = 15 and `#165¢'#203~#358'` = 34915. Tests: (none yet)
 - [ ] §3.4.3 — sparks `'` and rabbit-ears `"` group expressions. Tests: (none yet)
 - [ ] §3.4.3 — a grouper directly after a complete operand closes the current group; anywhere else it opens a new one. As a result, only the first subscript in a list can be a group. (decision: T1) Tests: (none yet)
@@ -101,16 +101,16 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §4.2 — a statement has at most one label. Tests: (none yet)
 - [ ] §4.2 — spaces are allowed inside the parentheses: `( 123 )`. (decision: T5) Tests: (none yet)
 - [ ] §4.2, §9.2 — a duplicate label is a compile-time E182. (decision: Q80) Tests: (none yet)
-- [ ] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: (none yet)
+- [x] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: `packages/conformance/tests/calculate/e197-label.i`
 
 ## §4.3 Identifiers and qualifiers
 
 - [ ] §4.3 — the statement identifiers are `DO`, `PLEASE` and `PLEASE DO`, interchangeable. Tests: (none yet)
 - [ ] §4.3, §10.4 — `DO PLEASE` is also accepted and counts as polite. (decision: T11) Tests: (none yet)
-- [ ] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: (none yet)
+- [x] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: `packages/conformance/tests/calculate/not-skips.i`
 - [ ] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: (none yet)
-- [ ] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: (none yet)
-- [ ] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: (none yet)
+- [x] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: `packages/conformance/tests/calculate/percent-0-never-runs.i`, `packages/conformance/tests/calculate/percent-100-always-runs.i`
+- [x] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §4.3 — spaces are allowed between `%` and its number. (decision: T5) Tests: (none yet)
 - [ ] §4.3 — the qualifier order is NOT, then `%`. `DO %50 NOT …` is undecodable. (decision: T12) Tests: (none yet)
 - [ ] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: (none yet)
@@ -119,15 +119,15 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 - [ ] §4.4.1 — `<-` assigns the right-hand expression to a variable or array element. Tests: (none yet)
 - [ ] §4.4.1 — a 16-bit value assigned to a 32-bit variable is zero-padded. Tests: (none yet)
-- [ ] §4.4.1 — a 32-bit value up to 65535 can be assigned to a 16-bit variable. (decision: Q76) Tests: (none yet)
-- [ ] §4.4.1, §9.2 — assigning a value above 65535 to a 16-bit variable raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: (none yet)
+- [x] §4.4.1 — a 32-bit value up to 65535 can be assigned to a 16-bit variable. (decision: Q76) Tests: `packages/conformance/tests/calculate/large-fits-small.i`, `packages/conformance/tests/calculate/small-takes-65535.i`
+- [x] §4.4.1, §9.2 — assigning a value above 65535 to a 16-bit variable raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e275-element.i`
 - [ ] §4.4.1 — **golden:** `,1SUB#1#1 <- 'V−,1SUB#1#1¢#1'~'#0¢#65535'` inverts the element's least significant bit (with a DO identifier added). (decision: T2) Tests: (none yet)
 - [ ] §4.4.1 — `<-` with a `BY` list dimensions an array: `;7 <- #7 BY .7 BY …`. Tests: (none yet)
 - [ ] §4.4.1 — **golden:** the two `;7` dimensioning statements differ as the spec describes. Tests: (none yet)
-- [ ] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: (none yet)
+- [x] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: `packages/conformance/tests/calculate/dimension-32-bit.i`
 - [ ] §4.4.1 — redimensioning loses all element values. Tests: (none yet)
-- [ ] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: (none yet)
-- [ ] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: (none yet)
+- [x] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
+- [x] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-too-large.i`
 
 ## §4.4.2 NEXT
 
@@ -252,8 +252,8 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.5 Comments and undecodable statements
 
-- [ ] §4.5 — a statement the compiler can't decode compiles anyway, and raises E000 only if it executes. Tests: (none yet)
-- [ ] §4.5, §9.1 — E000's message is the statement's source text verbatim. Lines after the first are indented with a tab, and very long text is cut off at about 500 characters. (decision: T10) Tests: (none yet)
+- [x] §4.5 — a statement the compiler can't decode compiles anyway, and raises E000 only if it executes. Tests: `packages/conformance/tests/calculate/e000-only-if-executed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
+- [x] §4.5, §9.1 — E000's message is the statement's source text verbatim. Lines after the first are indented with a tab, and very long text is cut off at about 500 characters. (decision: T10) Tests: `packages/conformance/tests/calculate/e000-shares-lines.i`, `packages/conformance/tests/calculate/e000-long-text.i`
 - [ ] §4.5 — **golden:** `PLEASE NOTE THAT THIS LINE HAS NO EFFECT` (abstained by NOT) is ignored. Tests: (none yet)
 - [ ] §4.5 — **golden:** the `DON'T YOU REALIZE THIS STATEMENT SHOULD ONLY BE ENCOUNTERED ONCE?` + `PLEASE REINSTATE (123)` pair raises E000 the second time. Tests: (none yet)
 - [ ] §4.5 — `DO`, `PLEASE` and `(n)` are recognized anywhere, even inside a word: "NOTE THAT THIS LINE DOES NOTHING" breaks at "DOES". (decision: T8) Tests: (none yet)
@@ -356,26 +356,26 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §9.1 — every error code has its own original joke line printed under the official text. (decision: Q90) Tests: (none yet)
 - [ ] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: (none yet)
 - [ ] §9 — errors local to one statement fire when that statement executes. Errors about the whole program (E182, E444, E555, E079, E099, E998, E997, E111, E777) fire at compile time. (decision: Q80) Tests: (none yet)
-- [ ] §9.2 — E000: an undecodable statement executed. Tests: (none yet)
-- [ ] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: (none yet)
+- [x] §9.2 — E000: an undecodable statement executed. Tests: `packages/conformance/tests/calculate/e000-undecodable.i`
+- [x] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-ungrouped-chain.i`, `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §9.2 — E079: insufficiently polite. (decision: T35) Tests: (none yet)
 - [ ] §9.2 — E099: excessively polite. (decision: T35) Tests: (none yet)
 - [ ] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: (none yet)
 - [ ] §9.2 — E129: transfer to a non-existent label. Tests: (none yet)
 - [ ] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: (none yet)
 - [ ] §9.2 — E182: label multiply defined. Tests: (none yet)
-- [ ] §9.2 — E197: invalid line label. Tests: (none yet)
-- [ ] §9.2 — E200: unidentified variable. Tests: (none yet)
-- [ ] §9.2 — E240: array dimension of zero. Tests: (none yet)
-- [ ] §9.2 — E241: invalid dimensioning information. Tests: (none yet)
-- [ ] §9.2 — E275: 32-bit value assigned to a 16-bit variable, printed as `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: (none yet)
+- [x] §9.2 — E197: invalid line label. Tests: `packages/conformance/tests/calculate/e197-label.i`
+- [x] §9.2 — E200: unidentified variable. Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`
+- [x] §9.2 — E240: array dimension of zero. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
+- [x] §9.2 — E241: invalid dimensioning information. Tests: `packages/conformance/tests/calculate/e241-undimensioned.i`, `packages/conformance/tests/calculate/e241-too-large.i`
+- [x] §9.2 — E275: 32-bit value assigned to a 16-bit variable, printed as `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`
 - [ ] §9.2 — E436: retrieval of an unSTASHed value. Tests: (none yet)
 - [ ] §9.2 — E533: WRITE IN or mingle produced a value over 32 bits. Tests: (none yet)
 - [ ] §9.2 — E562: insufficient data. Tests: (none yet)
 - [ ] §9.2 — E579: input data invalid. Tests: (none yet)
 - [ ] §9.2 — E621: RESUME expression evaluated to #0. Tests: (none yet)
 - [ ] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: (none yet)
-- [ ] §9.2 — E633: execution passed beyond the last statement. Tests: (none yet)
+- [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
 - [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
 - [ ] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: (none yet)
@@ -429,7 +429,7 @@ The library is a clean-room implementation written from these contracts alone (d
 
 ## Program-level behavior
 
-- [ ] §9.2 — falling off the end of the program raises E633. Tests: (none yet)
+- [x] §9.2 — falling off the end of the program raises E633. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [ ] §4.4.11, §9 — GIVE UP exits 0; any error exits with its code mod 256. (decision: T18, T34) Tests: (none yet)
 - [ ] §4.3 — by default the `%` RNG is seeded from the time; `+seed` overrides it. (decision: T22) Tests: (none yet)
 
