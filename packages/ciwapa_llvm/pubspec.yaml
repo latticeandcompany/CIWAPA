@@ -1,0 +1,16 @@
+name: ciwapa_llvm
+description: ciwapa-llvm, the LLVM IR emitter and CLI.
+version: 0.0.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  args: ^2.7.0
+  ciwapa_core: any
+  runtime_c: any
+
+dev_dependencies:
+  test: ^1.33.0

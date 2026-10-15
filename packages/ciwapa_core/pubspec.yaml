@@ -1,0 +1,11 @@
+name: ciwapa_core
+description: The shared CIWAPA front end (lexer, parser, checks, IR and the clean-room system library).
+version: 0.0.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.5
+
+dev_dependencies:
+  test: ^1.33.0

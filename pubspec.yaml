@@ -6,5 +6,12 @@ publish_to: none
 environment:
   sdk: ^3.13.5
 
+workspace:
+  - packages/ciwapa_core
+  - packages/ciwapa_dart
+  - packages/ciwapa_llvm
+  - packages/runtime_c
+  - packages/conformance
+
 dev_dependencies:
   lints: ^6.1.0
