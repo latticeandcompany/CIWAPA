@@ -1,0 +1,5 @@
+PLEASE DO :1 <- #65280$#0
+DO (4) NEXT
+DO .0 <- #1
+(4) DO FORGET :1
+DO RESUME #1

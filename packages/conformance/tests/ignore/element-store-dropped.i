@@ -1,0 +1,5 @@
+DO ;1 <- #1
+PLEASE IGNORE ;1
+DO ;1 SUB #1 <- #256$#0
+DO REMEMBER ;1
+DO .1 <- ;1 SUB #1

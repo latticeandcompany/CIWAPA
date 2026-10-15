@@ -23,13 +23,13 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §3.1 — variable numbers range from 1 to 65535. Tests: (none yet)
 - [ ] §3.1 — `.123` and `:123` are distinct variables. Tests: (none yet)
 - [ ] §3.1 — leading zeros don't matter: `.1` and `.0001` are the same variable. Tests: (none yet)
-- [ ] §3.1 — a variable numbered 0 or above 65535 raises E200 when its statement executes. (decision: Q80, Q81) Tests: (none yet)
+- [x] §3.1 — a variable numbered 0 or above 65535 raises E200 when its statement executes. (decision: Q80, Q81) Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`, `packages/conformance/tests/calculate/e200-variable-too-big.i`
 - [ ] §3.1 — every variable starts at 0. (decision: Q82) Tests: (none yet)
 
 ## §3.2 Constants
 
 - [ ] §3.2 — `#n` is a 16-bit constant from 0 to 65535. Tests: (none yet)
-- [ ] §3.2 — a constant above 65535 raises E017 when its statement executes. (decision: Q80, Q81) Tests: (none yet)
+- [x] §3.2 — a constant above 65535 raises E017 when its statement executes. (decision: Q80, Q81) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-constant-not-run.i`
 
 ## §3.3 Arrays
 
@@ -38,15 +38,15 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §3.3 — elements are written `SUB` followed by the subscripts, optionally separated by spaces. Tests: (none yet)
 - [ ] §3.3 — a subscript can be any expression, including another subscripted element. Tests: (none yet)
 - [ ] §3.3 — subscripts are 1-based. Tests: (none yet)
-- [ ] §3.3 — using an array that has never been dimensioned raises E241. (decision: Q82, T26) Tests: (none yet)
-- [ ] §3.3 — a wrong number of subscripts, a subscript of 0, or a subscript past the dimension raises E241. (decision: T26) Tests: (none yet)
+- [x] §3.3 — using an array that has never been dimensioned raises E241. (decision: Q82, T26) Tests: `packages/conformance/tests/calculate/e241-undimensioned.i`
+- [x] §3.3 — a wrong number of subscripts, a subscript of 0, or a subscript past the dimension raises E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-wrong-count.i`, `packages/conformance/tests/calculate/e241-subscript-zero.i`, `packages/conformance/tests/calculate/e241-past-dimension.i`
 
 ## §3.4.1 Mingle
 
 - [ ] §3.4.1 — mingle interleaves the bits of two 16-bit operands into a 32-bit result. The first operand supplies the high bit of each pair. Tests: (none yet)
 - [ ] §3.4.1 — **golden:** `#65535¢#0` = 2863311530, `#0¢#65535` = 1431655765, and `#255¢#255` equals `#65535`. Tests: (none yet)
 - [ ] §3.4.1 — a mingle result is 32-bit typed. Tests: (none yet)
-- [ ] §3.4.1, §9.2 — if either operand's value exceeds 65535 at run time, mingle raises E533. (decision: Q78) Tests: (none yet)
+- [x] §3.4.1, §9.2 — if either operand's value exceeds 65535 at run time, mingle raises E533. (decision: Q78) Tests: `packages/conformance/tests/calculate/e533-mingle-operand.i`
 - [ ] §3.4.1, §10.1, §11 — mingle can be written `$`, `¢` (UTF-8) or the overpunch `c<backspace>/`. (decision: T14) Tests: (none yet)
 
 ## §3.4.1 Select
@@ -72,7 +72,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §3.4.3 Precedence and grouping
 
-- [ ] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: (none yet)
+- [x] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: `packages/conformance/tests/calculate/e017-ungrouped-chain.i`
 - [ ] §3.4.3 — **golden:** `'#165¢#203'~#358` = 15 and `#165¢'#203~#358'` = 34915. Tests: (none yet)
 - [ ] §3.4.3 — sparks `'` and rabbit-ears `"` group expressions. Tests: (none yet)
 - [ ] §3.4.3 — a grouper directly after a complete operand closes the current group; anywhere else it opens a new one. As a result, only the first subscript in a list can be a group. (decision: T1) Tests: (none yet)
@@ -101,16 +101,16 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [ ] §4.2 — a statement has at most one label. Tests: (none yet)
 - [ ] §4.2 — spaces are allowed inside the parentheses: `( 123 )`. (decision: T5) Tests: (none yet)
 - [ ] §4.2, §9.2 — a duplicate label is a compile-time E182. (decision: Q80) Tests: (none yet)
-- [ ] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: (none yet)
+- [x] §4.2, §9.2 — a label of 0 or above 65535 raises E197 when its statement executes. (decision: Q81) Tests: `packages/conformance/tests/calculate/e197-label.i`, `packages/conformance/tests/calculate/e197-label-too-big.i`
 
 ## §4.3 Identifiers and qualifiers
 
 - [ ] §4.3 — the statement identifiers are `DO`, `PLEASE` and `PLEASE DO`, interchangeable. Tests: (none yet)
 - [ ] §4.3, §10.4 — `DO PLEASE` is also accepted and counts as polite. (decision: T11) Tests: (none yet)
-- [ ] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: (none yet)
+- [x] §4.3 — `NOT` or `N'T` abstains the statement when execution begins (`DON'T`, `DO NOT`, `PLEASE DON'T`, `PLEASE NOT`). Tests: `packages/conformance/tests/calculate/not-skips.i`
 - [ ] §4.3 — `%n` gives the statement an n-percent chance of executing each time it is reached. (decision: T22) Tests: (none yet)
-- [ ] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: (none yet)
-- [ ] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: (none yet)
+- [x] §4.3 — `%0` never executes and `%100` always executes. (decision: T13) Tests: `packages/conformance/tests/calculate/percent-0-never-runs.i`, `packages/conformance/tests/calculate/percent-100-always-runs.i`
+- [x] §4.3 — a `%` value above 100 raises E017 when the statement executes. (decision: T13, Q80) Tests: `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §4.3 — spaces are allowed between `%` and its number. (decision: T5) Tests: (none yet)
 - [ ] §4.3 — the qualifier order is NOT, then `%`. `DO %50 NOT …` is undecodable. (decision: T12) Tests: (none yet)
 - [ ] §4.3 — the `%` roll happens every time the statement is reached, before the abstention check. (decision: T22) Tests: (none yet)
@@ -119,97 +119,97 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 - [ ] §4.4.1 — `<-` assigns the right-hand expression to a variable or array element. Tests: (none yet)
 - [ ] §4.4.1 — a 16-bit value assigned to a 32-bit variable is zero-padded. Tests: (none yet)
-- [ ] §4.4.1 — a 32-bit value up to 65535 can be assigned to a 16-bit variable. (decision: Q76) Tests: (none yet)
-- [ ] §4.4.1, §9.2 — assigning a value above 65535 to a 16-bit variable raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: (none yet)
+- [x] §4.4.1 — a 32-bit value up to 65535 can be assigned to a 16-bit variable. (decision: Q76) Tests: `packages/conformance/tests/calculate/large-fits-small.i`, `packages/conformance/tests/calculate/small-takes-65535.i`
+- [x] §4.4.1, §9.2 — assigning a value above 65535 to a 16-bit variable raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e275-element.i`
 - [ ] §4.4.1 — **golden:** `,1SUB#1#1 <- 'V−,1SUB#1#1¢#1'~'#0¢#65535'` inverts the element's least significant bit (with a DO identifier added). (decision: T2) Tests: (none yet)
 - [ ] §4.4.1 — `<-` with a `BY` list dimensions an array: `;7 <- #7 BY .7 BY …`. Tests: (none yet)
 - [ ] §4.4.1 — **golden:** the two `;7` dimensioning statements differ as the spec describes. Tests: (none yet)
-- [ ] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: (none yet)
+- [x] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: `packages/conformance/tests/calculate/dimension-32-bit.i`
 - [ ] §4.4.1 — redimensioning loses all element values. Tests: (none yet)
-- [ ] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: (none yet)
-- [ ] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: (none yet)
+- [x] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
+- [x] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-too-large.i`, `packages/conformance/tests/calculate/e241-size-overflow.i`, `packages/conformance/tests/calculate/e241-size-overflow-to-zero.i`
 
 ## §4.4.2 NEXT
 
-- [ ] §4.4.2 — `(label) NEXT` transfers control to the label and pushes the return point on the NEXT stack, which starts empty. Tests: (none yet)
-- [ ] §4.4.2 — the stack holds at most 79 entries; a NEXT with 79 entries already stored raises E123 `PROGRAM HAS DISAPPEARED INTO THE BLACK LAGOON.` (decision: T16) Tests: (none yet)
-- [ ] §4.4.2, §9.2 — NEXT to a label that doesn't exist raises E129 when it executes. (decision: Q81) Tests: (none yet)
+- [x] §4.4.2 — `(label) NEXT` transfers control to the label and pushes the return point on the NEXT stack, which starts empty. Tests: `packages/conformance/tests/next/next-resume.i`, `packages/conformance/tests/next/e632-resume-empty.i`
+- [x] §4.4.2 — the stack holds at most 79 entries; a NEXT with 79 entries already stored raises E123 `PROGRAM HAS DISAPPEARED INTO THE BLACK LAGOON.` (decision: T16) Tests: `packages/conformance/tests/next/depth-79.i`, `packages/conformance/tests/next/e123-depth-80.i`, `packages/conformance/tests/next/e123-recursion.i`
+- [x] §4.4.2, §9.2 — NEXT to a label that doesn't exist raises E129 when it executes. (decision: Q81) Tests: `packages/conformance/tests/next/e129-missing-label.i`, `packages/conformance/tests/next/e129-not-run.i`
 
 ## §4.4.3 FORGET
 
-- [ ] §4.4.3 — `FORGET exp` evaluates the expression and discards that many NEXT stack entries. Tests: (none yet)
-- [ ] §4.4.3 — forgetting more entries than are stacked empties the stack without an error. Tests: (none yet)
-- [ ] §4.4.3 — `FORGET #0` does nothing. (decision: T17) Tests: (none yet)
-- [ ] §4.4.3 — 32-bit FORGET arguments are handled exactly, with no wraparound. (decision: T17) Tests: (none yet)
+- [x] §4.4.3 — `FORGET exp` evaluates the expression and discards that many NEXT stack entries. Tests: `packages/conformance/tests/next/forget-empties.i`
+- [x] §4.4.3 — forgetting more entries than are stacked empties the stack without an error. Tests: `packages/conformance/tests/next/forget-more-than-stacked.i`
+- [x] §4.4.3 — `FORGET #0` does nothing. (decision: T17) Tests: `packages/conformance/tests/next/forget-zero.i`
+- [x] §4.4.3 — 32-bit FORGET arguments are handled exactly, with no wraparound. (decision: T17) Tests: `packages/conformance/tests/next/forget-32-bit.i`
 
 ## §4.4.4 RESUME
 
-- [ ] §4.4.4 — `RESUME exp` pops that many entries and returns to the statement after the NEXT that stored the last entry popped. Tests: (none yet)
-- [ ] §4.4.4 — **golden:** the computed GO TO fragment `(1) DO (2) NEXT / FORGET #1 / (2) DO RESUME .1` behaves as described. Tests: (none yet)
-- [ ] §4.4.4, §9.2 — `RESUME` of an expression evaluating to #0 raises E621. Tests: (none yet)
-- [ ] §4.4.4, §9.2 — resuming more levels than are stacked raises E632. (decision: T17) Tests: (none yet)
-- [ ] §4.4.4 — 32-bit RESUME arguments are handled exactly, with no wraparound. (decision: T17) Tests: (none yet)
+- [x] §4.4.4 — `RESUME exp` pops that many entries and returns to the statement after the NEXT that stored the last entry popped. Tests: `packages/conformance/tests/next/next-resume.i`, `packages/conformance/tests/next/computed-goto-1.i`
+- [x] §4.4.4 — **golden:** the computed GO TO fragment `(1) DO (2) NEXT / FORGET #1 / (2) DO RESUME .1` behaves as described. Tests: `packages/conformance/tests/next/computed-goto-1.i`, `packages/conformance/tests/next/computed-goto-2.i`
+- [x] §4.4.4, §9.2 — `RESUME` of an expression evaluating to #0 raises E621. Tests: `packages/conformance/tests/next/e621-resume-zero.i`
+- [x] §4.4.4, §9.2 — resuming more levels than are stacked raises E632. (decision: T17) Tests: `packages/conformance/tests/next/e632-resume-empty.i`, `packages/conformance/tests/next/e632-resume-too-many.i`
+- [x] §4.4.4 — 32-bit RESUME arguments are handled exactly, with no wraparound. (decision: T17) Tests: `packages/conformance/tests/next/resume-32-bit.i`
 
 ## §4.4.5 STASH
 
-- [ ] §4.4.5 — `STASH list` saves copies of the listed variables and arrays (separated by `+`) and leaves the current values intact. Tests: (none yet)
-- [ ] §4.4.5 — each variable has its own last-in-first-out stash. Tests: (none yet)
-- [ ] §4.4.5 — STASHing an array saves its dimensions and its data. Tests: (none yet)
-- [ ] §4.4.5 — stashing a single array element is invalid, so the statement is undecodable. (decision: T25) Tests: (none yet)
-- [ ] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) Tests: (none yet)
+- [x] §4.4.5 — `STASH list` saves copies of the listed variables and arrays (separated by `+`) and leaves the current values intact. Tests: `packages/conformance/tests/stash/stash-keeps-value.i`, `packages/conformance/tests/stash/separate-stashes.i`
+- [x] §4.4.5 — each variable has its own last-in-first-out stash. Tests: `packages/conformance/tests/stash/last-in-first-out.i`, `packages/conformance/tests/stash/separate-stashes.i`
+- [x] §4.4.5 — STASHing an array saves its dimensions and its data. Tests: `packages/conformance/tests/stash/array-dimensions.i`, `packages/conformance/tests/stash/array-data.i`
+- [x] §4.4.5 — stashing a single array element is invalid, so the statement is undecodable. (decision: T25) Tests: `packages/conformance/tests/stash/stash-element-undecodable.i`
+- [x] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
 
 ## §4.4.6 RETRIEVE
 
-- [ ] §4.4.6 — `RETRIEVE list` restores the most recently STASHed values, and a second RETRIEVE restores the next most recent. Tests: (none yet)
-- [ ] §4.4.6 — RETRIEVE of an array restores its old dimensions as well as its values. Tests: (none yet)
-- [ ] §4.4.6 — RETRIEVE into a currently undimensioned array restores it normally. (decision: T25) Tests: (none yet)
-- [ ] §4.4.6, §9.2 — RETRIEVE of something never STASHed raises E436 `THROW STICK BEFORE RETRIEVING.` Tests: (none yet)
+- [x] §4.4.6 — `RETRIEVE list` restores the most recently STASHed values, and a second RETRIEVE restores the next most recent. Tests: `packages/conformance/tests/stash/retrieve-restores.i`, `packages/conformance/tests/stash/last-in-first-out.i`
+- [x] §4.4.6 — RETRIEVE of an array restores its old dimensions as well as its values. Tests: `packages/conformance/tests/stash/array-dimensions.i`
+- [x] §4.4.6 — RETRIEVE into a currently undimensioned array restores it normally. (decision: T25) Tests: `packages/conformance/tests/stash/retrieve-into-undimensioned.i`, `packages/conformance/tests/stash/array-undimensioned-snapshot.i`
+- [x] §4.4.6, §9.2 — RETRIEVE of something never STASHed raises E436 `THROW STICK BEFORE RETRIEVING.` Tests: `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/stash/e436-array.i`, `packages/conformance/tests/stash/e436-after-emptying.i`
 
 ## §4.4.7 IGNORE
 
-- [ ] §4.4.7 — after `IGNORE list`, later statements cannot change the listed variables or arrays. Tests: (none yet)
+- [x] §4.4.7 — after `IGNORE list`, later statements cannot change the listed variables or arrays. Tests: `packages/conformance/tests/ignore/store-dropped.i`, `packages/conformance/tests/ignore/small-store-dropped.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
 - [ ] §4.4.7 — **golden:** `.1 <- #1; IGNORE .1; .1 <- #0` leaves `.1` = 1. Tests: (none yet)
-- [ ] §4.4.7 — an IGNOREd variable's value can still be read in expressions. Tests: (none yet)
-- [ ] §4.4.7 — the statement that tries to change an IGNOREd variable still executes; only the store is blocked. Tests: (none yet)
-- [ ] §4.4.7 — assigning an out-of-range value to an IGNOREd 16-bit variable still raises E275 before the store is dropped. (decision: T24) Tests: (none yet)
+- [x] §4.4.7 — an IGNOREd variable's value can still be read in expressions. Tests: `packages/conformance/tests/ignore/still-readable.i`
+- [x] §4.4.7 — the statement that tries to change an IGNOREd variable still executes; only the store is blocked. Tests: `packages/conformance/tests/ignore/statement-still-executes.i`
+- [x] §4.4.7 — assigning an out-of-range value to an IGNOREd 16-bit variable still raises E275 before the store is dropped. (decision: T24) Tests: `packages/conformance/tests/ignore/e275-still-raised.i`
 - [ ] §4.4.7 — WRITE IN to an IGNOREd variable reads a number and throws it away. Tests: (none yet)
-- [ ] §4.4.7 — RETRIEVE of an IGNOREd variable pops its stash and throws the value away; the current value is kept. (decision: T24) Tests: (none yet)
-- [ ] §4.4.7 — stores into elements of an IGNOREd array are bounds-checked (E241) and then dropped. (decision: T24) Tests: (none yet)
-- [ ] §4.4.7 — redimensioning an IGNOREd array is blocked, but a zero dimension still raises E240. (decision: T24) Tests: (none yet)
+- [x] §4.4.7 — RETRIEVE of an IGNOREd variable pops its stash and throws the value away; the current value is kept. (decision: T24) Tests: `packages/conformance/tests/ignore/retrieve-discards.i`, `packages/conformance/tests/ignore/retrieve-pops.i`, `packages/conformance/tests/ignore/retrieve-array-discards.i`, `packages/conformance/tests/ignore/retrieve-array-pops.i`
+- [x] §4.4.7 — stores into elements of an IGNOREd array are bounds-checked (E241) and then dropped. (decision: T24) Tests: `packages/conformance/tests/ignore/element-bounds-checked.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
+- [x] §4.4.7 — redimensioning an IGNOREd array is blocked, but a zero dimension still raises E240. (decision: T24) Tests: `packages/conformance/tests/ignore/redimension-blocked.i`, `packages/conformance/tests/ignore/e240-still-raised.i`
 
 ## §4.4.8 REMEMBER
 
-- [ ] §4.4.8 — `REMEMBER list` ends the IGNORE for the listed variables and arrays. Tests: (none yet)
-- [ ] §4.4.8 — IGNOREing more than once needs only one REMEMBER, and REMEMBERing something never IGNOREd is not an error. Tests: (none yet)
+- [x] §4.4.8 — `REMEMBER list` ends the IGNORE for the listed variables and arrays. Tests: `packages/conformance/tests/ignore/remember.i`, `packages/conformance/tests/ignore/remember-array.i`
+- [x] §4.4.8 — IGNOREing more than once needs only one REMEMBER, and REMEMBERing something never IGNOREd is not an error. Tests: `packages/conformance/tests/ignore/remember-once.i`, `packages/conformance/tests/ignore/remember-never-ignored.i`
 
 ## §4.4.9 ABSTAIN
 
-- [ ] §4.4.9 — `ABSTAIN FROM (label)` abstains the labeled statement. Tests: (none yet)
-- [ ] §4.4.9 — `ABSTAIN FROM gerund+gerund…` abstains every statement of those types. Tests: (none yet)
-- [ ] §4.4.9 — an abstained statement is skipped, and control moves to the next statement. Tests: (none yet)
-- [ ] §4.4.9 — abstention is a single on/off flag; abstaining twice equals abstaining once. (decision: T20) Tests: (none yet)
-- [ ] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: (none yet)
+- [x] §4.4.9 — `ABSTAIN FROM (label)` abstains the labeled statement. Tests: `packages/conformance/tests/abstain/by-label.i`
+- [x] §4.4.9 — `ABSTAIN FROM gerund+gerund…` abstains every statement of those types. Tests: `packages/conformance/tests/abstain/gerund-list.i`, `packages/conformance/tests/abstain/gerund-other-types-run.i`
+- [x] §4.4.9 — an abstained statement is skipped, and control moves to the next statement. Tests: `packages/conformance/tests/abstain/skipped-moves-on.i`
+- [x] §4.4.9 — abstention is a single on/off flag; abstaining twice equals abstaining once. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-twice.i`
+- [x] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: `packages/conformance/tests/abstain/mixed-undecodable.i`, `packages/conformance/tests/abstain/mixed-undecodable-reversed.i`
 - [ ] §4.4.9 — the gerunds are CALCULATING, NEXTING, FORGETTING, RESUMING, STASHING, RETRIEVING, IGNORING, REMEMBERING, ABSTAINING, REINSTATING, READING OUT, WRITING IN and COMING FROM. (decision: T21) Tests: (none yet)
-- [ ] §4.4.9 — CALCULATING covers both assignment and array dimensioning. (decision: T21) Tests: (none yet)
-- [ ] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: (none yet)
-- [ ] §4.4.9 — `ABSTAIN FROM REINSTATING` is valid. Tests: (none yet)
-- [ ] §4.4.9 — `ABSTAIN FROM GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: (none yet)
-- [ ] §4.4.9 — ABSTAIN of a GIVE UP by label works. (decision: T20) Tests: (none yet)
-- [ ] §4.4.9, §9.2 — ABSTAIN of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: (none yet)
+- [x] §4.4.9 — CALCULATING covers both assignment and array dimensioning. (decision: T21) Tests: `packages/conformance/tests/abstain/calculating.i`
+- [x] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: `packages/conformance/tests/abstain/abstaining.i`, `packages/conformance/tests/abstain/abstaining-itself.i`
+- [x] §4.4.9 — `ABSTAIN FROM REINSTATING` is valid. Tests: `packages/conformance/tests/abstain/abstain-from-reinstating.i`
+- [x] §4.4.9 — `ABSTAIN FROM GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-from-giving-up-undecodable.i`
+- [x] §4.4.9 — ABSTAIN of a GIVE UP by label works. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-give-up-by-label.i`
+- [x] §4.4.9, §9.2 — ABSTAIN of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: `packages/conformance/tests/abstain/e139-abstain.i`
 
 ## §4.4.10 REINSTATE
 
-- [ ] §4.4.10 — REINSTATE by label or gerund list clears an abstention, whatever set it (gerund, label or NOT). Tests: (none yet)
-- [ ] §4.4.10 — `REINSTATE REINSTATING` can free a `DON'T REINSTATE` statement. Tests: (none yet)
-- [ ] §4.4.10 — `REINSTATE GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: (none yet)
-- [ ] §4.4.10 — REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` always stays a no-op. Tests: (none yet)
-- [ ] §4.4.10, §9.2 — REINSTATE of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: (none yet)
-- [ ] §4.4.10 — any argument other than a label or a gerund list is invalid. Tests: (none yet)
+- [x] §4.4.10 — REINSTATE by label or gerund list clears an abstention, whatever set it (gerund, label or NOT). Tests: `packages/conformance/tests/abstain/reinstate-not.i`, `packages/conformance/tests/abstain/reinstate-gerund-after-label.i`
+- [x] §4.4.10 — `REINSTATE REINSTATING` can free a `DON'T REINSTATE` statement. Tests: `packages/conformance/tests/abstain/reinstate-reinstating.i`
+- [x] §4.4.10 — `REINSTATE GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: `packages/conformance/tests/abstain/reinstate-giving-up-undecodable.i`
+- [x] §4.4.10 — REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` always stays a no-op. Tests: `packages/conformance/tests/abstain/reinstate-give-up-does-nothing.i`
+- [x] §4.4.10, §9.2 — REINSTATE of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: `packages/conformance/tests/abstain/e139-reinstate.i`
+- [x] §4.4.10 — any argument other than a label or a gerund list is invalid. Tests: `packages/conformance/tests/abstain/reinstate-variable-undecodable.i`
 
 ## §4.4.11 GIVE UP
 
-- [ ] §4.4.11 — `GIVE UP` ends the program cleanly with exit status 0. (decision: T18) Tests: (none yet)
-- [ ] §4.4.11 — `DON'T GIVE UP` does nothing. Tests: (none yet)
+- [x] §4.4.11 — `GIVE UP` ends the program cleanly with exit status 0. (decision: T18) Tests: `packages/conformance/tests/next/give-up.i`, `packages/conformance/tests/next/give-up-with-stack.i`
+- [x] §4.4.11 — `DON'T GIVE UP` does nothing. Tests: `packages/conformance/tests/next/dont-give-up.i`
 
 ## §4.4.12 WRITE IN (numbers)
 
@@ -252,17 +252,17 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.5 Comments and undecodable statements
 
-- [ ] §4.5 — a statement the compiler can't decode compiles anyway, and raises E000 only if it executes. Tests: (none yet)
-- [ ] §4.5, §9.1 — E000's message is the statement's source text verbatim. Lines after the first are indented with a tab, and very long text is cut off at about 500 characters. (decision: T10) Tests: (none yet)
-- [ ] §4.5 — **golden:** `PLEASE NOTE THAT THIS LINE HAS NO EFFECT` (abstained by NOT) is ignored. Tests: (none yet)
-- [ ] §4.5 — **golden:** the `DON'T YOU REALIZE THIS STATEMENT SHOULD ONLY BE ENCOUNTERED ONCE?` + `PLEASE REINSTATE (123)` pair raises E000 the second time. Tests: (none yet)
+- [x] §4.5 — a statement the compiler can't decode compiles anyway, and raises E000 only if it executes. Tests: `packages/conformance/tests/calculate/e000-only-if-executed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
+- [x] §4.5, §9.1 — E000's message is the statement's source text verbatim. Lines after the first are indented with a tab, and very long text is cut off at about 500 characters. (decision: T10) Tests: `packages/conformance/tests/calculate/e000-shares-lines.i`, `packages/conformance/tests/calculate/e000-long-text.i`
+- [x] §4.5 — **golden:** `PLEASE NOTE THAT THIS LINE HAS NO EFFECT` (abstained by NOT) is ignored. Tests: `packages/conformance/tests/abstain/note-has-no-effect.i`
+- [x] §4.5 — **golden:** the `DON'T YOU REALIZE THIS STATEMENT SHOULD ONLY BE ENCOUNTERED ONCE?` + `PLEASE REINSTATE (123)` pair raises E000 the second time. Tests: `packages/conformance/tests/abstain/encountered-once.i`
 - [ ] §4.5 — `DO`, `PLEASE` and `(n)` are recognized anywhere, even inside a word: "NOTE THAT THIS LINE DOES NOTHING" breaks at "DOES". (decision: T8) Tests: (none yet)
 - [ ] §4.5 — "D-space-O" is not an identifier. Tests: (none yet)
 - [ ] §4.5 — undecodable text runs up to the next `DO`/`PLEASE`/label token, and a following label starts the next statement. (decision: T8) Tests: (none yet)
 - [ ] §4.5 — junk after a complete statement makes that statement undecodable (E000 if it executes). (decision: T9) Tests: (none yet)
 - [ ] §4.5 — a `*` in the source is junk; it isn't the listing's splat marker. (decision: T15) Tests: (none yet)
 - [ ] §4.5, TONSIL — any character with no use in TONSIL A makes its statement undecodable. (decision: T14) Tests: (none yet)
-- [ ] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: (none yet)
+- [x] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: `packages/conformance/tests/abstain/encountered-once.i`, `packages/conformance/tests/abstain/undecodable-keeps-percent.i`
 
 ## §5.2 Turing Text character I/O
 
@@ -356,26 +356,26 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §9.1 — every error code has its own original joke line printed under the official text. (decision: Q90) Tests: (none yet)
 - [ ] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: (none yet)
 - [ ] §9 — errors local to one statement fire when that statement executes. Errors about the whole program (E182, E444, E555, E079, E099, E998, E997, E111, E777) fire at compile time. (decision: Q80) Tests: (none yet)
-- [ ] §9.2 — E000: an undecodable statement executed. Tests: (none yet)
-- [ ] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: (none yet)
+- [x] §9.2 — E000: an undecodable statement executed. Tests: `packages/conformance/tests/calculate/e000-undecodable.i`
+- [x] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-ungrouped-chain.i`, `packages/conformance/tests/calculate/e017-percent-101.i`
 - [ ] §9.2 — E079: insufficiently polite. (decision: T35) Tests: (none yet)
 - [ ] §9.2 — E099: excessively polite. (decision: T35) Tests: (none yet)
-- [ ] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: (none yet)
-- [ ] §9.2 — E129: transfer to a non-existent label. Tests: (none yet)
-- [ ] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: (none yet)
+- [x] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: `packages/conformance/tests/next/e123-depth-80.i`
+- [x] §9.2 — E129: transfer to a non-existent label. Tests: `packages/conformance/tests/next/e129-missing-label.i`
+- [x] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: `packages/conformance/tests/abstain/e139-abstain.i`, `packages/conformance/tests/abstain/e139-reinstate.i`
 - [ ] §9.2 — E182: label multiply defined. Tests: (none yet)
-- [ ] §9.2 — E197: invalid line label. Tests: (none yet)
-- [ ] §9.2 — E200: unidentified variable. Tests: (none yet)
-- [ ] §9.2 — E240: array dimension of zero. Tests: (none yet)
-- [ ] §9.2 — E241: invalid dimensioning information. Tests: (none yet)
-- [ ] §9.2 — E275: 32-bit value assigned to a 16-bit variable, printed as `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: (none yet)
-- [ ] §9.2 — E436: retrieval of an unSTASHed value. Tests: (none yet)
+- [x] §9.2 — E197: invalid line label. Tests: `packages/conformance/tests/calculate/e197-label.i`
+- [x] §9.2 — E200: unidentified variable. Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`
+- [x] §9.2 — E240: array dimension of zero. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
+- [x] §9.2 — E241: invalid dimensioning information. Tests: `packages/conformance/tests/calculate/e241-undimensioned.i`, `packages/conformance/tests/calculate/e241-too-large.i`
+- [x] §9.2 — E275: 32-bit value assigned to a 16-bit variable, printed as `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`
+- [x] §9.2 — E436: retrieval of an unSTASHed value. Tests: `packages/conformance/tests/stash/e436-never-stashed.i`
 - [ ] §9.2 — E533: WRITE IN or mingle produced a value over 32 bits. Tests: (none yet)
 - [ ] §9.2 — E562: insufficient data. Tests: (none yet)
 - [ ] §9.2 — E579: input data invalid. Tests: (none yet)
-- [ ] §9.2 — E621: RESUME expression evaluated to #0. Tests: (none yet)
-- [ ] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: (none yet)
-- [ ] §9.2 — E633: execution passed beyond the last statement. Tests: (none yet)
+- [x] §9.2 — E621: RESUME expression evaluated to #0. Tests: `packages/conformance/tests/next/e621-resume-zero.i`
+- [x] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: `packages/conformance/tests/next/e632-resume-empty.i`
+- [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
 - [ ] §9.2, §12 — E774: random compiler bug (see §12). Tests: (none yet)
 - [ ] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: (none yet)
 - [ ] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: (none yet)
@@ -429,8 +429,8 @@ The library is a clean-room implementation written from these contracts alone (d
 
 ## Program-level behavior
 
-- [ ] §9.2 — falling off the end of the program raises E633. Tests: (none yet)
-- [ ] §4.4.11, §9 — GIVE UP exits 0; any error exits with its code mod 256. (decision: T18, T34) Tests: (none yet)
+- [x] §9.2 — falling off the end of the program raises E633. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
+- [x] §4.4.11, §9 — GIVE UP exits 0; any error exits with its code mod 256. (decision: T18, T34) Tests: `packages/conformance/tests/next/give-up.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
 - [ ] §4.3 — by default the `%` RNG is seeded from the time; `+seed` overrides it. (decision: T22) Tests: (none yet)
 
 ## Excluded by decision

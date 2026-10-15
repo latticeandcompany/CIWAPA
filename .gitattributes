@@ -1,2 +1,6 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Every text file checks out with LF on every platform: the conformance goldens are compared
+# byte for byte, and the runtimes are embedded verbatim.
+* text=auto eol=lf
+
+# Test inputs that are CRLF on purpose (decision T7).
+packages/conformance/tests/**/*crlf* -text

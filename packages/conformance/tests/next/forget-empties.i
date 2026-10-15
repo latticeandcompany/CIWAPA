@@ -1,0 +1,4 @@
+PLEASE DO (3) NEXT
+DO .0 <- #1
+(3) DO FORGET #1
+DO RESUME #1

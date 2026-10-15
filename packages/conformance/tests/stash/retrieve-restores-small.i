@@ -1,0 +1,5 @@
+DO :1 <- #1
+PLEASE STASH :1
+DO :1 <- #256$#0
+DO RETRIEVE :1
+DO .1 <- :1
