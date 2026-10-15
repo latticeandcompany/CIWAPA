@@ -70,6 +70,24 @@ void main() {
       expect(faults(build('DO REINSTATE (5)').at(1)), [139]);
     });
 
+    test('an ungrouped chain faults at its second operator', () {
+      expect(faults(build('DO .1 <- #1~#2~.0').at(1)), [17, 200]);
+      expect(faults(build('DO .1 <- .0~#2~#3').at(1)), [200, 17]);
+    });
+
+    test('a chain in a statement later splattered by junk is just E000', () {
+      final s = build('DO .1 <- #1~#2~#3 *\nDO GIVE UP').at(1);
+      expect(s.op, isA<IrUndecodable>());
+      expect(faults(s), isEmpty);
+    });
+
+    test('a NEXT keeps its target as line 3 even when another fault fires', () {
+      expect(
+        build('(0) DO (3) NEXT\nDO GIVE UP\n(3) PLEASE GIVE UP').at(1).next,
+        3,
+      );
+    });
+
     test('faults keep source order', () {
       expect(faults(build('(0) DO %200 .0 <- #70000').at(1)), [
         197,

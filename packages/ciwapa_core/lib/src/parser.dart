@@ -239,7 +239,7 @@ class Parser {
           ? BinaryOp.mingle
           : BinaryOp.select;
       _pos++;
-      left = Binary(op, left, _operand());
+      left = Binary(op, left, _operand(), ungrouped: operators > 0);
       operators++;
     }
     if (operators >= 2) _chain = true;

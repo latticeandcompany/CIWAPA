@@ -82,11 +82,15 @@ class Unary extends Expr {
 enum BinaryOp { mingle, select }
 
 class Binary extends Expr {
-  const Binary(this.op, this.left, this.right);
+  const Binary(this.op, this.left, this.right, {this.ungrouped = false});
 
   final BinaryOp op;
   final Expr left;
   final Expr right;
+
+  /// This operator is the second or later in an ungrouped chain such as `#1¢#2~#3`, which is
+  /// invalid (§3.4.3): E017 when the statement executes (decision Q97).
+  final bool ungrouped;
 
   @override
   String toString() => '(${op == BinaryOp.mingle ? r'$' : '~'} $left $right)';

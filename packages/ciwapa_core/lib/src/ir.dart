@@ -162,7 +162,8 @@ class IrDimension extends IrOp {
 class IrNext extends IrOp {
   const IrNext(this.target);
 
-  /// The target's ordinal. A missing target is an E129 [Fault] instead.
+  /// The target's ordinal, or 0 when the label is missing: the statement then carries an E129
+  /// [Fault], and emitters must never jump here.
   final int target;
 
   @override
@@ -381,7 +382,6 @@ class _Lowering {
       final percent = s.percent;
       if (percent != null && percent > 100) _faults.add(const Fault(17));
       final op = _op(s);
-      if (s.ungroupedChain) _faults.add(const Fault(17));
       ir.add(
         IrStatement(
           ordinal: i + 1,
@@ -404,7 +404,7 @@ class _Lowering {
     }
     for (final s in ir) {
       final op = s.op;
-      s.next = op is IrNext && s.faults.isEmpty
+      s.next = op is IrNext && op.target != 0
           ? op.target
           : s.comeFrom ?? s.ordinal + 1;
       s.abstainable = s.initiallyAbstained;
@@ -532,15 +532,19 @@ class _Lowering {
     ]),
     ArrayItem(:final array) => IrArrayItem(_array(array)),
     Unary(:final op, :final operand) => IrUnary(op, _expr(operand)),
-    Binary(op: BinaryOp.mingle, :final left, :final right) => IrMingle(
-      _expr(left),
-      _expr(right),
-    ),
-    Binary(op: BinaryOp.select, :final left, :final right) => IrSelect(
-      _expr(left),
-      _expr(right),
-    ),
+    Binary() => _binary(e),
   };
+
+  /// Lowers left to right, so an ungrouped chain's E017 lands at its second operator, after the
+  /// faults of the operands before it.
+  IrExpr _binary(Binary e) {
+    final left = _expr(e.left);
+    if (e.ungrouped) _faults.add(const Fault(17));
+    final right = _expr(e.right);
+    return e.op == BinaryOp.mingle
+        ? IrMingle(left, right)
+        : IrSelect(left, right);
+  }
 
   IrExpr _constant(int value) {
     if (value > smallMax(program.base)) _faults.add(const Fault(17));

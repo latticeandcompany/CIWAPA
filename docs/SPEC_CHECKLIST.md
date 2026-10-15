@@ -471,6 +471,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - T32 our own wimp-mode message. Both versions use ick's GPL text.
 - T33 the spelling is `RESUBMIT` (the spec), not ick's `RESUBNIT`. `<n>` is a statement ordinal, not a source line. E633 prints a number, not "THE NEW WORLD". A joke line is added.
 - T35 politeness uses the spec's exact fractions and counts statements. Both versions use integer formulas and count PLEASE tokens.
+- T19 A COME FROM aimed at a RESUME jumps after the RESUME executes, because §4.4.14.2 only exempts an executed NEXT. 0.15 doesn't: its RESUME transfers control before the trap is checked.
 - T37 E633 never falls through into the included library. Both versions would run the library's first statement.
 - T38 `+help` exits E778, as in 0.15, without the 3-second sleep. 0.35 exits E990.
 - Q78 mingle operands above 65535 raise E533, as in 0.35. 0.15 silently truncates.
