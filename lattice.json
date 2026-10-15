@@ -2,7 +2,11 @@
   "$schema": ".lattice/schema.json",
   "latticeVersion": "1.1.1",
   "tasks": {
-    "test": {},
+    "test": {
+      "dependsOn": [
+        "^test"
+      ]
+    },
     "lint": {},
     "format": {},
     "goal-status": {
@@ -15,11 +19,81 @@
       "path": ".",
       "auto": false,
       "scripts": {
-        "test": "tools/in-docker dart test",
         "lint": "tools/in-docker dart analyze --fatal-infos",
         "format": "tools/in-docker dart format --output=none --set-exit-if-changed .",
-        "goal-status": "tools/goal/goal-status"
+        "goal-status": "tools/goal/goal-status",
+        "test": ""
       }
+    },
+    {
+      "name": "ciwapa_core",
+      "path": "packages/ciwapa_core",
+      "auto": false,
+      "scripts": {
+        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      }
+    },
+    {
+      "name": "ciwapa_dart",
+      "path": "packages/ciwapa_dart",
+      "auto": false,
+      "scripts": {
+        "test": "",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_core"
+      ]
+    },
+    {
+      "name": "ciwapa_llvm",
+      "path": "packages/ciwapa_llvm",
+      "auto": false,
+      "scripts": {
+        "test": "",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_core",
+        "runtime_c"
+      ]
+    },
+    {
+      "name": "runtime_c",
+      "path": "packages/runtime_c",
+      "auto": false,
+      "scripts": {
+        "test": "",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      }
+    },
+    {
+      "name": "conformance",
+      "path": "packages/conformance",
+      "auto": false,
+      "scripts": {
+        "test": "",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_core"
+      ]
     }
+  ],
+  "globalDependencies": [
+    "Dockerfile",
+    "tools/in-docker",
+    "pubspec.lock"
   ]
 }

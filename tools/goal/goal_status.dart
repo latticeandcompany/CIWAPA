@@ -202,8 +202,10 @@ Criterion _jobsGreen(String title, String runFile, String jobPrefix) {
   final run = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   final jobs = {
     for (final j in run['jobs'] as List)
-      j['name'] as String:
-          (j['conclusion'] as String?) ?? j['status'] as String,
+      j['name'] as String: switch (j['conclusion']) {
+        String c when c.isNotEmpty => c,
+        _ => j['status'] as String,
+      },
   };
   final details = <String>[];
   var met = true;
