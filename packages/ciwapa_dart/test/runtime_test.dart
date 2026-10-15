@@ -61,6 +61,20 @@ void main() {
     },
   );
 
+  test('§5.2, T31: Turing Text output is flushed at a newline', () {
+    final sink = <List<int>>[];
+    ickWriteBytes = sink.add;
+    ickDimension(0, [2], 0);
+    // 0x82 and 0x50 are "A" and "\n" with their bits reversed.
+    ickArrayData(0)
+      ..[0] = (0 - 0x82) & 0xFF
+      ..[1] = (0x82 - 0x50) & 0xFF;
+    ickTuringOut(0, 0);
+    expect(sink, [
+      [0x41, 0x0A],
+    ]);
+  });
+
   test('the embedded copy matches runtime.dart', () {
     expect(
       File('lib/src/runtime_source.g.dart').readAsStringSync(),

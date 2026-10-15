@@ -44,6 +44,11 @@ void main() {
     },
   );
 
+  test('§5.2, T31: Turing Text output is flushed at a newline', () {
+    expect(lines[6], 'A');
+    expect(lines[7], 'flushes 1');
+  });
+
   test('the embedded copy matches runtime.c', () {
     expect(
       File('lib/src/runtime_c.g.dart').readAsStringSync(),

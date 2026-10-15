@@ -275,10 +275,10 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §5.2 — output computes c = (last output − element) mod 256, remembers c, and writes c's 8 bits in reverse order. Tests: `packages/conformance/tests/turing/output.i`, `packages/conformance/tests/turing/output-hybrid-across-statements.i`
 - [x] §5.2 — the bit reversal affects only what's written out, not the value kept for the next subtraction. Tests: `packages/conformance/tests/turing/output-hybrid-across-statements.i`
 - [x] §5.2 — input and output use separate tapes, and both start at character 0. Tests: `packages/conformance/tests/turing/separate-tapes.i`
-- [x] §5.2 — characters are 8 bits. Tests: `packages/conformance/tests/turing/output-mod-256.i`
+- [x] §5.2 — characters are 8 bits. Tests: `packages/conformance/tests/turing/input.i`, `packages/conformance/tests/turing/output-mod-256.i`
 - [x] §5.2 — newlines get no special treatment. (decision: T31) Tests: `packages/conformance/tests/turing/input.i`
-- [x] §5.2 — output is flushed at every newline and when the program exits. (decision: T31) Tests: `packages/conformance/tests/turing/flush-at-exit.i`, `packages/conformance/tests/turing/output.i`
-- [x] §5.2 — number I/O and Turing Text I/O can be mixed in one list. Tests: `packages/conformance/tests/turing/mixed-list.i`
+- [x] §5.2 — output is flushed at every newline and when the program exits. (decision: T31) Tests: `packages/conformance/tests/turing/flush-at-exit.i`, `packages/runtime_c/test/runtime_test.dart`, `packages/ciwapa_dart/test/runtime_test.dart`
+- [x] §5.2 — number I/O and Turing Text I/O can be mixed in one list. Tests: `packages/conformance/tests/turing/mixed-list.i`, `packages/conformance/tests/turing/separate-tapes.i`
 - [ ] §5.3 — **golden:** the `cat` program as printed fails politeness with E079 (3 polite statements out of 22), and a polite variant of it copies its input to its output exactly. (decision: T35) Tests: (none yet)
 
 ## §6 TriINTERCAL and other bases

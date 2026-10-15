@@ -6,10 +6,21 @@
 #include <string.h>
 #include <time.h>
 
-/* Where input bytes come from; runtime_test.c substitutes its own source. */
+/* Where input bytes come from, and how stdout is flushed; runtime_test.c substitutes its own. */
 #ifndef ICK_GETCHAR
-#define ICK_GETCHAR() getchar()
+#define ICK_GETCHAR() ick_getchar()
 #endif
+#ifndef ICK_FLUSH
+#define ICK_FLUSH() fflush(stdout)
+#endif
+
+/* stdio's end of input is sticky, but after an end of input on a terminal the program may read
+ * on, and the next character reads as itself + 1 (decision T31), so the flag is cleared. */
+static int ick_getchar(void) {
+  int c = getchar();
+  if (c == EOF) clearerr(stdin);
+  return c;
+}
 
 #ifdef _WIN32
 #include <fcntl.h>
@@ -400,6 +411,7 @@ static size_t line_capacity;
 static int read_line(size_t *length, uint32_t next) {
   size_t n = 0;
   int c;
+  ICK_FLUSH();
   while ((c = ICK_GETCHAR()) != EOF && c != '\n') {
     if (n + 1 >= line_capacity) line_buffer = grow(line_buffer, &line_capacity, 1, next);
     line_buffer[n++] = (char)c;
@@ -502,6 +514,7 @@ static ick_shape *turing_array(uint32_t index, uint32_t next) {
  * as itself + 1, as in C-INTERCAL. */
 void ick_turing_in(uint32_t index, uint32_t next) {
   ick_shape *a = turing_array(index, next);
+  ICK_FLUSH();
   for (uint32_t i = 0; i < a->dims[0]; i++) {
     int c = ICK_GETCHAR();
     uint32_t value = c == EOF ? 256 : ((uint32_t)c - last_in) & 0xFFu;
@@ -522,6 +535,6 @@ void ick_turing_out(uint32_t index, uint32_t next) {
     c = (c & 0x33u) << 2 | (c & 0xCCu) >> 2;
     c = (c & 0x55u) << 1 | (c & 0xAAu) >> 1;
     putchar((int)c);
-    if (c == '\n') fflush(stdout);
+    if (c == '\n') ICK_FLUSH();
   }
 }

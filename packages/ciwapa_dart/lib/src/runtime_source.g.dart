@@ -69,18 +69,42 @@ void ickInit(
 
 // ---- Output ----------------------------------------------------------------------------------
 
-/// Everything bound for stdout goes through one buffer, flushed at every newline and at exit, so
-/// numbers and Turing Text characters keep their order (decision T31).
-final _output = BytesBuilder(copy: false);
+/// Everything bound for stdout goes through one buffer, flushed at every newline, when full, before
+/// every read and at exit, so numbers and Turing Text characters keep their order (decision T31).
+final _output = Uint8List(4096);
+var _outputLength = 0;
 
-void _write(List<int> bytes) => _output.add(bytes);
+/// Where output bytes go: stdout, or a test's own sink.
+void Function(List<int>) ickWriteBytes = stdout.add;
 
-void _flush() {
-  if (_output.isNotEmpty) stdout.add(_output.takeBytes());
+void _writeByte(int b) {
+  if (_outputLength == _output.length) _flush();
+  _output[_outputLength++] = b;
 }
 
-/// Where input bytes come from: stdin, or a test's own source. -1 is the end of input.
-int Function() ickReadByte = stdin.readByteSync;
+void _write(List<int> bytes) {
+  for (final b in bytes) {
+    _writeByte(b);
+  }
+}
+
+void _flush() {
+  if (_outputLength == 0) return;
+  ickWriteBytes(
+    Uint8List.fromList(Uint8List.sublistView(_output, 0, _outputLength)),
+  );
+  _outputLength = 0;
+}
+
+/// Where input bytes come from: stdin, or a test's own source. -1 is the end of input, and so is
+/// an unreadable stdin, as in C.
+int Function() ickReadByte = () {
+  try {
+    return stdin.readByteSync();
+  } on StdinException {
+    return -1;
+  }
+};
 
 Never _error(int code, String? text, int next) {
   _flush();
@@ -365,6 +389,7 @@ final _numeralBytes = {
 /// Reads one line, without its newline, or null at the end of input with nothing read. A final
 /// line without a newline keeps every character (decision T28).
 List<int>? _readLine() {
+  _flush();
   final line = <int>[];
   while (true) {
     final c = ickReadByte();
@@ -487,6 +512,7 @@ int _turingArray(int index, int next) {
 void ickTuringIn(int index, int next) {
   final length = _turingArray(index, next);
   final a = _arrays[index];
+  _flush();
   for (var i = 0; i < length; i++) {
     final c = ickReadByte();
     final value = c == -1 ? 256 : (c - _lastIn) & 0xFF;
@@ -507,7 +533,7 @@ void ickTuringOut(int index, int next) {
     b = ((b & 0x0F) << 4) | ((b & 0xF0) >> 4);
     b = ((b & 0x33) << 2) | ((b & 0xCC) >> 2);
     b = ((b & 0x55) << 1) | ((b & 0xAA) >> 1);
-    _write([b]);
+    _writeByte(b);
     if (b == 0x0A) _flush();
   }
 }
