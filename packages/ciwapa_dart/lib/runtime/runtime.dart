@@ -31,6 +31,8 @@ late Uint8List _ignored;
 late List<List<int>> _scalarStashes;
 late List<List<_Shape>> _arrayStashes;
 late int _smallMax;
+late int _base;
+late int _digits;
 late int _largeMax;
 late bool _clockface;
 late List<_Array> _arrays;
@@ -57,6 +59,8 @@ void ickInit(
   _ignored = ignored;
   _scalarStashes = List.generate(values.length, (_) => <int>[]);
   _arrayStashes = List.generate(arrayCount, (_) => <_Shape>[]);
+  _base = base;
+  _digits = _smallDigits[base];
   var max = 1;
   for (var i = 0; i < _smallDigits[base]; i++) {
     max *= base;
@@ -172,13 +176,45 @@ bool ickRoll(int percent) => (_nextRandom() >>> 1) % 100 < percent;
 int ickMingle(int left, int right, int next) {
   if (left > _smallMax || right > _smallMax) ickFatal(533, next);
   var result = 0;
+  if (_base != 2) {
+    // The left operand supplies the high digit of each pair (§6.5.1).
+    var place = 1;
+    for (var i = 0; i < _digits; i++) {
+      result += place * (right % _base);
+      right ~/= _base;
+      place *= _base;
+      result += place * (left % _base);
+      left ~/= _base;
+      place *= _base;
+    }
+    return result;
+  }
   for (var i = 15; i >= 0; i--) {
     result = (result << 2) | (((left >> i) & 1) << 1) | ((right >> i) & 1);
   }
   return result;
 }
 
+/// §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger), then
+/// pack the digits under selector b-1 at the low end, then those under b-2, down to 1.
+int _selectDigits(int value, int mask) {
+  var result = 0, out = 1;
+  for (var selector = _base - 1; selector > 0; selector--) {
+    var place = 1;
+    for (var i = 0; i < 2 * _digits; i++) {
+      if ((mask ~/ place) % _base == selector) {
+        final digit = (value ~/ place) % _base;
+        if (digit != 0) result += out * (digit > selector ? digit : selector);
+        out *= _base;
+      }
+      place *= _base;
+    }
+  }
+  return result;
+}
+
 int ickSelect(int value, int mask) {
+  if (_base != 2) return _selectDigits(value, mask);
   var result = 0, bit = 1;
   for (; mask != 0; mask &= mask - 1) {
     if (value & mask & -mask != 0) result |= bit;
@@ -191,6 +227,42 @@ int ickSelect(int value, int mask) {
 // last bit wrapping around to the first (§3.4.2).
 int _rotate16(int x) => ((x >> 1) | (x << 15)) & 0xFFFF;
 int _rotate32(int x) => ((x >> 1) | (x << 31)) & 0xFFFFFFFF;
+
+// §6.5.2.1, §6.6: the digit-wise unary operators of bases 3–7. Each digit is combined with the
+// next one up, the top digit wrapping around to the bottom, as rotating right and combining does in
+// binary. The logical operators all prefer one digit p: AND prefers 0, OR prefers b-1, BUT prefers
+// 1 and N@ prefers N. ? subtracts without borrow and ^ adds without carry.
+enum _Digitwise { logical, minus, plus }
+
+int _digitwise(_Digitwise kind, bool large, int p, int n) {
+  final length = large ? 2 * _digits : _digits;
+  var result = 0, place = 1;
+  final low = n % _base;
+  var here = low;
+  for (var i = 1; i <= length; i++) {
+    final below = here;
+    if (i < length) {
+      n ~/= _base;
+      here = n % _base;
+    } else {
+      here = low;
+    }
+    final digit = switch (kind) {
+      _Digitwise.minus => (_base + here - below) % _base,
+      _Digitwise.plus => (here + below) % _base,
+      _ when here <= p => (below < here || below > p) ? here : below,
+      _ => (below < here && below > p) ? here : below,
+    };
+    result += place * digit;
+    place *= _base;
+  }
+  return result;
+}
+
+int ickLogical(bool large, int p, int n) =>
+    _digitwise(_Digitwise.logical, large, p, n);
+int ickMinus(bool large, int n) => _digitwise(_Digitwise.minus, large, 0, n);
+int ickPlus(bool large, int n) => _digitwise(_Digitwise.plus, large, 0, n);
 
 int ickAnd16(int x) => x & _rotate16(x);
 int ickOr16(int x) => x | _rotate16(x);

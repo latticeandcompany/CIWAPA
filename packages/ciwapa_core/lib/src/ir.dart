@@ -14,6 +14,13 @@ int smallMax(int base) => pow(base, smallDigits[base]!).toInt() - 1;
 /// The largest large value in [base]: 4294967295 in binary.
 int largeMax(int base) => pow(base, 2 * smallDigits[base]!).toInt() - 1;
 
+/// The digit a base 3–7 logical operator prefers: AND 0, OR b-1, BUT (`@`) 1 and `N@` N (§6.6).
+int preferredDigit(UnaryOp op, int base) => switch (op) {
+  UnaryOp.and => 0,
+  UnaryOp.or => base - 1,
+  _ => op.whirlpoolDigit,
+};
+
 /// A statement-local error. It fires only when its statement executes (decisions Q80, Q81).
 class Fault {
   const Fault(this.code);

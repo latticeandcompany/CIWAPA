@@ -1,0 +1,33 @@
+PLEASE DO .99 <- #11204
+DO :99 <- #11204$#3361
+DO .1 <- .&99
+DO :1 <- :&99
+PLEASE DO READ OUT .1 + :1
+DO .2 <- .V99
+DO :2 <- :V99
+DO READ OUT .2 + :2
+PLEASE DO .3 <- .?99
+DO :3 <- :?99
+DO READ OUT .3 + :3
+DO .4 <- .^99
+PLEASE DO :4 <- :^99
+DO READ OUT .4 + :4
+DO .5 <- .@99
+DO :5 <- :@99
+PLEASE DO READ OUT .5 + :5
+DO .6 <- .2@99
+DO :6 <- :2@99
+DO READ OUT .6 + :6
+PLEASE DO .7 <- .3@99
+DO :7 <- :3@99
+DO READ OUT .7 + :7
+DO .8 <- .4@99
+PLEASE DO :8 <- :4@99
+DO READ OUT .8 + :8
+DO .9 <- .5@99
+DO :9 <- :5@99
+PLEASE DO READ OUT .9 + :9
+DO :20 <- #11204~#16806
+DO :21 <- :99~#5602
+DO READ OUT :20 + :21
+PLEASE DO GIVE UP

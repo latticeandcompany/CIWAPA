@@ -283,30 +283,30 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §6 TriINTERCAL and other bases
 
-- [ ] §6.3, §6.6 — the extension picks the base: `.i` and `.2i` are base 2, `.3i`–`.7i` are bases 3–7. (decision: T40) Tests: (none yet)
-- [ ] §6.6, §9.2 — any other source extension is a compile-time E998. (decision: T40) Tests: (none yet)
-- [ ] §6.6 — small types hold 16 bits, 10 trits, 8 quarts, 6 quints, 6 sexts or 5 septs; large types hold twice as many digits. Tests: (none yet)
-- [ ] §6.4 — the largest small value is 59048 / 65535 / 15624 / 46655 / 16806 in bases 3–7. (decision: T40) Tests: (none yet)
-- [ ] §6.4 — the largest large value is 3486784400 / 4294967295 / 244140624 / 2176782335 / 282475248 in bases 3–7. (decision: T40) Tests: (none yet)
-- [ ] §6.4 — a constant above the base's small limit raises E017 when its statement executes. (decision: T40, Q80) Tests: (none yet)
-- [ ] §6.4 — WRITE IN of a number too big for its target raises E275 (small target) or E533 (large target). (decision: T40) Tests: (none yet)
-- [ ] §6.5.1 — mingle interleaves the digits of two small operands into a large result. Tests: (none yet)
-- [ ] §6.5.2.2 — select ANDs digit by digit, then packs digits by selector value: the digits under b−1 go to the low end first, then the lower selector values in turn, and the 0-selected digits fill the high end. (decision: T40) Tests: (none yet)
-- [ ] §6.5.2.2 — a select result has the same type as in standard INTERCAL. (decision: Q77) Tests: (none yet)
-- [ ] §6.5.2.1, §6.6 — `V` (OR) returns the larger digit of each cyclic adjacent pair. Tests: (none yet)
-- [ ] §6.5.2.1, §6.6 — `&` (AND) chooses 0 if it can, otherwise the larger digit. Tests: (none yet)
-- [ ] §6.5.2.1, §6.6 — `@` (BUT) prefers 1, then 0, then the largest remaining digit. Tests: (none yet)
-- [ ] §6.6 — `N@` prefers digit N, and is allowed only where N ≤ b−2. (decision: T40) Tests: (none yet)
-- [ ] §6.6 — `0@` is not permitted. Tests: (none yet)
-- [ ] §6.5.2.3, §6.6 — `?` subtracts without borrow: the operand rotated right one digit, minus the original, digit by digit mod b. Tests: (none yet)
-- [ ] §6.5.2.3, §6.6 — `^` (sharkfin) adds without carry, digit by digit mod b. Tests: (none yet)
-- [ ] §6.6, §9.2 — `@` or `^` in a `.i`/`.2i` file, or any operator the base doesn't support, is a compile-time E997. (decision: T40) Tests: (none yet)
-- [ ] §6.5.3 — **golden:** the base-3 mappings `"^.3$#1"~#1`, `"V.3$#1"~#1`, `"V'"&.3$#2"~#1'$#1"~#1`, `"?'"&.3$#2"~#1'$#1"~#1`, `"V!3~#2'$#1"~#1`, `"?!3~#2'$#1"~#1` and `"@'"^.3$#7"~#4'$#2"~#10` each produce the stated results. Tests: (none yet)
-- [ ] §6.5.3 — **golden:** `"^.3$.3"~"#0$#29524"` swaps 1-trits and 2-trits. Tests: (none yet)
-- [ ] §6.6 — **golden:** both balanced-quinary negation forms in a `.5i` file agree. Tests: (none yet)
-- [ ] §6 — I/O is decimal digit words and Roman numerals in every base; Turing Text is unchanged. (decision: T40) Tests: (none yet)
-- [ ] §6.3 — a program cannot mix dialects. Tests: (none yet)
-- [ ] §10.2, §9.2 — `--traditional` with a base other than 2 is E111. (decision: T39) Tests: (none yet)
+- [x] §6.3, §6.6 — the extension picks the base: `.i` and `.2i` are base 2, `.3i`–`.7i` are bases 3–7. (decision: T40) Tests: `packages/conformance/tests/tri/base-2-extension.2i`, `packages/conformance/tests/tri/limits-base3.3i`, `packages/conformance/tests/tri/limits-base4.4i`, `packages/conformance/tests/tri/limits-base5.5i`, `packages/conformance/tests/tri/limits-base6.6i`, `packages/conformance/tests/tri/limits-base7.7i`
+- [x] §6.6, §9.2 — any other source extension is a compile-time E998. (decision: T40) Tests: `packages/conformance/tests/errors/e998-extension.bad`
+- [x] §6.6 — small types hold 16 bits, 10 trits, 8 quarts, 6 quints, 6 sexts or 5 septs; large types hold twice as many digits. Tests: `packages/conformance/tests/tri/limits-base3.3i`, `packages/conformance/tests/tri/limits-base4.4i`, `packages/conformance/tests/tri/limits-base5.5i`, `packages/conformance/tests/tri/limits-base6.6i`, `packages/conformance/tests/tri/limits-base7.7i`
+- [x] §6.4 — the largest small value is 59048 / 65535 / 15624 / 46655 / 16806 in bases 3–7. (decision: T40) Tests: `packages/conformance/tests/tri/limits-base3.3i`, `packages/conformance/tests/tri/limits-base4.4i`, `packages/conformance/tests/tri/limits-base5.5i`, `packages/conformance/tests/tri/limits-base6.6i`, `packages/conformance/tests/tri/limits-base7.7i`, `packages/conformance/tests/tri/e017-constant-base3.3i`, `packages/conformance/tests/tri/e017-constant-base4.4i`, `packages/conformance/tests/tri/e017-constant-base5.5i`, `packages/conformance/tests/tri/e017-constant-base6.6i`, `packages/conformance/tests/tri/e017-constant-base7.7i`
+- [x] §6.4 — the largest large value is 3486784400 / 4294967295 / 244140624 / 2176782335 / 282475248 in bases 3–7. (decision: T40) Tests: `packages/conformance/tests/tri/limits-base3.3i`, `packages/conformance/tests/tri/limits-base4.4i`, `packages/conformance/tests/tri/limits-base5.5i`, `packages/conformance/tests/tri/limits-base6.6i`, `packages/conformance/tests/tri/limits-base7.7i`, `packages/conformance/tests/tri/write-in-large-max.3i`
+- [x] §6.4 — a constant above the base's small limit raises E017 when its statement executes. (decision: T40, Q80) Tests: `packages/conformance/tests/tri/e017-constant-base3.3i`, `packages/conformance/tests/tri/e017-constant-base4.4i`, `packages/conformance/tests/tri/e017-constant-base5.5i`, `packages/conformance/tests/tri/e017-constant-base6.6i`, `packages/conformance/tests/tri/e017-constant-base7.7i`
+- [x] §6.4 — WRITE IN of a number too big for its target raises E275 (small target) or E533 (large target). (decision: T40) Tests: `packages/conformance/tests/tri/e275-write-in-small.3i`, `packages/conformance/tests/tri/e533-write-in-large.3i`
+- [x] §6.5.1 — mingle interleaves the digits of two small operands into a large result. Tests: `packages/conformance/tests/tri/limits-base3.3i`, `packages/conformance/tests/tri/limits-base4.4i`, `packages/conformance/tests/tri/limits-base5.5i`, `packages/conformance/tests/tri/limits-base6.6i`, `packages/conformance/tests/tri/limits-base7.7i`, `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`
+- [x] §6.5.2.2 — select ANDs digit by digit, then packs digits by selector value: the digits under b−1 go to the low end first, then the lower selector values in turn, and the 0-selected digits fill the high end. (decision: T40) Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/golden-swap.3i`
+- [x] §6.5.2.2 — a select result has the same type as in standard INTERCAL. (decision: Q77) Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`
+- [x] §6.5.2.1, §6.6 — `V` (OR) returns the larger digit of each cyclic adjacent pair. Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/golden-or.3i`
+- [x] §6.5.2.1, §6.6 — `&` (AND) chooses 0 if it can, otherwise the larger digit. Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/golden-and-or.3i`
+- [x] §6.5.2.1, §6.6 — `@` (BUT) prefers 1, then 0, then the largest remaining digit. Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/golden-but.3i`
+- [x] §6.6 — `N@` prefers digit N, and is allowed only where N ≤ b−2. (decision: T40) Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/e997-n-whirlpool.3i`, `packages/conformance/tests/tri/n-whirlpool-allowed.7i`
+- [x] §6.6 — `0@` is not permitted. Tests: `packages/conformance/tests/tri/zero-whirlpool-undecodable.5i`
+- [x] §6.5.2.3, §6.6 — `?` subtracts without borrow: the operand rotated right one digit, minus the original, digit by digit mod b. Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/golden-and-minus.3i`
+- [x] §6.5.2.3, §6.6 — `^` (sharkfin) adds without carry, digit by digit mod b. Tests: `packages/conformance/tests/tri/operators-base3.3i`, `packages/conformance/tests/tri/operators-base4.4i`, `packages/conformance/tests/tri/operators-base5.5i`, `packages/conformance/tests/tri/operators-base6.6i`, `packages/conformance/tests/tri/operators-base7.7i`, `packages/conformance/tests/tri/golden-sharkfin.3i`
+- [x] §6.6, §9.2 — `@` or `^` in a `.i`/`.2i` file, or any operator the base doesn't support, is a compile-time E997. (decision: T40) Tests: `packages/conformance/tests/tri/e997-sharkfin-binary.2i`, `packages/conformance/tests/tri/e997-whirlpool-binary.i`, `packages/conformance/tests/tri/e997-n-whirlpool.3i`
+- [x] §6.5.3 — **golden:** the base-3 mappings `"^.3$#1"~#1`, `"V.3$#1"~#1`, `"V'"&.3$#2"~#1'$#1"~#1`, `"?'"&.3$#2"~#1'$#1"~#1`, `"V!3~#2'$#1"~#1`, `"?!3~#2'$#1"~#1` and `"@'"^.3$#7"~#4'$#2"~#10` each produce the stated results. Tests: `packages/conformance/tests/tri/golden-sharkfin.3i`, `packages/conformance/tests/tri/golden-or.3i`, `packages/conformance/tests/tri/golden-and-or.3i`, `packages/conformance/tests/tri/golden-and-minus.3i`, `packages/conformance/tests/tri/golden-select-or.3i`, `packages/conformance/tests/tri/golden-select-minus.3i`, `packages/conformance/tests/tri/golden-but.3i`
+- [x] §6.5.3 — **golden:** `"^.3$.3"~"#0$#29524"` swaps 1-trits and 2-trits. Tests: `packages/conformance/tests/tri/golden-swap.3i`
+- [x] §6.6 — **golden:** both balanced-quinary negation forms in a `.5i` file agree. Tests: `packages/conformance/tests/tri/golden-balanced-quinary.5i`
+- [x] §6 — I/O is decimal digit words and Roman numerals in every base; Turing Text is unchanged. (decision: T40) Tests: `packages/conformance/tests/tri/write-in-large-max.3i`, `packages/conformance/tests/tri/turing-text-base3.3i`, `packages/conformance/tests/tri/limits-base3.3i`, `packages/conformance/tests/tri/limits-base4.4i`, `packages/conformance/tests/tri/limits-base5.5i`, `packages/conformance/tests/tri/limits-base6.6i`, `packages/conformance/tests/tri/limits-base7.7i`
+- [x] §6.3 — a program cannot mix dialects. Tests: `packages/conformance/tests/tri/e017-constant-base3.3i`, `packages/conformance/tests/tri/e997-sharkfin-binary.2i`
+- [x] §10.2, §9.2 — `--traditional` with a base other than 2 is E111. (decision: T39) Tests: `packages/conformance/tests/tri/e111-traditional-base.3i`
 
 ## §7 Subroutine library
 
@@ -392,7 +392,7 @@ The library is a clean-room implementation written from these contracts alone (d
 ## §10 The C-INTERCAL compiler (CIWAPA equivalents)
 
 - [ ] §10.1 — ASCII substitutes are accepted: `$` for ¢ and `?` for V−. Tests: (none yet)
-- [ ] §10.2 — `--traditional` (`ick -t`) requires strict INTERCAL-72: COME FROM and other bases raise E111. (decision: Q15, Q101, T39) Tests: (none yet)
+- [x] §10.2 — `--traditional` (`ick -t`) requires strict INTERCAL-72: COME FROM and other bases raise E111. (decision: Q15, Q101, T39) Tests: `packages/conformance/tests/tri/e111-traditional-base.3i`, `packages/conformance/tests/come-from/e111-traditional.i`
 - [ ] §10.2, §12 — `--no-random-bug` (`ick -b`) turns off E774. (decision: Q101) Tests: (none yet)
 - [x] §10.2 — `--clockface` (`ick -C`) prints IIII, and MMMM for 4000. (decision: Q101, T30) Tests: `packages/conformance/tests/io/read-out-clockface.i`
 - [ ] §10.2 — `--keep` (`ick -c`) keeps the generated `.dart`/`.ll` source. (decision: Q101) Tests: (none yet)
@@ -424,7 +424,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] TONSIL — `'` and `"` are groupers. `!` is spark-spot. Tests: (none yet)
 - [ ] TONSIL — `%` is the percentage qualifier; `<` and `-` form `<-`; `(` and `)` wrap labels; `+` separates list items. Tests: (none yet)
 - [ ] TONSIL — `&`, `V`, `V−`/`?` are the unary operators; `$`/`¢` mingle; `~` selects. Tests: (none yet)
-- [ ] TONSIL, §6 — `@` and `^` are operators only in bases 3–7. (decision: T40) Tests: (none yet)
+- [x] TONSIL, §6 — `@` and `^` are operators only in bases 3–7. (decision: T40) Tests: `packages/conformance/tests/tri/e997-sharkfin-binary.2i`, `packages/conformance/tests/tri/golden-but.3i`
 - [ ] TONSIL — `=`, `` ` ``, `|`, `>`, `[`, `]`, `{`, `}`, `_`, `/`, `\`, `¬` and the blotch have no use, so they make their statement undecodable. (decision: T14) Tests: (none yet)
 - [ ] TONSIL — `V` is also an ordinary letter inside keywords (GIVE, REMEMBER, …). Tests: (none yet)
 

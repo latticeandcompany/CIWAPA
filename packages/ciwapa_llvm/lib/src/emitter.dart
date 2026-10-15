@@ -40,6 +40,9 @@ declare void @ick_stash_array(i32, i32)
 declare void @ick_retrieve_array(i32, i32)
 declare i32 @ick_mingle(i32, i32, i32)
 declare i32 @ick_select(i32, i32)
+declare i32 @ick_logical(i32, i32, i32)
+declare i32 @ick_minus(i32, i32)
+declare i32 @ick_plus(i32, i32)
 declare i32 @ick_and16(i32)
 declare i32 @ick_or16(i32)
 declare i32 @ick_xor16(i32)
@@ -58,9 +61,6 @@ declare void @ick_array_set_ignored(i32, i32)
 ''';
 
   String emit() {
-    if (program.base != 2) {
-      throw ToolchainException('TriINTERCAL is not implemented yet');
-    }
     for (final s in program.statements) {
       _statement(s);
     }
@@ -423,17 +423,26 @@ declare void @ick_array_set_ignored(i32, i32)
         final l = _expr(left, next), r = _expr(right, next);
         return _call('ick_select', [l, r]);
       case IrUnary(:final op, :final operand):
-        final name = switch (op) {
-          UnaryOp.and => 'and',
-          UnaryOp.or => 'or',
-          UnaryOp.xor => 'xor',
-          _ => throw ToolchainException(
-            'TriINTERCAL operators are not implemented yet',
-          ),
+        final value = _expr(operand, next);
+        final large = operand.large ? 1 : 0;
+        if (program.base == 2) {
+          final name = switch (op) {
+            UnaryOp.and => 'and',
+            UnaryOp.or => 'or',
+            UnaryOp.xor => 'xor',
+            _ => throw StateError('$op in binary is E997 at compile time'),
+          };
+          return _call('ick_$name${operand.large ? 32 : 16}', [value]);
+        }
+        return switch (op) {
+          UnaryOp.xor => _call('ick_minus', ['$large', value]),
+          UnaryOp.sharkfin => _call('ick_plus', ['$large', value]),
+          _ => _call('ick_logical', [
+            '$large',
+            '${preferredDigit(op, program.base)}',
+            value,
+          ]),
         };
-        return _call('ick_$name${operand.large ? 32 : 16}', [
-          _expr(operand, next),
-        ]);
       case IrInput():
         return _call('ick_write_in', ['$next']);
       case IrArrayItem():

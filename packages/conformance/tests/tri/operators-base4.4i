@@ -1,0 +1,24 @@
+PLEASE DO .99 <- #43690
+DO :99 <- #43690$#13107
+DO .1 <- .&99
+DO :1 <- :&99
+PLEASE DO READ OUT .1 + :1
+DO .2 <- .V99
+DO :2 <- :V99
+DO READ OUT .2 + :2
+PLEASE DO .3 <- .?99
+DO :3 <- :?99
+DO READ OUT .3 + :3
+DO .4 <- .^99
+PLEASE DO :4 <- :^99
+DO READ OUT .4 + :4
+DO .5 <- .@99
+DO :5 <- :@99
+PLEASE DO READ OUT .5 + :5
+DO .6 <- .2@99
+DO :6 <- :2@99
+DO READ OUT .6 + :6
+PLEASE DO :20 <- #43690~#65535
+DO :21 <- :99~#21845
+DO READ OUT :20 + :21
+DO GIVE UP
