@@ -284,6 +284,14 @@ declare void @ick_array_set_ignored(i32, i32)
             'call void @ick_array_set_ignored(i32 ${a.index}, i32 $ignored)',
           );
         }
+      case IrAbstain(:final abstain, :final targets):
+        for (final t in targets) {
+          final p = _fresh();
+          _line(
+            '$p = getelementptr inbounds [${program.statements.length + 1} x i8], ptr @ab, i64 0, i64 $t',
+          );
+          _line('store i8 ${abstain ? 1 : 0}, ptr $p');
+        }
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):

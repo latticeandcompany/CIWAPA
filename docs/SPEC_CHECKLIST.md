@@ -184,27 +184,27 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.9 ABSTAIN
 
-- [ ] §4.4.9 — `ABSTAIN FROM (label)` abstains the labeled statement. Tests: (none yet)
-- [ ] §4.4.9 — `ABSTAIN FROM gerund+gerund…` abstains every statement of those types. Tests: (none yet)
-- [ ] §4.4.9 — an abstained statement is skipped, and control moves to the next statement. Tests: (none yet)
-- [ ] §4.4.9 — abstention is a single on/off flag; abstaining twice equals abstaining once. (decision: T20) Tests: (none yet)
-- [ ] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: (none yet)
+- [x] §4.4.9 — `ABSTAIN FROM (label)` abstains the labeled statement. Tests: `packages/conformance/tests/abstain/by-label.i`
+- [x] §4.4.9 — `ABSTAIN FROM gerund+gerund…` abstains every statement of those types. Tests: `packages/conformance/tests/abstain/gerund-list.i`, `packages/conformance/tests/abstain/gerund-other-types-run.i`
+- [x] §4.4.9 — an abstained statement is skipped, and control moves to the next statement. Tests: `packages/conformance/tests/abstain/skipped-moves-on.i`
+- [x] §4.4.9 — abstention is a single on/off flag; abstaining twice equals abstaining once. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-twice.i`
+- [x] §4.4.9 — labels and gerunds cannot be mixed in one ABSTAIN. (decision: T20) Tests: `packages/conformance/tests/abstain/mixed-undecodable.i`
 - [ ] §4.4.9 — the gerunds are CALCULATING, NEXTING, FORGETTING, RESUMING, STASHING, RETRIEVING, IGNORING, REMEMBERING, ABSTAINING, REINSTATING, READING OUT, WRITING IN and COMING FROM. (decision: T21) Tests: (none yet)
-- [ ] §4.4.9 — CALCULATING covers both assignment and array dimensioning. (decision: T21) Tests: (none yet)
-- [ ] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: (none yet)
-- [ ] §4.4.9 — `ABSTAIN FROM REINSTATING` is valid. Tests: (none yet)
-- [ ] §4.4.9 — `ABSTAIN FROM GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: (none yet)
-- [ ] §4.4.9 — ABSTAIN of a GIVE UP by label works. (decision: T20) Tests: (none yet)
-- [ ] §4.4.9, §9.2 — ABSTAIN of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: (none yet)
+- [x] §4.4.9 — CALCULATING covers both assignment and array dimensioning. (decision: T21) Tests: `packages/conformance/tests/abstain/calculating.i`
+- [x] §4.4.9 — ABSTAINING covers every ABSTAIN statement (label and gerund forms), including the one executing. (decision: T21) Tests: `packages/conformance/tests/abstain/abstaining.i`
+- [x] §4.4.9 — `ABSTAIN FROM REINSTATING` is valid. Tests: `packages/conformance/tests/abstain/abstain-from-reinstating.i`
+- [x] §4.4.9 — `ABSTAIN FROM GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-from-giving-up-undecodable.i`
+- [x] §4.4.9 — ABSTAIN of a GIVE UP by label works. (decision: T20) Tests: `packages/conformance/tests/abstain/abstain-give-up-by-label.i`
+- [x] §4.4.9, §9.2 — ABSTAIN of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: `packages/conformance/tests/abstain/e139-abstain.i`
 
 ## §4.4.10 REINSTATE
 
-- [ ] §4.4.10 — REINSTATE by label or gerund list clears an abstention, whatever set it (gerund, label or NOT). Tests: (none yet)
-- [ ] §4.4.10 — `REINSTATE REINSTATING` can free a `DON'T REINSTATE` statement. Tests: (none yet)
-- [ ] §4.4.10 — `REINSTATE GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: (none yet)
-- [ ] §4.4.10 — REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` always stays a no-op. Tests: (none yet)
-- [ ] §4.4.10, §9.2 — REINSTATE of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: (none yet)
-- [ ] §4.4.10 — any argument other than a label or a gerund list is invalid. Tests: (none yet)
+- [x] §4.4.10 — REINSTATE by label or gerund list clears an abstention, whatever set it (gerund, label or NOT). Tests: `packages/conformance/tests/abstain/reinstate-not.i`, `packages/conformance/tests/abstain/reinstate-gerund-after-label.i`
+- [x] §4.4.10 — `REINSTATE REINSTATING` can free a `DON'T REINSTATE` statement. Tests: `packages/conformance/tests/abstain/reinstate-reinstating.i`
+- [x] §4.4.10 — `REINSTATE GIVING UP` is invalid, so the statement is undecodable. (decision: T20) Tests: `packages/conformance/tests/abstain/reinstate-giving-up-undecodable.i`
+- [x] §4.4.10 — REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` always stays a no-op. Tests: `packages/conformance/tests/abstain/reinstate-give-up-does-nothing.i`
+- [x] §4.4.10, §9.2 — REINSTATE of a label that doesn't exist raises E139 when it executes. (decision: Q81) Tests: `packages/conformance/tests/abstain/e139-reinstate.i`
+- [x] §4.4.10 — any argument other than a label or a gerund list is invalid. Tests: `packages/conformance/tests/abstain/reinstate-variable-undecodable.i`
 
 ## §4.4.11 GIVE UP
 
@@ -254,15 +254,15 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 - [x] §4.5 — a statement the compiler can't decode compiles anyway, and raises E000 only if it executes. Tests: `packages/conformance/tests/calculate/e000-only-if-executed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
 - [x] §4.5, §9.1 — E000's message is the statement's source text verbatim. Lines after the first are indented with a tab, and very long text is cut off at about 500 characters. (decision: T10) Tests: `packages/conformance/tests/calculate/e000-shares-lines.i`, `packages/conformance/tests/calculate/e000-long-text.i`
-- [ ] §4.5 — **golden:** `PLEASE NOTE THAT THIS LINE HAS NO EFFECT` (abstained by NOT) is ignored. Tests: (none yet)
-- [ ] §4.5 — **golden:** the `DON'T YOU REALIZE THIS STATEMENT SHOULD ONLY BE ENCOUNTERED ONCE?` + `PLEASE REINSTATE (123)` pair raises E000 the second time. Tests: (none yet)
+- [x] §4.5 — **golden:** `PLEASE NOTE THAT THIS LINE HAS NO EFFECT` (abstained by NOT) is ignored. Tests: `packages/conformance/tests/abstain/note-has-no-effect.i`
+- [x] §4.5 — **golden:** the `DON'T YOU REALIZE THIS STATEMENT SHOULD ONLY BE ENCOUNTERED ONCE?` + `PLEASE REINSTATE (123)` pair raises E000 the second time. Tests: `packages/conformance/tests/abstain/encountered-once.i`
 - [ ] §4.5 — `DO`, `PLEASE` and `(n)` are recognized anywhere, even inside a word: "NOTE THAT THIS LINE DOES NOTHING" breaks at "DOES". (decision: T8) Tests: (none yet)
 - [ ] §4.5 — "D-space-O" is not an identifier. Tests: (none yet)
 - [ ] §4.5 — undecodable text runs up to the next `DO`/`PLEASE`/label token, and a following label starts the next statement. (decision: T8) Tests: (none yet)
 - [ ] §4.5 — junk after a complete statement makes that statement undecodable (E000 if it executes). (decision: T9) Tests: (none yet)
 - [ ] §4.5 — a `*` in the source is junk; it isn't the listing's splat marker. (decision: T15) Tests: (none yet)
 - [ ] §4.5, TONSIL — any character with no use in TONSIL A makes its statement undecodable. (decision: T14) Tests: (none yet)
-- [ ] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: (none yet)
+- [x] §4.5 — an undecodable statement keeps its label, NOT and `%` qualifiers, so it can be ABSTAINed or REINSTATEd by label. (decision: T8) Tests: `packages/conformance/tests/abstain/encountered-once.i`
 
 ## §5.2 Turing Text character I/O
 
@@ -362,7 +362,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §9.2 — E099: excessively polite. (decision: T35) Tests: (none yet)
 - [x] §9.2 — E123: 80 attempted levels of NEXTing (fires when 79 are stored). (decision: T16) Tests: `packages/conformance/tests/next/e123-depth-80.i`
 - [x] §9.2 — E129: transfer to a non-existent label. Tests: `packages/conformance/tests/next/e129-missing-label.i`
-- [ ] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: (none yet)
+- [x] §9.2 — E139: ABSTAIN or REINSTATE of a non-existent label. Tests: `packages/conformance/tests/abstain/e139-abstain.i`, `packages/conformance/tests/abstain/e139-reinstate.i`
 - [ ] §9.2 — E182: label multiply defined. Tests: (none yet)
 - [x] §9.2 — E197: invalid line label. Tests: `packages/conformance/tests/calculate/e197-label.i`
 - [x] §9.2 — E200: unidentified variable. Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`
