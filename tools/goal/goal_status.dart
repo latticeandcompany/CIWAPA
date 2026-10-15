@@ -252,7 +252,11 @@ Criterion _oracle() {
   final differences = (triage['differences'] as List)
       .cast<Map<String, dynamic>>();
   final untriaged = differences.where(
-    (d) => d['status'] != 'fixed' && d['status'] != 'divergence',
+    (d) => !const {
+      'fixed',
+      'divergence',
+      'not a difference',
+    }.contains(d['status']),
   );
   return Criterion(title, untriaged.isEmpty, [
     '${triage['programs']} programs compared, ${differences.length} differences, ${untriaged.length} untriaged',
