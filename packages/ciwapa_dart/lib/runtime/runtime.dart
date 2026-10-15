@@ -31,6 +31,8 @@ late Uint8List _ignored;
 late List<List<int>> _scalarStashes;
 late List<List<_Shape>> _arrayStashes;
 late int _smallMax;
+late int _largeMax;
+late bool _clockface;
 late List<_Array> _arrays;
 int _rngState = 0;
 
@@ -55,6 +57,8 @@ void ickInit(
     max *= base;
   }
   _smallMax = max - 1;
+  _largeMax = base == 2 ? 0xFFFFFFFF : max * max - 1;
+  _clockface = clockface;
   _arrays = List.generate(arrayCount, (_) => _Array());
   _rngState = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 }
@@ -238,4 +242,208 @@ void ickRetrieveArray(int index, int next) {
   if (stash.isEmpty) ickFatal(436, next);
   final saved = stash.removeLast();
   if (!_arrays[index].ignored) _arrays[index].shape = saved;
+}
+
+// ---- WRITE IN (§4.4.12, decisions T28, T29) -----------------------------------------------------
+
+const _numerals = {
+  'OH': 0,
+  'ZERO': 0,
+  'ONE': 1,
+  'TWO': 2,
+  'THREE': 3,
+  'FOUR': 4,
+  'FIVE': 5,
+  'SIX': 6,
+  'SEVEN': 7,
+  'EIGHT': 8,
+  'NINE': 9,
+  'NINER': 9,
+  'SUTYA': 0,
+  'SHUTYA': 0,
+  'EKA': 1,
+  'DVI': 2,
+  'TRI': 3,
+  'CHATUR': 4,
+  'PANCHAN': 5,
+  'SHASH': 6,
+  'SAPTAM': 7,
+  'ASHTAN': 8,
+  'NAVAN': 9,
+  'ZEROA': 0,
+  'BAT': 1,
+  'BI': 2,
+  'HIRO': 3,
+  'LAU': 4,
+  'BORTZ': 5,
+  'SEI': 6,
+  'ZAZPI': 7,
+  'ZORTZI': 8,
+  'BEDERATZI': 9,
+  'WALA': 0,
+  'ISA': 1,
+  'DALAWA': 2,
+  'TATLO': 3,
+  'APAT': 4,
+  'LIMA': 5,
+  'ANIM': 6,
+  'PITO': 7,
+  'WALO': 8,
+  'SIYAM': 9,
+  'AHTLE': 0,
+  'CE': 1,
+  'OME': 2,
+  'IEI': 3,
+  'NAUI': 4,
+  'NACUILI': 5,
+  'CHIQUACE': 6,
+  'CHICOME': 7,
+  'CHICUE': 8,
+  'CHICUNAUI': 9,
+  'NULI': 0,
+  'ERTI': 1,
+  'ORI': 2,
+  'SAMI': 3,
+  'OTXI': 4,
+  'XUTI': 5,
+  'EKSVI': 6,
+  'SHVIDI': 7,
+  'RVA': 8,
+  'CXRA': 9,
+  'KE\'YOS': 0,
+  '\'NEM': 1,
+  'MAL\'H': 2,
+  'YUDEXW': 3,
+  'MU': 4,
+  'SEK\'A': 5,
+  'Q\'ETL\'A': 6,
+  'ETLEBU': 7,
+  'MALHGWENALH': 8,
+  '\'NA\'NE\'MA': 9,
+  'NOS': 0,
+  'BAL': 1,
+  'TEL': 2,
+  'KIL': 3,
+  'FOL': 4,
+  'LUL': 5,
+  'M\\"AL': 6,
+  'MÄL': 6,
+  'VEL': 7,
+  'J\\"OL': 8,
+  'JÖL': 8,
+  'Z\\"UL': 9,
+  'ZÜL': 9,
+};
+
+/// The number words as raw UTF-8 bytes (one char per byte), so input is matched byte for byte.
+final _numeralBytes = {
+  for (final MapEntry(:key, :value) in _numerals.entries)
+    String.fromCharCodes(utf8.encode(key)): value,
+};
+
+/// Reads one line, without its newline, or null at the end of input with nothing read. A final
+/// line without a newline keeps every character (decision T28).
+List<int>? _readLine() {
+  final line = <int>[];
+  while (true) {
+    final c = stdin.readByteSync();
+    if (c == -1) return line.isEmpty ? null : line;
+    if (c == 0x0A) return line;
+    line.add(c);
+  }
+}
+
+/// One number per line, each digit a word separated by spaces: E562 for a blank line or the end
+/// of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum.
+int ickWriteIn(int next) {
+  final line = _readLine();
+  if (line == null) ickFatal(562, next);
+  var result = 0, digits = 0, i = 0;
+  while (i < line.length) {
+    while (i < line.length && line[i] == 0x20) {
+      i++;
+    }
+    if (i == line.length) break;
+    final start = i;
+    while (i < line.length && line[i] != 0x20) {
+      i++;
+    }
+    final digit = _numeralBytes[String.fromCharCodes(line, start, i)];
+    if (digit == null) ickFatal(579, next);
+    result = result * 10 + digit;
+    if (result > 0xFFFFFFFF) ickFatal(533, next);
+    digits++;
+  }
+  if (digits == 0) ickFatal(562, next);
+  if (result > _largeMax) ickFatal(533, next);
+  return result;
+}
+
+// ---- READ OUT (§4.4.13, decision T30) -----------------------------------------------------------
+
+// Butchered Roman numerals, by C-INTERCAL's butcher() algorithm. For each decimal digit, the
+// pattern says how many symbols to write and which columns of the digit's row they come from.
+const _romanPatterns = [
+  [0, 0, 0, 0, 0],
+  [1, 0, 0, 0, 0],
+  [2, 0, 0, 0, 0],
+  [3, 0, 0, 0, 0],
+  [2, 1, 2, 0, 0], //
+  [1, 2, 0, 0, 0],
+  [2, 2, 1, 0, 0],
+  [3, 2, 1, 1, 0],
+  [4, 2, 1, 1, 1],
+  [2, 1, 3, 0, 0],
+];
+const _clockfaceFour = [4, 0, 0, 0, 0];
+
+// Four columns per digit position because of the odd way M and I interact.
+const _romanSymbols = [
+  'IIVX',
+  'XXLC',
+  'CCDM',
+  'MIVX',
+  'XXLC',
+  'CCDM',
+  'Mivx',
+  'xxlc',
+  'ccdm',
+  'mivx',
+];
+const _romanBars = [
+  '    ',
+  '    ',
+  '    ',
+  ' ___',
+  '____',
+  '____',
+  '_   ',
+  '    ',
+  '    ',
+  ' ___',
+];
+
+void ickReadOut(int value) {
+  if (value == 0) {
+    stdout.add(const [0x5F, 0x0A, 0x0A]);
+    return;
+  }
+  final numeral = StringBuffer(), bars = StringBuffer();
+  final symbols = <String>[], marks = <String>[];
+  for (var position = 0; position < 10 && value > 0; position++) {
+    final digit = value % 10;
+    final pattern = digit == 4 && _clockface
+        ? _clockfaceFour
+        : _romanPatterns[digit];
+    for (var j = pattern[0]; j > 0; j--) {
+      symbols.add(_romanSymbols[position][pattern[j]]);
+      marks.add(_romanBars[position][pattern[j]]);
+    }
+    value ~/= 10;
+  }
+  for (var i = symbols.length - 1; i >= 0; i--) {
+    numeral.write(symbols[i]);
+    bars.write(marks[i]);
+  }
+  stdout.add(utf8.encode('$bars\n$numeral\n'));
 }

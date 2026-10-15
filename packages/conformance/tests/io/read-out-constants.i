@@ -1,0 +1,2 @@
+DO READ OUT #0 + #1 + #4 + #9 + #3999 + #4000
+PLEASE GIVE UP

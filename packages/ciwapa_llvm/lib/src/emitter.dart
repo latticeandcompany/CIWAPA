@@ -47,6 +47,8 @@ declare i32 @ick_and32(i32)
 declare i32 @ick_or32(i32)
 declare i32 @ick_xor32(i32)
 declare i32 @ick_check_small(i32, i32)
+declare i32 @ick_write_in(i32)
+declare void @ick_read_out(i32)
 declare void @ick_dimension(i32, i32, ptr, i32)
 declare ptr @ick_element(i32, i32, ptr, i32)
 declare i32 @ick_array_ignored(i32)
@@ -292,6 +294,19 @@ declare void @ick_array_set_ignored(i32, i32)
           );
           _line('store i8 ${abstain ? 1 : 0}, ptr $p');
         }
+      case IrWriteIn(:final items):
+        for (final item in items) {
+          if (item is! IrScalar && item is! IrElement) {
+            throw ToolchainException('Turing Text I/O is not implemented yet');
+          }
+          // Element subscripts are checked first, then the number is read, then E275 (even when
+          // the target is IGNOREd, decision T24), then the store.
+          _assign(item, const IrInput(), next);
+        }
+      case IrReadOut(:final items):
+        for (final item in items) {
+          _line('call void @ick_read_out(i32 ${_expr(item, next)})');
+        }
       case IrComeFrom():
         break;
       case IrUndecodable(:final text):
@@ -408,6 +423,8 @@ declare void @ick_array_set_ignored(i32, i32)
         return _call('ick_$name${operand.large ? 32 : 16}', [
           _expr(operand, next),
         ]);
+      case IrInput():
+        return _call('ick_write_in', ['$next']);
       case IrArrayItem():
         throw ToolchainException('Turing Text I/O is not implemented yet');
     }

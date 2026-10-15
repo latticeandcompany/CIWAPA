@@ -14,66 +14,66 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §2 Fundamental concepts
 
-- [ ] §2.1 — **golden:** the sample program (absolute value of 2's-complement 32-bit inputs, loops until zero) compiles, passes the politeness check (7 of 23 statements) and prints the expected Roman numerals. Tests: (none yet)
-- [ ] §2.2 — **golden:** `DO :1 <- #0¢#256` stores 65536. Tests: (none yet)
+- [x] §2.1 — **golden:** the sample program (absolute value of 2's-complement 32-bit inputs, loops until zero) compiles, passes the politeness check (7 of 23 statements) and prints the expected Roman numerals. The printed program has a typo: the second half of statement 11 masks `:2` with `'#65535¢#0'` where `'#0¢#65535'` is meant, so some negative inputs come out wrong (-123 prints 122, -1 prints 0). Retyped as written, it prints exactly what C-INTERCAL 0.15 prints. Tests: `packages/conformance/tests/golden/sample-program-2.1.i`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] §2.2 — **golden:** `DO :1 <- #0¢#256` stores 65536. Tests: `packages/conformance/tests/calculate/golden-2.2-65536.i`
 
 ## §3.1 Variables
 
-- [ ] §3.1 — `.n` is a 16-bit unsigned variable (0–65535) and `:n` is a 32-bit unsigned variable (0–4294967295). Tests: (none yet)
-- [ ] §3.1 — variable numbers range from 1 to 65535. Tests: (none yet)
-- [ ] §3.1 — `.123` and `:123` are distinct variables. Tests: (none yet)
-- [ ] §3.1 — leading zeros don't matter: `.1` and `.0001` are the same variable. Tests: (none yet)
+- [x] §3.1 — `.n` is a 16-bit unsigned variable (0–65535) and `:n` is a 32-bit unsigned variable (0–4294967295). Tests: `packages/conformance/tests/calculate/small-takes-65535.i`, `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/io/read-out-largest.i`
+- [x] §3.1 — variable numbers range from 1 to 65535. Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`, `packages/conformance/tests/calculate/e200-variable-too-big.i`
+- [x] §3.1 — `.123` and `:123` are distinct variables. Tests: `packages/conformance/tests/calculate/distinct-kinds.i`
+- [x] §3.1 — leading zeros don't matter: `.1` and `.0001` are the same variable. Tests: `packages/conformance/tests/calculate/leading-zeros-same-variable.i`
 - [x] §3.1 — a variable numbered 0 or above 65535 raises E200 when its statement executes. (decision: Q80, Q81) Tests: `packages/conformance/tests/calculate/e200-variable-zero.i`, `packages/conformance/tests/calculate/e200-variable-too-big.i`
-- [ ] §3.1 — every variable starts at 0. (decision: Q82) Tests: (none yet)
+- [x] §3.1 — every variable starts at 0. (decision: Q82) Tests: `packages/conformance/tests/calculate/initial-zero.i`
 
 ## §3.2 Constants
 
-- [ ] §3.2 — `#n` is a 16-bit constant from 0 to 65535. Tests: (none yet)
+- [x] §3.2 — `#n` is a 16-bit constant from 0 to 65535. Tests: `packages/conformance/tests/io/read-out-constants.i`, `packages/conformance/tests/calculate/e017-constant.i`
 - [x] §3.2 — a constant above 65535 raises E017 when its statement executes. (decision: Q80, Q81) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-constant-not-run.i`
 
 ## §3.3 Arrays
 
-- [ ] §3.3 — `,n` is a 16-bit array and `;n` is a 32-bit array, numbered 1–65535. Tests: (none yet)
-- [ ] §3.3 — `.123`, `:123`, `#123`, `,123` and `;123` are all distinct. Tests: (none yet)
-- [ ] §3.3 — elements are written `SUB` followed by the subscripts, optionally separated by spaces. Tests: (none yet)
-- [ ] §3.3 — a subscript can be any expression, including another subscripted element. Tests: (none yet)
-- [ ] §3.3 — subscripts are 1-based. Tests: (none yet)
+- [x] §3.3 — `,n` is a 16-bit array and `;n` is a 32-bit array, numbered 1–65535. Tests: `packages/conformance/tests/calculate/distinct-kinds.i`, `packages/conformance/tests/calculate/e275-element.i`
+- [x] §3.3 — `.123`, `:123`, `#123`, `,123` and `;123` are all distinct. Tests: `packages/conformance/tests/calculate/distinct-kinds.i`
+- [x] §3.3 — elements are written `SUB` followed by the subscripts, optionally separated by spaces. Tests: `packages/conformance/tests/calculate/golden-lsb.i`, `packages/conformance/tests/calculate/distinct-kinds.i`
+- [x] §3.3 — a subscript can be any expression, including another subscripted element. Tests: `packages/ciwapa_core/test/parser_test.dart`, `packages/conformance/tests/calculate/golden-lsb.i`
+- [x] §3.3 — subscripts are 1-based. Tests: `packages/conformance/tests/io/read-out-element.i`, `packages/conformance/tests/calculate/e241-subscript-zero.i`
 - [x] §3.3 — using an array that has never been dimensioned raises E241. (decision: Q82, T26) Tests: `packages/conformance/tests/calculate/e241-undimensioned.i`
 - [x] §3.3 — a wrong number of subscripts, a subscript of 0, or a subscript past the dimension raises E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-wrong-count.i`, `packages/conformance/tests/calculate/e241-subscript-zero.i`, `packages/conformance/tests/calculate/e241-past-dimension.i`
 
 ## §3.4.1 Mingle
 
-- [ ] §3.4.1 — mingle interleaves the bits of two 16-bit operands into a 32-bit result. The first operand supplies the high bit of each pair. Tests: (none yet)
-- [ ] §3.4.1 — **golden:** `#65535¢#0` = 2863311530, `#0¢#65535` = 1431655765, and `#255¢#255` equals `#65535`. Tests: (none yet)
-- [ ] §3.4.1 — a mingle result is 32-bit typed. Tests: (none yet)
+- [x] §3.4.1 — mingle interleaves the bits of two 16-bit operands into a 32-bit result. The first operand supplies the high bit of each pair. Tests: `packages/conformance/tests/calculate/golden-mingle.i`
+- [x] §3.4.1 — **golden:** `#65535¢#0` = 2863311530, `#0¢#65535` = 1431655765, and `#255¢#255` equals `#65535`. Tests: `packages/conformance/tests/calculate/golden-mingle.i`
+- [x] §3.4.1 — a mingle result is 32-bit typed. Tests: `packages/conformance/tests/calculate/unary-width.i`
 - [x] §3.4.1, §9.2 — if either operand's value exceeds 65535 at run time, mingle raises E533. (decision: Q78) Tests: `packages/conformance/tests/calculate/e533-mingle-operand.i`
-- [ ] §3.4.1, §10.1, §11 — mingle can be written `$`, `¢` (UTF-8) or the overpunch `c<backspace>/`. (decision: T14) Tests: (none yet)
+- [x] §3.4.1, §10.1, §11 — mingle can be written `$`, `¢` (UTF-8) or the overpunch `c<backspace>/`. (decision: T14) Tests: `packages/conformance/tests/calculate/golden-2.2-65536.i`, `packages/conformance/tests/calculate/golden-mingle.i`, `packages/ciwapa_core/test/parser_test.dart`
 
 ## §3.4.1 Select
 
-- [ ] §3.4.1 — select takes the left operand's bits wherever the right operand has a 1 and packs them toward the low end. Both operands are zero-padded to 32 bits. Tests: (none yet)
-- [ ] §3.4.1 — **golden:** `#179~#201` = 9, `#201~#179` = 17, `#179~#179` = 31 and `#201~#201` = 15. Tests: (none yet)
-- [ ] §3.4.1.1 — a select result has the static type of its right operand: 16-bit for a 16-bit right operand, 32-bit for a 32-bit one. (decision: Q77) Tests: (none yet)
-- [ ] §3.4.1 — the operand types are unrestricted, so either side may be 16- or 32-bit. Tests: (none yet)
+- [x] §3.4.1 — select takes the left operand's bits wherever the right operand has a 1 and packs them toward the low end. Both operands are zero-padded to 32 bits. Tests: `packages/conformance/tests/calculate/golden-select.i`, `packages/conformance/tests/calculate/select-any-types.i`
+- [x] §3.4.1 — **golden:** `#179~#201` = 9, `#201~#179` = 17, `#179~#179` = 31 and `#201~#201` = 15. Tests: `packages/conformance/tests/calculate/golden-select.i`
+- [x] §3.4.1.1 — a select result has the static type of its right operand: 16-bit for a 16-bit right operand, 32-bit for a 32-bit one. (decision: Q77) Tests: `packages/conformance/tests/calculate/select-type-right.i`
+- [x] §3.4.1 — the operand types are unrestricted, so either side may be 16- or 32-bit. Tests: `packages/conformance/tests/calculate/select-any-types.i`
 
 ## §3.4.2 Unary operators
 
-- [ ] §3.4.2 — `&` ANDs each adjacent bit pair, cyclically: the result equals the operand rotated right by one, ANDed with the operand. Tests: (none yet)
-- [ ] §3.4.2 — `V` ORs each adjacent bit pair the same way. Tests: (none yet)
-- [ ] §3.4.2 — `V−` (bookworm) XORs each adjacent bit pair the same way. Tests: (none yet)
-- [ ] §3.4.2 — **golden:** `#&77` = 4, `#V77` = 32879 and `#V−77` = 32875. Tests: (none yet)
-- [ ] §3.4.2 — the rotation width is the operand's static type: 16 bits for `.`, `,`, `#` and 16-bit selects; 32 bits for `:`, `;`, mingle results and 32-bit selects. (decision: Q79) Tests: (none yet)
-- [ ] §3.4.2, §10.1, §11 — XOR can be written `?`, the overpunch `V<backspace>-`, or `-<backspace>V`. (decision: T14) Tests: (none yet)
-- [ ] §3.4.2 — a unary operator goes between the type character and the number: `.&123`, `#V−123`, `:V1`. Tests: (none yet)
-- [ ] §3.4.2 — a unary operator on an array name, as in `,&7SUB#1`, applies to the element's value. (decision: T4) Tests: (none yet)
-- [ ] §3.4.3 — a unary operator directly after an opening spark or ears applies to the whole group: `'V−#&123'`, `'V−"&#123"'`. Tests: (none yet)
+- [x] §3.4.2 — `&` ANDs each adjacent bit pair, cyclically: the result equals the operand rotated right by one, ANDed with the operand. Tests: `packages/conformance/tests/calculate/golden-unary.i`
+- [x] §3.4.2 — `V` ORs each adjacent bit pair the same way. Tests: `packages/conformance/tests/calculate/golden-unary.i`
+- [x] §3.4.2 — `V−` (bookworm) XORs each adjacent bit pair the same way. Tests: `packages/conformance/tests/calculate/golden-unary.i`
+- [x] §3.4.2 — **golden:** `#&77` = 4, `#V77` = 32879 and `#V−77` = 32875. Tests: `packages/conformance/tests/calculate/golden-unary.i`
+- [x] §3.4.2 — the rotation width is the operand's static type: 16 bits for `.`, `,`, `#` and 16-bit selects; 32 bits for `:`, `;`, mingle results and 32-bit selects. (decision: Q79) Tests: `packages/conformance/tests/calculate/unary-width.i`, `packages/conformance/tests/calculate/select-type-right.i`
+- [x] §3.4.2, §10.1, §11 — XOR can be written `?`, the overpunch `V<backspace>-`, or `-<backspace>V`. (decision: T14) Tests: `packages/conformance/tests/calculate/golden-unary.i`, `packages/conformance/tests/calculate/golden-unary-overpunch.i`
+- [x] §3.4.2 — a unary operator goes between the type character and the number: `.&123`, `#V−123`, `:V1`. Tests: `packages/conformance/tests/calculate/unary-width.i`, `packages/conformance/tests/calculate/golden-unary.i`
+- [x] §3.4.2 — a unary operator on an array name, as in `,&7SUB#1`, applies to the element's value. (decision: T4) Tests: `packages/conformance/tests/calculate/unary-on-element.i`
+- [x] §3.4.3 — a unary operator directly after an opening spark or ears applies to the whole group: `'V−#&123'`, `'V−"&#123"'`. Tests: `packages/conformance/tests/calculate/unary-on-group.i`
 - [ ] §3.4.2 — concatenated unary operators such as `#V−&123` are invalid, so the statement is undecodable. (decision: T4) Tests: (none yet)
 - [ ] §3.4.2 — there is no prefix form: `&.1` is invalid. (decision: T4) Tests: (none yet)
 
 ## §3.4.3 Precedence and grouping
 
 - [x] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: `packages/conformance/tests/calculate/e017-ungrouped-chain.i`
-- [ ] §3.4.3 — **golden:** `'#165¢#203'~#358` = 15 and `#165¢'#203~#358'` = 34915. Tests: (none yet)
+- [x] §3.4.3 — **golden:** `'#165¢#203'~#358` = 15 and `#165¢'#203~#358'` = 34915. Tests: `packages/conformance/tests/calculate/golden-grouping.i`
 - [ ] §3.4.3 — sparks `'` and rabbit-ears `"` group expressions. Tests: (none yet)
 - [ ] §3.4.3 — a grouper directly after a complete operand closes the current group; anywhere else it opens a new one. As a result, only the first subscript in a list can be a group. (decision: T1) Tests: (none yet)
 - [ ] §3.4.3 — the wow `!` is the same as spark-spot `'.`: `'.1~.2'` ≡ `!1~.2'`, and `'V.1¢.2'` ≡ `"V!1¢.2'"`. (decision: T3) Tests: (none yet)
@@ -117,15 +117,15 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.1 Calculate
 
-- [ ] §4.4.1 — `<-` assigns the right-hand expression to a variable or array element. Tests: (none yet)
-- [ ] §4.4.1 — a 16-bit value assigned to a 32-bit variable is zero-padded. Tests: (none yet)
+- [x] §4.4.1 — `<-` assigns the right-hand expression to a variable or array element. Tests: `packages/conformance/tests/calculate/golden-lsb.i`, `packages/conformance/tests/calculate/distinct-kinds.i`
+- [x] §4.4.1 — a 16-bit value assigned to a 32-bit variable is zero-padded. Tests: `packages/conformance/tests/calculate/small-to-large-padded.i`
 - [x] §4.4.1 — a 32-bit value up to 65535 can be assigned to a 16-bit variable. (decision: Q76) Tests: `packages/conformance/tests/calculate/large-fits-small.i`, `packages/conformance/tests/calculate/small-takes-65535.i`
 - [x] §4.4.1, §9.2 — assigning a value above 65535 to a 16-bit variable raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`, `packages/conformance/tests/calculate/e275-element.i`
-- [ ] §4.4.1 — **golden:** `,1SUB#1#1 <- 'V−,1SUB#1#1¢#1'~'#0¢#65535'` inverts the element's least significant bit (with a DO identifier added). (decision: T2) Tests: (none yet)
+- [x] §4.4.1 — **golden:** `,1SUB#1#1 <- 'V−,1SUB#1#1¢#1'~'#0¢#65535'` inverts the element's least significant bit (with a DO identifier added). (decision: T2) Tests: `packages/conformance/tests/calculate/golden-lsb.i`
 - [ ] §4.4.1 — `<-` with a `BY` list dimensions an array: `;7 <- #7 BY .7 BY …`. Tests: (none yet)
 - [ ] §4.4.1 — **golden:** the two `;7` dimensioning statements differ as the spec describes. Tests: (none yet)
 - [x] §4.4.1 — dimension values may be any expression, including 32-bit ones. (decision: T26) Tests: `packages/conformance/tests/calculate/dimension-32-bit.i`
-- [ ] §4.4.1 — redimensioning loses all element values. Tests: (none yet)
+- [x] §4.4.1 — redimensioning loses all element values. Tests: `packages/conformance/tests/calculate/redimension-loses-values.i`
 - [x] §4.4.1, §9.2 — a dimension of 0 raises E240. Tests: `packages/conformance/tests/calculate/e240-dimension-zero.i`
 - [x] §4.4.1, §9.2 — dimensions too large to allocate raise E241. (decision: T26) Tests: `packages/conformance/tests/calculate/e241-too-large.i`, `packages/conformance/tests/calculate/e241-size-overflow.i`, `packages/conformance/tests/calculate/e241-size-overflow-to-zero.i`
 
@@ -168,11 +168,11 @@ Statement numbers in error output are statement ordinals (decision: T33).
 ## §4.4.7 IGNORE
 
 - [x] §4.4.7 — after `IGNORE list`, later statements cannot change the listed variables or arrays. Tests: `packages/conformance/tests/ignore/store-dropped.i`, `packages/conformance/tests/ignore/small-store-dropped.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
-- [ ] §4.4.7 — **golden:** `.1 <- #1; IGNORE .1; .1 <- #0` leaves `.1` = 1. Tests: (none yet)
+- [x] §4.4.7 — **golden:** `.1 <- #1; IGNORE .1; .1 <- #0` leaves `.1` = 1. Tests: `packages/conformance/tests/ignore/golden.i`
 - [x] §4.4.7 — an IGNOREd variable's value can still be read in expressions. Tests: `packages/conformance/tests/ignore/still-readable.i`
 - [x] §4.4.7 — the statement that tries to change an IGNOREd variable still executes; only the store is blocked. Tests: `packages/conformance/tests/ignore/statement-still-executes.i`
 - [x] §4.4.7 — assigning an out-of-range value to an IGNOREd 16-bit variable still raises E275 before the store is dropped. (decision: T24) Tests: `packages/conformance/tests/ignore/e275-still-raised.i`
-- [ ] §4.4.7 — WRITE IN to an IGNOREd variable reads a number and throws it away. Tests: (none yet)
+- [x] §4.4.7 — WRITE IN to an IGNOREd variable reads a number and throws it away. Tests: `packages/conformance/tests/io/write-in-ignored.i`
 - [x] §4.4.7 — RETRIEVE of an IGNOREd variable pops its stash and throws the value away; the current value is kept. (decision: T24) Tests: `packages/conformance/tests/ignore/retrieve-discards.i`, `packages/conformance/tests/ignore/retrieve-pops.i`, `packages/conformance/tests/ignore/retrieve-array-discards.i`, `packages/conformance/tests/ignore/retrieve-array-pops.i`
 - [x] §4.4.7 — stores into elements of an IGNOREd array are bounds-checked (E241) and then dropped. (decision: T24) Tests: `packages/conformance/tests/ignore/element-bounds-checked.i`, `packages/conformance/tests/ignore/element-store-dropped.i`
 - [x] §4.4.7 — redimensioning an IGNOREd array is blocked, but a zero dimension still raises E240. (decision: T24) Tests: `packages/conformance/tests/ignore/redimension-blocked.i`, `packages/conformance/tests/ignore/e240-still-raised.i`
@@ -213,29 +213,29 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §4.4.12 WRITE IN (numbers)
 
-- [ ] §4.4.12 — `WRITE IN list` reads one number per input line for each variable or array element in the list. Tests: (none yet)
-- [ ] §4.4.12 — each digit is a spelled-out word, separated by one or more spaces. Words are uppercase and matched exactly. (decision: T28) Tests: (none yet)
-- [ ] §4.4.12 — zero may be written `ZERO` or `OH`. Tests: (none yet)
-- [ ] §4.4.12 — `NINER` means nine. Tests: (none yet)
-- [ ] §4.4.12 — digit words are also accepted in Sanskrit, Basque, Tagalog, Classical Nahuatl, Georgian, Kwakiutl and Volapük, using ick's word lists. Volapük also accepts UTF-8 umlauts (MÄL, JÖL, ZÜL). There are no Latin words. (decision: T29) Tests: (none yet)
-- [ ] §4.4.12 — the largest accepted input is FOUR TWO NINE FOUR NINE SIX SEVEN TWO NINE FIVE. Tests: (none yet)
-- [ ] §4.4.12, §9.2 — input above 32 bits raises E533. Tests: (none yet)
-- [ ] §4.4.12 — a value of 65536 or more into a 16-bit target raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q84, Q134) Tests: (none yet)
-- [ ] §4.4.12, §9.2 — a blank line or end of input raises E562. (decision: T28) Tests: (none yet)
-- [ ] §4.4.12, §9.2 — an unknown word raises E579. (decision: T28) Tests: (none yet)
-- [ ] §4.4.12 — a final line without a trailing newline keeps its last letter. (decision: T28) Tests: (none yet)
+- [x] §4.4.12 — `WRITE IN list` reads one number per input line for each variable or array element in the list. Tests: `packages/conformance/tests/io/write-in-english.i`, `packages/conformance/tests/io/write-in-element.i`
+- [x] §4.4.12 — each digit is a spelled-out word, separated by one or more spaces. Words are uppercase and matched exactly. (decision: T28) Tests: `packages/conformance/tests/io/write-in-spaces.i`, `packages/conformance/tests/io/e579-lowercase.i`, `packages/conformance/tests/io/e579-tab.i`
+- [x] §4.4.12 — zero may be written `ZERO` or `OH`. Tests: `packages/conformance/tests/io/write-in-oh-niner.i`, `packages/conformance/tests/io/write-in-languages.i`
+- [x] §4.4.12 — `NINER` means nine. Tests: `packages/conformance/tests/io/write-in-oh-niner.i`
+- [x] §4.4.12 — digit words are also accepted in Sanskrit, Basque, Tagalog, Classical Nahuatl, Georgian, Kwakiutl and Volapük, using ick's word lists. Volapük also accepts UTF-8 umlauts (MÄL, JÖL, ZÜL). There are no Latin words. (decision: T29) Tests: `packages/conformance/tests/io/write-in-languages.i`, `packages/conformance/tests/io/e579-latin.i`
+- [x] §4.4.12 — the largest accepted input is FOUR TWO NINE FOUR NINE SIX SEVEN TWO NINE FIVE. Tests: `packages/conformance/tests/io/write-in-english.i`
+- [x] §4.4.12, §9.2 — input above 32 bits raises E533. Tests: `packages/conformance/tests/io/e533-write-in.i`, `packages/conformance/tests/io/e533-write-in-long.i`
+- [x] §4.4.12 — a value of 65536 or more into a 16-bit target raises E275 `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q84, Q134) Tests: `packages/conformance/tests/io/e275-write-in.i`, `packages/conformance/tests/io/write-in-small-max.i`
+- [x] §4.4.12, §9.2 — a blank line or end of input raises E562. (decision: T28) Tests: `packages/conformance/tests/io/e562-blank-line.i`, `packages/conformance/tests/io/e562-spaces-only.i`, `packages/conformance/tests/io/e562-end-of-input.i`
+- [x] §4.4.12, §9.2 — an unknown word raises E579. (decision: T28) Tests: `packages/conformance/tests/io/e579-unknown-word.i`
+- [x] §4.4.12 — a final line without a trailing newline keeps its last letter. (decision: T28) Tests: `packages/conformance/tests/io/write-in-no-final-newline.i`
 
 ## §4.4.13 READ OUT (numbers)
 
-- [ ] §4.4.13 — `READ OUT list` prints one value per line. The list may hold variables, array elements and constants. Tests: (none yet)
-- [ ] §4.4.13 — output is butchered Roman numerals, printed as two lines: a line of `_` overbars (with spaces), then the numeral line. (decision: T30) Tests: (none yet)
-- [ ] §4.4.13 — zero prints as an overbar with nothing under it (`_`, then an empty line). (decision: T30) Tests: (none yet)
-- [ ] §4.4.13 — an overline means ×1,000, lowercase means ×1,000,000, and overlined lowercase means ×1,000,000,000. Tests: (none yet)
-- [ ] §4.4.13 — **golden:** `#3999` prints MMMCMXCIX. Tests: (none yet)
-- [ ] §4.4.13 — **golden:** `#4000` prints ĪV̄. Tests: (none yet)
-- [ ] §4.4.13 — if the value's residue mod 1,000,000 is under 4000, M stands for 1000; otherwise barred Ī does. The same rule applies to M̄/i at 10⁶ and to m/ī at 10⁹, following ick's `butcher()`. (decision: T30) Tests: (none yet)
-- [ ] §4.4.13 — **golden:** 4294967295 prints ī v̄ ccxciv C̄M̄L̄X̄V̄ĪĪ CCXCV, with overbars placed as the spec renders them. Tests: (none yet)
-- [ ] §4.4.13 — 1972063 prints `MCMLXXMMLXIII` with the first six characters barred. (decision: T30) Tests: (none yet)
+- [x] §4.4.13 — `READ OUT list` prints one value per line. The list may hold variables, array elements and constants. Tests: `packages/conformance/tests/io/read-out-constants.i`, `packages/conformance/tests/io/read-out-element.i`
+- [x] §4.4.13 — output is butchered Roman numerals, printed as two lines: a line of `_` overbars (with spaces), then the numeral line. (decision: T30) Tests: `packages/conformance/tests/io/read-out-constants.i`
+- [x] §4.4.13 — zero prints as an overbar with nothing under it (`_`, then an empty line). (decision: T30) Tests: `packages/conformance/tests/io/read-out-constants.i`, `packages/conformance/tests/calculate/initial-zero.i`
+- [x] §4.4.13 — an overline means ×1,000, lowercase means ×1,000,000, and overlined lowercase means ×1,000,000,000. Tests: `packages/conformance/tests/io/read-out-largest.i`, `packages/conformance/tests/io/write-in-oh-niner.i`
+- [x] §4.4.13 — **golden:** `#3999` prints MMMCMXCIX. Tests: `packages/conformance/tests/io/read-out-constants.i`
+- [x] §4.4.13 — **golden:** `#4000` prints ĪV̄. Tests: `packages/conformance/tests/io/read-out-constants.i`
+- [x] §4.4.13 — if the value's residue mod 1,000,000 is under 4000, M stands for 1000; otherwise barred Ī does. The same rule applies to M̄/i at 10⁶ and to m/ī at 10⁹, following ick's `butcher()`. (decision: T30) Tests: `packages/conformance/tests/io/read-out-constants.i`, `packages/conformance/tests/io/read-out-largest.i`, `packages/conformance/tests/io/write-in-oh-niner.i`
+- [x] §4.4.13 — **golden:** 4294967295 prints ī v̄ ccxciv C̄M̄L̄X̄V̄ĪĪ CCXCV, with overbars placed as the spec renders them. Tests: `packages/conformance/tests/io/read-out-largest.i`
+- [x] §4.4.13 — 1972063 prints `MCMLXXMMLXIII` with the first six characters barred. (decision: T30) Tests: `packages/conformance/tests/io/write-in-oh-niner.i`
 
 ## §4.4.14 COME FROM
 
@@ -370,9 +370,9 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2 — E241: invalid dimensioning information. Tests: `packages/conformance/tests/calculate/e241-undimensioned.i`, `packages/conformance/tests/calculate/e241-too-large.i`
 - [x] §9.2 — E275: 32-bit value assigned to a 16-bit variable, printed as `DON'T BYTE OFF MORE THAN YOU CAN CHEW.` (decision: Q134) Tests: `packages/conformance/tests/calculate/e275-large-into-small.i`
 - [x] §9.2 — E436: retrieval of an unSTASHed value. Tests: `packages/conformance/tests/stash/e436-never-stashed.i`
-- [ ] §9.2 — E533: WRITE IN or mingle produced a value over 32 bits. Tests: (none yet)
-- [ ] §9.2 — E562: insufficient data. Tests: (none yet)
-- [ ] §9.2 — E579: input data invalid. Tests: (none yet)
+- [x] §9.2 — E533: WRITE IN or mingle produced a value over 32 bits. Tests: `packages/conformance/tests/io/e533-write-in.i`, `packages/conformance/tests/calculate/e533-mingle-operand.i`
+- [x] §9.2 — E562: insufficient data. Tests: `packages/conformance/tests/io/e562-end-of-input.i`
+- [x] §9.2 — E579: input data invalid. Tests: `packages/conformance/tests/io/e579-unknown-word.i`
 - [x] §9.2 — E621: RESUME expression evaluated to #0. Tests: `packages/conformance/tests/next/e621-resume-zero.i`
 - [x] §9.2 — E632: terminated via RESUME instead of GIVE UP. Tests: `packages/conformance/tests/next/e632-resume-empty.i`
 - [x] §9.2 — E633: execution passed beyond the last statement. Tests: `packages/conformance/tests/calculate/e633-after-assignments.i`
@@ -394,7 +394,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [ ] §10.1 — ASCII substitutes are accepted: `$` for ¢ and `?` for V−. Tests: (none yet)
 - [ ] §10.2 — `--traditional` (`ick -t`) requires strict INTERCAL-72: COME FROM and other bases raise E111. (decision: Q15, Q101, T39) Tests: (none yet)
 - [ ] §10.2, §12 — `--no-random-bug` (`ick -b`) turns off E774. (decision: Q101) Tests: (none yet)
-- [ ] §10.2 — `--clockface` (`ick -C`) prints IIII, and MMMM for 4000. (decision: Q101, T30) Tests: (none yet)
+- [x] §10.2 — `--clockface` (`ick -C`) prints IIII, and MMMM for 4000. (decision: Q101, T30) Tests: `packages/conformance/tests/io/read-out-clockface.i`
 - [ ] §10.2 — `--keep` (`ick -c`) keeps the generated `.dart`/`.ll` source. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — `--dump=ast|ir` (`ick -d`) prints the parse or IR. (decision: Q101) Tests: (none yet)
 - [ ] §10.2 — optimization is on by default (`ick -O`), and `--no-opt` turns it off. Both give identical program behavior. (decision: Q101) Tests: (none yet)

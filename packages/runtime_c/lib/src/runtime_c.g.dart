@@ -54,6 +54,7 @@ typedef struct {
 
 static const ick_program *program;
 static uint32_t small_max;
+static uint32_t large_max;
 static ick_array *arrays;
 static ick_value_stash *scalar_stashes;
 static ick_array_stash *array_stashes;
@@ -80,6 +81,7 @@ void ick_init(int argc, char **argv, const ick_program *p) {
 #endif
   program = p;
   small_max = p->base == 2 ? 65535u : pow_u32(p->base, small_digits(p->base)) - 1;
+  large_max = p->base == 2 ? 0xFFFFFFFFu : (small_max + 1) * (small_max + 1) - 1;
   arrays = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array));
   scalar_stashes = calloc(p->scalar_count ? p->scalar_count : 1, sizeof(ick_value_stash));
   array_stashes = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array_stash));
@@ -294,5 +296,191 @@ void ick_retrieve_array(uint32_t index, uint32_t next) {
   free(a->shape.dims);
   free(a->shape.data);
   a->shape = saved;
+}
+
+/* ---- WRITE IN (§4.4.12, decisions T28, T29) -------------------------------------------- */
+
+static const struct { const char *word; uint32_t digit; } numerals[] = {
+  {"OH", 0},
+  {"ZERO", 0},
+  {"ONE", 1},
+  {"TWO", 2},
+  {"THREE", 3},
+  {"FOUR", 4},
+  {"FIVE", 5},
+  {"SIX", 6},
+  {"SEVEN", 7},
+  {"EIGHT", 8},
+  {"NINE", 9},
+  {"NINER", 9},
+  {"SUTYA", 0},
+  {"SHUTYA", 0},
+  {"EKA", 1},
+  {"DVI", 2},
+  {"TRI", 3},
+  {"CHATUR", 4},
+  {"PANCHAN", 5},
+  {"SHASH", 6},
+  {"SAPTAM", 7},
+  {"ASHTAN", 8},
+  {"NAVAN", 9},
+  {"ZEROA", 0},
+  {"BAT", 1},
+  {"BI", 2},
+  {"HIRO", 3},
+  {"LAU", 4},
+  {"BORTZ", 5},
+  {"SEI", 6},
+  {"ZAZPI", 7},
+  {"ZORTZI", 8},
+  {"BEDERATZI", 9},
+  {"WALA", 0},
+  {"ISA", 1},
+  {"DALAWA", 2},
+  {"TATLO", 3},
+  {"APAT", 4},
+  {"LIMA", 5},
+  {"ANIM", 6},
+  {"PITO", 7},
+  {"WALO", 8},
+  {"SIYAM", 9},
+  {"AHTLE", 0},
+  {"CE", 1},
+  {"OME", 2},
+  {"IEI", 3},
+  {"NAUI", 4},
+  {"NACUILI", 5},
+  {"CHIQUACE", 6},
+  {"CHICOME", 7},
+  {"CHICUE", 8},
+  {"CHICUNAUI", 9},
+  {"NULI", 0},
+  {"ERTI", 1},
+  {"ORI", 2},
+  {"SAMI", 3},
+  {"OTXI", 4},
+  {"XUTI", 5},
+  {"EKSVI", 6},
+  {"SHVIDI", 7},
+  {"RVA", 8},
+  {"CXRA", 9},
+  {"KE'YOS", 0},
+  {"'NEM", 1},
+  {"MAL'H", 2},
+  {"YUDEXW", 3},
+  {"MU", 4},
+  {"SEK'A", 5},
+  {"Q'ETL'A", 6},
+  {"ETLEBU", 7},
+  {"MALHGWENALH", 8},
+  {"'NA'NE'MA", 9},
+  {"NOS", 0},
+  {"BAL", 1},
+  {"TEL", 2},
+  {"KIL", 3},
+  {"FOL", 4},
+  {"LUL", 5},
+  {"M\\\"AL", 6},
+  {"M\xC3""\x84""L", 6},
+  {"VEL", 7},
+  {"J\\\"OL", 8},
+  {"J\xC3""\x96""L", 8},
+  {"Z\\\"UL", 9},
+  {"Z\xC3""\x9C""L", 9},
+};
+
+static char *line_buffer;
+static size_t line_capacity;
+
+/* Reads one line, without its newline. Returns 0 at end of input with nothing read. A final line
+ * without a newline keeps every character (decision T28). */
+static int read_line(size_t *length, uint32_t next) {
+  size_t n = 0;
+  int c;
+  while ((c = getchar()) != EOF && c != '\n') {
+    if (n + 1 >= line_capacity) line_buffer = grow(line_buffer, &line_capacity, 1, next);
+    line_buffer[n++] = (char)c;
+  }
+  if (c == EOF && n == 0) return 0;
+  if (!line_buffer) line_buffer = grow(line_buffer, &line_capacity, 1, next);
+  line_buffer[n] = '\0';
+  *length = n;
+  return 1;
+}
+
+/* One number per line, each digit a word separated by spaces: E562 for a blank line or the end
+ * of input, E579 for an unknown word, E533 past 32 bits or the base's large maximum. */
+uint32_t ick_write_in(uint32_t next) {
+  size_t length;
+  if (!read_line(&length, next)) ick_fatal(562, next);
+  uint64_t result = 0;
+  int digits = 0;
+  size_t i = 0;
+  while (i < length) {
+    while (i < length && line_buffer[i] == ' ') i++;
+    if (i == length) break;
+    size_t start = i;
+    while (i < length && line_buffer[i] != ' ') i++;
+    size_t size = i - start;
+    int digit = -1;
+    for (size_t k = 0; k < sizeof numerals / sizeof numerals[0]; k++) {
+      if (strlen(numerals[k].word) == size && memcmp(numerals[k].word, line_buffer + start, size) == 0) {
+        digit = (int)numerals[k].digit;
+        break;
+      }
+    }
+    if (digit < 0) ick_fatal(579, next);
+    result = result * 10 + (uint64_t)digit;
+    if (result > 0xFFFFFFFFu) ick_fatal(533, next);
+    digits++;
+  }
+  if (digits == 0) ick_fatal(562, next);
+  if (result > large_max) ick_fatal(533, next);
+  return (uint32_t)result;
+}
+
+/* ---- READ OUT (§4.4.13, decision T30) -------------------------------------------------- */
+
+/* Butchered Roman numerals, by C-INTERCAL's butcher() algorithm. For each decimal digit, the
+ * pattern says how many symbols to write and which columns of the digit's row they come from. */
+static const int roman_patterns[10][5] = {
+    {0, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {2, 0, 0, 0, 0}, {3, 0, 0, 0, 0}, {2, 1, 2, 0, 0},
+    {1, 2, 0, 0, 0}, {2, 2, 1, 0, 0}, {3, 2, 1, 1, 0}, {4, 2, 1, 1, 1}, {2, 1, 3, 0, 0},
+};
+static const int clockface_four[5] = {4, 0, 0, 0, 0};
+
+/* Four columns per digit position because of the odd way M and I interact. */
+static const char roman_symbols[10][4] = {
+    {'I', 'I', 'V', 'X'}, {'X', 'X', 'L', 'C'}, {'C', 'C', 'D', 'M'}, {'M', 'I', 'V', 'X'},
+    {'X', 'X', 'L', 'C'}, {'C', 'C', 'D', 'M'}, {'M', 'i', 'v', 'x'}, {'x', 'x', 'l', 'c'},
+    {'c', 'c', 'd', 'm'}, {'m', 'i', 'v', 'x'},
+};
+static const char roman_bars[10][4] = {
+    {' ', ' ', ' ', ' '}, {' ', ' ', ' ', ' '}, {' ', ' ', ' ', ' '}, {' ', '_', '_', '_'},
+    {'_', '_', '_', '_'}, {'_', '_', '_', '_'}, {'_', ' ', ' ', ' '}, {' ', ' ', ' ', ' '},
+    {' ', ' ', ' ', ' '}, {' ', '_', '_', '_'},
+};
+
+void ick_read_out(uint32_t value) {
+  char numeral[48], bars[48];
+  int at = 47;
+  numeral[at] = bars[at] = '\0';
+  if (value == 0) {
+    fputs("_\n\n", stdout);
+    fflush(stdout);
+    return;
+  }
+  for (int position = 0; position < 10 && value > 0; position++) {
+    uint32_t digit = value % 10;
+    const int *pattern = digit == 4 && program->clockface ? clockface_four : roman_patterns[digit];
+    for (int j = pattern[0]; j > 0; j--) {
+      at--;
+      numeral[at] = roman_symbols[position][pattern[j]];
+      bars[at] = roman_bars[position][pattern[j]];
+    }
+    value /= 10;
+  }
+  printf("%s\n%s\n", bars + at, numeral + at);
+  fflush(stdout);
 }
 ''';

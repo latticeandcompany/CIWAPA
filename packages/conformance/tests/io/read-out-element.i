@@ -1,0 +1,4 @@
+PLEASE DO ,1 <- #3
+DO ,1 SUB #2 <- #42
+DO READ OUT ,1 SUB #2 + ,1 SUB #1
+DO GIVE UP

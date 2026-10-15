@@ -1,0 +1,5 @@
+PLEASE DO ,7 <- #1
+DO ,7 SUB #1 <- #77
+DO .1 <- ,&7SUB#1
+DO READ OUT .1
+DO GIVE UP

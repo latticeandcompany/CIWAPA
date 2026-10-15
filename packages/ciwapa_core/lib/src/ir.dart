@@ -121,6 +121,18 @@ class IrUnary extends IrExpr {
   String toString() => '${op.name}$operand';
 }
 
+/// The next number from input, as WRITE IN reads it (§4.4.12). The emitters use it to share the
+/// assignment path; lowering never produces it.
+class IrInput extends IrExpr {
+  const IrInput();
+
+  @override
+  bool get large => true;
+
+  @override
+  String toString() => 'input';
+}
+
 /// A whole array in an I/O list (Turing Text, §5.2).
 class IrArrayItem extends IrExpr {
   const IrArrayItem(this.array);
