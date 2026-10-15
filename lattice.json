@@ -41,7 +41,7 @@
       "path": "packages/ciwapa_dart",
       "auto": false,
       "scripts": {
-        "test": "",
+        "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
         "goal-status": ""
@@ -70,7 +70,7 @@
       "path": "packages/runtime_c",
       "auto": false,
       "scripts": {
-        "test": "",
+        "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
         "goal-status": ""
