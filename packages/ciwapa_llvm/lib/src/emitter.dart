@@ -203,7 +203,7 @@ declare void @ick_array_set_ignored(i32, i32)
 
   /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own
   /// guard passes, and to [otherwise] when it doesn't (or when nothing is aimed at [s]). A COME
-  /// FROM's own faults fire in place of its jump (QUESTIONS.md L2).
+  /// FROM's own faults fire in place of its jump (decision L2).
   void _trap(IrStatement s, String otherwise) {
     final comeFrom = s.comeFrom;
     if (comeFrom == null) {

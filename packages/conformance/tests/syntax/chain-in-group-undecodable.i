@@ -1,0 +1,2 @@
+DO .1 <- '#1$#2~#3'
+PLEASE GIVE UP

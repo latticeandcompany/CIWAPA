@@ -231,9 +231,10 @@ class Parser {
     return Element(ref, _subscripts());
   }
 
-  /// `operand (op operand)*`. Two or more operators without grouping is invalid (§3.4.3); the
-  /// statement still decodes, and raises E017 when it executes (decisions Q80, Q97).
-  Expr _expr() {
+  /// `operand (op operand)*`. Two or more operators without grouping is invalid (§3.4.3). At the
+  /// top of an expression the statement still decodes, and raises E017 when it executes; inside a
+  /// group it doesn't decode at all, as in 0.15's parser (decisions Q80, Q97, L4).
+  Expr _expr({bool grouped = false}) {
     var left = _operand();
     var operators = 0;
     while (_tok.kind == TokenKind.mingle || _tok.kind == TokenKind.select) {
@@ -244,7 +245,10 @@ class Parser {
       left = Binary(op, left, _operand(), ungrouped: operators > 0);
       operators++;
     }
-    if (operators >= 2) _chain = true;
+    if (operators >= 2) {
+      if (grouped) _fail();
+      _chain = true;
+    }
     return left;
   }
 
@@ -278,7 +282,7 @@ class Parser {
         final grouper = _tok.kind;
         _pos++;
         final op = _unary();
-        final inner = _expr();
+        final inner = _expr(grouped: true);
         if (_tok.kind != grouper) _fail();
         _pos++;
         return _apply(op, inner);

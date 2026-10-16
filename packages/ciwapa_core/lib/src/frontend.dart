@@ -61,7 +61,7 @@ Program analyze(Source source, {bool traditional = false}) {
 
 /// §7.3 and decision T36: the library is included when a NEXT targets a label from 1000 to 1999
 /// and the program defines no label in that range. It is binary, so only base 2 programs get it
-/// (QUESTIONS.md L9).
+/// (decision L9).
 bool _needsLibrary(List<Statement> statements, int base) {
   bool inRange(int? label) => label != null && label >= 1000 && label <= 1999;
   if (base != 2 || statements.any((s) => inRange(s.label))) return false;

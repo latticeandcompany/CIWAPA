@@ -72,7 +72,8 @@ Statement numbers in error output are statement ordinals (decision: T33).
 
 ## §3.4.3 Precedence and grouping
 
-- [x] §3.4.3 — an ungrouped chain of two or more binary operators, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: `packages/conformance/tests/calculate/e017-ungrouped-chain.i`
+- [x] §3.4.3 — an ungrouped chain of two or more binary operators at the top level of an expression, such as `#165¢#203~#358`, is invalid and raises E017 when its statement executes. (decision: Q85, Q97, Q80) Tests: `packages/conformance/tests/calculate/e017-ungrouped-chain.i`
+- [x] §3.4.3 — a chain inside a group, such as `'#1¢#2~#3'`, makes its statement undecodable (E000 when it executes), exactly as 0.15's parser does. (decision: L4) Tests: `packages/conformance/tests/syntax/chain-in-group-undecodable.i`, `packages/ciwapa_core/test/parser_test.dart`
 - [x] §3.4.3 — **golden:** `'#165¢#203'~#358` = 15 and `#165¢'#203~#358'` = 34915. Tests: `packages/conformance/tests/calculate/golden-grouping.i`
 - [x] §3.4.3 — sparks `'` and rabbit-ears `"` group expressions. Tests: `packages/conformance/tests/calculate/golden-grouping.i`, `packages/conformance/tests/syntax/wow-is-spark-spot.i`, `packages/conformance/tests/syntax/rabbit-is-ears-and-spot.i`
 - [x] §3.4.3 — a grouper directly after a complete operand closes the current group; anywhere else it opens a new one. As a result, only the first subscript in a list can be a group. (decision: T1) Tests: `packages/conformance/tests/syntax/only-first-subscript-group.i`, `packages/conformance/tests/syntax/only-first-subscript-group-second.i`, `packages/conformance/tests/syntax/ambiguous-third-undecodable.i`, `packages/conformance/tests/syntax/golden-12-alternating.i`, `packages/ciwapa_core/test/parser_test.dart`
@@ -156,7 +157,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.5 — each variable has its own last-in-first-out stash. Tests: `packages/conformance/tests/stash/last-in-first-out.i`, `packages/conformance/tests/stash/separate-stashes.i`
 - [x] §4.4.5 — STASHing an array saves its dimensions and its data. Tests: `packages/conformance/tests/stash/array-dimensions.i`, `packages/conformance/tests/stash/array-data.i`
 - [x] §4.4.5 — stashing a single array element is invalid, so the statement is undecodable. (decision: T25) Tests: `packages/conformance/tests/stash/stash-element-undecodable.i`
-- [ ] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [ ] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
 
 ## §4.4.6 RETRIEVE
 
@@ -246,6 +247,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.14.2 — reaching the COME FROM statement itself does nothing. Tests: `packages/conformance/tests/come-from/reached-directly.i`
 - [x] §4.4.14.2 — a target that raises an error, or a GIVE UP target, exits before any jump. (decision: T19) Tests: `packages/conformance/tests/come-from/target-errors-first.i`, `packages/conformance/tests/come-from/give-up-target.i`
 - [x] §4.4.14.2 — a COME FROM that targets itself loops forever. (decision: T19) Tests: `packages/conformance/tests/come-from/self-loop.i`
+- [x] §4.4.14.2 — a COME FROM's own statement-local errors (invalid label E197, invalid `%` E017) fire only when its jump is considered: after the target runs, if the COME FROM isn't abstained, the error replaces the jump. Falling into the COME FROM does nothing. (decision: L2) Tests: `packages/conformance/tests/come-from/fault-on-come-from.i`, `packages/conformance/tests/come-from/fault-percent-on-come-from.i`, `packages/conformance/tests/come-from/fault-on-abstained-come-from.i`, `packages/conformance/tests/come-from/fault-only-at-jump.i`
 - [x] §4.4.14.2 — chained COME FROMs work: arriving at one triggers any COME FROM aimed at it. (decision: T19) Tests: `packages/conformance/tests/come-from/chain.i`
 - [x] §4.4.14.2, §9.2 — two or more COME FROMs aimed at one label are a compile-time E555. Abstained COME FROMs count too. (decision: T19) Tests: `packages/conformance/tests/come-from/e555.i`
 - [x] §9.2 — a COME FROM aimed at a label that doesn't exist is a compile-time E444. (decision: T19) Tests: `packages/conformance/tests/come-from/e444.i`
@@ -357,6 +359,7 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9 — the exit status is the error code mod 256 (so E000 exits 0 and E436 exits 180). (decision: T34) Tests: `packages/conformance/tests/stash/e436-never-stashed.i`, `packages/conformance/tests/calculate/e000-undecodable.i`
 - [x] §9 — errors local to one statement fire when that statement executes. Errors about the whole program (E182, E444, E555, E079, E099, E998, E997, E111, E777) fire at compile time. (decision: Q80) Tests: `packages/conformance/tests/errors/local-errors-only-when-run.i`, `packages/conformance/tests/errors/e079-impolite.i`, `packages/conformance/tests/come-from/e444.i`
 - [x] §9.2 — E000: an undecodable statement executed. Tests: `packages/conformance/tests/calculate/e000-undecodable.i`
+- [x] §9.1 — a statement with several statement-local problems reports the first in source order: an invalid label, then an invalid `%`, then E000 for an undecodable body. (decision: L3) Tests: `packages/conformance/tests/errors/order-label-first.i`, `packages/conformance/tests/errors/order-percent-before-e000.i`, `packages/conformance/tests/errors/order-label-before-e000.i`
 - [x] §9.2 — E017: expression syntax error (out-of-range constant, ungrouped operator chain, bad `%`). (decision: Q81, Q97, T13) Tests: `packages/conformance/tests/calculate/e017-constant.i`, `packages/conformance/tests/calculate/e017-ungrouped-chain.i`, `packages/conformance/tests/calculate/e017-percent-101.i`
 - [x] §9.2 — E079: insufficiently polite. (decision: T35) Tests: `packages/conformance/tests/errors/e079-impolite.i`
 - [x] §9.2 — E099: excessively polite. (decision: T35) Tests: `packages/conformance/tests/errors/e099-overpolite.i`
@@ -379,11 +382,11 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2, §12 — E774: random compiler bug (see §12). Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
 - [x] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
-- [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
-- [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-variables.i`
+- [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/errors/many-variables.i`
 - [x] §9.2 — E444: COME FROM to a non-existent label. Tests: `packages/conformance/tests/come-from/e444.i`
 - [x] §9.2 — E555: more than one COME FROM to one label. Tests: `packages/conformance/tests/come-from/e555.i`
-- [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) **BLOCKED** (QUESTIONS.md L7) Tests: `packages/conformance/tests/errors/many-statements.i`
+- [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/errors/many-statements.i`
 - [x] §9.2 — E777: no such source file. Tests: `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E888: can't write the output executable or temp files. (decision: Q133) Tests: `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E998: invalid source extension (use `.i` or `.[3-7]i`). Tests: `packages/conformance/tests/errors/e998-extension.bad`
@@ -480,18 +483,20 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - Q80/Q81 a bad constant (E017), variable (E200), label (E197) or label reference (E129/E139) raises its error when the statement executes. Both versions report these at compile time.
 - Q83/Q90 messages are the spec's text plus original joke lines, not ick's message strings.
 - Q133 E127 and E999 are excluded, and E888 now means "can't write the output executable or temp files" instead of ick's C output file.
-- Q97, L4 a chain inside a group is also E017. 0.15 makes that statement undecodable.
 - T39 with `--traditional`, a COME FROM followed by junk is undecodable (E000 when it executes), like any other junk. 0.15 reports E111 because it checks traditional mode before it sees the junk.
 - Q97 ungrouped operator chains are rejected, as in 0.15. 0.35 groups them to the right. Timing follows Q80, not 0.15's compile-time error.
 - T4 there is no prefix unary form, so `&.1` is undecodable. 0.35 accepts it.
 - T22 `%` rolls come from CIWAPA's own generator, so programs that use `%` (pit's `iching1`, `iching2`, `random`, `tests/testcf` and `tests/iogerunds`) print different values than either version, or than each other from run to run.
-- T26 an array whose total size passes 2^61 elements, or wraps to zero, raises E241 (QUESTIONS.md L5). Both versions overflow the size computation, then crash or run on with a too-small array.
+- T26 an array whose total size passes 2^61 elements, or wraps to zero, raises E241 (decision: L5: below 2^61 the outcome depends on the machine and may differ between flavors). Both versions overflow the size computation, then crash or run on with a too-small array.
 - §4.4.1 a redimensioned array starts with every element at #0. Neither version zeroes the new allocation, so its elements read as leftover memory.
 - §4.4.10 REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` stays a no-op (the spec's rule). 0.15 reinstates it.
 - §9.2 running off the end of the program is E633, as in 0.15. 0.35 reports E129.
 - Q78 in bases 3–7, mingle operands above the base's small maximum raise E533 too. 0.35 only checks binary.
 - Q35, Q38 the clean-room library implements exactly the §7.2 entry points, including (1060)–(1080), which neither version's library has (E129 there). Its NEXT depth, scratch variables and internal labels are its own. So the `syslib/` depth and fallback tests differ from ick, and pit programs that call ick's undocumented internal labels ((1001), (1021), (1999)) don't work. In the differential that's `primes`, `pi`, `fft`, `life`, `quine`, `flonck`, `ins` and `pow`.
 - L9 the binary library is included only in base 2. Both versions include it in every base.
+- L3 a statement with several statement-local problems reports the first in source order, so `(0) DO %101 FOO` is E197 (the label). Both versions report the `%` (E017) first.
+- L6 WRITE IN strips one `\r` before each `\n`, so CRLF input works on Windows consoles. Both versions read `ONE\r` as an unknown word (E579).
+- L8 (between the flavors, not ick) a `ciwapa-dart` program can't start when an argument isn't valid UTF-8: the Dart VM rejects it before `main` and exits 255. A `ciwapa-llvm` program accepts the bytes. Only arguments that aren't text trigger this.
 - §6.6 `0@` isn't a whirlpool, so a statement like `DO .0@2 <- #1` in base 5 is undecodable (E000 when it runs). Both versions read `.0` as a variable and report E200 at compile time.
 - Mode 1 only: pit programs that use 0.35 extensions (computed ABSTAIN, TRY AGAIN and threading in `sort` and `continuation`) are rejected. Their extension statements are undecodable, and a label inside one starts a new statement (T8), so they fail with E182.
 
