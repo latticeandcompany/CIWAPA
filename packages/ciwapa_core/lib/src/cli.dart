@@ -242,7 +242,7 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
   } on ToolchainException catch (e) {
     _fail(IclError.of(778), 1, detail: e.message);
   } on OutOfMemoryError {
-    // Generating code is where a huge program needs the most memory (QUESTIONS.md L12).
+    // Generating code is where a huge program needs the most memory (decision L12).
     _fail(IclError.of(666), 1);
   }
 
