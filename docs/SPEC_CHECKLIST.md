@@ -484,7 +484,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - T39 with `--traditional`, a COME FROM followed by junk is undecodable (E000 when it executes), like any other junk. 0.15 reports E111 because it checks traditional mode before it sees the junk.
 - Q97 ungrouped operator chains are rejected, as in 0.15. 0.35 groups them to the right. Timing follows Q80, not 0.15's compile-time error.
 - T4 there is no prefix unary form, so `&.1` is undecodable. 0.35 accepts it.
-- T22 `%` rolls come from CIWAPA's own generator, so programs that use `%` (pit's `iching1`, `iching2` and `random`) print different values than either version.
+- T22 `%` rolls come from CIWAPA's own generator, so programs that use `%` (pit's `iching1`, `iching2`, `random`, `tests/testcf` and `tests/iogerunds`) print different values than either version, or than each other from run to run.
 - T26 an array whose total size passes 2^61 elements, or wraps to zero, raises E241 (QUESTIONS.md L5). Both versions overflow the size computation, then crash or run on with a too-small array.
 - §4.4.1 a redimensioned array starts with every element at #0. Neither version zeroes the new allocation, so its elements read as leftover memory.
 - §4.4.10 REINSTATE of a GIVE UP by label does nothing, so `DON'T GIVE UP` stays a no-op (the spec's rule). 0.15 reinstates it.

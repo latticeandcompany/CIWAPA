@@ -47,5 +47,6 @@
   "pit_tests_testcf.i": "T22",
   "pit_tests_testi18n.i": "T14",
   "pit_tests_test16bit.i|ick015": "Q78",
-  "packages_conformance_tests_errors_do-please-counts.i|ick035": "T11"
+  "packages_conformance_tests_errors_do-please-counts.i|ick035": "T11",
+  "pit_tests_iogerunds.i": "T22"
 }
