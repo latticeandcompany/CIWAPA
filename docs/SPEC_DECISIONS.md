@@ -1159,3 +1159,57 @@ Every answer Ryan has given, so no question gets asked twice. Newest entries go 
 - **Options:** applies / doesn't apply
 - **Decision:** "Absolutely." It applies, inherited through EXTRACAL from Mode 1. PLEASE is mandatory on the web too.
 - **Date:** 2026-10-14
+
+## Loop questions
+
+Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
+
+### L1: May GitHub Actions open pull requests in this repo?
+- **Options:** Ryan enables it at the org level and then on the repo / a GitHub App or fine-grained token as a secret / open an issue instead of a PR
+- **Decision:** Ryan enabled it at the `latticeandcompany` org level and then on CIWAPA. The repo API now reports `can_approve_pull_request_reviews: true`, so the toolchain-bump workflow can open its PR with `GITHUB_TOKEN`.
+- **Date:** 2026-10-15
+
+### L2: When a COME FROM's own statement-local errors fire
+- **Options:** when control reaches it / only when its jump is considered / never
+- **Decision:** Only when its jump is considered: after the target runs, if the COME FROM isn't abstained, its E197 or E017 fires instead of the jump. Falling into the COME FROM does nothing (§4.4.14.2). Matches the loop's interim code.
+- **Date:** 2026-10-15
+
+### L3: E000 versus a label or `%` error on an undecodable statement
+- **Options:** source order / E000 always wins
+- **Decision:** Source order: invalid label, then invalid `%`, then E000. Matches the loop's interim code.
+- **Date:** 2026-10-15
+
+### L4: A binary-operator chain inside a group
+- **Options:** E017 everywhere / E017 at top level and undecodable inside a group, as 0.15
+- **Decision:** As 0.15's parser (Q97): E017 for a top-level chain; a chain inside a group makes the statement undecodable (E000 when it executes). **Code change needed:** the loop's interim code gives E017 inside groups. Drop the L4 divergence.
+- **Date:** 2026-10-15
+
+### L5: Allocation limits below 2^61 elements
+- **Options:** machine-dependent below 2^61 / shared artificial cap / probe physical memory
+- **Decision:** Keep it machine-dependent below 2^61. Past 2^61, both runtimes raise E241 (and E222 for stashes) deterministically. No artificial cap (T27). Matches the loop's interim code.
+- **Date:** 2026-10-15
+
+### L6: CRLF in WRITE IN input
+- **Options:** keep 0.15's behavior / strip one `\r` before each `\n`
+- **Decision:** Strip one `\r` before each `\n` in WRITE IN, for Windows consoles. Recorded as a divergence next to T7/T28. **Code change needed** in both runtimes.
+- **Date:** 2026-10-15
+
+### L7: Proving E222, E333 and E666
+- **Options:** catch OOM + review / catch OOM + test-only memory limit / drop the codes
+- **Decision:** The compiler catches out-of-memory and reports E666 while parsing and E333 while laying out variables. The runtimes keep E222. A test-only environment variable (for example `CIWAPA_TEST_MEMORY_LIMIT`), documented as test-only and never set in normal runs, lets tests force each error. The no-limit tests stay. **Code change needed.**
+- **Date:** 2026-10-15
+
+### L8: Program arguments that aren't valid UTF-8
+- **Options:** accept as a known flavor difference / make ciwapa-llvm refuse them too
+- **Decision:** Accept it as a known difference between the flavors, recorded under Divergences. Only arguments that aren't text trigger it.
+- **Date:** 2026-10-15
+
+### L9: The system library in bases 3–7
+- **Options:** base 2 only / include anyway as 0.15 / clean-room libraries per base
+- **Decision:** Include the binary library only in base 2. In bases 3–7, a NEXT to 1000–1999 raises E129 when it executes, like any missing label. Per-base libraries are a possible future goal. Matches the loop's interim code.
+- **Date:** 2026-10-15
+
+### L10: Benchmarks that call ick's internal library labels
+- **Options:** append ick's syslib.i at benchmark time / replace with clean-room programs / drop the four
+- **Decision:** Benchmark `primes`, `pi`, `fft` and `life` with C-INTERCAL 0.35's own `syslib.i` appended, identically for every compiler. A script extracts it from the hash-checked tarball at benchmark time only, inside the temporary `tools/bench/` scaffolding. It is never committed, and no agent opens or reads the extracted file. Q38's clean-room rule covers reading the listing while writing our library; running it as a black box in a benchmark doesn't cross it. CIWAPA's native fast paths don't apply to these runs. **Code change needed:** unblock the four programs' guardrails and the geometric means.
+- **Date:** 2026-10-15
