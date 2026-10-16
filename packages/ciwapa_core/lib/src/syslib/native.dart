@@ -160,33 +160,31 @@ Set<int> _reachable(IrProgram program, int entry) {
   return seen;
 }
 
-/// The library statements a run can reach: everything control can get to from the user's NEXTs
-/// into the library. Anything a skipped (abstained or `%`) RESUME or GIVE UP could fall into
-/// counts, so the rest can never run.
-Set<int> liveLibrary(IrProgram program) {
+/// The statements a run can reach: everything control can get to from the first statement. A
+/// NEXT's return point counts, since a RESUME can land there, and so does anything a skipped
+/// (abstained or `%`) RESUME or GIVE UP could fall into; the rest can never run. Running off the
+/// user's last statement is E633, not a way into the library.
+Set<int> reachable(IrProgram program) {
   final live = <int>{};
-  final work = [
-    for (final s in program.statements.take(program.userStatements))
-      if (s.op case IrNext(:final target) when target > program.userStatements)
-        target,
-  ];
+  final work = [if (program.statements.isNotEmpty) 1];
+  void fallFrom(int ordinal) {
+    if (ordinal != program.userStatements) work.add(ordinal + 1);
+  }
+
   while (work.isNotEmpty) {
     final ordinal = work.removeLast();
-    // A COME FROM can lead back into the user's program, which is emitted anyway, and the user's
-    // only ways into the library are the NEXTs this started from.
-    if (ordinal <= program.userStatements) continue;
-    if (ordinal > program.statements.length || !live.add(ordinal)) continue;
+    if (ordinal < 1 || ordinal > program.statements.length) continue;
+    if (!live.add(ordinal)) continue;
     final s = program.at(ordinal);
     final skippable = s.abstainable || (s.percent != null && s.percent! < 100);
     switch (s.op) {
       case IrResume() || IrGiveUp():
-        if (skippable) work.add(ordinal + 1);
+        if (skippable) fallFrom(ordinal);
       case IrNext(:final target):
-        work
-          ..add(target)
-          ..add(ordinal + 1);
+        work.add(target);
+        fallFrom(ordinal);
       default:
-        work.add(ordinal + 1);
+        fallFrom(ordinal);
     }
     if (s.comeFrom case final c?) work.add(c);
   }
