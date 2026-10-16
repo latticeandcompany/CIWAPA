@@ -116,8 +116,10 @@ void main(List<String> args) {
           for (final b in impls)
             if (p.runsOn(b) && runUs(p.name, b) == null) b,
         ];
-  String leaveOut(List<String> wrong) =>
-      '${wrong.join(' and ')} ran it wrong: leave it out in programs.txt, with the reason (L13)';
+  // ick is the reference: when it disagrees with ciwapa-llvm, CIWAPA is what needs looking at.
+  String leaveOut(List<String> wrong) => wrong.contains('ick')
+      ? 'ick and ciwapa-llvm print different things: a CIWAPA bug or an undecided divergence'
+      : '${wrong.join(' and ')} ran it wrong: leave it out in programs.txt, with the reason (L13)';
 
   // Q32, LLVM: never slower than any baseline on any program.
   for (final p in programs) {
@@ -172,8 +174,10 @@ void main(List<String> args) {
   double? geometric(String flavor, double? Function(Program) ratio) {
     if (measured.any((p) => runUs(p.name, flavor) == null)) return null;
     if (measured.any((p) => wrongRuns(p, baselines).isNotEmpty)) return null;
-    final ratios = measured.map(ratio).whereType<double>().toList();
-    return ratios.isEmpty ? null : geometricMean(ratios);
+    final ratios = measured.map(ratio).toList();
+    return ratios.isEmpty || ratios.contains(null)
+        ? null
+        : geometricMean(ratios.whereType<double>());
   }
 
   int? net(String program, String impl) {

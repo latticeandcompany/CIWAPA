@@ -70,11 +70,11 @@ Map<int, NativeCall> findNativeCalls(IrProgram program) {
     final routine = _routines[entry.label];
     final depth = syslibDepth[entry.label];
     if (routine == null || depth == null) continue;
-    final reachable = _reachable(program, entry.ordinal);
+    final routineStatements = _reachable(program, entry.ordinal);
     final touched = <Slot>{};
     final abstainable = <int>[];
     var native = true;
-    for (final ordinal in reachable) {
+    for (final ordinal in routineStatements) {
       final s = program.at(ordinal);
       native &=
           ordinal > program.userStatements &&
