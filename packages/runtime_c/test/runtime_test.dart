@@ -26,31 +26,19 @@ void main() {
   });
 
   test(
-    '§3.4.1 mingle goldens',
-    () => expect(lines[0], '2863311530 1431655765 65535 65536'),
-  );
-  test('§3.4.1 select goldens', () => expect(lines[1], '9 17 31 15'));
-  test('§3.4.2 unary goldens', () => expect(lines[2], '4 32879 32875'));
-  test(
-    '32-bit unary operators rotate through bit 31',
-    () => expect(lines[3], '2147483649 3221225472 4294967295'),
-  );
-  test('§3.4.3 grouping goldens', () => expect(lines[4], '15 34915'));
-
-  test(
     '§5.2, T31: after the end of input, the next character reads as itself + 1',
     () {
-      expect(lines[5], '65 256 67');
+      expect(lines[0], '65 256 67');
     },
   );
 
   test('§5.2, T31: Turing Text output is flushed at a newline', () {
-    expect(lines[6], 'A');
-    expect(lines[7], 'flushes 1');
+    expect(lines[1], 'A');
+    expect(lines[2], 'flushes 1');
   });
 
   test('T22: by default the % rolls are seeded from the clock, like +seed', () {
-    final [clock, seed] = lines[8].split(' ');
+    final [clock, seed] = lines[3].split(' ');
     expect(clock, seed);
     expect(clock, contains('1'));
     expect(clock, contains('0'));

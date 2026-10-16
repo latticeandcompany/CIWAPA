@@ -96,6 +96,7 @@ static uint32_t small_digits(uint32_t base) {
 }
 
 static void parse_options(int argc, char **argv);
+static void build_digit_tables(uint32_t base);
 
 /* A seed is decimal digits for a value below 2^63. */
 static int parse_seed(const char *text) {
@@ -121,6 +122,7 @@ void ick_init(int argc, char **argv, const ick_program *p) {
   digits = small_digits(p->base);
   small_max = p->base == 2 ? 65535u : pow_u32(p->base, small_digits(p->base)) - 1;
   large_max = p->base == 2 ? 0xFFFFFFFFu : (small_max + 1) * (small_max + 1) - 1;
+  if (p->base != 2) build_digit_tables(p->base);
   arrays = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array));
   scalar_stashes = calloc(p->scalar_count ? p->scalar_count : 1, sizeof(ick_value_stash));
   array_stashes = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array_stash));
@@ -176,27 +178,11 @@ void ick_give_up(void) {
 
 #define NEXT_DEPTH 79
 
-static uint32_t next_stack[NEXT_DEPTH];
-static uint32_t next_depth;
+/* Pushed, popped and forgotten by the generated code; the natives only ask how much is free. */
+uint32_t ick_next_stack[NEXT_DEPTH];
+uint32_t ick_next_depth;
 
-/* [target] is the NEXT's target ordinal: the statement that would have run next. */
-void ick_next_push(uint32_t id, uint32_t target) {
-  if (next_depth == NEXT_DEPTH) ick_fatal(123, target);
-  next_stack[next_depth++] = id;
-}
-
-void ick_forget(uint32_t count) {
-  next_depth = count >= next_depth ? 0 : next_depth - count;
-}
-
-uint32_t ick_resume(uint32_t count, uint32_t next) {
-  if (count == 0) ick_fatal(621, next);
-  if (count > next_depth) ick_fatal(632, next);
-  next_depth -= count;
-  return next_stack[next_depth];
-}
-
-uint32_t ick_next_free(void) { return NEXT_DEPTH - next_depth; }
+uint32_t ick_next_free(void) { return NEXT_DEPTH - ick_next_depth; }
 
 /* ---- Native system library routines (§7.2, decision Q37) ------------------------------ */
 
@@ -272,125 +258,107 @@ static inline uint32_t mingle_in(uint32_t b, uint32_t d, uint32_t left, uint32_t
   return (uint32_t)result;
 }
 
+/* Binary mingles, selects and unary operators are inline in the generated code; these are the
+ * operators of bases 3-7. */
 uint32_t ick_mingle(uint32_t left, uint32_t right, uint32_t next) {
   if (left > small_max || right > small_max) ick_fatal(533, next);
-  uint32_t result = 0;
-  if (base != 2) {
-    switch (base) {
-    case 3: return mingle_in(3, 10, left, right);
-    case 4: return mingle_in(4, 8, left, right);
-    case 5: return mingle_in(5, 6, left, right);
-    case 6: return mingle_in(6, 6, left, right);
-    default: return mingle_in(7, 5, left, right);
-    }
+  switch (base) {
+  case 3: return mingle_in(3, 10, left, right);
+  case 4: return mingle_in(4, 8, left, right);
+  case 5: return mingle_in(5, 6, left, right);
+  case 6: return mingle_in(6, 6, left, right);
+  default: return mingle_in(7, 5, left, right);
   }
-  for (int i = 15; i >= 0; i--) {
-    result = (result << 2) | (((left >> i) & 1u) << 1) | ((right >> i) & 1u);
-  }
-  return result;
 }
 
+/* A value digit ANDed with its selector digit, indexed by selector << 3 | digit. */
+static uint8_t selected_digit[64];
+
 /* §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger),
- * then pack the digits under selector b-1 at the low end, then those under b-2, down to 1. */
-static inline uint32_t select_in(uint32_t b, uint32_t d, uint32_t value, uint32_t mask) {
-  uint8_t v[32], m[32];
-  split_digits(b, value, 2 * d, v);
-  split_digits(b, mask, 2 * d, m);
-  uint64_t result = 0, out = 1;
+ * then pack the digits under selector b-1 at the low end, then those under b-2, down to 1. One
+ * pass gathers every selector's digits; the groups are stacked at the end. Selector 0's group is
+ * gathered too, without branching, and then left out. */
+static inline uint32_t select_in(uint32_t b, uint32_t value, uint32_t mask) {
+  uint64_t sums[8] = {0}, places[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+  while (mask) {
+    uint32_t selector = mask % b, digit = value % b;
+    sums[selector] += places[selector] * selected_digit[selector << 3 | digit];
+    places[selector] *= b;
+    mask /= b;
+    value /= b;
+  }
+  uint64_t result = 0, place = 1;
   for (uint32_t selector = b - 1; selector > 0; selector--) {
-    for (uint32_t i = 0; i < 2 * d; i++) {
-      if (m[i] == selector) {
-        if (v[i]) result += out * (v[i] > selector ? v[i] : selector);
-        out *= b;
-      }
-    }
+    result += sums[selector] * place;
+    place *= places[selector];
   }
   return (uint32_t)result;
 }
 
-static uint32_t select_digits(uint32_t value, uint32_t mask) {
-  switch (base) {
-  case 3: return select_in(3, 10, value, mask);
-  case 4: return select_in(4, 8, value, mask);
-  case 5: return select_in(5, 6, value, mask);
-  case 6: return select_in(6, 6, value, mask);
-  default: return select_in(7, 5, value, mask);
-  }
-}
-
 uint32_t ick_select(uint32_t value, uint32_t mask) {
-  if (base != 2) return select_digits(value, mask);
-  uint32_t result = 0, bit = 1;
-  for (; mask; mask &= mask - 1) {
-    if (value & mask & (0u - mask)) result |= bit;
-    bit <<= 1;
+  switch (base) {
+  case 3: return select_in(3, value, mask);
+  case 4: return select_in(4, value, mask);
+  case 5: return select_in(5, value, mask);
+  case 6: return select_in(6, value, mask);
+  default: return select_in(7, value, mask);
   }
-  return result;
 }
 
-/* Rotating right by one and combining with the original pairs every bit with its neighbor,
- * the last bit wrapping around to the first (§3.4.2). */
-static uint32_t rotate16(uint32_t x) { return ((x >> 1) | (x << 15)) & 0xFFFFu; }
-static uint32_t rotate32(uint32_t x) { return (x >> 1) | (x << 31); }
 
 /* §6.5.2.1, §6.6: the digit-wise unary operators of bases 3–7. Each digit is combined with the
  * next one up, the top digit wrapping around to the bottom, as rotating right and combining does
  * in binary. The logical operators all prefer one digit p: AND prefers 0, OR prefers b-1, BUT
- * prefers 1 and N@ prefers N. ? subtracts without borrow and ^ adds without carry. */
-enum { ICK_LOGICAL, ICK_MINUS, ICK_PLUS };
+ * prefers 1 and N@ prefers N. ? subtracts without borrow and ^ adds without carry.
+ * Each table gives the combined digit at here << 3 | below: tables 0 to b-1 are the logical
+ * operators preferring that digit, table b is ? and table b+1 is ^. */
+static uint8_t digit_tables[9 * 64];
 
-/* Combines each digit with its neighbor, the last wrapping around to the first (§6.5.2). */
-static inline uint32_t digitwise_in(uint32_t b, uint32_t length, uint32_t kind, uint32_t p, uint32_t n) {
+static void build_digit_tables(uint32_t b) {
+  for (uint32_t selector = 1; selector < 8; selector++) {
+    for (uint32_t digit = 1; digit < 8; digit++) {
+      selected_digit[selector << 3 | digit] = (uint8_t)(digit > selector ? digit : selector);
+    }
+  }
+  for (uint32_t here = 0; here < b; here++) {
+    for (uint32_t below = 0; below < b; below++) {
+      uint32_t at = here << 3 | below;
+      for (uint32_t p = 0; p < b; p++) {
+        digit_tables[p * 64 + at] = (uint8_t)(here <= p ? ((below < here || below > p) ? here : below)
+                                                        : ((below < here && below > p) ? here : below));
+      }
+      digit_tables[b * 64 + at] = (uint8_t)((b + here - below) % b);
+      digit_tables[(b + 1) * 64 + at] = (uint8_t)((here + below) % b);
+    }
+  }
+}
+
+static inline uint32_t digitwise_in(uint32_t b, uint32_t length, uint32_t table, uint32_t n) {
+  const uint8_t *combined = digit_tables + table * 64;
   uint8_t d[32];
   split_digits(b, n, length, d);
   uint64_t result = 0;
   for (uint32_t i = length; i-- > 0;) {
     uint32_t below = d[i], here = d[i + 1 == length ? 0 : i + 1];
-    uint32_t digit;
-    if (kind == ICK_MINUS) {
-      digit = (b + here - below) % b;
-    } else if (kind == ICK_PLUS) {
-      digit = (here + below) % b;
-    } else if (here <= p) {
-      digit = (below < here || below > p) ? here : below;
-    } else {
-      digit = (below < here && below > p) ? here : below;
-    }
-    result = result * b + digit;
+    result = result * b + combined[here << 3 | below];
   }
   return (uint32_t)result;
 }
 
-static uint32_t digitwise(uint32_t kind, uint32_t large, uint32_t p, uint32_t n) {
+static uint32_t digitwise(uint32_t table, uint32_t large, uint32_t n) {
   uint32_t length = large ? 2 * digits : digits;
   switch (base) {
-  case 3: return digitwise_in(3, length, kind, p, n);
-  case 4: return digitwise_in(4, length, kind, p, n);
-  case 5: return digitwise_in(5, length, kind, p, n);
-  case 6: return digitwise_in(6, length, kind, p, n);
-  default: return digitwise_in(7, length, kind, p, n);
+  case 3: return digitwise_in(3, length, table, n);
+  case 4: return digitwise_in(4, length, table, n);
+  case 5: return digitwise_in(5, length, table, n);
+  case 6: return digitwise_in(6, length, table, n);
+  default: return digitwise_in(7, length, table, n);
   }
 }
 
-uint32_t ick_logical(uint32_t large, uint32_t p, uint32_t n) { return digitwise(ICK_LOGICAL, large, p, n); }
-uint32_t ick_minus(uint32_t large, uint32_t n) { return digitwise(ICK_MINUS, large, 0, n); }
-uint32_t ick_plus(uint32_t large, uint32_t n) { return digitwise(ICK_PLUS, large, 0, n); }
-
-uint32_t ick_and16(uint32_t x) { return x & rotate16(x); }
-uint32_t ick_or16(uint32_t x) { return x | rotate16(x); }
-uint32_t ick_xor16(uint32_t x) { return x ^ rotate16(x); }
-uint32_t ick_and32(uint32_t x) { return x & rotate32(x); }
-uint32_t ick_or32(uint32_t x) { return x | rotate32(x); }
-uint32_t ick_xor32(uint32_t x) { return x ^ rotate32(x); }
-
-/* ---- Assignment (§4.4.1) ----------------------------------------------------------------- */
-
-/* A small target takes values up to the small maximum (decision Q76), and E275 fires even when
- * the target is IGNOREd (decision T24). */
-uint32_t ick_check_small(uint32_t value, uint32_t next) {
-  if (value > small_max) ick_fatal(275, next);
-  return value;
-}
+uint32_t ick_logical(uint32_t large, uint32_t p, uint32_t n) { return digitwise(p, large, n); }
+uint32_t ick_minus(uint32_t large, uint32_t n) { return digitwise(base, large, n); }
+uint32_t ick_plus(uint32_t large, uint32_t n) { return digitwise(base + 1, large, n); }
 
 /* ---- Arrays (§3.3, §4.4.1, decision T26) ------------------------------------------------- */
 

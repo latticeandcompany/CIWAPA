@@ -14,6 +14,49 @@ int smallMax(int base) => pow(base, smallDigits[base]!).toInt() - 1;
 /// The largest large value in [base]: 4294967295 in binary.
 int largeMax(int base) => pow(base, 2 * smallDigits[base]!).toInt() - 1;
 
+/// A binary select by a constant [mask], as the runs of 1-bits in the mask: in each, `width` bits
+/// of the value from bit `from` land at bit `to` of the result, packed toward the low end in order
+/// (§3.4.1). Emitters turn a constant-mask select into one shift and mask per run.
+List<({int from, int width, int to})> selectRuns(int mask) {
+  final runs = <({int from, int width, int to})>[];
+  var to = 0;
+  for (var bit = 0; bit < 32;) {
+    if ((mask >> bit) & 1 == 0) {
+      bit++;
+      continue;
+    }
+    var width = 0;
+    while (bit + width < 32 && (mask >> (bit + width)) & 1 == 1) {
+      width++;
+    }
+    runs.add((from: bit, width: width, to: to));
+    to += width;
+    bit += width;
+  }
+  return runs;
+}
+
+/// A binary select by a constant [mask] as Hacker's Delight's compress (§7-4): mask the value,
+/// then in each step shift its `moving` bits right by `shift`. At most five steps, so emitters use
+/// it in place of [selectRuns] for masks with more runs than that, like 0x55555555.
+List<({int moving, int shift})> compressSteps(int mask) {
+  final steps = <({int moving, int shift})>[];
+  var zerosRight = ~mask << 1 & 0xFFFFFFFF;
+  for (var shift = 1; shift < 32; shift <<= 1) {
+    // The bits with an odd number of mask zeros to their right: the ones moving this step.
+    var odd = zerosRight ^ zerosRight << 1;
+    odd ^= odd << 2;
+    odd ^= odd << 4;
+    odd ^= odd << 8;
+    odd = (odd ^ odd << 16) & 0xFFFFFFFF;
+    final moving = odd & mask;
+    if (moving != 0) steps.add((moving: moving, shift: shift));
+    mask = (mask ^ moving) | moving >> shift;
+    zerosRight &= ~odd;
+  }
+  return steps;
+}
+
 /// The digit a base 3–7 logical operator prefers: AND 0, OR b-1, BUT (`@`) 1 and `N@` N (§6.6).
 int preferredDigit(UnaryOp op, int base) => switch (op) {
   UnaryOp.and => 0,
