@@ -2280,7 +2280,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "197:ICL197",
    "status": "divergence",
-   "reason": "Q80/Q81"
+   "reason": "L3"
   },
   {
    "program": "packages_conformance_tests_errors_order-label-first.i",
@@ -2289,7 +2289,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "197:ICL197",
    "status": "divergence",
-   "reason": "Q80/Q81"
+   "reason": "L3"
   },
   {
    "program": "packages_conformance_tests_errors_order-label-first.i",
@@ -2298,7 +2298,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "197:ICL197",
    "status": "divergence",
-   "reason": "Q80/Q81"
+   "reason": "L3"
   },
   {
    "program": "packages_conformance_tests_errors_order-label-first.i",
@@ -2307,7 +2307,7 @@
    "ick_exit": "compile:ICL017",
    "ciwapa_exit": "197:ICL197",
    "status": "divergence",
-   "reason": "Q80/Q81"
+   "reason": "L3"
   },
   {
    "program": "packages_conformance_tests_errors_order-percent-before-e000.i",

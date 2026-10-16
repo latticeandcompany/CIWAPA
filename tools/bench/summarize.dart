@@ -123,22 +123,25 @@ void main(List<String> args) {
       ),
     );
   }
-  // Q32, Dart: faster than every non-native baseline on every program.
+  // Q32, Dart: faster than every non-native baseline on every program. One that's listed for a
+  // program but doesn't run it correctly leaves nothing to compare: QUESTIONS.md L13.
   for (final p in programs) {
     final dart = runUs(p.name, 'ciwapa-dart');
-    final ratios = [
-      for (final b in ['intercal64', 'clc'])
-        if (p.runsOn(b)) speedup(runUs(p.name, b), dart),
-    ].whereType<double>();
+    final listed = ['intercal64', 'clc'].where(p.runsOn).toList();
+    final ratios = [for (final b in listed) speedup(runUs(p.name, b), dart)]
+        .whereType<double>();
+    final unmeasured = dart != null && ratios.isEmpty;
     guardrails.add(
       Guardrail(
         'dart runtime, ${p.name}: faster than INTERCAL-64 and CLC-INTERCAL',
         ratios.isEmpty ? null : ratios.reduce(min),
         1,
-        blockedBy: p.blockedBy,
-        vacuous: dart != null && ratios.isEmpty,
-        note: dart != null && ratios.isEmpty && p.blockedBy.isEmpty
-            ? 'no baseline measured: neither runs it, or runs it correctly'
+        blockedBy: p.blockedBy.isNotEmpty || !unmeasured || listed.isEmpty
+            ? p.blockedBy
+            : 'L13',
+        vacuous: unmeasured && listed.isEmpty,
+        note: unmeasured && listed.isEmpty && p.blockedBy.isEmpty
+            ? 'no non-native baseline runs it (Q31)'
             : '',
       ),
     );

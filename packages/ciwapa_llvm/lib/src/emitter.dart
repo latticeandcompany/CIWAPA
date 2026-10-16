@@ -55,8 +55,8 @@ declare i32 @ick_array_ignored(i32)
 declare void @ick_array_set_ignored(i32, i32)
 declare i32 @llvm.cttz.i32(i32, i1)
 
-@ick_next_stack = external global [79 x i32]
-@ick_next_depth = external global i32
+@ick_next_stack = external dso_local global [79 x i32]
+@ick_next_depth = external dso_local global i32
 
 define internal void @next_push(i32 %id, i32 %target) alwaysinline {
 entry:

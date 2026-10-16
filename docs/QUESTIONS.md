@@ -23,3 +23,13 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-16
 
+## L13: What does the Dart "faster than INTERCAL-64 and CLC-INTERCAL" guardrail do when they run a program wrong?
+
+- **Context:** Q32 asks the Dart flavor to be faster than every non-native baseline on every program. `programs.txt` lists INTERCAL-64 and CLC-INTERCAL for `tpk`, `primes`, `pi` and `life`, but neither prints what ick and both CIWAPA flavors print: CLC-INTERCAL prints nothing for `tpk`, `pi` and `life`, and INTERCAL-64's output differs on all four. The bench only times a run whose output matches, so for those programs there's nothing to compare. Until now the bench counted that as met, which no decision says. (`hail_mary` is different: Q31 itself leaves both out, so there's nothing to block.)
+- **Options:**
+  - (a) Count the guardrail as met when no listed baseline runs the program correctly, as the bench did.
+  - (b) Compare against their times anyway, wrong output and all.
+  - (c) Find out why they differ (input, flags, their own system library) and run them correctly; if a program can't be, drop that baseline from it in `programs.txt`.
+- **Lean:** (c), falling back to (a) for whatever can't be fixed. Until then, those four guardrails are recorded as blocked in `tools/bench/results.json`.
+- **Blocks:** the Dart guardrails for `tpk`, `primes`, `pi` and `life` against INTERCAL-64 and CLC-INTERCAL. No checklist items.
+- **Raised:** 2026-10-16

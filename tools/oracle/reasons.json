@@ -1,6 +1,7 @@
 {
   "packages_conformance_tests_calculate_e017-ungrouped-chain.i|ick035": "Q97",
   "packages_conformance_tests_syntax_chain-in-group-undecodable.i|ick035": "Q97",
+  "packages_conformance_tests_errors_order-label-first.i": "L3",
   "packages_conformance_tests_calculate_e241-size-overflow-to-zero.i": "T26",
   "packages_conformance_tests_calculate_e241-size-overflow.i": "T26",
   "packages_conformance_tests_calculate_golden-lsb.i": "T2",

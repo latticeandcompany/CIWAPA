@@ -231,7 +231,12 @@ class DartEmitter {
   /// `dart compile exe` spends on the program.
   late final bool _sharedGuard =
       program.statements
-          .where((s) => s.abstainable && _gerunds.contains(s.gerund))
+          .where(
+            (s) =>
+                _emitted(s.ordinal) &&
+                s.abstainable &&
+                _gerunds.contains(s.gerund),
+          )
           .length >
       64;
 

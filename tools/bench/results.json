@@ -1,5 +1,5 @@
 {
-  "measured": "2026-10-16T13:11:54.794618Z",
+  "measured": "2026-10-16T16:39:04.693744Z",
   "machine": "linux \"linux_arm64\"",
   "programs": {
     "tpk": {
@@ -301,8 +301,8 @@
       "name": "dart runtime, tpk: faster than INTERCAL-64 and CLC-INTERCAL",
       "ratio": null,
       "target": 1.0,
-      "met": true,
-      "note": "no baseline measured: neither runs it, or runs it correctly"
+      "met": false,
+      "blocked": "L13"
     },
     {
       "name": "dart runtime, unlambda: faster than INTERCAL-64 and CLC-INTERCAL",
@@ -321,7 +321,7 @@
       "ratio": null,
       "target": 1.0,
       "met": true,
-      "note": "no baseline measured: neither runs it, or runs it correctly"
+      "note": "no non-native baseline runs it (Q31)"
     },
     {
       "name": "dart runtime, next-resume: faster than INTERCAL-64 and CLC-INTERCAL",
@@ -339,15 +339,15 @@
       "name": "dart runtime, primes: faster than INTERCAL-64 and CLC-INTERCAL",
       "ratio": null,
       "target": 1.0,
-      "met": true,
-      "note": "no baseline measured: neither runs it, or runs it correctly"
+      "met": false,
+      "blocked": "L13"
     },
     {
       "name": "dart runtime, pi: faster than INTERCAL-64 and CLC-INTERCAL",
       "ratio": null,
       "target": 1.0,
-      "met": true,
-      "note": "no baseline measured: neither runs it, or runs it correctly"
+      "met": false,
+      "blocked": "L13"
     },
     {
       "name": "dart runtime, fft: faster than INTERCAL-64 and CLC-INTERCAL",
@@ -360,8 +360,8 @@
       "name": "dart runtime, life: faster than INTERCAL-64 and CLC-INTERCAL",
       "ratio": null,
       "target": 1.0,
-      "met": true,
-      "note": "no baseline measured: neither runs it, or runs it correctly"
+      "met": false,
+      "blocked": "L13"
     },
     {
       "name": "llvm runtime, geometric mean: 1.5x faster than the fastest baseline",
