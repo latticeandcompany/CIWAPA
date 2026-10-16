@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # TEMPORARY (goal 2's cleanup removes it): writes .cache/bench/programs/{primes,pi,fft,life}.i, the
 # pit programs that call C-INTERCAL's internal library labels, with 0.35's own syslib.i appended so
-# every compiler runs the same code (decision L10). fetch-pit checks the tarball's hash first. The
-# library goes straight from the tarball into the programs: nothing reads it, nothing commits it.
+# every compiler runs the same code (decision L10), and floatlib.i too for fft (decision L11).
+# fetch-pit checks the tarball's hash first. The libraries go straight from the tarball into the
+# programs: nothing reads them, nothing commits them.
 set -euo pipefail
 
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -13,3 +14,4 @@ for program in primes pi fft life; do
   cat "pit/$program.i" >".cache/bench/programs/$program.i"
   tar -xzf .cache/intercal-0.35.tar.gz -O intercal-0.35/pit/lib/syslib.i >>".cache/bench/programs/$program.i"
 done
+tar -xzf .cache/intercal-0.35.tar.gz -O intercal-0.35/pit/lib/floatlib.i >>.cache/bench/programs/fft.i
