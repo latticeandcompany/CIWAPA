@@ -23,11 +23,11 @@ class DartEmitter {
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
 
-  /// The statements to emit: the user's, and the library statements a run can reach.
-  late final Set<int> _live = liveLibrary(program);
+  /// The statements to emit: the ones a run can reach. Libraries appended to a program can be
+  /// much bigger than the part it uses, and `dart compile exe` takes time over every statement.
+  late final Set<int> _reachable = reachable(program);
 
-  bool _emitted(int ordinal) =>
-      ordinal <= program.userStatements || _live.contains(ordinal);
+  bool _emitted(int ordinal) => _reachable.contains(ordinal);
 
   /// The statements control reaches other than by running on from the one before: the first,
   /// NEXT targets, COME FROMs (their traps jump there), and the first of every chunk.
