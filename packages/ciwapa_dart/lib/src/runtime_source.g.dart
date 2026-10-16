@@ -545,7 +545,11 @@ List<int>? _readLine() {
   while (true) {
     final c = ickReadByte();
     if (c == -1) return line.isEmpty ? null : line;
-    if (c == 0x0A) return line;
+    if (c == 0x0A) {
+      // One \r before the \n goes, so CRLF input from Windows consoles works (decision L6).
+      if (line.isNotEmpty && line.last == 0x0D) line.removeLast();
+      return line;
+    }
     line.add(c);
   }
 }

@@ -225,6 +225,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.12, §9.2 — a blank line or end of input raises E562. (decision: T28) Tests: `packages/conformance/tests/io/e562-blank-line.i`, `packages/conformance/tests/io/e562-spaces-only.i`, `packages/conformance/tests/io/e562-end-of-input.i`
 - [x] §4.4.12, §9.2 — an unknown word raises E579. (decision: T28) Tests: `packages/conformance/tests/io/e579-unknown-word.i`
 - [x] §4.4.12 — a final line without a trailing newline keeps its last letter. (decision: T28) Tests: `packages/conformance/tests/io/write-in-no-final-newline.i`
+- [x] §4.4.12 — one `\r` right before a `\n` is dropped, so CRLF input from Windows consoles works; any other `\r` is part of the word. (decision: L6) Tests: `packages/conformance/tests/io/write-in-crlf.i`, `packages/conformance/tests/io/write-in-crlf-only-before-newline.i`
 
 ## §4.4.13 READ OUT (numbers)
 
