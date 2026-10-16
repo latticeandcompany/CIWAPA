@@ -1,5 +1,5 @@
 {
-  "measured": "2026-10-16T01:17:56.073557Z",
+  "measured": "2026-10-16T01:39:09.712748Z",
   "machine": "linux \"linux_arm64\"",
   "programs": {
     "tpk": {
@@ -221,7 +221,7 @@
       "ratio": null,
       "target": 1.0,
       "met": true,
-      "note": "neither baseline runs it correctly"
+      "note": "no baseline measured: neither runs it, or runs it correctly"
     },
     {
       "name": "dart runtime, unlambda: faster than INTERCAL-64 and CLC-INTERCAL",
@@ -240,7 +240,7 @@
       "ratio": null,
       "target": 1.0,
       "met": true,
-      "note": "neither baseline runs it correctly"
+      "note": "no baseline measured: neither runs it, or runs it correctly"
     },
     {
       "name": "dart runtime, next-resume: faster than INTERCAL-64 and CLC-INTERCAL",
@@ -431,5 +431,93 @@
       "met": false,
       "blocked": "L10"
     }
-  ]
+  ],
+  "ci": {
+    "programs": {
+      "empty": {
+        "ciwapa-dart": {
+          "run_us": 3840,
+          "stdout": "e3b0c44298fc1c14",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 2928,
+          "stdout": "e3b0c44298fc1c14",
+          "exit": 0
+        }
+      },
+      "tpk": {
+        "ciwapa-dart": {
+          "run_us": 9226,
+          "stdout": "fd9eefced384c163",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 4313,
+          "stdout": "fd9eefced384c163",
+          "exit": 0
+        }
+      },
+      "unlambda": {
+        "ciwapa-dart": {
+          "run_us": 4750,
+          "stdout": "1894a19c85ba153a",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 3425,
+          "stdout": "1894a19c85ba153a",
+          "exit": 0
+        }
+      },
+      "beer": {
+        "ciwapa-dart": {
+          "run_us": 5547,
+          "stdout": "4d51d4671e6d0e82",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 3780,
+          "stdout": "4d51d4671e6d0e82",
+          "exit": 0
+        }
+      },
+      "hail_mary": {
+        "ciwapa-dart": {
+          "run_us": 5054301,
+          "stdout": "3c681c91b09946a5",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 1536994,
+          "stdout": "3c681c91b09946a5",
+          "exit": 0
+        }
+      },
+      "next-resume": {
+        "ciwapa-dart": {
+          "run_us": 73670,
+          "stdout": "a12b7cb43c9d9134",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 44127,
+          "stdout": "a12b7cb43c9d9134",
+          "exit": 0
+        }
+      },
+      "abstain": {
+        "ciwapa-dart": {
+          "run_us": 27710,
+          "stdout": "a12b7cb43c9d9134",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 25968,
+          "stdout": "a12b7cb43c9d9134",
+          "exit": 0
+        }
+      }
+    }
+  }
 }

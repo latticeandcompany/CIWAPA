@@ -136,9 +136,9 @@ void main(List<String> args) {
         ratios.isEmpty ? null : ratios.reduce(min),
         1,
         blockedBy: p.blockedBy,
-        vacuous: ratios.isEmpty,
-        note: ratios.isEmpty && p.blockedBy.isEmpty
-            ? 'neither baseline runs it correctly'
+        vacuous: dart != null && ratios.isEmpty,
+        note: dart != null && ratios.isEmpty && p.blockedBy.isEmpty
+            ? 'no baseline measured: neither runs it, or runs it correctly'
             : '',
       ),
     );
@@ -147,7 +147,9 @@ void main(List<String> args) {
   // Q32, geometric means. They are over the whole set, so they wait on the blocked programs, but
   // only when the programs measured so far already meet the target: otherwise they fail. The note
   // gives the Dart mean net of each implementation's startup (its `empty` program), for scale.
-  double? geometric(double? Function(Program) ratio) {
+  /// Null, and so failed, when [flavor] didn't run some program correctly.
+  double? geometric(String flavor, double? Function(Program) ratio) {
+    if (measured.any((p) => runUs(p.name, flavor) == null)) return null;
     final ratios = measured.map(ratio).whereType<double>().toList();
     return ratios.isEmpty ? null : geometricMean(ratios);
   }
@@ -171,7 +173,7 @@ void main(List<String> args) {
     note: note,
   );
 
-  final llvmMean = geometric((p) {
+  final llvmMean = geometric('ciwapa-llvm', (p) {
     final fastest = [
       for (final b in baselines)
         if (p.runsOn(b)) runUs(p.name, b),
@@ -181,9 +183,11 @@ void main(List<String> args) {
         : speedup(fastest.reduce(min), runUs(p.name, 'ciwapa-llvm'));
   });
   final dartMean = geometric(
+    'ciwapa-dart',
     (p) => speedup(runUs(p.name, 'ick'), runUs(p.name, 'ciwapa-dart')),
   );
   final dartNetMean = geometric(
+    'ciwapa-dart',
     (p) => speedup(net(p.name, 'ick'), net(p.name, 'ciwapa-dart')),
   );
   guardrails

@@ -172,6 +172,9 @@ Set<int> liveLibrary(IrProgram program) {
   ];
   while (work.isNotEmpty) {
     final ordinal = work.removeLast();
+    // A COME FROM can lead back into the user's program, which is emitted anyway, and the user's
+    // only ways into the library are the NEXTs this started from.
+    if (ordinal <= program.userStatements) continue;
     if (ordinal > program.statements.length || !live.add(ordinal)) continue;
     final s = program.at(ordinal);
     final skippable = s.abstainable || (s.percent != null && s.percent! < 100);

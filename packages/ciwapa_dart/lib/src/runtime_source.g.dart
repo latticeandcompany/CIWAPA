@@ -238,10 +238,10 @@ int ickMingle(int left, int right, int next) {
   return result;
 }
 
-/// §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger), then
-/// pack the digits under selector b-1 at the low end, then those under b-2, down to 1.
 final _valueDigits = Uint8List(32), _maskDigits = Uint8List(32);
 
+/// §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger), then
+/// pack the digits under selector b-1 at the low end, then those under b-2, down to 1.
 int _selectDigits(int value, int mask) {
   final count = 2 * _digits;
   for (var i = 0; i < count; i++) {

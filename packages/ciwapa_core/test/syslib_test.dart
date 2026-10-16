@@ -177,6 +177,15 @@ void main() {
       },
     );
 
+    test('a COME FROM out of the library stops at the user program', () {
+      final ir = build(
+        'DO (1060) NEXT\nPLEASE GIVE UP\nDO COME FROM (1060)\nDO READ OUT #1\n'
+        'DO (9999) NEXT\nPLEASE GIVE UP',
+      );
+      expect(liveLibrary(ir).every((o) => o > ir.userStatements), isTrue);
+      expect(liveLibrary(ir), contains(ordinalOf(ir, 1060)));
+    });
+
     test('nothing is live without a NEXT into the library', () {
       expect(liveLibrary(build('DO .1 <- #1\nPLEASE GIVE UP')), isEmpty);
     });

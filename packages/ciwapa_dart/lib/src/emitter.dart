@@ -21,14 +21,14 @@ class DartEmitter {
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
 
-  /// The statements control reaches other than by running on from the one before: the first,
-  /// NEXT targets, COME FROMs (their traps jump there), and the first of every chunk.
   /// The statements to emit: the user's, and the library statements a run can reach.
   late final Set<int> _live = liveLibrary(program);
 
   bool _emitted(int ordinal) =>
       ordinal <= program.userStatements || _live.contains(ordinal);
 
+  /// The statements control reaches other than by running on from the one before: the first,
+  /// NEXT targets, COME FROMs (their traps jump there), and the first of every chunk.
   late final Set<int> _entries = {
     1,
     for (var o = 1; o <= program.statements.length; o += chunkSize) o,
