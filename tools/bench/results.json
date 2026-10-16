@@ -1,149 +1,149 @@
 {
-  "measured": "2026-10-15T23:27:29.465889Z",
+  "measured": "2026-10-16T01:17:56.073557Z",
   "machine": "linux \"linux_arm64\"",
   "programs": {
     "tpk": {
       "ciwapa-llvm": {
-        "run_us": 1266,
-        "build_ms": 204
+        "run_us": 1837,
+        "build_ms": 140
       },
       "ciwapa-dart": {
-        "run_us": 4678,
-        "build_ms": 877
+        "run_us": 5189,
+        "build_ms": 866
       },
       "ick": {
-        "run_us": 12458,
-        "build_ms": 791
+        "run_us": 13701,
+        "build_ms": 778
       },
       "rick": {
-        "run_us": 11233,
-        "build_ms": 3535
+        "run_us": 12216,
+        "build_ms": 3442
       },
       "intercal64": {
         "run_us": null,
-        "build_ms": 1367
+        "build_ms": 1105
       },
       "clc": {
         "run_us": null,
-        "build_ms": 185
+        "build_ms": 189
       }
     },
     "unlambda": {
       "ciwapa-llvm": {
-        "run_us": 511,
-        "build_ms": 174
+        "run_us": 1231,
+        "build_ms": 126
       },
       "ciwapa-dart": {
-        "run_us": 1435,
-        "build_ms": 897
+        "run_us": 2532,
+        "build_ms": 821
       },
       "ick": {
-        "run_us": 514,
-        "build_ms": 1875
+        "run_us": 1299,
+        "build_ms": 1832
       },
       "rick": {
-        "run_us": 550,
-        "build_ms": 4554
+        "run_us": 1372,
+        "build_ms": 4446
       },
       "intercal64": {
-        "run_us": 1368417,
-        "build_ms": 1419
+        "run_us": 1410378,
+        "build_ms": 1454
       },
       "clc": {
-        "run_us": 436595,
+        "run_us": 423785,
         "build_ms": 301
       }
     },
     "beer": {
       "ciwapa-llvm": {
-        "run_us": 532,
-        "build_ms": 111
+        "run_us": 1359,
+        "build_ms": 77
       },
       "ciwapa-dart": {
-        "run_us": 1920,
-        "build_ms": 797
+        "run_us": 2631,
+        "build_ms": 721
       },
       "ick": {
-        "run_us": 539,
-        "build_ms": 660
+        "run_us": 1441,
+        "build_ms": 646
       },
       "rick": {
-        "run_us": 551,
-        "build_ms": 1245
+        "run_us": 1383,
+        "build_ms": 1231
       },
       "intercal64": {
-        "run_us": 692727,
-        "build_ms": 869
+        "run_us": 685669,
+        "build_ms": 806
       },
       "clc": {
-        "run_us": 357924,
-        "build_ms": 159
+        "run_us": 347780,
+        "build_ms": 155
       }
     },
     "hail_mary": {
       "ciwapa-llvm": {
-        "run_us": 386255,
-        "build_ms": 44
+        "run_us": 1286211,
+        "build_ms": 22
       },
       "ciwapa-dart": {
-        "run_us": 1661346,
-        "build_ms": 660
+        "run_us": 3029851,
+        "build_ms": 647
       },
       "ick": {
-        "run_us": 388656,
-        "build_ms": 61
+        "run_us": 1444217,
+        "build_ms": 59
       }
     },
     "next-resume": {
       "ciwapa-llvm": {
-        "run_us": 23217,
-        "build_ms": 78
+        "run_us": 34759,
+        "build_ms": 50
       },
       "ciwapa-dart": {
-        "run_us": 63671,
-        "build_ms": 713
+        "run_us": 57433,
+        "build_ms": 649
       },
       "ick": {
-        "run_us": 82192,
-        "build_ms": 301
+        "run_us": 78782,
+        "build_ms": 295
       },
       "rick": {
-        "run_us": 57942,
-        "build_ms": 575
+        "run_us": 59078,
+        "build_ms": 574
       },
       "intercal64": {
-        "run_us": 20921955,
-        "build_ms": 768
+        "run_us": 20928500,
+        "build_ms": 760
       },
       "clc": {
-        "run_us": 337228698,
+        "run_us": 329822959,
         "build_ms": 96
       }
     },
     "abstain": {
       "ciwapa-llvm": {
-        "run_us": 12229,
-        "build_ms": 131
+        "run_us": 14313,
+        "build_ms": 89
       },
       "ciwapa-dart": {
-        "run_us": 127456,
-        "build_ms": 769
+        "run_us": 19530,
+        "build_ms": 662
       },
       "ick": {
-        "run_us": 42437,
-        "build_ms": 320
+        "run_us": 43106,
+        "build_ms": 313
       },
       "rick": {
-        "run_us": 36865,
-        "build_ms": 1022
+        "run_us": 36745,
+        "build_ms": 1027
       },
       "intercal64": {
-        "run_us": 6065940,
-        "build_ms": 777
+        "run_us": 6020124,
+        "build_ms": 807
       },
       "clc": {
-        "run_us": 131654316,
-        "build_ms": 133
+        "run_us": 129560171,
+        "build_ms": 130
       }
     }
   },
@@ -154,37 +154,37 @@
   "guardrails": [
     {
       "name": "llvm runtime, tpk: no baseline is faster",
-      "ratio": 8.87,
+      "ratio": 6.65,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm runtime, unlambda: no baseline is faster",
-      "ratio": 1.01,
+      "ratio": 1.06,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm runtime, beer: no baseline is faster",
-      "ratio": 1.01,
+      "ratio": 1.02,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm runtime, hail_mary: no baseline is faster",
-      "ratio": 1.01,
+      "ratio": 1.12,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm runtime, next-resume: no baseline is faster",
-      "ratio": 2.5,
+      "ratio": 1.7,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm runtime, abstain: no baseline is faster",
-      "ratio": 3.01,
+      "ratio": 2.57,
       "target": 1.0,
       "met": true
     },
@@ -217,26 +217,40 @@
       "blocked": "L10"
     },
     {
+      "name": "dart runtime, tpk: faster than INTERCAL-64 and CLC-INTERCAL",
+      "ratio": null,
+      "target": 1.0,
+      "met": true,
+      "note": "neither baseline runs it correctly"
+    },
+    {
       "name": "dart runtime, unlambda: faster than INTERCAL-64 and CLC-INTERCAL",
-      "ratio": 304.25,
+      "ratio": 167.37,
       "target": 1.0,
       "met": true
     },
     {
       "name": "dart runtime, beer: faster than INTERCAL-64 and CLC-INTERCAL",
-      "ratio": 186.42,
+      "ratio": 132.19,
       "target": 1.0,
       "met": true
     },
     {
+      "name": "dart runtime, hail_mary: faster than INTERCAL-64 and CLC-INTERCAL",
+      "ratio": null,
+      "target": 1.0,
+      "met": true,
+      "note": "neither baseline runs it correctly"
+    },
+    {
       "name": "dart runtime, next-resume: faster than INTERCAL-64 and CLC-INTERCAL",
-      "ratio": 328.59,
+      "ratio": 364.4,
       "target": 1.0,
       "met": true
     },
     {
       "name": "dart runtime, abstain: faster than INTERCAL-64 and CLC-INTERCAL",
-      "ratio": 47.59,
+      "ratio": 308.25,
       "target": 1.0,
       "met": true
     },
@@ -270,93 +284,94 @@
     },
     {
       "name": "llvm runtime, geometric mean: 1.5x faster than the fastest baseline",
-      "ratio": 2.02,
+      "ratio": 1.81,
       "target": 1.5,
       "met": false,
       "blocked": "L10"
     },
     {
       "name": "dart runtime, geometric mean: at least as fast as ick -O",
-      "ratio": 0.55,
+      "ratio": 1.01,
       "target": 1.0,
       "met": false,
-      "blocked": "L10"
+      "blocked": "L10",
+      "note": "net of each one's startup: 1.21"
     },
     {
-      "name": "front end + emission: every program within 100 ms (slowest 14.5 ms)",
-      "ratio": 6.91,
+      "name": "front end + emission: every program within 100 ms (slowest 13.0 ms)",
+      "ratio": 7.7,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm end to end, tpk: no slower than ick + gcc",
-      "ratio": 3.88,
+      "ratio": 5.56,
       "target": 1.0,
       "met": true
     },
     {
-      "name": "dart end to end, tpk: within 1.5x an empty dart compile exe (603 ms)",
-      "ratio": 1.03,
+      "name": "dart end to end, tpk: within 1.5x an empty dart compile exe (600 ms)",
+      "ratio": 1.04,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm end to end, unlambda: no slower than ick + gcc",
-      "ratio": 10.78,
+      "ratio": 14.54,
       "target": 1.0,
       "met": true
     },
     {
-      "name": "dart end to end, unlambda: within 1.5x an empty dart compile exe (603 ms)",
-      "ratio": 1.01,
+      "name": "dart end to end, unlambda: within 1.5x an empty dart compile exe (600 ms)",
+      "ratio": 1.1,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm end to end, beer: no slower than ick + gcc",
-      "ratio": 5.95,
+      "ratio": 8.39,
       "target": 1.0,
       "met": true
     },
     {
-      "name": "dart end to end, beer: within 1.5x an empty dart compile exe (603 ms)",
-      "ratio": 1.13,
+      "name": "dart end to end, beer: within 1.5x an empty dart compile exe (600 ms)",
+      "ratio": 1.25,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm end to end, hail_mary: no slower than ick + gcc",
+      "ratio": 2.68,
+      "target": 1.0,
+      "met": true
+    },
+    {
+      "name": "dart end to end, hail_mary: within 1.5x an empty dart compile exe (600 ms)",
       "ratio": 1.39,
       "target": 1.0,
       "met": true
     },
     {
-      "name": "dart end to end, hail_mary: within 1.5x an empty dart compile exe (603 ms)",
-      "ratio": 1.37,
-      "target": 1.0,
-      "met": true
-    },
-    {
       "name": "llvm end to end, next-resume: no slower than ick + gcc",
-      "ratio": 3.86,
+      "ratio": 5.9,
       "target": 1.0,
       "met": true
     },
     {
-      "name": "dart end to end, next-resume: within 1.5x an empty dart compile exe (603 ms)",
-      "ratio": 1.27,
+      "name": "dart end to end, next-resume: within 1.5x an empty dart compile exe (600 ms)",
+      "ratio": 1.39,
       "target": 1.0,
       "met": true
     },
     {
       "name": "llvm end to end, abstain: no slower than ick + gcc",
-      "ratio": 2.44,
+      "ratio": 3.52,
       "target": 1.0,
       "met": true
     },
     {
-      "name": "dart end to end, abstain: within 1.5x an empty dart compile exe (603 ms)",
-      "ratio": 1.18,
+      "name": "dart end to end, abstain: within 1.5x an empty dart compile exe (600 ms)",
+      "ratio": 1.36,
       "target": 1.0,
       "met": true
     },
@@ -368,7 +383,7 @@
       "blocked": "L10"
     },
     {
-      "name": "dart end to end, primes: within 1.5x an empty dart compile exe (603 ms)",
+      "name": "dart end to end, primes: within 1.5x an empty dart compile exe (600 ms)",
       "ratio": null,
       "target": 1.0,
       "met": false,
@@ -382,7 +397,7 @@
       "blocked": "L10"
     },
     {
-      "name": "dart end to end, pi: within 1.5x an empty dart compile exe (603 ms)",
+      "name": "dart end to end, pi: within 1.5x an empty dart compile exe (600 ms)",
       "ratio": null,
       "target": 1.0,
       "met": false,
@@ -396,7 +411,7 @@
       "blocked": "L10"
     },
     {
-      "name": "dart end to end, fft: within 1.5x an empty dart compile exe (603 ms)",
+      "name": "dart end to end, fft: within 1.5x an empty dart compile exe (600 ms)",
       "ratio": null,
       "target": 1.0,
       "met": false,
@@ -410,7 +425,7 @@
       "blocked": "L10"
     },
     {
-      "name": "dart end to end, life: within 1.5x an empty dart compile exe (603 ms)",
+      "name": "dart end to end, life: within 1.5x an empty dart compile exe (600 ms)",
       "ratio": null,
       "target": 1.0,
       "met": false,

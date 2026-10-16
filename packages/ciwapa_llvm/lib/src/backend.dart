@@ -8,7 +8,13 @@ import 'emitter.dart';
 
 /// Where clang comes from, and how to call it.
 class Toolchain {
-  Toolchain(this.clang, this.triple, this.flags, this.description);
+  Toolchain(
+    this.clang,
+    this.triple,
+    this.flags,
+    this.description, {
+    this.builtRuntime = false,
+  });
 
   final String clang;
 
@@ -16,6 +22,10 @@ class Toolchain {
   final String triple;
   final List<String> flags;
   final String description;
+
+  /// Whether this is the toolchain a release archive precompiles its runtime with: the bundled
+  /// one, or Apple clang on macOS. Never an override, or some other clang on the PATH.
+  final bool builtRuntime;
 
   /// `CIWAPA_CLANG` wins; then the toolchain bundled next to this executable (clang + lld + a
   /// musl sysroot on Linux, llvm-mingw on Windows); then `clang` on the PATH, which on macOS is
@@ -36,19 +46,26 @@ class Toolchain {
     final bundled = '$root${sep}toolchain${sep}bin${sep}clang$exe';
     if (File(bundled).existsSync()) {
       if (Platform.isLinux) {
-        return Toolchain(bundled, _hostTriple(musl: true), [
-          '--sysroot=$root${sep}toolchain${sep}sysroot',
-          '-static',
-          '-fuse-ld=lld',
-          '-rtlib=compiler-rt',
-          '-unwindlib=none',
-        ], 'bundled clang + lld + musl');
+        return Toolchain(
+          bundled,
+          _hostTriple(musl: true),
+          [
+            '--sysroot=$root${sep}toolchain${sep}sysroot',
+            '-static',
+            '-fuse-ld=lld',
+            '-rtlib=compiler-rt',
+            '-unwindlib=none',
+          ],
+          'bundled clang + lld + musl',
+          builtRuntime: true,
+        );
       }
       return Toolchain(
         bundled,
         _hostTriple(musl: false),
         const [],
         'bundled llvm-mingw',
+        builtRuntime: true,
       );
     }
     return Toolchain(
@@ -56,6 +73,7 @@ class Toolchain {
       _hostTriple(musl: false),
       const [],
       'clang from the PATH',
+      builtRuntime: Platform.isMacOS,
     );
   }
 
@@ -88,9 +106,10 @@ class LlvmBackend implements Backend {
   };
 
   /// A release archive ships `lib/runtime-<triple>.o`, the runtime precompiled by the toolchain
-  /// it bundles, so a build doesn't compile runtime.c every time. It is only used for the exact
-  /// triple it was built for; anything else compiles runtime.c.
+  /// it uses, so a build doesn't compile runtime.c every time. It is only used with that
+  /// toolchain and that exact triple; anything else compiles runtime.c.
   late final String? prebuiltRuntime = () {
+    if (!toolchain.builtRuntime) return null;
     final root = File(Platform.resolvedExecutable).parent.parent.path;
     final sep = Platform.pathSeparator;
     final object = File('$root${sep}lib${sep}runtime-${toolchain.triple}.o');

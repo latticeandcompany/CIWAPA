@@ -62,7 +62,8 @@ case "$flavor-$platform" in
     ;;
 esac
 if [[ "$flavor" == llvm ]]; then
-  # The runtime, precompiled by the toolchain the archive ships, so builds only compile the program.
+  # The runtime, precompiled by the toolchain the archive uses (Apple clang on macOS), so builds
+  # only compile the program.
   triple="$("$repo_root/.github/scripts/target-triple.sh" "$platform")"
   clang=clang
   flags=()

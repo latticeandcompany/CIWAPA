@@ -158,4 +158,27 @@ void main() {
       }
     });
   });
+
+  group('live library statements', () {
+    test('only what the user NEXTs into can run', () {
+      final ir = build('DO (1060) NEXT\nPLEASE GIVE UP');
+      final first = ordinalOf(ir, 1060);
+      expect(liveLibrary(ir), {first, first + 1});
+    });
+
+    test(
+      'a RESUME that can be abstained falls through to the statements after it',
+      () {
+        final ir = build(
+          'DO (1060) NEXT\nPLEASE ABSTAIN FROM RESUMING\nDO GIVE UP',
+        );
+        expect(liveLibrary(ir), contains(ordinalOf(ir, 1070)));
+        expect(liveLibrary(ir), contains(ir.statements.length));
+      },
+    );
+
+    test('nothing is live without a NEXT into the library', () {
+      expect(liveLibrary(build('DO .1 <- #1\nPLEASE GIVE UP')), isEmpty);
+    });
+  });
 }

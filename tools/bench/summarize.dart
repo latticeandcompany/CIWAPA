@@ -20,14 +20,26 @@ class Program {
 }
 
 class Guardrail {
-  Guardrail(this.name, this.ratio, this.target, {this.blockedBy = ''});
+  Guardrail(
+    this.name,
+    this.ratio,
+    this.target, {
+    this.blockedBy = '',
+    this.note = '',
+    this.vacuous = false,
+  });
 
   final String name;
   final double? ratio;
   final double target;
   final String blockedBy;
+  final String note;
 
-  bool get met => blockedBy.isEmpty && ratio != null && ratio! >= target;
+  /// Nothing to compare with, such as a program no baseline in the comparison can run.
+  final bool vacuous;
+
+  bool get met =>
+      blockedBy.isEmpty && (vacuous || ratio != null && ratio! >= target);
 
   Map<String, Object?> toJson() => {
     'name': name,
@@ -35,6 +47,7 @@ class Guardrail {
     'target': target,
     'met': met,
     if (blockedBy.isNotEmpty) 'blocked': blockedBy,
+    if (note.isNotEmpty) 'note': note,
   };
 }
 
@@ -43,11 +56,17 @@ double geometricMean(Iterable<double> values) =>
 
 void main(List<String> args) {
   final dir = args[0];
-  final programs = [
-    for (final line in File('tools/bench/programs.txt').readAsLinesSync())
-      if (line.trim().isNotEmpty && !line.startsWith('#'))
-        (line.split('|').map((f) => f.trim()).toList()),
-  ].map((f) => Program(f[0], f[3], f[4])).toList();
+  final programs =
+      [
+            for (final line in File(
+              'tools/bench/programs.txt',
+            ).readAsLinesSync())
+              if (line.trim().isNotEmpty && !line.startsWith('#'))
+                (line.split('|').map((f) => f.trim()).toList()),
+          ]
+          .map((f) => Program(f[0], f[3], f[4]))
+          .where((p) => p.name != 'empty')
+          .toList();
 
   final runs = <String, Map<String, Map<String, dynamic>>>{};
   for (final line in File('$dir/runs.jsonl').readAsLinesSync()) {
@@ -74,8 +93,7 @@ void main(List<String> args) {
       notes.add('$impl $program: output differs from ciwapa-llvm');
       return null;
     }
-    final spawn = run['spawn_us'] as int;
-    return max((run['run_us'] as List).cast<int>().reduce(min) - spawn, 1);
+    return (run['run_us'] as List).cast<int>().reduce(min);
   }
 
   int? buildMs(String program, String impl) =>
@@ -112,48 +130,79 @@ void main(List<String> args) {
       for (final b in ['intercal64', 'clc'])
         if (p.runsOn(b)) speedup(runUs(p.name, b), dart),
     ].whereType<double>();
-    if (ratios.isEmpty && p.blockedBy.isEmpty) continue;
     guardrails.add(
       Guardrail(
         'dart runtime, ${p.name}: faster than INTERCAL-64 and CLC-INTERCAL',
         ratios.isEmpty ? null : ratios.reduce(min),
         1,
         blockedBy: p.blockedBy,
+        vacuous: ratios.isEmpty,
+        note: ratios.isEmpty && p.blockedBy.isEmpty
+            ? 'neither baseline runs it correctly'
+            : '',
       ),
     );
   }
 
-  // Q32, geometric means: over the whole set, so they wait for every program to be measurable.
+  // Q32, geometric means. They are over the whole set, so they wait on the blocked programs, but
+  // only when the programs measured so far already meet the target: otherwise they fail. The note
+  // gives the Dart mean net of each implementation's startup (its `empty` program), for scale.
   double? geometric(double? Function(Program) ratio) {
     final ratios = measured.map(ratio).whereType<double>().toList();
     return ratios.isEmpty ? null : geometricMean(ratios);
   }
 
+  int? net(String program, String impl) {
+    final run = runUs(program, impl), empty = runUs('empty', impl);
+    return run == null || empty == null ? null : max(run - empty, 1);
+  }
+
+  Guardrail mean(
+    String name,
+    double target,
+    double? ratio,
+    String blockers, {
+    String note = '',
+  }) => Guardrail(
+    name,
+    ratio,
+    target,
+    blockedBy: ratio != null && ratio >= target ? blockers : '',
+    note: note,
+  );
+
+  final llvmMean = geometric((p) {
+    final fastest = [
+      for (final b in baselines)
+        if (p.runsOn(b)) runUs(p.name, b),
+    ].whereType<int>();
+    return fastest.isEmpty
+        ? null
+        : speedup(fastest.reduce(min), runUs(p.name, 'ciwapa-llvm'));
+  });
+  final dartMean = geometric(
+    (p) => speedup(runUs(p.name, 'ick'), runUs(p.name, 'ciwapa-dart')),
+  );
+  final dartNetMean = geometric(
+    (p) => speedup(net(p.name, 'ick'), net(p.name, 'ciwapa-dart')),
+  );
   guardrails
     ..add(
-      Guardrail(
+      mean(
         'llvm runtime, geometric mean: 1.5x faster than the fastest baseline',
-        geometric((p) {
-          final fastest = [
-            for (final b in baselines)
-              if (p.runsOn(b)) runUs(p.name, b),
-          ].whereType<int>();
-          return fastest.isEmpty
-              ? null
-              : speedup(fastest.reduce(min), runUs(p.name, 'ciwapa-llvm'));
-        }),
         1.5,
-        blockedBy: blockers,
+        llvmMean,
+        blockers,
       ),
     )
     ..add(
-      Guardrail(
+      mean(
         'dart runtime, geometric mean: at least as fast as ick -O',
-        geometric(
-          (p) => speedup(runUs(p.name, 'ick'), runUs(p.name, 'ciwapa-dart')),
-        ),
         1,
-        blockedBy: blockers,
+        dartMean,
+        blockers,
+        note:
+            'net of each one\'s startup: ${dartNetMean?.toStringAsFixed(2) ?? '-'}',
       ),
     );
 
@@ -200,6 +249,9 @@ void main(List<String> args) {
       );
   }
 
+  final previous = File(args[1]).existsSync()
+      ? jsonDecode(File(args[1]).readAsStringSync()) as Map<String, dynamic>
+      : const <String, dynamic>{};
   final results = {
     'measured': DateTime.now().toUtc().toIso8601String(),
     'machine':
@@ -217,6 +269,8 @@ void main(List<String> args) {
     },
     'notes': [...notes],
     'guardrails': [for (final g in guardrails) g.toJson()],
+    // Recorded on a CI runner by tools/bench/record-ci, for the CI regression check.
+    if (previous['ci'] != null) 'ci': previous['ci'],
   };
   File(args[1]).writeAsStringSync(
     '${const JsonEncoder.withIndent('  ').convert(results)}\n',

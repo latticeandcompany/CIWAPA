@@ -220,4 +220,24 @@ void main() {
       [4294967295, 3486784400, 4294967295, 244140624, 2176782335, 282475248],
     );
   });
+
+  group('constant mingles (§3.4.1, §6.5.1)', () {
+    test('a mingle of two constants is folded into one large constant', () {
+      final ir = build('DO :1 <- #65535\$#0\nPLEASE GIVE UP');
+      final value = (ir.at(1).op as IrAssign).value;
+      expect(value, isA<IrConst>());
+      expect((value as IrConst).value, 2863311530);
+      expect(value.large, isTrue);
+    });
+
+    test('folding works digit by digit in other bases', () {
+      final ir = build('DO :1 <- #2\$#1\nPLEASE GIVE UP', path: 'test.3i');
+      expect(((ir.at(1).op as IrAssign).value as IrConst).value, 2 * 3 + 1);
+    });
+
+    test('an operand above the small maximum is left for E533 at run time', () {
+      final ir = build('DO :1 <- "#256\$#0"\$#0\nPLEASE GIVE UP');
+      expect((ir.at(1).op as IrAssign).value, isA<IrMingle>());
+    });
+  });
 }

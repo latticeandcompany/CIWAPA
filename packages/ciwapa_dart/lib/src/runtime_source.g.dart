@@ -240,17 +240,24 @@ int ickMingle(int left, int right, int next) {
 
 /// §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger), then
 /// pack the digits under selector b-1 at the low end, then those under b-2, down to 1.
+final _valueDigits = Uint8List(32), _maskDigits = Uint8List(32);
+
 int _selectDigits(int value, int mask) {
+  final count = 2 * _digits;
+  for (var i = 0; i < count; i++) {
+    _valueDigits[i] = value % _base;
+    value ~/= _base;
+    _maskDigits[i] = mask % _base;
+    mask ~/= _base;
+  }
   var result = 0, out = 1;
   for (var selector = _base - 1; selector > 0; selector--) {
-    var place = 1;
-    for (var i = 0; i < 2 * _digits; i++) {
-      if ((mask ~/ place) % _base == selector) {
-        final digit = (value ~/ place) % _base;
+    for (var i = 0; i < count; i++) {
+      if (_maskDigits[i] == selector) {
+        final digit = _valueDigits[i];
         if (digit != 0) result += out * (digit > selector ? digit : selector);
         out *= _base;
       }
-      place *= _base;
     }
   }
   return result;

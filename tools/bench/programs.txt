@@ -1,4 +1,7 @@
+# TEMPORARY (goal 2's cleanup removes it): the benchmarks (Q31). `empty` only measures what
+# starting a program costs each implementation; it isn't a guardrail.
 # name | source | stdin | implementations (all, or a comma list) | blocked by
+empty | tools/bench/programs/empty.i | | all |
 tpk | pit/tpk.i | pit/tpk.tst | all |
 unlambda | pit/unlambda.i | pit/unlambda.tst | all |
 beer | pit/beer.i | | all |

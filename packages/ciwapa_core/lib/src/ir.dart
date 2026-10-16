@@ -223,12 +223,19 @@ class IrVarList extends IrOp {
 /// ABSTAIN or REINSTATE, by label or by gerund. Either way the targets are known statically: a
 /// label names one statement and a gerund names every statement of its type (decision T21).
 class IrAbstain extends IrOp {
-  const IrAbstain({required this.abstain, required this.targets});
+  const IrAbstain({
+    required this.abstain,
+    required this.targets,
+    this.gerunds = const {},
+  });
 
   final bool abstain;
 
   /// Ordinals whose abstention flag this statement sets or clears.
   final List<int> targets;
+
+  /// The gerunds named, for the gerund form; [targets] are then every statement with one of them.
+  final Set<Gerund> gerunds;
 
   @override
   String toString() => '${abstain ? 'ABSTAIN' : 'REINSTATE'} $targets';
@@ -544,6 +551,7 @@ class _Lowering {
         for (final (i, s) in program.statements.indexed)
           if (gerunds.contains(s.body.gerund)) i + 1,
       ],
+      gerunds: gerunds.whereType<Gerund>().toSet(),
     );
   }
 
@@ -573,9 +581,33 @@ class _Lowering {
     final left = _expr(e.left);
     if (e.ungrouped) _faults.add(const Fault(17));
     final right = _expr(e.right);
-    return e.op == BinaryOp.mingle
-        ? IrMingle(left, right)
-        : IrSelect(left, right);
+    if (e.op == BinaryOp.mingle) {
+      // A mingle of two constants that fit is a constant; one that doesn't fit stays, for E533.
+      final max = smallMax(program.base);
+      if (left case IrConst(value: final l) when l <= max) {
+        if (right case IrConst(value: final r) when r <= max) {
+          return IrConst(_mingle(l, r), large: true);
+        }
+      }
+      return IrMingle(left, right);
+    }
+    return IrSelect(left, right);
+  }
+
+  /// Interleaves the digits of [left] and [right], left supplying the high digit of each pair
+  /// (§3.4.1, §6.5.1).
+  int _mingle(int left, int right) {
+    final base = program.base;
+    var result = 0, place = 1;
+    for (var i = 0; i < smallDigits[base]!; i++) {
+      result += place * (right % base);
+      right ~/= base;
+      place *= base;
+      result += place * (left % base);
+      left ~/= base;
+      place *= base;
+    }
+    return result;
   }
 
   IrExpr _constant(int value) {

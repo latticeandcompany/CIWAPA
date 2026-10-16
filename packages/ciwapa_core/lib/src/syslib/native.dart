@@ -160,6 +160,36 @@ Set<int> _reachable(IrProgram program, int entry) {
   return seen;
 }
 
+/// The library statements a run can reach: everything control can get to from the user's NEXTs
+/// into the library. Anything a skipped (abstained or `%`) RESUME or GIVE UP could fall into
+/// counts, so the rest can never run.
+Set<int> liveLibrary(IrProgram program) {
+  final live = <int>{};
+  final work = [
+    for (final s in program.statements.take(program.userStatements))
+      if (s.op case IrNext(:final target) when target > program.userStatements)
+        target,
+  ];
+  while (work.isNotEmpty) {
+    final ordinal = work.removeLast();
+    if (ordinal > program.statements.length || !live.add(ordinal)) continue;
+    final s = program.at(ordinal);
+    final skippable = s.abstainable || (s.percent != null && s.percent! < 100);
+    switch (s.op) {
+      case IrResume() || IrGiveUp():
+        if (skippable) work.add(ordinal + 1);
+      case IrNext(:final target):
+        work
+          ..add(target)
+          ..add(ordinal + 1);
+      default:
+        work.add(ordinal + 1);
+    }
+    if (s.comeFrom case final c?) work.add(c);
+  }
+  return live;
+}
+
 /// The scalars [op] names, and whether it names any array.
 (Set<Slot>, bool) _variables(IrOp op) {
   final scalars = <Slot>{};

@@ -23,6 +23,12 @@ class DartEmitter {
 
   /// The statements control reaches other than by running on from the one before: the first,
   /// NEXT targets, COME FROMs (their traps jump there), and the first of every chunk.
+  /// The statements to emit: the user's, and the library statements a run can reach.
+  late final Set<int> _live = liveLibrary(program);
+
+  bool _emitted(int ordinal) =>
+      ordinal <= program.userStatements || _live.contains(ordinal);
+
   late final Set<int> _entries = {
     1,
     for (var o = 1; o <= program.statements.length; o += chunkSize) o,
@@ -30,17 +36,18 @@ class DartEmitter {
       if (s.op case IrNext(:final target) when target != 0) target,
       ?s.comeFrom,
     ],
-  };
+  }.where(_emitted).toSet();
 
-  late final (Map<int, int>, Map<int, int>, List<int>) _numbers = () {
+  late final (Map<int, int>, Map<int, int>, List<int>, int) _numbers = () {
     final entries = <int, int>{}, afters = <int, int>{}, chunkStarts = <int>[];
     var next = 2;
     for (final s in program.statements) {
       if ((s.ordinal - 1) % chunkSize == 0) chunkStarts.add(next);
+      if (!_emitted(s.ordinal)) continue;
       if (_entries.contains(s.ordinal)) entries[s.ordinal] = next++;
       if (s.op is IrNext) afters[s.ordinal] = next++;
     }
-    return (entries, afters, chunkStarts);
+    return (entries, afters, chunkStarts, next - 1);
   }();
 
   /// The case number of [ordinal]'s entry.
@@ -64,6 +71,10 @@ class DartEmitter {
       ..writeln('final _v = Uint32List(${program.scalars.length});')
       ..writeln('final _ig = Uint8List(${program.scalars.length});')
       ..writeln('final _ab = Uint8List(${program.statements.length + 1});')
+      ..writeln('final _abT = Int64List(${program.statements.length + 1});')
+      ..writeln('final _ger = Uint8List(${Gerund.values.length});')
+      ..writeln('final _gerT = Int64List(${Gerund.values.length});')
+      ..writeln('var _clock = 0;')
       ..writeln()
       ..writeln('void main(List<String> args) {')
       ..writeln(
@@ -86,7 +97,9 @@ class DartEmitter {
       ..writeln(
         '    if (pc == $fellOff) ickFatal(633, ${program.userStatements + 1});',
       )
-      ..writeln('    if (pc < 2) throw StateError("no statement at pc \$pc");')
+      ..writeln(
+        '    if (pc < 2 || pc > ${_numbers.$4}) throw StateError("no statement at pc \$pc");',
+      )
       ..writeln('    pc = switch (pc) {');
     final starts = _numbers.$3;
     for (var c = 0; c < chunks - 1; c++) {
@@ -106,10 +119,13 @@ class DartEmitter {
         ..writeln()
         ..writeln('int _chunk$c(int pc) {')
         // Locals, because every access to a lazily initialized top-level checks it first.
-        ..writeln('  final v = _v, ig = _ig, ab = _ab;')
+        ..writeln(
+          '  final v = _v, ig = _ig, ab = _ab, abT = _abT, ger = _ger, gerT = _gerT;',
+        )
         ..writeln('  while (true) {')
         ..writeln('    switch (pc) {');
       for (final s in program.statements.skip(c * chunkSize).take(chunkSize)) {
+        if (!_emitted(s.ordinal)) continue;
         _out.writeln(
           _entries.contains(s.ordinal)
               ? '      case ${entry(s.ordinal)}: // statement ${s.ordinal}'
@@ -148,6 +164,22 @@ class DartEmitter {
 
   void _line(String code) => _out.writeln('        $code');
 
+  /// Gerunds some ABSTAIN or REINSTATE names. A statement with one of them is abstained by
+  /// whichever was set last, its own flag or its gerund's, as the stamps from `_clock` tell; so a
+  /// gerund ABSTAIN is one store, not one per statement.
+  late final Set<Gerund> _gerunds = {
+    for (final s in program.statements)
+      if (s.op case IrAbstain(:final gerunds)) ...gerunds,
+  };
+
+  /// The condition that statement [ordinal] isn't abstained.
+  String _clear(int ordinal) {
+    final g = program.at(ordinal).gerund;
+    return g != null && _gerunds.contains(g)
+        ? '(abT[$ordinal] >= gerT[${g.index}] ? ab[$ordinal] : ger[${g.index}]) == 0'
+        : 'ab[$ordinal] == 0';
+  }
+
   /// Where control goes after [s] when nothing jumps: on into the next statement, unless that
   /// one starts a new case. Running off the user's program is E633 at the user's last ordinal + 1
   /// (decision T37); running off the library, at its own.
@@ -168,7 +200,7 @@ class DartEmitter {
       if (s.op is! IrComeFrom) ...[
         if (s.percent case final percent? when percent < 100)
           'ickRoll($percent)',
-        if (s.abstainable) 'ab[${s.ordinal}] == 0',
+        if (s.abstainable) _clear(s.ordinal),
       ],
     ];
     final outer = _out;
@@ -203,7 +235,7 @@ class DartEmitter {
     final c = program.at(comeFrom);
     final guard = [
       if (c.percent != null && c.percent! < 100) 'ickRoll(${c.percent})',
-      if (c.abstainable) 'ab[${c.ordinal}] == 0',
+      if (c.abstainable) _clear(c.ordinal),
     ];
     // A bug planted on the COME FROM fires at its entry, ahead of its faults (decision T23).
     final jump = c.faults.isEmpty || c.bug
@@ -260,13 +292,18 @@ class DartEmitter {
         for (final a in arrays) {
           _line('ickRetrieveArray(${a.index}, $next);');
         }
-      case IrAbstain(:final abstain, :final targets):
-        for (final (first, last) in _runs(targets)) {
-          _line(
-            first == last
-                ? 'ab[$first] = ${abstain ? 1 : 0};'
-                : 'ab.fillRange($first, ${last + 1}, ${abstain ? 1 : 0});',
-          );
+      case IrAbstain(:final abstain, :final targets, :final gerunds):
+        final value = abstain ? 1 : 0;
+        if (gerunds.isNotEmpty) {
+          for (final g in gerunds) {
+            _line('ger[${g.index}] = $value;');
+            _line('gerT[${g.index}] = ++_clock;');
+          }
+        } else {
+          for (final t in targets) {
+            _line('ab[$t] = $value;');
+            _line('abT[$t] = ++_clock;');
+          }
         }
       case IrWriteIn(:final items):
         for (final item in items) {
@@ -295,7 +332,7 @@ class DartEmitter {
     final guard = [
       'ickNextFree() >= ${call.depth}',
       for (final w in call.watched) 'ig[${w.index}] == 0',
-      for (final o in call.abstainable) 'ab[$o] == 0',
+      for (final o in call.abstainable) _clear(o),
     ];
     final args = [for (final a in call.args) 'v[${a.index}]'];
     if (args.length == 1) args.add('0');
@@ -310,20 +347,6 @@ class DartEmitter {
     _line('    break;');
     _line('  }');
     _line('}');
-  }
-
-  /// [ordinals] as runs of consecutive ordinals, first and last.
-  static List<(int, int)> _runs(List<int> ordinals) {
-    final sorted = ordinals.toSet().toList()..sort();
-    final runs = <(int, int)>[];
-    for (final o in sorted) {
-      if (runs.isNotEmpty && runs.last.$2 == o - 1) {
-        runs.last = (runs.last.$1, o);
-      } else {
-        runs.add((o, o));
-      }
-    }
-    return runs;
   }
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is

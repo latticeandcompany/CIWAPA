@@ -245,21 +245,36 @@ uint32_t ick_roll(uint32_t percent) { return (uint32_t)((next_random() >> 1) % 1
 
 /* ---- Binary operators (§3.4) ------------------------------------------------------------- */
 
+/* Bases 3-7 call these helpers with a constant base, so the compiler turns every division by it
+ * into a multiplication. [count] digits of [value] go into [out], lowest first. */
+static inline void split_digits(uint32_t b, uint64_t value, uint32_t count, uint8_t *out) {
+  for (uint32_t i = 0; i < count; i++) {
+    out[i] = (uint8_t)(value % b);
+    value /= b;
+  }
+}
+
+/* The left operand supplies the high digit of each pair (§6.5.1). */
+static inline uint32_t mingle_in(uint32_t b, uint32_t d, uint32_t left, uint32_t right) {
+  uint8_t l[16], r[16];
+  split_digits(b, left, d, l);
+  split_digits(b, right, d, r);
+  uint64_t result = 0;
+  for (uint32_t i = d; i-- > 0;) result = (result * b + l[i]) * b + r[i];
+  return (uint32_t)result;
+}
+
 uint32_t ick_mingle(uint32_t left, uint32_t right, uint32_t next) {
   if (left > small_max || right > small_max) ick_fatal(533, next);
   uint32_t result = 0;
   if (base != 2) {
-    /* The left operand supplies the high digit of each pair (§6.5.1). */
-    uint64_t place = 1;
-    for (uint32_t i = 0; i < digits; i++) {
-      result += (uint32_t)(place * (right % base));
-      right /= base;
-      place *= base;
-      result += (uint32_t)(place * (left % base));
-      left /= base;
-      place *= base;
+    switch (base) {
+    case 3: return mingle_in(3, 10, left, right);
+    case 4: return mingle_in(4, 8, left, right);
+    case 5: return mingle_in(5, 6, left, right);
+    case 6: return mingle_in(6, 6, left, right);
+    default: return mingle_in(7, 5, left, right);
     }
-    return result;
   }
   for (int i = 15; i >= 0; i--) {
     result = (result << 2) | (((left >> i) & 1u) << 1) | ((right >> i) & 1u);
@@ -269,20 +284,30 @@ uint32_t ick_mingle(uint32_t left, uint32_t right, uint32_t next) {
 
 /* §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger),
  * then pack the digits under selector b-1 at the low end, then those under b-2, down to 1. */
-static uint32_t select_digits(uint32_t value, uint32_t mask) {
+static inline uint32_t select_in(uint32_t b, uint32_t d, uint32_t value, uint32_t mask) {
+  uint8_t v[32], m[32];
+  split_digits(b, value, 2 * d, v);
+  split_digits(b, mask, 2 * d, m);
   uint64_t result = 0, out = 1;
-  for (uint32_t selector = base - 1; selector > 0; selector--) {
-    uint64_t place = 1;
-    for (uint32_t i = 0; i < 2 * digits; i++) {
-      if ((mask / place) % base == selector) {
-        uint32_t digit = (uint32_t)((value / place) % base);
-        if (digit) result += out * (digit > selector ? digit : selector);
-        out *= base;
+  for (uint32_t selector = b - 1; selector > 0; selector--) {
+    for (uint32_t i = 0; i < 2 * d; i++) {
+      if (m[i] == selector) {
+        if (v[i]) result += out * (v[i] > selector ? v[i] : selector);
+        out *= b;
       }
-      place *= base;
     }
   }
   return (uint32_t)result;
+}
+
+static uint32_t select_digits(uint32_t value, uint32_t mask) {
+  switch (base) {
+  case 3: return select_in(3, 10, value, mask);
+  case 4: return select_in(4, 8, value, mask);
+  case 5: return select_in(5, 6, value, mask);
+  case 6: return select_in(6, 6, value, mask);
+  default: return select_in(7, 5, value, mask);
+  }
 }
 
 uint32_t ick_select(uint32_t value, uint32_t mask) {
@@ -306,32 +331,37 @@ static uint32_t rotate32(uint32_t x) { return (x >> 1) | (x << 31); }
  * prefers 1 and N@ prefers N. ? subtracts without borrow and ^ adds without carry. */
 enum { ICK_LOGICAL, ICK_MINUS, ICK_PLUS };
 
-static uint32_t digitwise(uint32_t kind, uint32_t large, uint32_t p, uint32_t n) {
-  uint32_t length = large ? 2 * digits : digits;
-  uint64_t result = 0, place = 1;
-  uint32_t low = n % base, here = low;
-  for (uint32_t i = 1; i <= length; i++) {
-    uint32_t below = here;
-    if (i < length) {
-      n /= base;
-      here = n % base;
-    } else {
-      here = low;
-    }
+/* Combines each digit with its neighbor, the last wrapping around to the first (§6.5.2). */
+static inline uint32_t digitwise_in(uint32_t b, uint32_t length, uint32_t kind, uint32_t p, uint32_t n) {
+  uint8_t d[32];
+  split_digits(b, n, length, d);
+  uint64_t result = 0;
+  for (uint32_t i = length; i-- > 0;) {
+    uint32_t below = d[i], here = d[i + 1 == length ? 0 : i + 1];
     uint32_t digit;
     if (kind == ICK_MINUS) {
-      digit = (base + here - below) % base;
+      digit = (b + here - below) % b;
     } else if (kind == ICK_PLUS) {
-      digit = (here + below) % base;
+      digit = (here + below) % b;
     } else if (here <= p) {
       digit = (below < here || below > p) ? here : below;
     } else {
       digit = (below < here && below > p) ? here : below;
     }
-    result += place * digit;
-    place *= base;
+    result = result * b + digit;
   }
   return (uint32_t)result;
+}
+
+static uint32_t digitwise(uint32_t kind, uint32_t large, uint32_t p, uint32_t n) {
+  uint32_t length = large ? 2 * digits : digits;
+  switch (base) {
+  case 3: return digitwise_in(3, length, kind, p, n);
+  case 4: return digitwise_in(4, length, kind, p, n);
+  case 5: return digitwise_in(5, length, kind, p, n);
+  case 6: return digitwise_in(6, length, kind, p, n);
+  default: return digitwise_in(7, length, kind, p, n);
+  }
 }
 
 uint32_t ick_logical(uint32_t large, uint32_t p, uint32_t n) { return digitwise(ICK_LOGICAL, large, p, n); }

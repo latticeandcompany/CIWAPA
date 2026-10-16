@@ -16,18 +16,6 @@ now() { date +%s%N; }
 ms() { echo $(( ($2 - $1) / 1000000 )); }
 us() { echo $(( ($2 - $1) / 1000 )); }
 
-# hail_mary never stops, so it is timed until it has printed this much.
-hail_mary_bytes=2000000
-
-# What starting any process costs in this container, so images compare on the programs alone.
-spawn_us=999999999
-for ((i = 0; i < 20; i++)); do
-  start="$(now)"
-  (cd "$work" && /bin/true </dev/null >"$work/out")
-  t="$(us "$start" "$(now)")"
-  ((t < spawn_us)) && spawn_us="$t"
-done
-
 grep -v '^#' tools/bench/programs.txt | while IFS='|' read -r name src input impls blocked; do
   name="$(echo $name)" src="$(echo $src)" input="$(echo $input)" impls="$(echo $impls)" blocked="$(echo $blocked)"
   [[ -n "$name" ]] || continue
@@ -72,18 +60,13 @@ grep -v '^#' tools/bench/programs.txt | while IFS='|' read -r name src input imp
   spent=0
   for ((i = 0; i < runs || (spent < 1000000 && i < 200); i++)); do
     start="$(now)"
-    if [[ "$name" == hail_mary ]]; then
-      (cd "$work" && timeout 600 "./$name" <"$input" 2>/dev/null | head -c "$hail_mary_bytes" >"$work/out")
-      status=0
-    else
-      (cd "$work" && timeout 600 "./$name" <"$input" >"$work/out" 2>/dev/null)
-      status=$?
-    fi
+    (cd "$work" && timeout 600 "./$name" <"$input" >"$work/out" 2>/dev/null)
+    status=$?
     t="$(us "$start" "$(now)")"
     times+=("$t")
     spent=$((spent + t))
   done
   sha="$(sha256sum "$work/out" | cut -c1-16)"
-  printf '{"impl":"%s","program":"%s","build_ms":%s,"run_us":[%s],"exit":%s,"stdout":"%s","spawn_us":%s}\n' \
-    "$impl" "$name" "$build_ms" "$(IFS=,; echo "${times[*]}")" "$status" "$sha" "$spawn_us"
+  printf '{"impl":"%s","program":"%s","build_ms":%s,"run_us":[%s],"exit":%s,"stdout":"%s"}\n' \
+    "$impl" "$name" "$build_ms" "$(IFS=,; echo "${times[*]}")" "$status" "$sha"
 done
