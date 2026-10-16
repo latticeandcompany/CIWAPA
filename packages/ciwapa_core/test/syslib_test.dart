@@ -55,7 +55,7 @@ void main() {
       expect([for (final f in ir.at(1).faults) f.code], [129]);
     });
 
-    test('bases 3–7 never include the binary library (QUESTIONS.md L9)', () {
+    test('bases 3–7 never include the binary library (decision L9)', () {
       final ir = build('DO (1000) NEXT\nPLEASE GIVE UP', path: 'test.3i');
       expect(ir.statements.length, 2);
       expect([for (final f in ir.at(1).faults) f.code], [129]);

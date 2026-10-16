@@ -228,7 +228,7 @@ class DartEmitter {
   }
 
   /// The COME FROM trap after [s]: jumps to the COME FROM aimed at it when that COME FROM's own
-  /// guard passes. A COME FROM's own faults fire in place of its jump (QUESTIONS.md L2).
+  /// guard passes. A COME FROM's own faults fire in place of its jump (decision L2).
   void _trap(IrStatement s) {
     final comeFrom = s.comeFrom;
     if (comeFrom == null) return;

@@ -494,6 +494,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - Q78 in bases 3–7, mingle operands above the base's small maximum raise E533 too. 0.35 only checks binary.
 - Q35, Q38 the clean-room library implements exactly the §7.2 entry points, including (1060)–(1080), which neither version's library has (E129 there). Its NEXT depth, scratch variables and internal labels are its own. So the `syslib/` depth and fallback tests differ from ick, and pit programs that call ick's undocumented internal labels ((1001), (1021), (1999)) don't work. In the differential that's `primes`, `pi`, `fft`, `life`, `quine`, `flonck`, `ins` and `pow`.
 - L9 the binary library is included only in base 2. Both versions include it in every base.
+- L3 a statement with several statement-local problems reports the first in source order, so `(0) DO %101 FOO` is E197 (the label). Both versions report the `%` (E017) first.
 - L6 WRITE IN strips one `\r` before each `\n`, so CRLF input works on Windows consoles. Both versions read `ONE\r` as an unknown word (E579).
 - L8 (between the flavors, not ick) a `ciwapa-dart` program can't start when an argument isn't valid UTF-8: the Dart VM rejects it before `main` and exits 255. A `ciwapa-llvm` program accepts the bytes. Only arguments that aren't text trigger this.
 - §6.6 `0@` isn't a whirlpool, so a statement like `DO .0@2 <- #1` in base 5 is undecodable (E000 when it runs). Both versions read `.0` as a variable and report E200 at compile time.
