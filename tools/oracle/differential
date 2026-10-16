@@ -27,7 +27,7 @@ add() { # name source-file input-file-or-empty
 if [[ "$what" != pit ]]; then
   while IFS= read -r f; do
     stem="${f%.*}"
-    [[ -f "$stem.flags" || -f "$stem.args" || -f "$stem.timeout" ]] && continue
+    [[ -f "$stem.flags" || -f "$stem.args" || -f "$stem.timeout" || -f "$stem.env" ]] && continue
     add "$(echo "${f#"$repo_root/"}" | tr '/' '_')" "$f" "$stem.in"
   done < <(find "$repo_root/packages/conformance/tests" -type f \( -name '*.i' -o -name '*.[2-7]i' \) | sort)
 fi

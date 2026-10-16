@@ -16,9 +16,12 @@ class _Fail implements Exception {
 /// runs up to the next `DO`, `PLEASE` or label token. Garbage before the first statement is a
 /// statement of its own, with no identifier.
 class Parser {
-  Parser(this.source) : _tokens = Lexer(source).tokenize();
+  Parser(this.source, {this.memoryLimit}) : _tokens = Lexer(source).tokenize();
 
   final Source source;
+
+  /// Test-only: parsing more statements than this fails as if memory ran out (decision L7).
+  final int? memoryLimit;
   final List<Token> _tokens;
   int _pos = 0;
   bool _chain = false;
@@ -28,6 +31,7 @@ class Parser {
   List<Statement> parse() {
     final statements = <Statement>[];
     while (_tok.kind != TokenKind.end) {
+      if (statements.length == memoryLimit) throw OutOfMemoryError();
       final first = _pos;
       final labelled =
           _tok.kind == TokenKind.label &&

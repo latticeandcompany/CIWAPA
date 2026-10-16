@@ -157,7 +157,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.5 — each variable has its own last-in-first-out stash. Tests: `packages/conformance/tests/stash/last-in-first-out.i`, `packages/conformance/tests/stash/separate-stashes.i`
 - [x] §4.4.5 — STASHing an array saves its dimensions and its data. Tests: `packages/conformance/tests/stash/array-dimensions.i`, `packages/conformance/tests/stash/array-data.i`
 - [x] §4.4.5 — stashing a single array element is invalid, so the statement is undecodable. (decision: T25) Tests: `packages/conformance/tests/stash/stash-element-undecodable.i`
-- [ ] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
+- [x] §4.4.5 — stashes have no depth limit; E222 fires only when memory runs out. (decision: T25) (decision: L7) Tests: `packages/conformance/tests/stash/no-depth-limit.i`, `packages/conformance/tests/stash/e222-memory-limit.i`
 
 ## §4.4.6 RETRIEVE
 
@@ -383,11 +383,11 @@ The library is a clean-room implementation written from these contracts alone (d
 - [x] §9.2, §12 — E774: random compiler bug (see §12). Tests: `packages/ciwapa_dart/test/random_bug_test.dart`, `packages/ciwapa_llvm/test/random_bug_test.dart`
 - [x] §9.2 — E778: unexplainable compiler error (also used by `+help`, see §10.3). (decision: T38) Tests: `packages/conformance/tests/options/help.i`, `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E111: C-INTERCAL extension used with `--traditional`. (decision: T39) Tests: `packages/conformance/tests/come-from/e111-traditional.i`
-- [ ] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/stash/no-depth-limit.i`
-- [ ] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/errors/many-variables.i`
+- [x] §9.2 — E222: out of stash space (only when memory runs out). (decision: T25) (decision: L7) Tests: `packages/conformance/tests/stash/e222-memory-limit.i`, `packages/conformance/tests/stash/no-depth-limit.i`, `packages/conformance/tests/stash/memory-limit-retrieve.i`, `packages/conformance/tests/errors/memory-limit-exact.i`
+- [x] §9.2 — E333: too many variables (only when memory runs out). (decision: T27) (decision: L7) Tests: `packages/conformance/tests/errors/e333-memory-limit.i`, `packages/conformance/tests/errors/many-variables.i`, `packages/conformance/tests/errors/memory-limit-exact.i`
 - [x] §9.2 — E444: COME FROM to a non-existent label. Tests: `packages/conformance/tests/come-from/e444.i`
 - [x] §9.2 — E555: more than one COME FROM to one label. Tests: `packages/conformance/tests/come-from/e555.i`
-- [ ] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) (decision: L7; needs the test-only memory limit) Tests: `packages/conformance/tests/errors/many-statements.i`
+- [x] §9.2 — E666: too many source lines (only when memory runs out). (decision: T27) (decision: L7) Tests: `packages/conformance/tests/errors/e666-memory-limit.i`, `packages/conformance/tests/errors/many-statements.i`, `packages/conformance/tests/errors/memory-limit-exact.i`
 - [x] §9.2 — E777: no such source file. Tests: `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E888: can't write the output executable or temp files. (decision: Q133) Tests: `packages/ciwapa_core/test/cli_test.dart`
 - [x] §9.2 — E998: invalid source extension (use `.i` or `.[3-7]i`). Tests: `packages/conformance/tests/errors/e998-extension.bad`

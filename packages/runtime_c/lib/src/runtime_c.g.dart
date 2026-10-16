@@ -80,6 +80,8 @@ static uint32_t large_max;
 static ick_array *arrays;
 static ick_value_stash *scalar_stashes;
 static ick_array_stash *array_stashes;
+/* Test-only (decision L7): holding more stashed values than this fails as if memory ran out. */
+static uint64_t stash_limit = UINT64_MAX, stashed;
 static uint64_t rng_state;
 
 static uint32_t pow_u32(uint32_t base, uint32_t exponent) {
@@ -123,6 +125,12 @@ void ick_init(int argc, char **argv, const ick_program *p) {
   scalar_stashes = calloc(p->scalar_count ? p->scalar_count : 1, sizeof(ick_value_stash));
   array_stashes = calloc(p->array_count ? p->array_count : 1, sizeof(ick_array_stash));
   rng_state = (uint64_t)ICK_TIME();
+  const char *limit = getenv("CIWAPA_TEST_MEMORY_LIMIT");
+  if (limit && *limit) {
+    char *end;
+    unsigned long long value = strtoull(limit, &end, 10);
+    if (!*end && *limit != '-') stash_limit = value;
+  }
   parse_options(argc, argv);
 }
 
@@ -427,6 +435,11 @@ void ick_array_set_ignored(uint32_t index, uint32_t ignored) { arrays[index].ign
 
 /* ---- STASH and RETRIEVE (§4.4.5, §4.4.6, decisions T24, T25) --------------------------- */
 
+static void count_stash(uint32_t next) {
+  if (stashed == stash_limit) ick_fatal(222, next);
+  stashed++;
+}
+
 /* Grows a stash; the only limit is memory, and running out is E222. */
 static void *grow(void *items, size_t *capacity, size_t item_size, uint32_t next) {
   size_t wanted = *capacity ? *capacity * 2 : 4;
@@ -438,6 +451,7 @@ static void *grow(void *items, size_t *capacity, size_t item_size, uint32_t next
 
 void ick_stash_scalar(uint32_t slot, uint32_t next) {
   ick_value_stash *s = &scalar_stashes[slot];
+  count_stash(next);
   if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(uint32_t), next);
   s->items[s->count++] = program->values[slot];
 }
@@ -446,12 +460,14 @@ void ick_retrieve_scalar(uint32_t slot, uint32_t next) {
   ick_value_stash *s = &scalar_stashes[slot];
   if (s->count == 0) ick_fatal(436, next);
   uint32_t value = s->items[--s->count];
+  stashed--;
   if (!program->ignored[slot]) program->values[slot] = value;
 }
 
 void ick_stash_array(uint32_t index, uint32_t next) {
   ick_array_stash *s = &array_stashes[index];
   ick_shape *a = &arrays[index].shape;
+  count_stash(next);
   if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(ick_shape), next);
   ick_shape copy = {a->rank, NULL, NULL, a->size};
   if (a->rank) {
@@ -469,6 +485,7 @@ void ick_retrieve_array(uint32_t index, uint32_t next) {
   ick_array_stash *s = &array_stashes[index];
   if (s->count == 0) ick_fatal(436, next);
   ick_shape saved = s->items[--s->count];
+  stashed--;
   ick_array *a = &arrays[index];
   if (a->ignored) {
     free(saved.dims);

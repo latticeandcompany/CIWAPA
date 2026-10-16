@@ -381,7 +381,10 @@ class IrProgram {
 }
 
 class IrOptions {
-  const IrOptions({this.randomBug = true, this.seed});
+  const IrOptions({this.randomBug = true, this.seed, this.memoryLimit});
+
+  /// Test-only: laying out more variables than this fails as if memory ran out (decision L7).
+  final int? memoryLimit;
 
   /// Whether to plant E774 bugs (`--no-random-bug` turns this off, decision T23).
   final bool randomBug;
@@ -392,12 +395,13 @@ class IrOptions {
 
 /// Lowers a checked [Program] to the IR both emitters consume.
 IrProgram lower(Program program, {IrOptions options = const IrOptions()}) =>
-    _Lowering(program).build(options);
+    _Lowering(program, options.memoryLimit).build(options);
 
 class _Lowering {
-  _Lowering(this.program);
+  _Lowering(this.program, this.memoryLimit);
 
   final Program program;
+  final int? memoryLimit;
   final _scalars = <VarRef, Slot>{};
   final _arrays = <VarRef, Slot>{};
   final _labels = <int, int>{};
@@ -557,7 +561,12 @@ class _Lowering {
 
   Slot _slot(Map<VarRef, Slot> slots, VarRef ref) {
     if (ref.number < 1 || ref.number > 65535) _faults.add(const Fault(200));
-    return slots.putIfAbsent(ref, () => Slot(slots.length, ref));
+    return slots.putIfAbsent(ref, () {
+      if (_scalars.length + _arrays.length == memoryLimit) {
+        throw OutOfMemoryError();
+      }
+      return Slot(slots.length, ref);
+    });
   }
 
   Slot _scalar(VarRef ref) => _slot(_scalars, ref);

@@ -38,12 +38,13 @@ class Program {
 bool isValidLabel(int label) => label >= 1 && label <= 65535;
 
 /// Parses [source] and runs the whole-program checks, in C-INTERCAL 0.15's order.
-Program analyze(Source source, {bool traditional = false}) {
+/// [memoryLimit] is test-only (decision L7): see [Parser.memoryLimit].
+Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   final base = Source.baseOf(source.path);
   if (base == null) throw CompileError(998, 1);
   if (traditional && base != 2) throw CompileError(111, 1);
 
-  final statements = Parser(source).parse();
+  final statements = Parser(source, memoryLimit: memoryLimit).parse();
   if (traditional) {
     for (final (i, s) in statements.indexed) {
       if (s.body is ComeFrom) throw CompileError(111, i + 1);

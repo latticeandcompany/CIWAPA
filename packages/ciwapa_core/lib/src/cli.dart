@@ -194,20 +194,35 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
     _fail(IclError.of(777), 1);
   }
 
+  // Test-only (decision L7): never set outside tests, it fakes running out of memory.
+  final memoryLimit = int.tryParse(
+    Platform.environment['CIWAPA_TEST_MEMORY_LIMIT'] ?? '',
+  );
+  final Program program;
   final IrProgram ir;
   try {
-    final program = analyze(
-      Source.fromBytes(path, bytes),
-      traditional: args.flag('traditional'),
-    );
+    try {
+      program = analyze(
+        Source.fromBytes(path, bytes),
+        traditional: args.flag('traditional'),
+        memoryLimit: memoryLimit,
+      );
+    } on OutOfMemoryError {
+      _fail(IclError.of(666), 1);
+    }
     if (args.option('dump') == 'ast') stdout.write(_dumpAst(program));
-    ir = lower(
-      program,
-      options: IrOptions(
-        randomBug: !args.flag('no-random-bug'),
-        seed: seed == null ? null : int.tryParse(seed),
-      ),
-    );
+    try {
+      ir = lower(
+        program,
+        options: IrOptions(
+          randomBug: !args.flag('no-random-bug'),
+          seed: seed == null ? null : int.tryParse(seed),
+          memoryLimit: memoryLimit,
+        ),
+      );
+    } on OutOfMemoryError {
+      _fail(IclError.of(333), 1);
+    }
     if (args.option('dump') == 'ir') stdout.writeln(ir.dump());
   } on CompileError catch (e) {
     _fail(e.error, e.statement);
@@ -226,6 +241,9 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
     files = backend.emit(ir, options);
   } on ToolchainException catch (e) {
     _fail(IclError.of(778), 1, detail: e.message);
+  } on OutOfMemoryError {
+    // Generating code is where a huge program needs the most memory (QUESTIONS.md L12).
+    _fail(IclError.of(666), 1);
   }
 
   final Directory temp;
