@@ -400,10 +400,18 @@ void ickArraySetIgnored(int index, bool ignored) =>
 
 // ---- STASH and RETRIEVE (§4.4.5, §4.4.6, decisions T24, T25) ------------------------------------
 
+/// Test-only (decision L7): holding more stashed values than this fails as if memory ran out.
+final _stashLimit = int.tryParse(
+  Platform.environment['CIWAPA_TEST_MEMORY_LIMIT'] ?? '',
+);
+var _stashed = 0;
+
 /// The only limit on a stash is memory; running out is E222.
 void _push<T>(List<T> stash, T Function() copy, int next) {
   try {
+    if (_stashed == _stashLimit) throw OutOfMemoryError();
     stash.add(copy());
+    _stashed++;
   } on OutOfMemoryError {
     ickFatal(222, next);
   }
@@ -418,6 +426,7 @@ void ickRetrieveScalar(int slot, int next) {
   final stash = _scalarStashes[slot];
   if (stash.isEmpty) ickFatal(436, next);
   final value = stash.removeLast();
+  _stashed--;
   if (_ignored[slot] == 0) _values[slot] = value;
 }
 
@@ -437,6 +446,7 @@ void ickRetrieveArray(int index, int next) {
   final stash = _arrayStashes[index];
   if (stash.isEmpty) ickFatal(436, next);
   final saved = stash.removeLast();
+  _stashed--;
   if (!_arrays[index].ignored) _arrays[index].shape = saved;
 }
 

@@ -7,6 +7,7 @@
 //   .in     stdin for the program
 //   .args   program arguments, one per line
 //   .flags  compiler flags, one per line (--no-random-bug is always passed)
+//   .env    KEY=VALUE environment variables, one per line, for the build and the run
 //   .out    expected stdout (empty when missing)
 //   .err    expected stderr (empty when missing)
 //   .exit   expected exit status (0 when missing)
@@ -107,14 +108,25 @@ Future<String?> _check(String compiler, String path) async {
   try {
     final exe =
         '${temp.path}${Platform.pathSeparator}program${Platform.isWindows ? '.exe' : ''}';
-    final build = await _run(compiler, [
-      'build',
-      '--no-random-bug',
-      ..._lines(File('$stem.flags')),
-      path,
-      '-o',
-      exe,
-    ], const []);
+    final environment = {
+      for (final line in _lines(File('$stem.env')))
+        line.substring(0, line.indexOf('=')): line.substring(
+          line.indexOf('=') + 1,
+        ),
+    };
+    final build = await _run(
+      compiler,
+      [
+        'build',
+        '--no-random-bug',
+        ..._lines(File('$stem.flags')),
+        path,
+        '-o',
+        exe,
+      ],
+      const [],
+      environment: environment,
+    );
     final timeoutFile = File('$stem.timeout');
     final mustLoop = timeoutFile.existsSync();
     final timeout = mustLoop
@@ -129,6 +141,7 @@ Future<String?> _check(String compiler, String path) async {
                 ? File('$stem.in').readAsBytesSync()
                 : const [],
             timeout: timeout,
+            environment: environment,
           );
     if (build.exitCode == 0 && mustLoop && !outcome.timedOut) {
       return 'expected the program to still be running after ${timeout.inSeconds}s, '
@@ -186,8 +199,9 @@ Future<Outcome> _run(
   List<String> args,
   List<int> stdin, {
   Duration? timeout,
+  Map<String, String> environment = const {},
 }) async {
-  final process = await Process.start(exe, args);
+  final process = await Process.start(exe, args, environment: environment);
   final out = process.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
   final err = process.stderr.fold<List<int>>([], (a, b) => a..addAll(b));
   process.stdin.add(stdin);
