@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# TEMPORARY (goal 2's cleanup removes it): runs the benchmarks through both CIWAPA flavors and the
+# four baselines, each in its own Docker image, and writes tools/bench/results.json (Q30–Q34).
+# Meant for Linux arm64 Docker; build the baselines first with tools/bench/build-images.
+# Usage: tools/bench/bench [runs per program, default 5]
+set -euo pipefail
+
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+cd "$repo_root"
+runs="${1:-5}"
+out=.cache/bench
+rm -rf "$out"
+mkdir -p "$out"
+[[ -d pit ]] || tools/oracle/fetch-pit
+
+# Each flavor is laid out like its Linux release archive: ciwapa-llvm with the bundled clang + lld
+# + musl toolchain (built once, then kept in .cache/bench-toolchain) and its precompiled runtime.
+tools/in-docker sh -c '
+  case "$(uname -m)" in aarch64) arch=arm64 cpu=aarch64 ;; *) arch=x64 cpu=x86_64 ;; esac
+  bundle=".cache/bench-toolchain/linux-$arch"
+  [ -x "$bundle/bin/clang" ] ||
+    .github/scripts/llvm-linux-bundle.sh "$arch" "/work/$bundle" /work/.cache/bench-toolchain/downloads >&2
+  for flavor in llvm dart; do
+    mkdir -p ".cache/bench/$flavor/bin"
+    dart --suppress-analytics compile exe "packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" -o ".cache/bench/$flavor/bin/ciwapa-$flavor" >/dev/null
+  done
+  ln -s "/work/$bundle" .cache/bench/llvm/toolchain
+  triple="$cpu-unknown-linux-musl"
+  mkdir -p .cache/bench/llvm/lib
+  .cache/bench/llvm/toolchain/bin/clang --target="$triple" --sysroot=.cache/bench/llvm/toolchain/sysroot \
+    -O2 -w -c packages/runtime_c/runtime.c -o ".cache/bench/llvm/lib/runtime-$triple.o"
+  dart --suppress-analytics compile exe tools/bench/frontend.dart -o .cache/bench/frontend >/dev/null'
+
+# Copied into the container first: like ick's toolchain in its image, and unlike a bind mount,
+# which makes every clang start read its 100 MB binary through the VM.
+for flavor in llvm dart; do
+  echo "measuring ciwapa-$flavor" >&2
+  tools/in-docker sh -c "cp -RL /work/$out/$flavor /tmp/$flavor &&
+    CIWAPA=/tmp/$flavor/bin/ciwapa-$flavor tools/bench/measure ciwapa-$flavor $runs /work/tools/bench/ciwapa-build" \
+    >>"$out/runs.jsonl"
+done
+
+# ick and rick build native executables. They're built in their own images but run here, next to
+# CIWAPA's, so every native program starts under the same libc and loader.
+for impl in ick rick; do
+  image="$(docker images --format '{{.Repository}}:{{.Tag}}' "ciwapa-bench-$impl" | head -n 1)"
+  if [[ -z "$image" ]]; then
+    echo "no ciwapa-bench-$impl image: run tools/bench/build-images" >&2
+    exit 1
+  fi
+  echo "building with $impl ($image), running in ciwapa-toolchain" >&2
+  docker run --rm -v "$repo_root:/work" -w /work -e "BENCH_KEEP=/work/$out/bin/$impl" "$image" \
+    tools/bench/measure "$impl" 0 bench-build >>"$out/runs.jsonl"
+  tools/in-docker env "BENCH_PREBUILT=/work/$out/bin/$impl" \
+    tools/bench/measure "$impl" "$runs" >>"$out/runs.jsonl"
+done
+
+for impl in intercal64 clc; do
+  image="$(docker images --format '{{.Repository}}:{{.Tag}}' "ciwapa-bench-$impl" | head -n 1)"
+  if [[ -z "$image" ]]; then
+    echo "no ciwapa-bench-$impl image: run tools/bench/build-images" >&2
+    exit 1
+  fi
+  # CLC-INTERCAL is an interpreter written in Perl, and slow enough that one run has to do.
+  impl_runs="$runs"
+  [[ "$impl" == clc ]] && impl_runs=1
+  echo "measuring $impl ($image)" >&2
+  docker run --rm -v "$repo_root:/work" -w /work "$image" \
+    tools/bench/measure "$impl" "$impl_runs" bench-build >>"$out/runs.jsonl"
+done
+
+echo "timing the front end" >&2
+tools/in-docker sh -c '.cache/bench/frontend $(find pit -name "*.i" -o -name "*.[3-7]i") tools/bench/programs/*.i' >"$out/frontend.jsonl"
+
+echo "timing dart compile exe on an empty program" >&2
+tools/in-docker sh -c '
+  dir="$(mktemp -d)"
+  echo "void main() {}" >"$dir/empty.dart"
+  for i in 1 2 3; do
+    start=$(date +%s%N)
+    dart --suppress-analytics compile exe "$dir/empty.dart" -o "$dir/empty" >/dev/null
+    echo $(( ($(date +%s%N) - start) / 1000000 ))
+  done
+  rm -rf "$dir"' >"$out/empty-dart-ms"
+
+tools/in-docker dart --suppress-analytics run tools/bench/summarize.dart "$out" tools/bench/results.json

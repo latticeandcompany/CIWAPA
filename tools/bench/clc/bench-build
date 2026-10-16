@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# TEMPORARY (goal 2's cleanup removes it): bench-build <src.i> <out>
+set -euo pipefail
+src=$1 out=$2
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# --c-intercal: compile .i with C-INTERCAL rules (pit programs use its I/O).
+# -O: run the optimiser at compile time. --bug/--ubug=0: no random compiler bugs.
+# --backend=Perl: a standalone Perl script rather than a .io object.
+cp "$src" "$work/prog.i"
+(cd "$work" && sick --c-intercal -O --bug=0 --ubug=0 --backend=Perl --output=%p prog.i)
+test -f "$work/prog" || { echo "bench-build: sick produced no program" >&2; exit 1; }
+cp "$work/prog" "$out"
+chmod +x "$out"

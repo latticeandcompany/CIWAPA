@@ -1,5 +1,5 @@
 {
- "programs": 426,
+ "programs": 427,
  "oracles": {
   "ick035": "C-INTERCAL 0.35",
   "ick015": "C-INTERCAL 0.15"
@@ -3786,6 +3786,42 @@
    "reason": "Q35, Q38 (clean-room library)"
   },
   {
+   "program": "packages_conformance_tests_syslib_come-from-library-label.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "129:ICL129",
+   "status": "divergence",
+   "reason": "Q35, Q38 (clean-room library)"
+  },
+  {
+   "program": "packages_conformance_tests_syslib_come-from-library-label.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "129:ICL129",
+   "status": "divergence",
+   "reason": "Q35, Q38 (clean-room library)"
+  },
+  {
+   "program": "packages_conformance_tests_syslib_come-from-library-label.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "129:ICL129",
+   "status": "divergence",
+   "reason": "Q35, Q38 (clean-room library)"
+  },
+  {
+   "program": "packages_conformance_tests_syslib_come-from-library-label.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL129",
+   "ciwapa_exit": "129:ICL129",
+   "status": "divergence",
+   "reason": "Q35, Q38 (clean-room library)"
+  },
+  {
    "program": "packages_conformance_tests_syslib_concat-1520.i",
    "oracle": "ick015",
    "flavor": "llvm",
@@ -6520,6 +6556,24 @@
    "ciwapa_exit": "compile:ICL444",
    "status": "divergence",
    "reason": "Mode 1 only (0.35 extensions)"
+  },
+  {
+   "program": "pit_tests_iogerunds.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "50:ICL562",
+   "ciwapa_exit": "50:ICL562",
+   "status": "divergence",
+   "reason": "T22"
+  },
+  {
+   "program": "pit_tests_iogerunds.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "50:ICL562",
+   "ciwapa_exit": "50:ICL562",
+   "status": "divergence",
+   "reason": "T22"
   },
   {
    "program": "pit_tests_knuth.i",

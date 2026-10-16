@@ -364,8 +364,10 @@ declare void @ick_array_set_ignored(i32, i32)
   }
 
   void _assign(IrExpr target, IrExpr value, int next) {
+    // Only a large value can exceed a small target; small ones were checked when they were stored.
     String checked(String v) {
-      if (target.large) return v;
+      if (target.large || !value.large) return v;
+      if (value is IrConst && value.value <= program.smallLimit) return v;
       final c = _fresh();
       _line('$c = call i32 @ick_check_small(i32 $v, i32 $next)');
       return c;
@@ -375,6 +377,10 @@ declare void @ick_array_set_ignored(i32, i32)
       case IrScalar(:final slot):
         final v = checked(_expr(value, next));
         final pointer = _scalarPointer(slot);
+        if (!program.ignorable.contains(slot)) {
+          _line('store i32 $v, ptr $pointer');
+          return;
+        }
         final flagPointer = _fresh(), flag = _fresh(), ignored = _fresh();
         _line(
           '$flagPointer = getelementptr inbounds [${program.scalars.length} x i8], ptr @ig, i64 0, i64 ${slot.index}',
@@ -385,6 +391,10 @@ declare void @ick_array_set_ignored(i32, i32)
       case IrElement(:final array, :final subscripts):
         final pointer = _elementPointer(array, subscripts, next);
         final v = checked(_expr(value, next));
+        if (!program.ignorable.contains(array)) {
+          _line('store i32 $v, ptr $pointer');
+          return;
+        }
         final flag = _fresh(), ignored = _fresh();
         _line('$flag = call i32 @ick_array_ignored(i32 ${array.index})');
         _line('$ignored = icmp ne i32 $flag, 0');
@@ -409,6 +419,16 @@ declare void @ick_array_set_ignored(i32, i32)
         '$flagPointer = getelementptr inbounds [${program.scalars.length} x i8], ptr @ig, i64 0, i64 ${w.index}',
       );
       _line('$flag = load i8, ptr $flagPointer');
+      _line('$clear = icmp eq i8 $flag, 0');
+      final next = _newBlock('native');
+      _line('br i1 $clear, label %$next, label %$fallback');
+      _block(next);
+    }
+    for (final o in call.abstainable) {
+      final flag = _fresh(), clear = _fresh();
+      _line(
+        '$flag = load i8, ptr getelementptr inbounds ([${program.statements.length + 1} x i8], ptr @ab, i64 0, i64 $o)',
+      );
       _line('$clear = icmp eq i8 $flag, 0');
       final next = _newBlock('native');
       _line('br i1 $clear, label %$next, label %$fallback');

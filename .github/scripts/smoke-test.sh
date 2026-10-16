@@ -26,6 +26,10 @@ if [[ "$name" != ciwapa-llvm-*-macos-* ]] && ! grep -qF "$name" <<<"$doctor"; th
   echo "doctor did not use the toolchain inside $name" >&2
   exit 1
 fi
+if [[ "$flavor" == llvm ]] && ! grep -q "runtime: .*$name" <<<"$doctor"; then
+  echo "doctor did not find the precompiled runtime inside $name" >&2
+  exit 1
+fi
 cp "$repo_root/.github/release/hello.i" "$work/hello.i"
 "$compiler" build --no-random-bug "$work/hello.i" -o "$work/hello" >&2
 hello="$work/hello"

@@ -78,3 +78,14 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The compiler does (a) until this is answered.
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-14
+
+## L10: How should the benchmarks that call ick's internal library labels be measured?
+
+- **Context:** Q31's benchmark set takes `primes`, `pi`, `fft` and `life` from `pit/`. All four NEXT into (1001) or (1021), labels inside C-INTERCAL's own `syslib.i` that §7.2 doesn't list. CIWAPA's clean-room library implements exactly the §7.2 entry points (Q35, Q38), so these programs fail on CIWAPA. `primes`, for example, stops with E436 at once. Making the library imitate ick's internal labels would mean knowing what they do, which the clean-room rule rules out. The other benchmarks (`tpk`, `unlambda`, `beer`, `hail_mary.3i`) only use §7.2 entry points and match ick exactly.
+- **Options:**
+  - (a) Benchmark the four with ick's own `syslib.i` appended to the program, for every compiler alike. A script would extract it from the hash-checked 0.35 tarball at benchmark time; nobody reads it and it's never committed. Every compiler then runs the same INTERCAL code. CIWAPA's native fast paths don't apply, because the program defines the library labels itself.
+  - (b) Replace the four with clean-room programs of our own that do the same jobs (primes, digits of pi, an FFT, Life) using only §7.2 entry points.
+  - (c) Drop the four, and measure the guardrails on the remaining programs plus our own stress programs.
+- **Lean:** (a), because it keeps the real programs. It touches the clean-room boundary, though, so the loop doesn't act on it until it's answered. Until then, the harness measures the other programs, and the four programs' guardrails are recorded as blocked in `tools/bench/results.json`.
+- **Blocks:** the per-program runtime guardrails (Q32) for `primes`, `pi`, `fft` and `life`, and both flavors' geometric-mean guardrails, which are taken over the whole set. No checklist items.
+- **Raised:** 2026-10-15

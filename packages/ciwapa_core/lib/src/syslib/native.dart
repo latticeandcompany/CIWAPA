@@ -6,7 +6,8 @@ import '../ir.dart';
 /// The native routine computes the result from [args] and stores it in [result], with `#1` in
 /// [flag] for the routines that report overflow. Whenever it can't reproduce the INTERCAL
 /// routine exactly, it falls back to it: on any overflow, when the NEXT stack lacks [depth] free
-/// levels, or when one of the [watched] variables is IGNOREd.
+/// levels, when one of the [watched] variables is IGNOREd, or when one of the [abstainable]
+/// statements is abstained.
 class NativeCall {
   const NativeCall({
     required this.label,
@@ -15,6 +16,7 @@ class NativeCall {
     required this.flag,
     required this.depth,
     required this.watched,
+    required this.abstainable,
   });
 
   final int label;
@@ -27,6 +29,10 @@ class NativeCall {
 
   /// The variables the INTERCAL routine touches that some IGNORE in the program names.
   final List<Slot> watched;
+
+  /// The ordinals of the INTERCAL routine's statements that some ABSTAIN or REINSTATE can reach.
+  /// Nothing inside the library changes abstentions, so their state at the call decides.
+  final List<int> abstainable;
 }
 
 typedef _Routine = ({List<String> args, String result, String? flag});
@@ -58,10 +64,6 @@ const Map<int, _Routine> _routines = {
 Map<int, NativeCall> findNativeCalls(IrProgram program) {
   if (program.statements.length == program.userStatements) return const {};
   final slots = {for (final s in program.scalars) s.ref: s};
-  final ignorable = {
-    for (final s in program.statements)
-      if (s.op case IrVarList(op: ListOp.ignore, :final scalars)) ...scalars,
-  };
 
   final calls = <int, NativeCall>{};
   for (final entry in program.statements.skip(program.userStatements)) {
@@ -70,6 +72,7 @@ Map<int, NativeCall> findNativeCalls(IrProgram program) {
     if (routine == null || depth == null) continue;
     final reachable = _reachable(program, entry.ordinal);
     final touched = <Slot>{};
+    final abstainable = <int>[];
     var native = true;
     for (final ordinal in reachable) {
       final s = program.at(ordinal);
@@ -78,8 +81,8 @@ Map<int, NativeCall> findNativeCalls(IrProgram program) {
           !s.bug &&
           s.comeFrom == null &&
           s.op is! IrComeFrom &&
-          (s.percent == null || s.percent == 100) &&
-          !s.abstainable;
+          (s.percent == null || s.percent == 100);
+      if (s.abstainable) abstainable.add(ordinal);
       final (scalars, arrays) = _variables(s.op);
       touched.addAll(scalars);
       native &= !arrays;
@@ -95,7 +98,8 @@ Map<int, NativeCall> findNativeCalls(IrProgram program) {
       result: result,
       flag: flag,
       depth: depth,
-      watched: [...touched.intersection(ignorable)],
+      watched: [...touched.intersection(program.ignorable)],
+      abstainable: abstainable..sort(),
     );
   }
   return calls;
@@ -154,6 +158,39 @@ Set<int> _reachable(IrProgram program, int entry) {
     if (s.comeFrom case final c?) work.add(c);
   }
   return seen;
+}
+
+/// The library statements a run can reach: everything control can get to from the user's NEXTs
+/// into the library. Anything a skipped (abstained or `%`) RESUME or GIVE UP could fall into
+/// counts, so the rest can never run.
+Set<int> liveLibrary(IrProgram program) {
+  final live = <int>{};
+  final work = [
+    for (final s in program.statements.take(program.userStatements))
+      if (s.op case IrNext(:final target) when target > program.userStatements)
+        target,
+  ];
+  while (work.isNotEmpty) {
+    final ordinal = work.removeLast();
+    // A COME FROM can lead back into the user's program, which is emitted anyway, and the user's
+    // only ways into the library are the NEXTs this started from.
+    if (ordinal <= program.userStatements) continue;
+    if (ordinal > program.statements.length || !live.add(ordinal)) continue;
+    final s = program.at(ordinal);
+    final skippable = s.abstainable || (s.percent != null && s.percent! < 100);
+    switch (s.op) {
+      case IrResume() || IrGiveUp():
+        if (skippable) work.add(ordinal + 1);
+      case IrNext(:final target):
+        work
+          ..add(target)
+          ..add(ordinal + 1);
+      default:
+        work.add(ordinal + 1);
+    }
+    if (s.comeFrom case final c?) work.add(c);
+  }
+  return live;
 }
 
 /// The scalars [op] names, and whether it names any array.
