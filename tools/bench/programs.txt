@@ -1,6 +1,7 @@
 # TEMPORARY (goal 2's cleanup removes it): the benchmarks (Q31). `empty` only measures what
 # starting a program costs each implementation; it isn't a guardrail.
-# primes, pi, fft and life are built by bench, with C-INTERCAL's syslib.i appended (decision L10).
+# primes, pi, fft and life are built by bench, with C-INTERCAL's syslib.i appended (decision L10),
+# and floatlib.i too for fft (decision L11).
 # name | source | stdin | implementations (all, or a comma list) | blocked by
 empty | tools/bench/programs/empty.i | | all |
 tpk | pit/tpk.i | pit/tpk.tst | all |
@@ -11,5 +12,5 @@ next-resume | tools/bench/programs/next-resume.i | | all |
 abstain | tools/bench/programs/abstain.i | | all |
 primes | .cache/bench/programs/primes.i | | all |
 pi | .cache/bench/programs/pi.i | tools/bench/programs/pi.in | all |
-fft | .cache/bench/programs/fft.i | pit/fft-tophat.tst | all | L11
+fft | .cache/bench/programs/fft.i | pit/fft-tophat.tst | all |
 life | .cache/bench/programs/life.i | pit/glider | all |
