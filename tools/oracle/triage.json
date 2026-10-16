@@ -6776,7 +6776,7 @@
   {
    "program": "pit_tests_iogerunds.i",
    "oracle": "ick035",
-   "flavor": "dart",
+   "flavor": "llvm",
    "ick_exit": "50:ICL562",
    "ciwapa_exit": "50:ICL562",
    "status": "divergence",
@@ -6785,7 +6785,7 @@
   {
    "program": "pit_tests_iogerunds.i",
    "oracle": "ick015",
-   "flavor": "dart",
+   "flavor": "llvm",
    "ick_exit": "50:ICL562",
    "ciwapa_exit": "50:ICL562",
    "status": "divergence",
