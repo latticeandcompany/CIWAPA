@@ -585,6 +585,8 @@ static int read_line(size_t *length, uint32_t next) {
     line_buffer[n++] = (char)c;
   }
   if (c == EOF && n == 0) return 0;
+  /* One \r before the \n goes, so CRLF input from Windows consoles works (decision L6). */
+  if (c == '\n' && n > 0 && line_buffer[n - 1] == '\r') n--;
   if (!line_buffer) line_buffer = grow(line_buffer, &line_capacity, 1, next);
   line_buffer[n] = '\0';
   *length = n;

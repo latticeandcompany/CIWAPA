@@ -225,6 +225,7 @@ Statement numbers in error output are statement ordinals (decision: T33).
 - [x] §4.4.12, §9.2 — a blank line or end of input raises E562. (decision: T28) Tests: `packages/conformance/tests/io/e562-blank-line.i`, `packages/conformance/tests/io/e562-spaces-only.i`, `packages/conformance/tests/io/e562-end-of-input.i`
 - [x] §4.4.12, §9.2 — an unknown word raises E579. (decision: T28) Tests: `packages/conformance/tests/io/e579-unknown-word.i`
 - [x] §4.4.12 — a final line without a trailing newline keeps its last letter. (decision: T28) Tests: `packages/conformance/tests/io/write-in-no-final-newline.i`
+- [x] §4.4.12 — one `\r` right before a `\n` is dropped, so CRLF input from Windows consoles works; any other `\r` is part of the word. (decision: L6) Tests: `packages/conformance/tests/io/write-in-crlf.i`, `packages/conformance/tests/io/write-in-crlf-only-before-newline.i`, `packages/conformance/tests/io/write-in-crlf-only-one.i`
 
 ## §4.4.13 READ OUT (numbers)
 
@@ -495,7 +496,7 @@ Places where the approved behavior differs from `ick` 0.15 and/or 0.35. The tie-
 - Q35, Q38 the clean-room library implements exactly the §7.2 entry points, including (1060)–(1080), which neither version's library has (E129 there). Its NEXT depth, scratch variables and internal labels are its own. So the `syslib/` depth and fallback tests differ from ick, and pit programs that call ick's undocumented internal labels ((1001), (1021), (1999)) don't work. In the differential that's `primes`, `pi`, `fft`, `life`, `quine`, `flonck`, `ins` and `pow`.
 - L9 the binary library is included only in base 2. Both versions include it in every base.
 - L3 a statement with several statement-local problems reports the first in source order, so `(0) DO %101 FOO` is E197 (the label). Both versions report the `%` (E017) first.
-- L6 WRITE IN strips one `\r` before each `\n`, so CRLF input works on Windows consoles. Both versions read `ONE\r` as an unknown word (E579).
+- L6 WRITE IN strips one `\r` before each `\n`, so CRLF input works on Windows consoles. This matches 0.35; 0.15 reads `ONE\r` as an unknown word (E579).
 - L8 (between the flavors, not ick) a `ciwapa-dart` program can't start when an argument isn't valid UTF-8: the Dart VM rejects it before `main` and exits 255. A `ciwapa-llvm` program accepts the bytes. Only arguments that aren't text trigger this.
 - §6.6 `0@` isn't a whirlpool, so a statement like `DO .0@2 <- #1` in base 5 is undecodable (E000 when it runs). Both versions read `.0` as a variable and report E200 at compile time.
 - Mode 1 only: pit programs that use 0.35 extensions (computed ABSTAIN, TRY AGAIN and threading in `sort` and `continuation`) are rejected. Their extension statements are undecodable, and a label inside one starts a new statement (T8), so they fail with E182.
