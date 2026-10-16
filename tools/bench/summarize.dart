@@ -123,25 +123,28 @@ void main(List<String> args) {
       ),
     );
   }
-  // Q32, Dart: faster than every non-native baseline on every program. One that's listed for a
-  // program but doesn't run it correctly leaves nothing to compare: QUESTIONS.md L13.
+  // Q32, Dart: faster than every non-native baseline on every program. Baselines that don't run a
+  // program correctly are left out of it in programs.txt, with the reason (decision L13); one that
+  // is listed and still runs it wrong fails the guardrail until it's left out too.
   for (final p in programs) {
     final dart = runUs(p.name, 'ciwapa-dart');
     final listed = ['intercal64', 'clc'].where(p.runsOn).toList();
+    final wrong = listed.where((b) => runUs(p.name, b) == null).toList();
     final ratios = [for (final b in listed) speedup(runUs(p.name, b), dart)]
         .whereType<double>();
-    final unmeasured = dart != null && ratios.isEmpty;
     guardrails.add(
       Guardrail(
         'dart runtime, ${p.name}: faster than INTERCAL-64 and CLC-INTERCAL',
-        ratios.isEmpty ? null : ratios.reduce(min),
+        wrong.isEmpty && ratios.isNotEmpty ? ratios.reduce(min) : null,
         1,
-        blockedBy: p.blockedBy.isNotEmpty || !unmeasured || listed.isEmpty
-            ? p.blockedBy
-            : 'L13',
-        vacuous: unmeasured && listed.isEmpty,
-        note: unmeasured && listed.isEmpty && p.blockedBy.isEmpty
-            ? 'no non-native baseline runs it (Q31)'
+        blockedBy: p.blockedBy,
+        vacuous: dart != null && listed.isEmpty,
+        note: p.blockedBy.isNotEmpty
+            ? ''
+            : wrong.isNotEmpty
+            ? '${wrong.join(' and ')} ran it wrong: leave it out in programs.txt, with the reason (L13)'
+            : listed.isEmpty
+            ? 'neither runs it correctly (programs.txt says why)'
             : '',
       ),
     );
