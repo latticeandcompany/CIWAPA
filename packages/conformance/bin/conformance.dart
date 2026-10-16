@@ -108,12 +108,12 @@ Future<String?> _check(String compiler, String path) async {
   try {
     final exe =
         '${temp.path}${Platform.pathSeparator}program${Platform.isWindows ? '.exe' : ''}';
-    final environment = {
-      for (final line in _lines(File('$stem.env')))
-        line.substring(0, line.indexOf('=')): line.substring(
-          line.indexOf('=') + 1,
-        ),
-    };
+    final environment = <String, String>{};
+    for (final line in _lines(File('$stem.env'))) {
+      final equals = line.indexOf('=');
+      if (equals < 1) return '$stem.env: expected KEY=VALUE, got "$line"';
+      environment[line.substring(0, equals)] = line.substring(equals + 1);
+    }
     final build = await _run(
       compiler,
       [
