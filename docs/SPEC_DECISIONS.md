@@ -1213,3 +1213,18 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
 - **Options:** append ick's syslib.i at benchmark time / replace with clean-room programs / drop the four
 - **Decision:** Benchmark `primes`, `pi`, `fft` and `life` with C-INTERCAL 0.35's own `syslib.i` appended, identically for every compiler. A script extracts it from the hash-checked tarball at benchmark time only, inside the temporary `tools/bench/` scaffolding. It is never committed, and no agent opens or reads the extracted file. Q38's clean-room rule covers reading the listing while writing our library; running it as a black box in a benchmark doesn't cross it. CIWAPA's native fast paths don't apply to these runs. **Code change needed:** unblock the four programs' guardrails and the geometric means.
 - **Date:** 2026-10-15
+
+### L11: `fft` and C-INTERCAL's `floatlib.i`
+- **Options:** append floatlib.i the same way as L10 / drop fft / clean-room replacement
+- **Decision:** Append C-INTERCAL 0.35's `floatlib.i` to `fft` under exactly L10's rules: extracted from the hash-checked tarball at benchmark time inside the temporary `tools/bench/` scaffolding, never committed, never opened or read by any agent, identical for every compiler. **Code change needed:** unblock `fft`'s guardrails and the geometric means.
+- **Date:** 2026-10-16
+
+### L12: Out of memory while generating code
+- **Options:** E666 / E333 / E778
+- **Decision:** E666 ("too many source lines"). With L7 that makes three stages: E666 while parsing, E333 while laying out variables, and E666 while building the generated `.dart` or `.ll` text. Matches the loop's interim code.
+- **Date:** 2026-10-16
+
+### L13: Non-native baselines that run a benchmark wrong
+- **Options:** count as met / compare their times anyway / fix how they're run, else drop them from that program
+- **Decision:** First make INTERCAL-64 and CLC-INTERCAL run `tpk`, `primes`, `pi` and `life` correctly, by investigating input files, command-line flags and each baseline's own system library. Only configuration and harness changes are allowed, never patches to the baselines' source. If a program still can't run correctly on a baseline, remove that baseline from that program in `programs.txt` with the reason recorded next to it. The guardrail then compares only against baselines that produce the correct output. Wrong-output runs are never timed. **Code change needed:** the investigation, plus `programs.txt` and the bench's handling.
+- **Date:** 2026-10-16
