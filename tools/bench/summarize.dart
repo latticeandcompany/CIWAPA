@@ -107,9 +107,22 @@ void main(List<String> args) {
   double? speedup(int? slower, int? faster) =>
       slower == null || faster == null ? null : max(slower, 1) / max(faster, 1);
 
+  // Baselines left in for a program that still ran it wrong (decision L13). None when ciwapa-llvm,
+  // the reference, didn't run it: then it's the flavor that failed.
+  List<String> wrongRuns(Program p, Iterable<String> impls) =>
+      runUs(p.name, 'ciwapa-llvm') == null
+      ? const []
+      : [
+          for (final b in impls)
+            if (p.runsOn(b) && runUs(p.name, b) == null) b,
+        ];
+  String leaveOut(List<String> wrong) =>
+      '${wrong.join(' and ')} ran it wrong: leave it out in programs.txt, with the reason (L13)';
+
   // Q32, LLVM: never slower than any baseline on any program.
   for (final p in programs) {
     final llvm = runUs(p.name, 'ciwapa-llvm');
+    final wrong = wrongRuns(p, baselines);
     final ratios = [
       for (final b in baselines)
         if (p.runsOn(b)) speedup(runUs(p.name, b), llvm),
@@ -117,9 +130,10 @@ void main(List<String> args) {
     guardrails.add(
       Guardrail(
         'llvm runtime, ${p.name}: no baseline is faster',
-        ratios.isEmpty ? null : ratios.reduce(min),
+        wrong.isEmpty && ratios.isNotEmpty ? ratios.reduce(min) : null,
         1,
         blockedBy: p.blockedBy,
+        note: p.blockedBy.isEmpty && wrong.isNotEmpty ? leaveOut(wrong) : '',
       ),
     );
   }
@@ -129,7 +143,7 @@ void main(List<String> args) {
   for (final p in programs) {
     final dart = runUs(p.name, 'ciwapa-dart');
     final listed = ['intercal64', 'clc'].where(p.runsOn).toList();
-    final wrong = listed.where((b) => runUs(p.name, b) == null).toList();
+    final wrong = wrongRuns(p, listed);
     final ratios = [for (final b in listed) speedup(runUs(p.name, b), dart)]
         .whereType<double>();
     guardrails.add(
@@ -142,8 +156,8 @@ void main(List<String> args) {
         note: p.blockedBy.isNotEmpty
             ? ''
             : wrong.isNotEmpty
-            ? '${wrong.join(' and ')} ran it wrong: leave it out in programs.txt, with the reason (L13)'
-            : listed.isEmpty
+            ? leaveOut(wrong)
+            : dart != null && listed.isEmpty
             ? 'neither runs it correctly (programs.txt says why)'
             : '',
       ),
@@ -153,9 +167,11 @@ void main(List<String> args) {
   // Q32, geometric means. They are over the whole set, so they wait on the blocked programs, but
   // only when the programs measured so far already meet the target: otherwise they fail. The note
   // gives the Dart mean net of each implementation's startup (its `empty` program), for scale.
-  /// Null, and so failed, when [flavor] didn't run some program correctly.
+  /// Null, and so failed, when [flavor] didn't run some program correctly, or a baseline left in
+  /// for one ran it wrong.
   double? geometric(String flavor, double? Function(Program) ratio) {
     if (measured.any((p) => runUs(p.name, flavor) == null)) return null;
+    if (measured.any((p) => wrongRuns(p, baselines).isNotEmpty)) return null;
     final ratios = measured.map(ratio).whereType<double>().toList();
     return ratios.isEmpty ? null : geometricMean(ratios);
   }
