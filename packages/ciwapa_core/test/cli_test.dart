@@ -5,11 +5,13 @@ import 'dart:typed_data';
 import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:test/test.dart';
 
-/// A backend whose toolchain either fails or writes a placeholder executable.
+/// A backend whose toolchain either fails or writes a placeholder executable, and that can run
+/// out of memory generating code.
 class FakeBackend implements Backend {
-  FakeBackend({this.toolchainError});
+  FakeBackend({this.toolchainError, this.outOfMemory = false});
 
   final String? toolchainError;
+  final bool outOfMemory;
 
   @override
   String get name => 'ciwapa-fake';
@@ -18,9 +20,10 @@ class FakeBackend implements Backend {
   String get extension => 'txt';
 
   @override
-  Map<String, String> emit(IrProgram program, EmitOptions options) => {
-    'main.txt': program.dump(),
-  };
+  Map<String, String> emit(IrProgram program, EmitOptions options) {
+    if (outOfMemory) throw OutOfMemoryError();
+    return {'main.txt': program.dump()};
+  }
 
   @override
   Future<void> compile(
@@ -110,6 +113,18 @@ void main() {
     ], FakeBackend(toolchainError: 'clang: kaboom'));
     expect(status, 778 % 256);
     expect(err, 'clang: kaboom\n${IclError.of(778).format(1)}');
+  });
+
+  test('running out of memory generating code is E666 (L12)', () async {
+    final (status, err) = await cli([
+      'build',
+      source('DO GIVE UP'),
+      '-o',
+      '${temp.path}/prog',
+    ], FakeBackend(outOfMemory: true));
+    expect(status, 666 % 256);
+    expect(err, IclError.of(666).format(1));
+    expect(File('${temp.path}/prog').existsSync(), isFalse);
   });
 
   test('temp directories are removed even when the build fails', () async {
