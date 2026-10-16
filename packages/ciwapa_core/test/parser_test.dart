@@ -94,7 +94,12 @@ void main() {
       final s = one('DO .1 <- #165¢#203~#358');
       expect(s.body, isA<Calculate>());
       expect(s.ungroupedChain, isTrue);
-      expect(one("DO .1 <- '#1¢#2~#3'").ungroupedChain, isTrue);
+    });
+
+    test('a chain inside a group makes the statement undecodable (L4)', () {
+      expect(one("DO .1 <- '#1¢#2~#3'").body, isA<Undecodable>());
+      expect(one("DO .1 <- '#1¢#2~#3'¢#4").body, isA<Undecodable>());
+      expect(one("DO .1 <- '#1¢#2'~#3").ungroupedChain, isFalse);
     });
 
     test('a unary operator after an opening grouper applies to the group', () {
