@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:test/test.dart';
 
@@ -239,5 +241,47 @@ void main() {
       final ir = build('DO :1 <- "#256\$#0"\$#0\nPLEASE GIVE UP');
       expect((ir.at(1).op as IrAssign).value, isA<IrMingle>());
     });
+  });
+
+  test('selectRuns and compressSteps give the same bits as selecting one bit at a time (§3.4.1)', () {
+    int select(int value, int mask) {
+      var result = 0, out = 0;
+      for (var bit = 0; bit < 32; bit++) {
+        if ((mask >> bit) & 1 == 1) result |= ((value >> bit) & 1) << out++;
+      }
+      return result;
+    }
+
+    final random = Random(1972);
+    final masks = [
+      0,
+      1,
+      0xFFFF,
+      0xFFFFFFFF,
+      0xAAAAAAAA,
+      0x55555555,
+      0x80000001,
+    ];
+    for (var i = 0; i < 2000; i++) {
+      final mask = i < masks.length ? masks[i] : random.nextInt(1 << 32);
+      final value = random.nextInt(1 << 32);
+      var result = 0;
+      for (final run in selectRuns(mask)) {
+        result |= ((value >> run.from) & ((1 << run.width) - 1)) << run.to;
+      }
+      expect(result, select(value, mask), reason: 'mask $mask, value $value');
+      var compressed = value & mask;
+      final steps = compressSteps(mask);
+      expect(steps.length, lessThanOrEqualTo(5));
+      for (final step in steps) {
+        final moving = compressed & step.moving;
+        compressed = (compressed ^ moving) | moving >> step.shift;
+      }
+      expect(
+        compressed,
+        select(value, mask),
+        reason: 'mask $mask, value $value',
+      );
+    }
   });
 }

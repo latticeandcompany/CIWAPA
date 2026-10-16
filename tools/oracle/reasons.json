@@ -1,5 +1,7 @@
 {
   "packages_conformance_tests_calculate_e017-ungrouped-chain.i|ick035": "Q97",
+  "packages_conformance_tests_syntax_chain-in-group-undecodable.i|ick035": "Q97",
+  "packages_conformance_tests_errors_order-label-first.i": "L3",
   "packages_conformance_tests_calculate_e241-size-overflow-to-zero.i": "T26",
   "packages_conformance_tests_calculate_e241-size-overflow.i": "T26",
   "packages_conformance_tests_calculate_golden-lsb.i": "T2",
@@ -12,6 +14,8 @@
   "packages_conformance_tests_io_e579-latin.i": "T29",
   "packages_conformance_tests_io_write-in-languages.i": "T29",
   "packages_conformance_tests_io_write-in-no-final-newline.i": "T28",
+  "packages_conformance_tests_io_write-in-crlf-only-before-newline.i": "T28",
+  "packages_conformance_tests_io_write-in-crlf.i|ick015": "L6",
   "packages_conformance_tests_next_e123-depth-80.i": "T16",
   "packages_conformance_tests_next_resume-32-bit.i": "T17",
   "packages_conformance_tests_syntax_nested-subscript-takes-rest.i": "T2",

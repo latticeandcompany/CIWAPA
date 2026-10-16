@@ -11,7 +11,7 @@ runs="${1:-5}"
 out=.cache/bench
 rm -rf "$out"
 mkdir -p "$out"
-[[ -d pit ]] || tools/oracle/fetch-pit
+tools/bench/with-ick-syslib
 
 # Each flavor is laid out like its Linux release archive: ciwapa-llvm with the bundled clang + lld
 # + musl toolchain (built once, then kept in .cache/bench-toolchain) and its precompiled runtime.
@@ -61,9 +61,9 @@ for impl in intercal64 clc; do
     echo "no ciwapa-bench-$impl image: run tools/bench/build-images" >&2
     exit 1
   fi
-  # CLC-INTERCAL is an interpreter written in Perl, and slow enough that one run has to do.
-  impl_runs="$runs"
-  [[ "$impl" == clc ]] && impl_runs=1
+  # Both run programs hundreds of times slower than the guardrails need to tell apart, so one run
+  # each has to do.
+  impl_runs=1
   echo "measuring $impl ($image)" >&2
   docker run --rm -v "$repo_root:/work" -w /work "$image" \
     tools/bench/measure "$impl" "$impl_runs" bench-build >>"$out/runs.jsonl"

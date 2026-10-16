@@ -41,8 +41,10 @@ grep -v '^#' tools/bench/programs.txt | while IFS='|' read -r name src input imp
       ((t < build_ms)) && build_ms="$t"
     done
     if [[ "$build_ms" == failed ]]; then
-      printf '{"impl":"%s","program":"%s","error":"build failed: %s"}\n' "$impl" "$name" \
-        "$(head -c 200 "$work/build.log" | tr -d '"\\' | tr '\n\t' '  ')"
+      # The programs with C-INTERCAL's syslib.i appended could quote it in their log (L10).
+      excerpt="$(head -c 200 "$work/build.log" | tr -d '"\\' | tr '\n\t' '  ')"
+      [[ "$src" == .cache/bench/programs/* ]] && excerpt="(log withheld: syslib.i is appended)"
+      printf '{"impl":"%s","program":"%s","error":"build failed: %s"}\n' "$impl" "$name" "$excerpt"
       continue
     fi
     if [[ -n "${BENCH_KEEP:-}" ]]; then

@@ -27,16 +27,23 @@ class _Array {
   bool ignored = false;
 }
 
+/// One scalar's stash, a stack that doubles when it fills.
+class _ScalarStash {
+  var values = Uint32List(4);
+  var length = 0;
+}
+
 late Map<int, IckMessage> _messages;
 late Uint32List _values;
 late Uint8List _ignored;
-late List<List<int>> _scalarStashes;
+late List<_ScalarStash> _scalarStashes;
 late List<List<_Shape>> _arrayStashes;
 late int _smallMax;
 late int _base;
 late int _digits;
 late int _largeMax;
 late bool _clockface;
+var _magic = 1, _magicShift = 1;
 late List<_Array> _arrays;
 int _rngState = 0;
 var _wimpMode = false;
@@ -59,10 +66,21 @@ void ickInit(
   _messages = messages;
   _values = values;
   _ignored = ignored;
-  _scalarStashes = List.generate(values.length, (_) => <int>[]);
+  _scalarStashes = List.generate(values.length, (_) => _ScalarStash());
   _arrayStashes = List.generate(arrayCount, (_) => <_Shape>[]);
   _base = base;
   _digits = _smallDigits[base];
+  final (magic, shift) = switch (base) {
+    3 => (0xAAAAAAAB, 33),
+    4 => (1, 2),
+    5 => (0xCCCCCCCD, 34),
+    6 => (0xAAAAAAAB, 34),
+    7 => (0x24924925, 32),
+    _ => (1, 1),
+  };
+  _magic = magic;
+  _magicShift = shift;
+  _digitTables = base == 2 ? Uint8List(0) : _buildDigitTables(base);
   var max = 1;
   for (var i = 0; i < _smallDigits[base]; i++) {
     max *= base;
@@ -146,11 +164,13 @@ final _nextStack = Int64List(_nextDepth);
 var _nextCount = 0;
 
 /// [target] is the NEXT's target ordinal: the statement that would have run next.
+@pragma('vm:prefer-inline')
 void ickNextPush(int id, int target) {
   if (_nextCount == _nextDepth) ickFatal(123, target);
   _nextStack[_nextCount++] = id;
 }
 
+@pragma('vm:prefer-inline')
 void ickForget(int count) {
   _nextCount = count >= _nextCount ? 0 : _nextCount - count;
 }
@@ -223,53 +243,96 @@ int ickMingle(int left, int right, int next) {
     // The left operand supplies the high digit of each pair (§6.5.1).
     var place = 1;
     for (var i = 0; i < _digits; i++) {
-      result += place * (right % _base);
-      right ~/= _base;
+      final r = _quotient(right), l = _quotient(left);
+      result += place * (right - r * _base);
+      right = r;
       place *= _base;
-      result += place * (left % _base);
-      left ~/= _base;
+      result += place * (left - l * _base);
+      left = l;
       place *= _base;
     }
     return result;
   }
-  for (var i = 15; i >= 0; i--) {
-    result = (result << 2) | (((left >> i) & 1) << 1) | ((right >> i) & 1);
-  }
-  return result;
+  return ickMingleSmall(left, right);
 }
 
-final _valueDigits = Uint8List(32), _maskDigits = Uint8List(32);
+/// A binary mingle of operands known to fit in 16 bits: each one's bits spread to every other
+/// position, the left operand's on the high side of each pair.
+int ickMingleSmall(int left, int right) => _spread(left) << 1 | _spread(right);
+
+int _spread(int x) {
+  x = (x | x << 8) & 0x00FF00FF;
+  x = (x | x << 4) & 0x0F0F0F0F;
+  x = (x | x << 2) & 0x33333333;
+  return (x | x << 1) & 0x55555555;
+}
+
+/// `x ~/ _base`, multiplying by a rounded reciprocal of the base, which is exact for every value
+/// a variable can hold in it.
+int _quotient(int x) => (x * _magic) >>> _magicShift;
+
+final _selectSums = Int64List(8), _selectPlaces = Int64List(8);
+
+/// A value digit ANDed with its selector digit, indexed by `selector << 3 | digit`.
+final _selectedDigit = Uint8List.fromList([
+  for (var selector = 0; selector < 8; selector++)
+    for (var digit = 0; digit < 8; digit++)
+      selector == 0 || digit == 0 ? 0 : (digit > selector ? digit : selector),
+]);
 
 /// §6.5.2.2: AND each digit with its selector digit (0 if either is 0, otherwise the larger), then
-/// pack the digits under selector b-1 at the low end, then those under b-2, down to 1.
+/// pack the digits under selector b-1 at the low end, then those under b-2, down to 1. One pass
+/// gathers every selector's digits; the groups are stacked at the end. Selector 0's group is
+/// gathered too, without branching, and then left out.
 int _selectDigits(int value, int mask) {
-  final count = 2 * _digits;
-  for (var i = 0; i < count; i++) {
-    _valueDigits[i] = value % _base;
-    value ~/= _base;
-    _maskDigits[i] = mask % _base;
-    mask ~/= _base;
+  final base = _base, sums = _selectSums, places = _selectPlaces;
+  final selected = _selectedDigit;
+  for (var selector = 0; selector < base; selector++) {
+    sums[selector] = 0;
+    places[selector] = 1;
   }
-  var result = 0, out = 1;
-  for (var selector = _base - 1; selector > 0; selector--) {
-    for (var i = 0; i < count; i++) {
-      if (_maskDigits[i] == selector) {
-        final digit = _valueDigits[i];
-        if (digit != 0) result += out * (digit > selector ? digit : selector);
-        out *= _base;
-      }
-    }
+  while (mask != 0) {
+    final m = _quotient(mask), v = _quotient(value);
+    final selector = mask - m * base, digit = value - v * base;
+    sums[selector] += places[selector] * selected[selector << 3 | digit];
+    places[selector] *= base;
+    mask = m;
+    value = v;
+  }
+  var result = 0, place = 1;
+  for (var selector = base - 1; selector > 0; selector--) {
+    result += sums[selector] * place;
+    place *= places[selector];
   }
   return result;
 }
+
+/// Selects within each 4-bit group of the mask, indexed by the group's mask and value bits: the
+/// selected bits, with how many there are above them.
+final _nibbleSelect = () {
+  final table = Uint8List(256);
+  for (var mask = 0; mask < 16; mask++) {
+    for (var value = 0; value < 16; value++) {
+      var result = 0, bits = 0;
+      for (var i = 0; i < 4; i++) {
+        if (mask >> i & 1 == 0) continue;
+        result |= (value >> i & 1) << bits++;
+      }
+      table[mask << 4 | value] = bits << 4 | result;
+    }
+  }
+  return table;
+}();
 
 @pragma('vm:never-inline')
 int ickSelect(int value, int mask) {
   if (_base != 2) return _selectDigits(value, mask);
-  var result = 0, bit = 1;
-  for (; mask != 0; mask &= mask - 1) {
-    if (value & mask & -mask != 0) result |= bit;
-    bit <<= 1;
+  final table = _nibbleSelect;
+  var result = 0, shift = 0;
+  for (; mask != 0; mask >>= 4, value >>= 4) {
+    final selected = table[(mask & 15) << 4 | value & 15];
+    result |= (selected & 15) << shift;
+    shift += selected >> 4;
   }
   return result;
 }
@@ -283,37 +346,52 @@ int _rotate32(int x) => ((x >> 1) | (x << 31)) & 0xFFFFFFFF;
 // next one up, the top digit wrapping around to the bottom, as rotating right and combining does in
 // binary. The logical operators all prefer one digit p: AND prefers 0, OR prefers b-1, BUT prefers
 // 1 and N@ prefers N. ? subtracts without borrow and ^ adds without carry.
-enum _Digitwise { logical, minus, plus }
+// Each table gives the combined digit at `here << 3 | below`: tables 0 to b-1 are the logical
+// operators preferring that digit, table b is ? and table b+1 is ^.
+late Uint8List _digitTables;
 
-int _digitwise(_Digitwise kind, bool large, int p, int n) {
+Uint8List _buildDigitTables(int base) {
+  final tables = Uint8List((base + 2) * 64);
+  for (var here = 0; here < base; here++) {
+    for (var below = 0; below < base; below++) {
+      final at = here << 3 | below;
+      for (var p = 0; p < base; p++) {
+        tables[p * 64 + at] = here <= p
+            ? (below < here || below > p ? here : below)
+            : (below < here && below > p ? here : below);
+      }
+      tables[base * 64 + at] = (base + here - below) % base;
+      tables[(base + 1) * 64 + at] = (here + below) % base;
+    }
+  }
+  return tables;
+}
+
+int _digitwise(int table, bool large, int n) {
+  final tables = _digitTables, offset = table * 64, base = _base;
   final length = large ? 2 * _digits : _digits;
   var result = 0, place = 1;
-  final low = n % _base;
+  var rest = _quotient(n);
+  final low = n - rest * base;
   var here = low;
   for (var i = 1; i <= length; i++) {
     final below = here;
     if (i < length) {
-      n ~/= _base;
-      here = n % _base;
+      final q = _quotient(rest);
+      here = rest - q * base;
+      rest = q;
     } else {
       here = low;
     }
-    final digit = switch (kind) {
-      _Digitwise.minus => (_base + here - below) % _base,
-      _Digitwise.plus => (here + below) % _base,
-      _ when here <= p => (below < here || below > p) ? here : below,
-      _ => (below < here && below > p) ? here : below,
-    };
-    result += place * digit;
-    place *= _base;
+    result += place * tables[offset + (here << 3 | below)];
+    place *= base;
   }
   return result;
 }
 
-int ickLogical(bool large, int p, int n) =>
-    _digitwise(_Digitwise.logical, large, p, n);
-int ickMinus(bool large, int n) => _digitwise(_Digitwise.minus, large, 0, n);
-int ickPlus(bool large, int n) => _digitwise(_Digitwise.plus, large, 0, n);
+int ickLogical(bool large, int p, int n) => _digitwise(p, large, n);
+int ickMinus(bool large, int n) => _digitwise(_base, large, n);
+int ickPlus(bool large, int n) => _digitwise(_base + 1, large, n);
 
 int ickAnd16(int x) => x & _rotate16(x);
 int ickOr16(int x) => x | _rotate16(x);
@@ -418,14 +496,25 @@ void _push<T>(List<T> stash, T Function() copy, int next) {
 }
 
 @pragma('vm:never-inline')
-void ickStashScalar(int slot, int next) =>
-    _push(_scalarStashes[slot], () => _values[slot], next);
+void ickStashScalar(int slot, int next) {
+  if (_stashed == _stashLimit) ickFatal(222, next);
+  final stash = _scalarStashes[slot];
+  if (stash.length == stash.values.length) {
+    try {
+      stash.values = Uint32List(2 * stash.length)..setAll(0, stash.values);
+    } on OutOfMemoryError {
+      ickFatal(222, next);
+    }
+  }
+  stash.values[stash.length++] = _values[slot];
+  _stashed++;
+}
 
 @pragma('vm:never-inline')
 void ickRetrieveScalar(int slot, int next) {
   final stash = _scalarStashes[slot];
-  if (stash.isEmpty) ickFatal(436, next);
-  final value = stash.removeLast();
+  if (stash.length == 0) ickFatal(436, next);
+  final value = stash.values[--stash.length];
   _stashed--;
   if (_ignored[slot] == 0) _values[slot] = value;
 }

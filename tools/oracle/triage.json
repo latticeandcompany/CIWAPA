@@ -1,5 +1,5 @@
 {
- "programs": 427,
+ "programs": 436,
  "oracles": {
   "ick035": "C-INTERCAL 0.35",
   "ick015": "C-INTERCAL 0.15"
@@ -1752,6 +1752,42 @@
    "reason": "Q80/Q81"
   },
   {
+   "program": "packages_conformance_tests_come-from_fault-percent-on-come-from.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_come-from_fault-percent-on-come-from.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_come-from_fault-percent-on-come-from.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_come-from_fault-percent-on-come-from.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
    "program": "packages_conformance_tests_come-from_jump.i",
    "oracle": "ick035",
    "flavor": "llvm",
@@ -2202,6 +2238,114 @@
    "reason": "T27"
   },
   {
+   "program": "packages_conformance_tests_errors_order-label-before-e000.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL197",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-before-e000.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL197",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-before-e000.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL197",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-before-e000.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL197",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-first.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "L3"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-first.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "L3"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-first.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "L3"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-label-first.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "197:ICL197",
+   "status": "divergence",
+   "reason": "L3"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-percent-before-e000.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-percent-before-e000.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-percent-before-e000.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
+   "program": "packages_conformance_tests_errors_order-percent-before-e000.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "compile:ICL017",
+   "ciwapa_exit": "17:ICL017",
+   "status": "divergence",
+   "reason": "Q80/Q81"
+  },
+  {
    "program": "packages_conformance_tests_golden_cat-5.3-polite.i",
    "oracle": "ick015",
    "flavor": "llvm",
@@ -2344,6 +2488,60 @@
    "ciwapa_exit": "67:ICL579",
    "status": "divergence",
    "reason": "T29"
+  },
+  {
+   "program": "packages_conformance_tests_io_write-in-crlf-only-before-newline.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "0",
+   "ciwapa_exit": "67:ICL579",
+   "status": "divergence",
+   "reason": "T28"
+  },
+  {
+   "program": "packages_conformance_tests_io_write-in-crlf-only-before-newline.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "0",
+   "ciwapa_exit": "67:ICL579",
+   "status": "divergence",
+   "reason": "T28"
+  },
+  {
+   "program": "packages_conformance_tests_io_write-in-crlf-only-before-newline.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "0",
+   "ciwapa_exit": "67:ICL579",
+   "status": "divergence",
+   "reason": "T28"
+  },
+  {
+   "program": "packages_conformance_tests_io_write-in-crlf-only-before-newline.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "0",
+   "ciwapa_exit": "67:ICL579",
+   "status": "divergence",
+   "reason": "T28"
+  },
+  {
+   "program": "packages_conformance_tests_io_write-in-crlf.i",
+   "oracle": "ick015",
+   "flavor": "llvm",
+   "ick_exit": "67:ICL579",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "L6"
+  },
+  {
+   "program": "packages_conformance_tests_io_write-in-crlf.i",
+   "oracle": "ick015",
+   "flavor": "dart",
+   "ick_exit": "67:ICL579",
+   "ciwapa_exit": "0",
+   "status": "divergence",
+   "reason": "L6"
   },
   {
    "program": "packages_conformance_tests_io_write-in-languages.i",
@@ -2992,6 +3190,24 @@
    "ciwapa_exit": "0:ICL000",
    "status": "divergence",
    "reason": "T9"
+  },
+  {
+   "program": "packages_conformance_tests_syntax_chain-in-group-undecodable.i",
+   "oracle": "ick035",
+   "flavor": "llvm",
+   "ick_exit": "0",
+   "ciwapa_exit": "0:ICL000",
+   "status": "divergence",
+   "reason": "Q97"
+  },
+  {
+   "program": "packages_conformance_tests_syntax_chain-in-group-undecodable.i",
+   "oracle": "ick035",
+   "flavor": "dart",
+   "ick_exit": "0",
+   "ciwapa_exit": "0:ICL000",
+   "status": "divergence",
+   "reason": "Q97"
   },
   {
    "program": "packages_conformance_tests_syntax_crlf-source.i",
@@ -6560,7 +6776,7 @@
   {
    "program": "pit_tests_iogerunds.i",
    "oracle": "ick035",
-   "flavor": "llvm",
+   "flavor": "dart",
    "ick_exit": "50:ICL562",
    "ciwapa_exit": "50:ICL562",
    "status": "divergence",

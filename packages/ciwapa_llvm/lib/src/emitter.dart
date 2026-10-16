@@ -33,11 +33,8 @@ declare void @ick_init(i32, ptr, ptr)
 declare void @ick_fatal(i32, i32) noreturn
 declare void @ick_undecodable(ptr, i32, i32) noreturn
 declare void @ick_give_up() noreturn
-declare void @ick_next_push(i32, i32)
 declare i32 @ick_next_free()
 declare i64 @ick_syslib(i32, i32, i32)
-declare void @ick_forget(i32)
-declare i32 @ick_resume(i32, i32)
 declare i32 @ick_roll(i32)
 declare void @ick_stash_scalar(i32, i32)
 declare void @ick_retrieve_scalar(i32, i32)
@@ -48,13 +45,6 @@ declare i32 @ick_select(i32, i32)
 declare i32 @ick_logical(i32, i32, i32)
 declare i32 @ick_minus(i32, i32)
 declare i32 @ick_plus(i32, i32)
-declare i32 @ick_and16(i32)
-declare i32 @ick_or16(i32)
-declare i32 @ick_xor16(i32)
-declare i32 @ick_and32(i32)
-declare i32 @ick_or32(i32)
-declare i32 @ick_xor32(i32)
-declare i32 @ick_check_small(i32, i32)
 declare i32 @ick_write_in(i32)
 declare void @ick_read_out(i32)
 declare void @ick_turing_in(i32, i32)
@@ -63,6 +53,91 @@ declare void @ick_dimension(i32, i32, ptr, i32)
 declare ptr @ick_element(i32, i32, ptr, i32)
 declare i32 @ick_array_ignored(i32)
 declare void @ick_array_set_ignored(i32, i32)
+declare i32 @llvm.cttz.i32(i32, i1)
+
+@ick_next_stack = external dso_local global [79 x i32]
+@ick_next_depth = external dso_local global i32
+
+define internal void @next_push(i32 %id, i32 %target) alwaysinline {
+entry:
+  %depth = load i32, ptr @ick_next_depth
+  %full = icmp eq i32 %depth, 79
+  br i1 %full, label %overflow, label %push
+overflow:
+  call void @ick_fatal(i32 123, i32 %target)
+  unreachable
+push:
+  %slot = getelementptr [79 x i32], ptr @ick_next_stack, i32 0, i32 %depth
+  store i32 %id, ptr %slot
+  %grown = add i32 %depth, 1
+  store i32 %grown, ptr @ick_next_depth
+  ret void
+}
+
+define internal void @forget(i32 %count) alwaysinline {
+entry:
+  %depth = load i32, ptr @ick_next_depth
+  %all = icmp uge i32 %count, %depth
+  %left = sub i32 %depth, %count
+  %kept = select i1 %all, i32 0, i32 %left
+  store i32 %kept, ptr @ick_next_depth
+  ret void
+}
+
+define internal i32 @resume(i32 %count, i32 %next) alwaysinline {
+entry:
+  %none = icmp eq i32 %count, 0
+  br i1 %none, label %zero, label %some
+zero:
+  call void @ick_fatal(i32 621, i32 %next)
+  unreachable
+some:
+  %depth = load i32, ptr @ick_next_depth
+  %over = icmp ugt i32 %count, %depth
+  br i1 %over, label %underflow, label %pop
+underflow:
+  call void @ick_fatal(i32 632, i32 %next)
+  unreachable
+pop:
+  %left = sub i32 %depth, %count
+  store i32 %left, ptr @ick_next_depth
+  %slot = getelementptr [79 x i32], ptr @ick_next_stack, i32 0, i32 %left
+  %id = load i32, ptr %slot
+  ret i32 %id
+}
+
+define internal i32 @select2(i32 %value, i32 %mask) {
+entry:
+  %negated = sub i32 0, %mask
+  %low = and i32 %mask, %negated
+  %end = add i32 %mask, %low
+  %gaps = and i32 %end, %mask
+  %contiguous = icmp eq i32 %gaps, 0
+  br i1 %contiguous, label %run, label %loop
+run:
+  %kept = and i32 %value, %mask
+  %padded = or i32 %mask, -2147483648
+  %shift = call i32 @llvm.cttz.i32(i32 %padded, i1 true)
+  %shifted = lshr i32 %kept, %shift
+  ret i32 %shifted
+loop:
+  %rest = phi i32 [ %mask, %entry ], [ %rest.next, %loop ]
+  %bit = phi i32 [ 1, %entry ], [ %bit.next, %loop ]
+  %result = phi i32 [ 0, %entry ], [ %result.next, %loop ]
+  %rest.negated = sub i32 0, %rest
+  %lowest = and i32 %rest, %rest.negated
+  %hit = and i32 %value, %lowest
+  %set = icmp ne i32 %hit, 0
+  %with = or i32 %result, %bit
+  %result.next = select i1 %set, i32 %with, i32 %result
+  %bit.next = shl i32 %bit, 1
+  %rest.less = sub i32 %rest, 1
+  %rest.next = and i32 %rest, %rest.less
+  %more = icmp ne i32 %rest.next, 0
+  br i1 %more, label %loop, label %done
+done:
+  ret i32 %result.next
+}
 ''';
 
   String emit() {
@@ -131,6 +206,19 @@ declare void @ick_array_set_ignored(i32, i32)
       ..write(_globals)
       ..writeln()
       ..write(_declarations)
+      ..writeln()
+      ..writeln(
+        'define internal i32 @check_small(i32 %value, i32 %next) alwaysinline {',
+      )
+      ..writeln('entry:')
+      ..writeln('  %big = icmp ugt i32 %value, ${program.smallLimit}')
+      ..writeln('  br i1 %big, label %overflow, label %fits')
+      ..writeln('overflow:')
+      ..writeln('  call void @ick_fatal(i32 275, i32 %next)')
+      ..writeln('  unreachable')
+      ..writeln('fits:')
+      ..writeln('  ret i32 %value')
+      ..writeln('}')
       ..writeln()
       ..writeln('define i32 @main(i32 %argc, ptr %argv) {')
       ..writeln('entry:')
@@ -256,16 +344,14 @@ declare void @ick_array_set_ignored(i32, i32)
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
-        _line('call void @ick_next_push(i32 ${s.ordinal}, i32 $target)');
+        _line('call void @next_push(i32 ${s.ordinal}, i32 $target)');
         _line('br label %s$target');
         _block(_newBlock('dead'));
       case IrForget(:final count):
-        _line('call void @ick_forget(i32 ${_expr(count, next)})');
+        _line('call void @forget(i32 ${_expr(count, next)})');
       case IrResume(:final count):
         final id = _fresh();
-        _line(
-          '$id = call i32 @ick_resume(i32 ${_expr(count, next)}, i32 $next)',
-        );
+        _line('$id = call i32 @resume(i32 ${_expr(count, next)}, i32 $next)');
         // An executed RESUME still springs a COME FROM aimed at it; only an executed NEXT waits
         // for its RESUME (§4.4.14.2).
         final dispatch = _newBlock('return');
@@ -369,7 +455,7 @@ declare void @ick_array_set_ignored(i32, i32)
       if (target.large || !value.large) return v;
       if (value is IrConst && value.value <= program.smallLimit) return v;
       final c = _fresh();
-      _line('$c = call i32 @ick_check_small(i32 $v, i32 $next)');
+      _line('$c = call i32 @check_small(i32 $v, i32 $next)');
       return c;
     }
 
@@ -459,6 +545,29 @@ declare void @ick_array_set_ignored(i32, i32)
     _block(fallback);
   }
 
+  String _op(String op, String a, String b) {
+    final t = _fresh();
+    _line('$t = $op i32 $a, $b');
+    return t;
+  }
+
+  /// Whether [e] can't be above 65535: a small value, or a constant that fits.
+  static bool _fitsSmall(IrExpr e) =>
+      !e.large || (e is IrConst && e.value <= 65535);
+
+  /// Spreads the 16 bits of [v] to the even bit positions, for mingle (§3.4.1).
+  String _spread(String v) {
+    for (final (shift, mask) in const [
+      (8, 0x00FF00FF),
+      (4, 0x0F0F0F0F),
+      (2, 0x33333333),
+      (1, 0x55555555),
+    ]) {
+      v = _op('and', _op('or', v, _op('shl', v, '$shift')), '$mask');
+    }
+    return v;
+  }
+
   String _scalarPointer(Slot slot) {
     final p = _fresh();
     _line(
@@ -495,23 +604,71 @@ declare void @ick_array_set_ignored(i32, i32)
         final p = _elementPointer(array, subscripts, next), t = _fresh();
         _line('$t = load i32, ptr $p');
         return t;
+      case IrMingle(:final left, :final right) when program.base == 2:
+        final l = _expr(left, next), r = _expr(right, next);
+        for (final (operand, value) in [(left, l), (right, r)]) {
+          if (_fitsSmall(operand)) continue;
+          final tooBig = _fresh(), fine = _newBlock('mingle');
+          final fault = _newBlock('e533');
+          _line('$tooBig = icmp ugt i32 $value, 65535');
+          _line('br i1 $tooBig, label %$fault, label %$fine');
+          _block(fault);
+          _line('call void @ick_fatal(i32 533, i32 $next)');
+          _line('unreachable');
+          _block(fine);
+        }
+        return _op('or', _op('shl', _spread(l), '1'), _spread(r));
       case IrMingle(:final left, :final right):
         final l = _expr(left, next), r = _expr(right, next);
         return _call('ick_mingle', [l, r, '$next']);
+      case IrSelect(:final left, right: IrConst(value: final mask))
+          when program.base == 2 &&
+              compressSteps(mask).length < selectRuns(mask).length:
+        var x = _op('and', _expr(left, next), '$mask');
+        for (final step in compressSteps(mask)) {
+          final moving = _op('and', x, '${step.moving}');
+          x = _op(
+            'or',
+            _op('xor', x, moving),
+            _op('lshr', moving, '${step.shift}'),
+          );
+        }
+        return x;
+      case IrSelect(:final left, right: IrConst(value: final mask))
+          when program.base == 2:
+        final l = _expr(left, next);
+        var result = '0';
+        for (final run in selectRuns(mask)) {
+          var part = run.from == 0 ? l : _op('lshr', l, '${run.from}');
+          if (run.from + run.width < 32) {
+            part = _op('and', part, '${(1 << run.width) - 1}');
+          }
+          if (run.to > 0) part = _op('shl', part, '${run.to}');
+          result = result == '0' ? part : _op('or', result, part);
+        }
+        return result;
       case IrSelect(:final left, :final right):
         final l = _expr(left, next), r = _expr(right, next);
-        return _call('ick_select', [l, r]);
+        return _call(program.base == 2 ? 'select2' : 'ick_select', [l, r]);
       case IrUnary(:final op, :final operand):
         final value = _expr(operand, next);
         final large = operand.large ? 1 : 0;
         if (program.base == 2) {
+          // Each bit with its neighbor, the last wrapping around to the first (§3.4.2).
           final name = switch (op) {
             UnaryOp.and => 'and',
             UnaryOp.or => 'or',
             UnaryOp.xor => 'xor',
             _ => throw StateError('$op in binary is E997 at compile time'),
           };
-          return _call('ick_$name${operand.large ? 32 : 16}', [value]);
+          final width = operand.large ? 32 : 16;
+          var rotated = _op(
+            'or',
+            _op('lshr', value, '1'),
+            _op('shl', value, '${width - 1}'),
+          );
+          if (width == 16) rotated = _op('and', rotated, '65535');
+          return _op(name, value, rotated);
         }
         return switch (op) {
           UnaryOp.xor => _call('ick_minus', ['$large', value]),

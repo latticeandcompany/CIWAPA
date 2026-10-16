@@ -10,13 +10,15 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 ///
 /// The statements are split into chunk functions of [chunkSize], because the Dart AOT compiler
 /// fails on a single function with tens of thousands of cases. Each chunk loops on its own and
-/// returns pc to `_run` once control leaves it.
+/// returns pc to `_run` once control leaves it. A jump within a chunk is a `continue` to the
+/// target's labeled case, which skips the dispatch.
 class DartEmitter {
   DartEmitter(this.program, this.options);
 
   final IrProgram program;
   final EmitOptions options;
   var _out = StringBuffer();
+  var _chunk = 0;
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
@@ -58,6 +60,16 @@ class DartEmitter {
 
   static const fellOff = 1;
   static const chunkSize = 1024;
+
+  String _jump(int pc) {
+    final starts = _numbers.$3;
+    final inChunk =
+        pc >= starts[_chunk] &&
+        (_chunk + 1 == starts.length || pc < starts[_chunk + 1]);
+    return inChunk ? 'continue c$pc;' : 'pc = $pc; break;';
+  }
+
+  String _case(int pc) => 'c$pc: case $pc:';
 
   String emit() {
     _out
@@ -115,8 +127,12 @@ class DartEmitter {
       ..writeln('  }')
       ..writeln('}');
     for (var c = 0; c < chunks; c++) {
+      _chunk = c;
       _out
         ..writeln()
+        // Every index in a chunk is a constant inside its array, or an element offset that
+        // ickElement already checked.
+        ..writeln("@pragma('vm:unsafe:no-bounds-checks')")
         ..writeln('int _chunk$c(int pc) {')
         // Locals, because every access to a lazily initialized top-level checks it first.
         ..writeln(
@@ -128,7 +144,7 @@ class DartEmitter {
         if (!_emitted(s.ordinal)) continue;
         _out.writeln(
           _entries.contains(s.ordinal)
-              ? '      case ${entry(s.ordinal)}: // statement ${s.ordinal}'
+              ? '      ${_case(entry(s.ordinal))} // statement ${s.ordinal}'
               : '        // statement ${s.ordinal}',
         );
         _statement(s);
@@ -139,6 +155,44 @@ class DartEmitter {
         ..writeln('    }')
         ..writeln('  }')
         ..writeln('}');
+    }
+    for (final MapEntry(key: mask, value: name) in _selectFunctions.entries) {
+      final steps = compressSteps(mask);
+      if (steps.length < selectRuns(mask).length) {
+        _out
+          ..writeln()
+          ..writeln('int $name(int x) {')
+          ..writeln('  x &= $mask;');
+        for (final step in steps) {
+          _out
+            ..writeln('  final moving${step.shift} = x & ${step.moving};')
+            ..writeln(
+              '  x = x ^ moving${step.shift} | moving${step.shift} >> ${step.shift};',
+            );
+        }
+        _out
+          ..writeln('  return x;')
+          ..writeln('}');
+        continue;
+      }
+      final parts = [
+        for (final run in selectRuns(mask))
+          '((x >> ${run.from}) & ${(1 << run.width) - 1}) << ${run.to}',
+      ];
+      _out
+        ..writeln()
+        ..writeln(
+          'int $name(int x) => ${parts.isEmpty ? '0' : parts.join(' | ')};',
+        );
+    }
+    if (_sharedGuard) {
+      _out
+        ..writeln()
+        ..writeln("@pragma('vm:never-inline')")
+        ..writeln('bool _unabstained(int ordinal, int gerund) =>')
+        ..writeln(
+          '    (_abT[ordinal] >= _gerT[gerund] ? _ab[ordinal] : _ger[gerund]) == 0;',
+        );
     }
     _out
       ..writeln()
@@ -172,12 +226,27 @@ class DartEmitter {
       if (s.op case IrAbstain(:final gerunds)) ...gerunds,
   };
 
+  /// Whether the gerund guards call one shared function instead of comparing stamps inline. A
+  /// call is slower to run, but past a few dozen inline guards are a large part of what
+  /// `dart compile exe` spends on the program.
+  late final bool _sharedGuard =
+      program.statements
+          .where(
+            (s) =>
+                _emitted(s.ordinal) &&
+                s.abstainable &&
+                _gerunds.contains(s.gerund),
+          )
+          .length >
+      64;
+
   /// The condition that statement [ordinal] isn't abstained.
   String _clear(int ordinal) {
     final g = program.at(ordinal).gerund;
-    return g != null && _gerunds.contains(g)
-        ? '(abT[$ordinal] >= gerT[${g.index}] ? ab[$ordinal] : ger[${g.index}]) == 0'
-        : 'ab[$ordinal] == 0';
+    if (g == null || !_gerunds.contains(g)) return 'ab[$ordinal] == 0';
+    return _sharedGuard
+        ? '_unabstained($ordinal, ${g.index})'
+        : '(abT[$ordinal] >= gerT[${g.index}] ? ab[$ordinal] : ger[${g.index}]) == 0';
   }
 
   /// Where control goes after [s] when nothing jumps: on into the next statement, unless that
@@ -189,7 +258,7 @@ class DartEmitter {
       return 'ickFatal(633, ${program.statements.length + 1});';
     }
     if (_entries.contains(s.ordinal + 1)) {
-      return 'pc = ${entry(s.ordinal + 1)}; break;';
+      return _jump(entry(s.ordinal + 1));
     }
     return null;
   }
@@ -220,8 +289,8 @@ class DartEmitter {
     _out.write(body);
     if (block) _line('}');
     if (s.op is IrNext) {
-      _line('pc = ${after(s.ordinal)}; break;');
-      _out.writeln('      case ${after(s.ordinal)}:');
+      _line(_jump(after(s.ordinal)));
+      _out.writeln('      ${_case(after(s.ordinal))}');
     }
     _trap(s);
     if (_fallthrough(s) case final next?) _line(next);
@@ -239,7 +308,7 @@ class DartEmitter {
     ];
     // A bug planted on the COME FROM fires at its entry, ahead of its faults (decision T23).
     final jump = c.faults.isEmpty || c.bug
-        ? 'pc = ${entry(comeFrom)}; break;'
+        ? _jump(entry(comeFrom))
         : 'ickFatal(${c.faults.first.code}, ${c.next});';
     _line(guard.isEmpty ? jump : 'if (${guard.join(' && ')}) { $jump }');
   }
@@ -256,8 +325,7 @@ class DartEmitter {
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
         _line('ickNextPush(${after(s.ordinal)}, $target);');
-        _line('pc = ${entry(target)};');
-        _line('break;');
+        _line(_jump(entry(target)));
       case IrForget(:final count):
         _line('ickForget(${_expr(count, next)});');
       case IrResume(:final count):
@@ -343,8 +411,7 @@ class DartEmitter {
     if (call.flag case final flag?) {
       _line('    v[${flag.index}] = r >> 32 == 0 ? 1 : 2;');
     }
-    _line('    pc = ${after(s.ordinal)};');
-    _line('    break;');
+    _line('    ${_jump(after(s.ordinal))}');
     _line('  }');
     _line('}');
   }
@@ -406,14 +473,31 @@ class DartEmitter {
     IrScalar(:final slot) => 'v[${slot.index}]',
     IrElement(:final array, :final subscripts) =>
       'ickArrayData(${array.index})[${_element(array, subscripts, next)}]',
+    IrMingle(:final left, :final right)
+        when program.base == 2 && _fitsSmall(left) && _fitsSmall(right) =>
+      'ickMingleSmall(${_expr(left, next)}, ${_expr(right, next)})',
     IrMingle(:final left, :final right) =>
       'ickMingle(${_expr(left, next)}, ${_expr(right, next)}, $next)',
+    IrSelect(:final left, right: IrConst(value: final mask))
+        when program.base == 2 =>
+      '${_selectFunction(mask)}(${_expr(left, next)})',
     IrSelect(:final left, :final right) =>
       'ickSelect(${_expr(left, next)}, ${_expr(right, next)})',
     IrUnary(:final op, :final operand) => _unary(op, operand, next),
     IrInput() => 'ickWriteIn($next)',
     IrArrayItem() => throw StateError('a whole array is not a value'),
   };
+
+  /// Whether [e] can't be above 65535: a small value, or a constant that fits.
+  static bool _fitsSmall(IrExpr e) =>
+      !e.large || (e is IrConst && e.value <= 65535);
+
+  /// A binary select by a constant mask becomes one shift and mask per run of 1-bits, or the
+  /// compress steps when they're fewer, in a function per mask so the operand is evaluated once.
+  final _selectFunctions = <int, String>{};
+
+  String _selectFunction(int mask) =>
+      _selectFunctions.putIfAbsent(mask, () => '_select$mask');
 
   /// Binary uses rotate-and-combine bit operations; bases 3–7 use the digit-wise ones, where every
   /// logical operator is one that prefers a digit p (§6.6).

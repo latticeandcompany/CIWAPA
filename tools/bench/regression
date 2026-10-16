@@ -8,8 +8,7 @@ set -euo pipefail
 flavor="$1"
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 cd "$repo_root"
-[[ -d pit ]] || tools/oracle/fetch-pit >/dev/null
-mkdir -p .cache/bench
+tools/bench/with-ick-syslib
 CIWAPA="$repo_root/.cache/build/ciwapa-$flavor" \
   tools/bench/measure "ciwapa-$flavor" 3 "$repo_root/tools/bench/ciwapa-build" >.cache/bench/regression.jsonl
 dart --suppress-analytics run tools/bench/regression.dart .cache/bench/regression.jsonl tools/bench/results.json
