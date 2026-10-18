@@ -2362,113 +2362,121 @@ const extracalSources = {
         DO :87 <- #0
         DO (7317) NEXT
 (7317)  PLEASE FORGET #1
+        DO :1 <- :90
+        DO :2 <- #4
+        DO (4260) NEXT
+        PLEASE .5 <- :3~#2
+        DO .5 <- "?'.5$#1'"~#1
+        DO (7318) NEXT
+        DO (7319) NEXT
+(7318)  PLEASE (1990) NEXT
+        DO FORGET #1
+        DO :91 <- #8192
+        DO (7981) NEXT
+        PLEASE :1 <- :87
+        DO :2 <- #13
+        DO (1509) NEXT
+        DO :87 <- :3
+        PLEASE (7317) NEXT
+(7319)  DO FORGET #1
         DO (7983) NEXT
         DO .5 <- .99
-        DO (7318) NEXT
-        PLEASE (7319) NEXT
-(7318)  DO (1990) NEXT
+        PLEASE (7320) NEXT
+        DO (7321) NEXT
+(7320)  DO (1990) NEXT
         DO FORGET #1
-        DO :91 <- #2
-        PLEASE (7981) NEXT
+        PLEASE :91 <- #2
+        DO (7981) NEXT
         DO :1 <- :87
         DO :2 <- #1
-        DO (1509) NEXT
-        PLEASE :87 <- :3
-        DO (7317) NEXT
-(7319)  DO FORGET #1
-        DO ::83 <- ':99$#0'~'##2147483647$#1'
-        PLEASE ::1 <- ::83
+        PLEASE (1509) NEXT
+        DO :87 <- :3
+        DO (7319) NEXT
+(7321)  DO FORGET #1
+        PLEASE ::83 <- ':99$#0'~'##2147483647$#1'
+        DO ::1 <- ::83
         DO ::2 <- .96
         DO (4009) NEXT
-        DO ::83 <- ::3
-        PLEASE :1 <- :87
+        PLEASE ::83 <- ::3
+        DO :1 <- :87
         DO :2 <- :83
         DO (1510) NEXT
-        DO :1 <- :3
-        PLEASE :2 <- #1
+        PLEASE :1 <- :3
+        DO :2 <- #1
         DO (1510) NEXT
         DO :83 <- :3
-        DO .83 <- .90
-        PLEASE (7910) NEXT
+        PLEASE .83 <- .90
+        DO (7910) NEXT
         DO RESUME #1
 
 (7981)  DO :92 <- #0
-        DO :93 <- :90
-        PLEASE (7320) NEXT
-(7320)  DO FORGET #1
-        DO .5 <- ':93~:93'~#1
-        DO .5 <- "?'.5$#1'"~#1
-        PLEASE (7321) NEXT
+        PLEASE :93 <- :90
         DO (7322) NEXT
-(7321)  DO (1990) NEXT
-        DO FORGET #1
-        PLEASE :1 <- :92
+(7322)  DO FORGET #1
+        DO .5 <- ':93~:93'~#1
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (7323) NEXT
+        DO (7324) NEXT
+(7323)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO :1 <- :92
         DO :2 <- #10000
         DO (1549) NEXT
-        DO :1 <- :3
-        PLEASE :2 <- ;90 SUB :93
+        PLEASE :1 <- :3
+        DO :2 <- ;90 SUB :93
         DO (1509) NEXT
         DO :1 <- :3
-        DO :2 <- :91
-        PLEASE (1550) NEXT
+        PLEASE :2 <- :91
+        DO (1550) NEXT
         DO ;90 SUB :93 <- :3
         DO (4520) NEXT
-        DO :92 <- :3
-        PLEASE :1 <- :93
+        PLEASE :92 <- :3
+        DO :1 <- :93
         DO :2 <- #1
         DO (1510) NEXT
-        DO :93 <- :3
-        PLEASE (7320) NEXT
-(7322)  DO FORGET #1
+        PLEASE :93 <- :3
+        DO (7322) NEXT
+(7324)  DO FORGET #1
         DO .97 <- ':92~:92'~#1
-        DO .96 <- "V'.96$.97'"~#1
-        PLEASE (7982) NEXT
+        PLEASE .96 <- "V'.96$.97'"~#1
+        DO (7982) NEXT
         DO RESUME #1
 
-(7982)  DO (7323) NEXT
-(7323)  DO FORGET #1
-        PLEASE :1 <- :90
+(7982)  DO (7325) NEXT
+(7325)  PLEASE FORGET #1
+        DO :1 <- :90
         DO :2 <- #1
         DO (4260) NEXT
-        DO .5 <- :3~#2
-        PLEASE .5 <- "?'.5$#1'"~#1
-        DO (7324) NEXT
-        DO (7325) NEXT
-(7324)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO .5 <- :3~#1
+        PLEASE .5 <- :3~#2
         DO .5 <- "?'.5$#1'"~#1
         DO (7326) NEXT
-        PLEASE (7325) NEXT
-(7326)  DO (1990) NEXT
-        DO FORGET #1
-        DO :98 <- ;90 SUB :90
-        PLEASE .5 <- ':98~:98'~#1
         DO (7327) NEXT
-        DO (7325) NEXT
-(7327)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO :1 <- :90
-        DO :2 <- #1
-        DO (1510) NEXT
-        PLEASE :90 <- :3
-        DO (7323) NEXT
-(7325)  DO FORGET #1
-        DO RESUME #1
-
-(7983)  PLEASE :99 <- ;90 SUB #1
-        DO .99 <- #1
-        DO :1 <- :90
-        DO :2 <- #1
-        PLEASE (4260) NEXT
+(7326)  PLEASE (1990) NEXT
+        DO FORGET #1
         DO .5 <- :3~#1
         DO .5 <- "?'.5$#1'"~#1
-        DO (7328) NEXT
-        PLEASE (7329) NEXT
+        PLEASE (7328) NEXT
+        DO (7327) NEXT
 (7328)  DO (1990) NEXT
         DO FORGET #1
-        DO .99 <- #0
-        PLEASE :2 <- #2
+        PLEASE :98 <- ;90 SUB :90
+        DO .5 <- ':98~:98'~#1
+        DO (7329) NEXT
+        DO (7327) NEXT
+(7329)  PLEASE (1990) NEXT
+        DO FORGET #1
+        DO :1 <- :90
+        DO :2 <- #1
+        PLEASE (1510) NEXT
+        DO :90 <- :3
+        DO (7325) NEXT
+(7327)  DO FORGET #1
+        PLEASE RESUME #1
+
+(7983)  DO :99 <- ;90 SUB #1
+        DO .99 <- #1
+        DO :1 <- :90
+        PLEASE :2 <- #1
         DO (4260) NEXT
         DO .5 <- :3~#1
         DO .5 <- "?'.5$#1'"~#1
@@ -2476,209 +2484,219 @@ const extracalSources = {
         DO (7331) NEXT
 (7330)  DO (1990) NEXT
         DO FORGET #1
-        PLEASE (7329) NEXT
-(7331)  DO FORGET #1
-        DO :1 <- ;90 SUB #2
-        DO :2 <- #10000
-        PLEASE (1549) NEXT
-        DO :1 <- :3
-        DO :2 <- ;90 SUB #1
-        DO (1509) NEXT
-        PLEASE :99 <- :3
-        DO :1 <- :99
-        DO :2 <- ##65536
-        DO (4260) NEXT
-        PLEASE .99 <- :3~#2
-        DO .99 <- "?'.99$#1'"~#1
-        DO (7329) NEXT
-(7329)  DO FORGET #1
-        PLEASE RESUME #1
-
-(7985)  DO (7332) NEXT
-(7332)  DO FORGET #1
-        DO .5 <- ':85~:85'~#1
-        PLEASE .5 <- "?'.5$#1'"~#1
-        DO (7333) NEXT
-        DO (7334) NEXT
-(7333)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO :1 <- :98
-        DO :2 <- #1
-        DO (1510) NEXT
-        PLEASE :98 <- :3
-        DO :1 <- ,1 SUB :98
-        DO :2 <- #48
-        DO (1510) NEXT
-        PLEASE :1 <- :3
-        DO :2 <- :87
-        DO (1549) NEXT
-        DO :1 <- :3
-        PLEASE :2 <- ;90 SUB :86
-        DO (1509) NEXT
-        DO ;90 SUB :86 <- :3
-        DO :1 <- :87
-        PLEASE :2 <- #10
-        DO (1549) NEXT
-        DO :87 <- :3
-        DO :1 <- :87
-        PLEASE :2 <- #10000
+        PLEASE .99 <- #0
+        DO :2 <- #2
         DO (4260) NEXT
         DO .5 <- :3~#1
-        DO (7335) NEXT
-        PLEASE (7336) NEXT
-(7335)  DO (1990) NEXT
-        DO FORGET #1
-        DO :87 <- #1
-        PLEASE :1 <- :86
-        DO :2 <- #1
-        DO (1509) NEXT
-        DO :86 <- :3
-        PLEASE :90 <- :86
-        DO ;90 SUB :86 <- #0
-        DO (7336) NEXT
-(7336)  DO FORGET #1
-        PLEASE :1 <- :85
-        DO :2 <- #1
-        DO (1510) NEXT
-        DO :85 <- :3
-        PLEASE (7332) NEXT
-(7334)  DO FORGET #1
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (7332) NEXT
+        DO (7333) NEXT
+(7332)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO (7331) NEXT
+(7333)  DO FORGET #1
+        DO :1 <- ;90 SUB #2
+        PLEASE :2 <- #10000
+        DO (1549) NEXT
+        DO :1 <- :3
+        DO :2 <- ;90 SUB #1
+        PLEASE (1509) NEXT
+        DO :99 <- :3
+        DO :1 <- :99
+        DO :2 <- ##65536
+        PLEASE (4260) NEXT
+        DO .99 <- :3~#2
+        DO .99 <- "?'.99$#1'"~#1
+        DO (7331) NEXT
+(7331)  PLEASE FORGET #1
         DO RESUME #1
 
-(7986)  DO (7337) NEXT
-(7337)  PLEASE FORGET #1
+(7985)  DO (7334) NEXT
+(7334)  DO FORGET #1
+        PLEASE .5 <- ':85~:85'~#1
+        DO .5 <- "?'.5$#1'"~#1
+        DO (7335) NEXT
+        DO (7336) NEXT
+(7335)  PLEASE (1990) NEXT
+        DO FORGET #1
+        DO :1 <- :98
+        DO :2 <- #1
+        PLEASE (1510) NEXT
+        DO :98 <- :3
+        DO :1 <- ,1 SUB :98
+        DO :2 <- #48
+        PLEASE (1510) NEXT
+        DO :1 <- :3
+        DO :2 <- :87
+        DO (1549) NEXT
+        PLEASE :1 <- :3
+        DO :2 <- ;90 SUB :86
+        DO (1509) NEXT
+        DO ;90 SUB :86 <- :3
+        PLEASE :1 <- :87
+        DO :2 <- #10
+        DO (1549) NEXT
+        DO :87 <- :3
+        PLEASE :1 <- :87
+        DO :2 <- #10000
+        DO (4260) NEXT
+        DO .5 <- :3~#1
+        PLEASE (7337) NEXT
+        DO (7338) NEXT
+(7337)  DO (1990) NEXT
+        DO FORGET #1
+        PLEASE :87 <- #1
+        DO :1 <- :86
+        DO :2 <- #1
+        DO (1509) NEXT
+        PLEASE :86 <- :3
+        DO :90 <- :86
+        DO ;90 SUB :86 <- #0
+        DO (7338) NEXT
+(7338)  PLEASE FORGET #1
+        DO :1 <- :85
+        DO :2 <- #1
+        DO (1510) NEXT
+        PLEASE :85 <- :3
+        DO (7334) NEXT
+(7336)  DO FORGET #1
+        DO RESUME #1
+
+(7986)  PLEASE (7339) NEXT
+(7339)  DO FORGET #1
+        DO (7988) NEXT
+        DO .5 <- .99
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (7340) NEXT
+        DO (7341) NEXT
+(7340)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO :98 <- ,1 SUB :92
+        DO (7997) NEXT
+        DO .5 <- .99
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (7342) NEXT
+        DO (7341) NEXT
+(7342)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO :98 <- :92
+        DO (7991) NEXT
+        DO :92 <- :98
+        PLEASE (7339) NEXT
+(7341)  DO FORGET #1
+        DO RESUME #1
+
+(7989)  DO (7343) NEXT
+(7343)  PLEASE FORGET #1
         DO (7988) NEXT
         DO .5 <- .99
         DO .5 <- "?'.5$#1'"~#1
-        PLEASE (7338) NEXT
-        DO (7339) NEXT
-(7338)  DO (1990) NEXT
+        PLEASE (7344) NEXT
+        DO (7345) NEXT
+(7344)  DO (1990) NEXT
         DO FORGET #1
         PLEASE :98 <- ,1 SUB :92
         DO (7997) NEXT
         DO .5 <- .99
         DO .5 <- "?'.5$#1'"~#1
-        PLEASE (7340) NEXT
-        DO (7339) NEXT
-(7340)  DO (1990) NEXT
+        PLEASE (7346) NEXT
+        DO (7345) NEXT
+(7346)  DO (1990) NEXT
         DO FORGET #1
-        PLEASE :98 <- :92
-        DO (7991) NEXT
-        DO :92 <- :98
-        DO (7337) NEXT
-(7339)  PLEASE FORGET #1
-        DO RESUME #1
-
-(7989)  DO (7341) NEXT
-(7341)  DO FORGET #1
-        PLEASE (7988) NEXT
-        DO .5 <- .99
-        DO .5 <- "?'.5$#1'"~#1
-        DO (7342) NEXT
-        PLEASE (7343) NEXT
-(7342)  DO (1990) NEXT
-        DO FORGET #1
-        DO :98 <- ,1 SUB :92
-        PLEASE (7997) NEXT
-        DO .5 <- .99
-        DO .5 <- "?'.5$#1'"~#1
-        DO (7344) NEXT
-        PLEASE (7343) NEXT
-(7344)  DO (1990) NEXT
-        DO FORGET #1
-        DO :1 <- :97
-        PLEASE :2 <- #10
+        PLEASE :1 <- :97
+        DO :2 <- #10
         DO (1549) NEXT
         DO :1 <- :3
-        DO :2 <- ,1 SUB :92
-        PLEASE (1509) NEXT
+        PLEASE :2 <- ,1 SUB :92
+        DO (1509) NEXT
         DO :1 <- :3
         DO :2 <- #48
-        DO (1510) NEXT
-        PLEASE :97 <- :3
+        PLEASE (1510) NEXT
+        DO :97 <- :3
         DO :1 <- :97
         DO :2 <- ##100000
-        DO (4260) NEXT
-        PLEASE .5 <- :3~#1
-        DO (7345) NEXT
-        DO (7346) NEXT
-(7345)  DO (1990) NEXT
-        PLEASE FORGET #1
+        PLEASE (4260) NEXT
+        DO .5 <- :3~#2
+        DO .5 <- "?'.5$#1'"~#1
+        DO (7347) NEXT
+        PLEASE (7348) NEXT
+(7347)  DO (1990) NEXT
+        DO FORGET #1
         DO :97 <- ##100000
-        DO (7346) NEXT
-(7346)  DO FORGET #1
-        PLEASE :98 <- :92
+        PLEASE (7348) NEXT
+(7348)  DO FORGET #1
+        DO :98 <- :92
         DO (7991) NEXT
-        DO :92 <- :98
-        DO (7341) NEXT
-(7343)  PLEASE FORGET #1
+        PLEASE :92 <- :98
+        DO (7343) NEXT
+(7345)  DO FORGET #1
         DO RESUME #1
 
-(7987)  DO ::88 <- "?':98$:99'"~'##0$##4294967295'
+(7987)  PLEASE ::88 <- "?':98$:99'"~'##0$##4294967295'
         DO .99 <- '::88~::88'~#1
-        PLEASE .99 <- "?'.99$#1'"~#1
+        DO .99 <- "?'.99$#1'"~#1
         DO RESUME #1
 
-(7988)  DO :1 <- :92
+(7988)  PLEASE :1 <- :92
         DO :2 <- :91
-        PLEASE (4260) NEXT
-        DO .99 <- :3~#2
-        DO .98 <- :3~#1
-        DO .99 <- "&'.99$.98'"~#1
-        PLEASE .99 <- "?'.99$#1'"~#1
-        DO RESUME #1
-
-(7997)  DO :1 <- :98
-        DO :2 <- #48
-        PLEASE (4260) NEXT
-        DO .99 <- :3~#2
-        DO :2 <- #57
         DO (4260) NEXT
-        PLEASE .97 <- :3~#2
-        DO .98 <- :3~#1
-        DO .98 <- "&'.97$.98'"~#1
-        DO .98 <- "?'.98$#1'"~#1
-        PLEASE .99 <- "&'.99$.98'"~#1
+        DO .99 <- :3~#2
+        PLEASE .98 <- :3~#1
+        DO .99 <- "&'.99$.98'"~#1
+        DO .99 <- "?'.99$#1'"~#1
         DO RESUME #1
 
-(7991)  DO :1 <- :98
-        DO :2 <- #1
-        PLEASE (1509) NEXT
-        DO :98 <- :3
+(7997)  PLEASE :1 <- :98
+        DO :2 <- #48
+        DO (4260) NEXT
+        DO .99 <- :3~#2
+        PLEASE :2 <- #57
+        DO (4260) NEXT
+        DO .97 <- :3~#2
+        DO .98 <- :3~#1
+        PLEASE .98 <- "&'.97$.98'"~#1
+        DO .98 <- "?'.98$#1'"~#1
+        DO .99 <- "&'.99$.98'"~#1
         DO RESUME #1
+
+(7991)  PLEASE :1 <- :98
+        DO :2 <- #1
+        DO (1509) NEXT
+        DO :98 <- :3
+        PLEASE RESUME #1
 
 (7996)  DO :99 <- #1
-        PLEASE :1 <- :98
+        DO :1 <- :98
         DO :2 <- #10
+        PLEASE (4260) NEXT
+        DO .5 <- :3~#2
+        DO .5 <- "?'.5$#1'"~#1
+        DO (7349) NEXT
+        PLEASE (7350) NEXT
+(7349)  DO (1990) NEXT
+        DO FORGET #1
+        DO :99 <- #2
+        PLEASE :2 <- #100
+        DO (4260) NEXT
+        DO .5 <- :3~#2
+        DO .5 <- "?'.5$#1'"~#1
+        PLEASE (7351) NEXT
+        DO (7350) NEXT
+(7351)  DO (1990) NEXT
+        DO FORGET #1
+        PLEASE :99 <- #3
+        DO :2 <- #1000
         DO (4260) NEXT
         DO .5 <- :3~#2
         PLEASE .5 <- "?'.5$#1'"~#1
-        DO (7347) NEXT
-        DO (7348) NEXT
-(7347)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO :99 <- #2
-        DO :2 <- #100
-        DO (4260) NEXT
-        PLEASE .5 <- :3~#2
-        DO .5 <- "?'.5$#1'"~#1
-        DO (7349) NEXT
-        DO (7348) NEXT
-(7349)  PLEASE (1990) NEXT
-        DO FORGET #1
-        DO :99 <- #3
-        DO :2 <- #1000
-        PLEASE (4260) NEXT
-        DO .5 <- :3~#2
-        DO .5 <- "?'.5$#1'"~#1
+        DO (7352) NEXT
         DO (7350) NEXT
-        PLEASE (7348) NEXT
-(7350)  DO (1990) NEXT
-        DO FORGET #1
+(7352)  DO (1990) NEXT
+        PLEASE FORGET #1
         DO :99 <- #4
-        PLEASE (7348) NEXT
-(7348)  DO FORGET #1
-        DO RESUME #1
+        DO (7350) NEXT
+(7350)  DO FORGET #1
+        PLEASE RESUME #1
 ''',
   'io': r'''
 (2000)  PLEASE PETITION #2000

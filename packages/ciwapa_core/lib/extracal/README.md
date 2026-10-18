@@ -158,11 +158,12 @@ unnormalized. Results are rounded to nearest, ties to even. One whose characteri
   fixed point, adds k ln 2 in Q32 when k isn't 0, and rounds once: within one unit in the last
   place. Both runtimes follow the same steps, so they agree to the bit.
 - **Decimal text** is converted exactly: (7080) and (7090) work through a base-10000 big number,
-  so they are slow in the INTERCAL for characteristics in the thousands, which the natives aren't.
+  so they are slow in the INTERCAL for characteristics in the thousands (tens of minutes at the
+  ends of the range), which the natives aren't.
   (7090) reads exponents beyond 100000 as 100000, and gives #0 for any spelling of zero.
 
 The INTERCAL versions use the system library, the Math, Strings and Arrays blocks, and these
-labels of their own: (7100)–(7350), (7900), (7910), (7930), (7940), (7950), (7960), (7970),
+labels of their own: (7100)–(7352), (7900), (7910), (7930), (7940), (7950), (7960), (7970),
 (7980)–(7983), (7985)–(7989), (7991)–(7994) and (7996)–(7998).
 
 ## Arrays, (6000)–(6999)

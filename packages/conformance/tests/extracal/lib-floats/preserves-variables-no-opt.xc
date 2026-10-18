@@ -80,190 +80,247 @@
 	PLEASE :1 <- ##1610678259
 	DO (7080) NEXT
 	DO (7090) NEXT
-	DO ::99 <- .2
-	PLEASE :1 <- ::99
+	DO ,1 <- #1
+	PLEASE ,1 SUB #1 <- #120
+	DO (7090) NEXT
+	DO ,1 <- #1
+	DO ,1 SUB #1 <- #48
+	PLEASE (7090) NEXT
+	DO ,1 <- #8
+	DO ,1 SUB #1 <- #49
+	DO ,1 SUB #2 <- #101
+	PLEASE ,1 SUB #3 <- #45
+	DO ,1 SUB #4 <- #57
+	DO ,1 SUB #5 <- #57
+	DO ,1 SUB #6 <- #57
+	PLEASE ,1 SUB #7 <- #57
+	DO ,1 SUB #8 <- #57
+	DO (7090) NEXT
+	DO ,1 <- #7
+	PLEASE ,1 SUB #1 <- #45
+	DO ,1 SUB #2 <- #49
+	DO ,1 SUB #3 <- #50
+	DO ,1 SUB #4 <- #46
+	PLEASE ,1 SUB #5 <- #53
+	DO ,1 SUB #6 <- #101
+	DO ,1 SUB #7 <- #51
+	DO (7090) NEXT
+	PLEASE ,2 <- #1
+	DO ,2 SUB #1 <- #77
+	DO ;;80 <- #1
+	DO ;;80 SUB #1 <- #78
+	PLEASE ;;81 <- #1
+	DO ;;81 SUB #1 <- #79
+	DO ;90 <- #1
+	DO ;90 SUB #1 <- #80
+	PLEASE :1 <- ##1610678259
+	DO (7050) NEXT
+	DO :1 <- ##1610678259
+	DO (7080) NEXT
+	PLEASE ,1 <- #6
+	DO ,1 SUB #1 <- #55
+	DO ,1 SUB #2 <- #46
+	DO ,1 SUB #3 <- #53
+	PLEASE ,1 SUB #4 <- #101
+	DO ,1 SUB #5 <- #45
+	DO ,1 SUB #6 <- #51
+	DO (7090) NEXT
+	PLEASE ::99 <- .2
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- .3
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- .4
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- .5
+	PLEASE (20) NEXT
+	DO ::99 <- .5
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- .80
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- .80
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- .81
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- .82
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- .83
+	PLEASE (20) NEXT
+	DO ::99 <- .83
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- .84
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- .84
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- .85
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- .86
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- .87
+	PLEASE (20) NEXT
+	DO ::99 <- .87
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- .88
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- .88
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- .89
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- .90
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- .91
+	PLEASE (20) NEXT
+	DO ::99 <- .91
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- .92
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- .92
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- .93
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- .94
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- .95
+	PLEASE (20) NEXT
+	DO ::99 <- .95
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- .96
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- .96
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- .97
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- .98
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- .99
+	PLEASE (20) NEXT
+	DO ::99 <- .99
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- :4
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- :4
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- :80
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- :81
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- :82
+	PLEASE (20) NEXT
+	DO ::99 <- :82
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- :83
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- :83
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- :84
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- :85
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- :86
+	PLEASE (20) NEXT
+	DO ::99 <- :86
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- :87
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- :87
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- :88
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- :89
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- :90
+	PLEASE (20) NEXT
+	DO ::99 <- :90
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- :91
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- :91
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- :92
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- :93
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- :94
+	PLEASE (20) NEXT
+	DO ::99 <- :94
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- :95
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- :95
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- :96
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- :97
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- :98
+	PLEASE (20) NEXT
+	DO ::99 <- :98
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- :99
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- :99
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- ::1
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- ::2
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- ::3
+	PLEASE (20) NEXT
+	DO ::99 <- ::3
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- ::4
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- ::4
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- ::80
-	DO :1 <- ::99
-	PLEASE (20) NEXT
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO ::99 <- ::81
 	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- ::82
+	PLEASE (20) NEXT
+	DO ::99 <- ::82
 	DO :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- ::83
-	PLEASE :1 <- ::99
+	PLEASE ::99 <- ::83
+	DO :1 <- ::99
 	DO (20) NEXT
 	DO ::99 <- ::84
-	DO :1 <- ::99
-	PLEASE (20) NEXT
-	DO ::99 <- ::85
-	DO :1 <- ::99
-	DO (20) NEXT
-	PLEASE ::99 <- ::86
-	DO :1 <- ::99
-	DO (20) NEXT
-	DO ::99 <- ::87
 	PLEASE :1 <- ::99
 	DO (20) NEXT
-	DO ::99 <- ::88
+	DO ::99 <- ::85
 	DO :1 <- ::99
 	PLEASE (20) NEXT
+	DO ::99 <- ::86
+	DO :1 <- ::99
+	DO (20) NEXT
+	PLEASE ::99 <- ::87
+	DO :1 <- ::99
+	DO (20) NEXT
+	DO ::99 <- ::88
+	PLEASE :1 <- ::99
+	DO (20) NEXT
+	DO ::99 <- ,2 SUB #1
+	DO :1 <- ::99
+	PLEASE (20) NEXT
+	DO ::99 <- ;;80 SUB #1
+	DO :1 <- ::99
+	DO (20) NEXT
+	PLEASE ::99 <- ;;81 SUB #1
+	DO :1 <- ::99
+	DO (20) NEXT
+	DO ::99 <- ;90 SUB #1
+	PLEASE :1 <- ::99
+	DO (20) NEXT
 	DO GIVE UP
 (20)	DO STASH .1 + .2 + .3 + :1
-	DO .1 <- #1
-	PLEASE (2110) NEXT
+	PLEASE .1 <- #1
+	DO (2110) NEXT
 	DO .2 <- #10
 	DO (2010) NEXT
-	DO RETRIEVE .1 + .2 + .3 + :1
-	PLEASE RESUME #1
+	PLEASE RETRIEVE .1 + .2 + .3 + :1
+	DO RESUME #1
 (10)	DO STASH .1 + .3
 	DO .1 <- #1
-	DO (2310) NEXT
-	PLEASE RETRIEVE .1 + .3
+	PLEASE (2310) NEXT
+	DO RETRIEVE .1 + .3
 	DO RESUME #1

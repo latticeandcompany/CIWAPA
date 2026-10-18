@@ -1361,7 +1361,7 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Text:** `A FLOATING-POINT RESULT HAS BEEN TOO BIG TO REPRESENT.`
 - **Joke:** `THE POINT FLOATED AWAY.`
 - **Source:** R9, R11, L33. A new code. A Floats result whose characteristic would pass 32767 after rounding, a float too big for a signed 32-bit integer in (7070), and decimal text too big for a float in (7090). Results below the smallest float are #0 instead.
-- **Tests:** `packages/conformance/tests/extracal/lib-floats/e814-add.xc`, `packages/conformance/tests/extracal/lib-floats/e814-multiply.xc`, `packages/conformance/tests/extracal/lib-floats/e814-integer.xc`, `packages/conformance/tests/extracal/lib-floats/e814-string.xc`, each with a `-no-opt` twin
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e814-add.xc`, `packages/conformance/tests/extracal/lib-floats/e814-multiply.xc`, `packages/conformance/tests/extracal/lib-floats/e814-divide.xc`, `packages/conformance/tests/extracal/lib-floats/e814-integer.xc`, `packages/conformance/tests/extracal/lib-floats/e814-string.xc`, `packages/conformance/tests/extracal/lib-floats/e814-string-wide.xc`, each with a `-no-opt` twin, and `packages/conformance/tests/extracal/lib-floats/e814-string-round.xc`
 - **Date:** 2026-10-18
 
 ### E815: a float divided by zero

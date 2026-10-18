@@ -3288,6 +3288,7 @@ static void float_to_string(ick_float x, uint32_t array) {
     set_string(array, zero, 9);
     return;
   }
+  /* m x 5^32768 has at most 22911 digits, 2546 limbs */
   ick_big n = big_new(3000, (uint32_t)x.magnitude);
   int64_t places = 0;
   if (x.characteristic < 0) {
@@ -3365,6 +3366,7 @@ static int float_from_string(const uint32_t *text, size_t length, uint32_t *resu
   }
   if (i != length) return 0;
   /* the digits, without leading zeros, into a big number */
+  /* The range checks below keep the scaling to at most about 1100 limbs more than the digits. */
   ick_big n = big_new(whole_count / 9 + fraction_count / 9 + 3000, 0);
   int64_t digits = 0;
   uint64_t limb = 0, weight = 1;
