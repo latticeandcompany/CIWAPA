@@ -458,12 +458,12 @@ class DartEmitter {
     // A value can only exceed a narrower target; narrower ones were checked when they were stored.
     // 32 bits into 16 is Mode 1's E275, and anything wider is EXTRACAL's (R4).
     String checked(String v) {
-      if (value.width <= target.width) return v;
+      if (value.valueWidth <= target.width) return v;
       if (value is IrConst && value.value >= 0) {
         final max = target.width == 16 ? program.smallLimit : 0xFFFFFFFF;
         if (value.value <= max) return v;
       }
-      return value.width == 32
+      return value.valueWidth == 32
           ? 'ickCheckSmall($v, $next)'
           : 'ickCheckNarrow($v, ${target.width}, $next)';
     }
@@ -495,7 +495,7 @@ class DartEmitter {
   static String _suffix(Slot slot) => slot.wide ? '64' : '';
 
   /// A FORGET or RESUME count.
-  String _count(IrExpr count, int next) => count.width == 64
+  String _count(IrExpr count, int next) => count.valueWidth == 64
       ? 'ickCount64(${_expr(count, next)})'
       : _expr(count, next);
 
@@ -521,6 +521,8 @@ class DartEmitter {
       : '0x${BigInt.from(value).toUnsigned(64).toRadixString(16).toUpperCase()}';
 
   String _expr(IrExpr e, int next) => switch (e) {
+    _ when e.width == IrExpr.runtimeWidth =>
+      'ickXValue(${_wide(e, next)}, $next)',
     IrConst(:final value) => _literal(value),
     IrScalar(:final slot) => '${slot.wide ? 'w' : 'v'}[${slot.index}]',
     IrElement(:final array, :final subscripts) =>
@@ -529,7 +531,10 @@ class DartEmitter {
         when program.base == 2 && _fitsSmall(left) && _fitsSmall(right) =>
       'ickMingleSmall(${_expr(left, next)}, ${_expr(right, next)})',
     IrMingle(:final left, :final right) =>
-      'ickMingle(${_mingleOperand(left, next)}, ${_mingleOperand(right, next)}, $next)',
+      'ickMingle(${_expr(left, next)}, ${_expr(right, next)}, $next)',
+    IrSelect(:final left, :final right)
+        when left.width == IrExpr.runtimeWidth =>
+      'ickXSelect(${_wide(left, next)}, ${_wide(right, next)}).\$3',
     IrSelect(:final left, right: IrConst(value: final mask))
         when program.base == 2 && e.width == 64 =>
       '${_selectFunction64(mask)}(${_expr(left, next)})',
@@ -547,11 +552,19 @@ class DartEmitter {
     IrArrayItem() => throw StateError('a whole array is not a value'),
   };
 
-  /// A 64-bit mingle operand, from 2^63 up a negative Dart int, as one the mingle sees is too big.
-  String _mingleOperand(IrExpr e, int next) {
-    final value = _expr(e, next);
-    return e.width == 64 ? 'ickMingleOperand64($value)' : value;
-  }
+  /// [e] as an [XValue] record of (width, high, low), for the operations whose result width
+  /// depends on their operands' values: EXTRACAL's mingle and what is built on it (R5).
+  String _wide(IrExpr e, int next) => switch (e) {
+    _ when e.width != IrExpr.runtimeWidth =>
+      '(${e.width}, 0, ${_expr(e, next)})',
+    IrMingle(:final left, :final right) =>
+      'ickXMingle(${_wide(left, next)}, ${_wide(right, next)}, $next)',
+    IrSelect(:final left, :final right) =>
+      'ickXSelect(${_wide(left, next)}, ${_wide(right, next)})',
+    IrUnary(:final op, :final operand) =>
+      'ickXUnary(${UnaryOp.values.indexOf(op)}, ${_wide(operand, next)}, $next)',
+    _ => throw StateError('$e has no run-time width'),
+  };
 
   /// Whether [e] can't be above 65535: a small value, or a constant that fits.
   static bool _fitsSmall(IrExpr e) =>

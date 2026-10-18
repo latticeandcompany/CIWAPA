@@ -98,11 +98,19 @@ sealed class IrExpr {
   const IrExpr();
 
   /// The static type's width: 16 or 32 in Mode 1 (32 for a mingle, a `:` or `;`, or a select with
-  /// a large right operand, decisions Q77, Q79), or 64 for EXTRACAL's 64-bit types (R4).
+  /// a large right operand, decisions Q77, Q79), or 64 for EXTRACAL's 64-bit types (R4). In
+  /// EXTRACAL a mingle's width depends on its operands' values (R5), so it and what is built on it
+  /// can be [runtimeWidth]: 32, 64 or a 128-bit ephemeral value, known only when it runs.
   int get width;
+
+  static const runtimeWidth = 0;
 
   /// Whether the static type is large (32-bit in binary, or wider).
   bool get large => width != 16;
+
+  /// The width of the value an emitter holds for this expression: a value of [runtimeWidth] is
+  /// held as 64 bits once it is known not to be ephemeral.
+  int get valueWidth => width == runtimeWidth ? 64 : width;
 }
 
 class IrConst extends IrExpr {
@@ -144,13 +152,15 @@ class IrElement extends IrExpr {
 }
 
 class IrMingle extends IrExpr {
-  const IrMingle(this.left, this.right);
+  const IrMingle(this.left, this.right, {this.width = 32});
 
   final IrExpr left;
   final IrExpr right;
 
+  /// 32, or in binary EXTRACAL [IrExpr.runtimeWidth] unless both operands are known to fit in
+  /// 16 bits (R5).
   @override
-  int get width => 32;
+  final int width;
 
   @override
   String toString() => '(\$ $left $right)';
@@ -676,10 +686,18 @@ class _Lowering {
           return IrConst(_mingle(l, r), width: 32);
         }
       }
-      return IrMingle(left, right);
+      // In binary EXTRACAL a mingle widens by value (R5), unless both operands surely fit in 16 bits.
+      final widens =
+          program.extracal &&
+          program.base == 2 &&
+          !(_fitsSmall(left) && _fitsSmall(right));
+      return IrMingle(left, right, width: widens ? IrExpr.runtimeWidth : 32);
     }
     return IrSelect(left, right);
   }
+
+  static bool _fitsSmall(IrExpr e) =>
+      e.width == 16 || (e is IrConst && e.value >= 0 && e.value <= 0xFFFF);
 
   /// Interleaves the digits of [left] and [right], left supplying the high digit of each pair
   /// (§3.4.1, §6.5.1).

@@ -990,9 +990,6 @@ int ickSubscript64(int value) => value < 0 || value > 0xFFFFFFFF ? 0 : value;
 int ickCount64(int value) =>
     value < 0 || value > 0xFFFFFFFF ? 0xFFFFFFFF : value;
 
-/// Mingle's E533 check compares as a Dart int, so a value from 2^63 up must still look too big.
-int ickMingleOperand64(int x) => x < 0 ? 0x7FFFFFFFFFFFFFFF : x;
-
 int _rotate64(int x) => (x >>> 1) | (x << 63);
 
 int ickAnd64(int x) => x & _rotate64(x);
@@ -1147,4 +1144,88 @@ void ickTuringOut64(int index, int next) {
     _writeByte(b);
     if (b == 0x0A) _flush();
   }
+}
+
+// ---- EXTRACAL's mingle widening (R5, Q122) ------------------------------------------------------
+// A mingle's width depends on its operands' values, so its result is held as (width, high, low):
+// width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can use.
+
+typedef XValue = (int, int, int);
+
+bool _fits16(int x) => x >= 0 && x <= 0xFFFF;
+bool _fits32(int x) => x >= 0 && x <= 0xFFFFFFFF;
+
+/// Spreads the 32 bits of [x] to the even bit positions of 64.
+int _spread32(int x) {
+  x = (x | x << 16) & 0x0000FFFF0000FFFF;
+  x = (x | x << 8) & 0x00FF00FF00FF00FF;
+  x = (x | x << 4) & 0x0F0F0F0F0F0F0F0F;
+  x = (x | x << 2) & 0x3333333333333333;
+  return (x | x << 1) & 0x5555555555555555;
+}
+
+/// Operands up to 65535 give 32 bits exactly as in Mode 1, up to 2^32 - 1 give 64 bits, and
+/// anything larger gives a 128-bit ephemeral value. An ephemeral operand is E534.
+@pragma('vm:never-inline')
+XValue ickXMingle(XValue a, XValue b, int next) {
+  if (a.$1 == 128 || b.$1 == 128) ickFatal(534, next);
+  final l = a.$3, r = b.$3;
+  if (_fits16(l) && _fits16(r)) return (32, 0, ickMingleSmall(l, r));
+  if (_fits32(l) && _fits32(r)) {
+    return (64, 0, _spread32(l) << 1 | _spread32(r));
+  }
+  return (
+    128,
+    _spread32(l >>> 32) << 1 | _spread32(r >>> 32),
+    _spread32(l & 0xFFFFFFFF) << 1 | _spread32(r & 0xFFFFFFFF),
+  );
+}
+
+/// Takes its right operand's width (Q77). A 128-bit mask gives a 64-bit result when it fits in
+/// 64 bits, and otherwise another ephemeral value (L16's lean).
+@pragma('vm:never-inline')
+XValue ickXSelect(XValue a, XValue b) {
+  var resultLow = 0, resultHigh = 0, at = 0;
+  for (final (value, mask) in [(a.$3, b.$3), (a.$2, b.$2)]) {
+    for (var v = value, m = mask; m != 0; m >>>= 1, v >>>= 1) {
+      if (m & 1 == 0) continue;
+      if (v & 1 != 0) {
+        if (at < 64) {
+          resultLow |= 1 << at;
+        } else {
+          resultHigh |= 1 << (at - 64);
+        }
+      }
+      at++;
+    }
+  }
+  if (b.$1 != 128) return (b.$1, 0, resultLow);
+  return resultHigh == 0 ? (64, 0, resultLow) : (128, resultHigh, resultLow);
+}
+
+/// [op] is 0 for AND, 1 for OR and 2 for XOR, rotating at the value's width (R4, R5).
+@pragma('vm:never-inline')
+XValue ickXUnary(int op, XValue a, int next) {
+  final (width, _, x) = a;
+  if (width == 128) ickFatal(534, next);
+  final rotated = switch (width) {
+    16 => _rotate16(x),
+    32 => _rotate32(x),
+    _ => _rotate64(x),
+  };
+  return (
+    width,
+    0,
+    switch (op) {
+      0 => x & rotated,
+      1 => x | rotated,
+      _ => x ^ rotated,
+    },
+  );
+}
+
+/// The value of a mingle or what is built on it, which mustn't be ephemeral (E534).
+int ickXValue(XValue a, int next) {
+  if (a.$1 == 128) ickFatal(534, next);
+  return a.$3;
 }

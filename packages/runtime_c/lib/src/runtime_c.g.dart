@@ -1024,4 +1024,77 @@ void ick_turing_out64(uint32_t index, uint32_t next) {
     if (c == '\n') ICK_FLUSH();
   }
 }
+
+/* ---- EXTRACAL's mingle widening (R5, Q122) ---------------------------------------------- */
+/* A mingle's width depends on its operands' values, so its result is held as (width, high, low):
+ * width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can
+ * use. The generated code passes the parts separately and gets the result in out[0..2]. */
+
+static uint64_t spread32(uint64_t x) {
+  x = (x | x << 16) & 0x0000FFFF0000FFFFull;
+  x = (x | x << 8) & 0x00FF00FF00FF00FFull;
+  x = (x | x << 4) & 0x0F0F0F0F0F0F0F0Full;
+  x = (x | x << 2) & 0x3333333333333333ull;
+  return (x | x << 1) & 0x5555555555555555ull;
+}
+
+/* Operands up to 65535 give 32 bits exactly as in Mode 1, up to 2^32 - 1 give 64 bits, and
+ * anything larger gives a 128-bit ephemeral value. An ephemeral operand is E534. */
+void ick_xmingle(uint64_t *out, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t bw, uint64_t bhi,
+                 uint64_t blo, uint32_t next) {
+  (void)ahi;
+  (void)bhi;
+  if (aw == 128 || bw == 128) ick_fatal(534, next);
+  if (alo <= 0xFFFFu && blo <= 0xFFFFu) {
+    out[0] = 32;
+    out[1] = 0;
+    out[2] = spread32(alo) << 1 | spread32(blo);
+  } else if (alo <= 0xFFFFFFFFu && blo <= 0xFFFFFFFFu) {
+    out[0] = 64;
+    out[1] = 0;
+    out[2] = spread32(alo) << 1 | spread32(blo);
+  } else {
+    out[0] = 128;
+    out[1] = spread32(alo >> 32) << 1 | spread32(blo >> 32);
+    out[2] = spread32(alo & 0xFFFFFFFFu) << 1 | spread32(blo & 0xFFFFFFFFu);
+  }
+}
+
+/* Takes its right operand's width (Q77). A 128-bit mask gives a 64-bit result when it fits in 64
+ * bits, and otherwise another ephemeral value (L16's lean). */
+void ick_xselect(uint64_t *out, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t bw, uint64_t bhi,
+                 uint64_t blo) {
+  (void)aw;
+  uint64_t result[2] = {0, 0}, values[2] = {alo, ahi}, masks[2] = {blo, bhi};
+  unsigned at = 0;
+  for (int half = 0; half < 2; half++) {
+    for (uint64_t v = values[half], m = masks[half]; m; m >>= 1, v >>= 1) {
+      if (!(m & 1)) continue;
+      if (v & 1) result[at / 64] |= (uint64_t)1 << (at % 64);
+      at++;
+    }
+  }
+  out[1] = 0;
+  out[2] = result[0];
+  if (bw != 128) {
+    out[0] = bw;
+  } else if (result[1] == 0) {
+    out[0] = 64;
+  } else {
+    out[0] = 128;
+    out[1] = result[1];
+  }
+}
+
+/* [op] is 0 for AND, 1 for OR and 2 for XOR, rotating at the value's width (R4, R5). */
+void ick_xunary(uint64_t *out, uint32_t op, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t next) {
+  (void)ahi;
+  if (aw == 128) ick_fatal(534, next);
+  uint64_t rotated = aw == 16   ? ((alo >> 1) | (alo << 15)) & 0xFFFFu
+                     : aw == 32 ? ((alo >> 1) | (alo << 31)) & 0xFFFFFFFFu
+                                : (alo >> 1) | (alo << 63);
+  out[0] = aw;
+  out[1] = 0;
+  out[2] = op == 0 ? alo & rotated : op == 1 ? alo | rotated : alo ^ rotated;
+}
 ''';
