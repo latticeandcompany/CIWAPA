@@ -1,3 +1,4 @@
+import 'ast.dart' show OnceAgain;
 import 'ir.dart';
 
 /// Statement kinds in the control engine's table. Both runtimes define the same numbers.
@@ -12,6 +13,12 @@ enum EngineKind {
   comeFrom,
   nextFrom,
   undecodable,
+  computedComeFrom,
+  computedNextFrom,
+  gerundComeFrom,
+  gerundNextFrom,
+  computedAbstain,
+  tryAgain,
 }
 
 /// The fields of one statement's row, in order.
@@ -47,6 +54,11 @@ class EngineTable {
         IrForget() => (EngineKind.forget, const <int>[]),
         IrResume() => (EngineKind.resume, const <int>[]),
         IrGiveUp() => (EngineKind.giveUp, const <int>[]),
+        IrTryAgain() => (EngineKind.tryAgain, const <int>[]),
+        IrAbstain(count: _?, :final targets) => (
+          EngineKind.computedAbstain,
+          targets,
+        ),
         IrAbstain(abstain: true, :final targets) => (
           EngineKind.abstain,
           targets,
@@ -54,7 +66,20 @@ class EngineTable {
         IrAbstain(:final targets) => (EngineKind.reinstate, targets),
         IrComeFrom(nexting: true) => (EngineKind.nextFrom, const <int>[]),
         IrComeFrom() => (EngineKind.comeFrom, const <int>[]),
-        IrUndecodable(:final text) => (EngineKind.undecodable, const <int>[]),
+        IrUndecodable() => (EngineKind.undecodable, const <int>[]),
+        IrComputedComeFrom(nexting: true) => (
+          EngineKind.computedNextFrom,
+          const <int>[],
+        ),
+        IrComputedComeFrom() => (EngineKind.computedComeFrom, const <int>[]),
+        IrGerundComeFrom(nexting: true, :final gerunds) => (
+          EngineKind.gerundNextFrom,
+          [for (final g in gerunds) g.index + 1],
+        ),
+        IrGerundComeFrom(:final gerunds) => (
+          EngineKind.gerundComeFrom,
+          [for (final g in gerunds) g.index + 1],
+        ),
         _ => (EngineKind.plain, const <int>[]),
       };
       set(EngineField.kind, kind.index);
@@ -67,6 +92,13 @@ class EngineTable {
             (s.bug ? engineBug : 0),
       );
       set(EngineField.percent, s.percent ?? 100);
+      // What reaching the statement does to its abstention, after `ick`'s swap of ONCE and AGAIN
+      // on an initially abstained statement: 1 abstains it, 2 reinstates it.
+      set(EngineField.onceAgain, switch ((s.onceAgain, s.initiallyAbstained)) {
+        (OnceAgain.none, _) => 0,
+        (OnceAgain.once, false) || (OnceAgain.again, true) => 1,
+        _ => 2,
+      });
       set(EngineField.fault, s.faults.isEmpty ? 0 : s.faults.first.code);
       set(EngineField.next, s.next);
       if (s.op case IrNext(:final target)) set(EngineField.target, target);

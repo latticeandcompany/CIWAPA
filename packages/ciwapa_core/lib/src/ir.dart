@@ -192,6 +192,21 @@ class IrUnary extends IrExpr {
   String toString() => '${op.name}$operand';
 }
 
+/// `ick`'s slat (R3): [slot]'s true value, and from then on [slot] stands for overload [id] of
+/// [IrProgram.overloads] (1-based).
+class IrSlat extends IrExpr {
+  const IrSlat(this.slot, this.id);
+
+  final Slot slot;
+  final int id;
+
+  @override
+  int get width => slot.width;
+
+  @override
+  String toString() => '$slot/#$id';
+}
+
 /// The next number from input, as WRITE IN reads it (§4.4.12), for a target of [width] bits. The
 /// emitters use it to share the assignment path; lowering never produces it. A [signed] input
 /// already has its target's width (R6).
@@ -294,9 +309,14 @@ class IrAbstain extends IrOp {
     required this.abstain,
     required this.targets,
     this.gerunds = const {},
+    this.count,
   });
 
   final bool abstain;
+
+  /// For `ick`'s computed ABSTAIN, the amount added to each target's abstention count (R3). Only
+  /// the control engine runs it.
+  final IrExpr? count;
 
   /// Ordinals whose abstention flag this statement sets or clears.
   final List<int> targets;
@@ -332,6 +352,14 @@ class IrReadOut extends IrOp {
   String toString() => 'READ OUT ${signed ? 'SIGNED ' : ''}${items.join('+')}';
 }
 
+/// `ick`'s TRY AGAIN (R3). Only the control engine runs it.
+class IrTryAgain extends IrOp {
+  const IrTryAgain();
+
+  @override
+  String toString() => 'TRY AGAIN';
+}
+
 class IrGiveUp extends IrOp {
   const IrGiveUp();
 
@@ -348,6 +376,31 @@ class IrComeFrom extends IrOp {
 
   @override
   String toString() => nexting ? 'NEXT FROM' : 'COME FROM';
+}
+
+/// `ick`'s computed COME FROM or NEXT FROM (R3): it takes control after a labelled statement whose
+/// label equals [label]'s value. Only the control engine runs it.
+class IrComputedComeFrom extends IrOp {
+  const IrComputedComeFrom(this.label, {this.nexting = false});
+
+  final IrExpr label;
+  final bool nexting;
+
+  @override
+  String toString() => '${nexting ? 'NEXT' : 'COME'} FROM $label';
+}
+
+/// `ick`'s COME FROM or NEXT FROM a gerund list (R3, L18): it takes control after any statement
+/// with one of [gerunds]. Only the control engine runs it.
+class IrGerundComeFrom extends IrOp {
+  const IrGerundComeFrom(this.gerunds, {this.nexting = false});
+
+  final Set<Gerund> gerunds;
+  final bool nexting;
+
+  @override
+  String toString() =>
+      '${nexting ? 'NEXT' : 'COME'} FROM ${[for (final g in gerunds) g.name].join('+')}';
 }
 
 /// An undecodable statement: E000 with [text] as the message (decision T10).
@@ -369,6 +422,7 @@ class IrStatement {
     required this.initiallyAbstained,
     required this.percent,
     required this.faults,
+    this.onceAgain = OnceAgain.none,
   });
 
   final int ordinal;
@@ -386,6 +440,9 @@ class IrStatement {
 
   /// Statement-local errors, in source order. The first one fires when the statement executes.
   final List<Fault> faults;
+
+  /// `ick`'s ONCE or AGAIN, as written (R3). Only the control engine runs it.
+  final OnceAgain onceAgain;
 
   /// The ordinal printed on line 3 of an error raised here (decision T33).
   late int next;
@@ -433,7 +490,14 @@ class IrProgram {
     this.wideScalars = const [],
     this.wideArrays = const [],
     this.engine = false,
+    this.overloads = const [],
   });
+
+  /// The expressions slats make variables stand for (R3), numbered from 1. A program with any
+  /// reads and writes every scalar through its overloading.
+  final List<IrExpr> overloads;
+
+  bool get overloading => overloads.isNotEmpty;
 
   final int base;
 
@@ -512,6 +576,7 @@ class _Lowering {
   final _arrays = <VarRef, Slot>{};
   final _wideScalars = <VarRef, Slot>{};
   final _wideArrays = <VarRef, Slot>{};
+  final _overloads = <IrExpr>[];
   final _labels = <int, int>{};
   late List<Fault> _faults;
 
@@ -542,6 +607,7 @@ class _Lowering {
           initiallyAbstained: s.not,
           percent: percent != null && percent <= 100 ? percent : null,
           faults: _faults,
+          onceAgain: s.onceAgain,
         ),
       );
     }
@@ -587,15 +653,24 @@ class _Lowering {
       extracal: program.extracal,
       wideScalars: _wideScalars.values.toList(),
       wideArrays: _wideArrays.values.toList(),
+      overloads: _overloads,
       engine:
           program.extracal &&
-          (options.forceEngine || ir.any((s) => _needsEngine(s.op))),
+          (options.forceEngine ||
+              _overloads.isNotEmpty ||
+              ir.any(
+                (s) => _needsEngine(s.op) || s.onceAgain != OnceAgain.none,
+              )),
     );
   }
 
   /// The `ick` control extensions, which only the control engine runs (R3).
   static bool _needsEngine(IrOp op) => switch (op) {
-    IrComeFrom(nexting: true) => true,
+    IrComeFrom(nexting: true) ||
+    IrComputedComeFrom() ||
+    IrGerundComeFrom() ||
+    IrAbstain(count: _?) ||
+    IrTryAgain() => true,
     _ => false,
   };
 
@@ -631,7 +706,16 @@ class _Lowering {
         for (final i in items) _expr(i),
       ], signed: signed),
       GiveUp() => const IrGiveUp(),
+      TryAgain() => const IrTryAgain(),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
+      ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
+        _expr(label),
+        nexting: nexting,
+      ),
+      GerundComeFrom(:final gerunds, :final nexting) => IrGerundComeFrom(
+        gerunds.toSet(),
+        nexting: nexting,
+      ),
       Undecodable() => IrUndecodable(_text(s)),
     };
   }
@@ -655,18 +739,24 @@ class _Lowering {
   }
 
   IrOp _abstain(AbstainBody body) {
+    final count = body.count == null ? null : _expr(body.count!);
     final label = body.label;
     if (label != null) {
       final target = _labels[label];
       if (target == null) {
         _faults.add(const Fault(139));
-        return IrAbstain(abstain: body.abstain, targets: const []);
+        return IrAbstain(
+          abstain: body.abstain,
+          targets: const [],
+          count: count,
+        );
       }
       // REINSTATE of a GIVE UP by label does nothing, so DON'T GIVE UP stays a no-op (§4.4.10).
       final giveUp = program.statements[target - 1].body is GiveUp;
       return IrAbstain(
         abstain: body.abstain,
         targets: !body.abstain && giveUp ? const [] : [target],
+        count: count,
       );
     }
     final gerunds = body.gerunds.toSet();
@@ -677,6 +767,7 @@ class _Lowering {
           if (gerunds.contains(s.body.gerund)) i + 1,
       ],
       gerunds: gerunds.whereType<Gerund>().toSet(),
+      count: count,
     );
   }
 
@@ -707,8 +798,15 @@ class _Lowering {
     ]),
     ArrayItem(:final array) => IrArrayItem(_array(array)),
     Unary(:final op, :final operand) => IrUnary(op, _expr(operand)),
+    Slat(:final scalar, :final expr) => _slat(scalar, expr),
     Binary() => _binary(e),
   };
+
+  IrExpr _slat(VarRef scalar, Expr expr) {
+    final slot = _scalar(scalar);
+    _overloads.add(_expr(expr));
+    return IrSlat(slot, _overloads.length);
+  }
 
   /// Lowers left to right, so an ungrouped chain's E017 lands at its second operator, after the
   /// faults of the operands before it.

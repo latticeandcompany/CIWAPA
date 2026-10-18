@@ -63,6 +63,14 @@ const Map<int, _Routine> _routines = {
 /// The native calls in [program], keyed by the ordinal of the library entry they replace.
 Map<int, NativeCall> findNativeCalls(IrProgram program) {
   if (program.statements.length == program.userStatements) return const {};
+  // A computed or gerund COME FROM could take control from inside any routine, and overloading
+  // could change what any variable in it means.
+  if (program.overloading) return const {};
+  if (program.statements.any(
+    (s) => s.op is IrComputedComeFrom || s.op is IrGerundComeFrom,
+  )) {
+    return const {};
+  }
   final slots = {for (final s in program.scalars) s.ref: s};
 
   final calls = <int, NativeCall>{};
@@ -207,6 +215,8 @@ Set<int> reachable(IrProgram program) {
         expr(right);
       case IrUnary(:final operand):
         expr(operand);
+      case IrSlat(:final slot):
+        scalars.add(slot);
       case IrConst() || IrInput():
         break;
     }

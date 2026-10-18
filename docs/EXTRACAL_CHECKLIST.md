@@ -37,24 +37,26 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 2. Computed COME FROM and NEXT FROM
 
-- [ ] R3.2 — `COME FROM expr` takes control after any labelled statement whose label equals the expression's value, evaluated each time a labelled statement finishes. Tests: `packages/conformance/tests/extracal/computed-come-from/basic.xc`
-- [ ] R3.2 — `NEXT FROM expr` does the same and pushes a NEXT stack entry. Tests: `packages/conformance/tests/extracal/computed-come-from/next-from.xc`
-- [ ] R3.2 — a computed COME FROM may aim at a label that doesn't exist, and does nothing. Tests: `packages/conformance/tests/extracal/computed-come-from/missing-label.xc`
+- [x] R3.2 — `COME FROM expr` takes control after any labelled statement whose label equals the expression's value, evaluated each time a labelled statement finishes. Tests: `packages/conformance/tests/extracal/computed-come-from/basic.xc`, `packages/conformance/tests/extracal/computed-come-from/expression.xc`
+- [x] R3.2 — `NEXT FROM expr` does the same and pushes a NEXT stack entry. Tests: `packages/conformance/tests/extracal/computed-come-from/next-from.xc`
+- [x] R3.2 — a computed COME FROM may aim at a label that doesn't exist, and does nothing. Tests: `packages/conformance/tests/extracal/computed-come-from/missing-label.xc`
+- [x] R3.2 — an executed RESUME springs no computed COME FROM, as in `ick`. Tests: `packages/conformance/tests/extracal/computed-come-from/resume-target.xc`
+- [x] R3.2, L18 — `COME FROM` and `NEXT FROM` a gerund list take control after any statement of those kinds; `--traditional` rejects all of them. Tests: `packages/conformance/tests/extracal/computed-come-from/gerund.xc`, `packages/conformance/tests/extracal/computed-come-from/gerund-next-from.xc`, `packages/conformance/tests/extracal/computed-come-from/traditional.xc`
 
 ### 3. Computed ABSTAIN
 
-- [ ] R3.3 — `ABSTAIN expr FROM (n)` and `ABSTAIN expr FROM gerunds` add to the abstention count; each REINSTATE removes one. Tests: `packages/conformance/tests/extracal/computed-abstain/counts.xc`
-- [ ] R3.3 — plain ABSTAIN and REINSTATE keep Mode 1's on/off behavior. Tests: `packages/conformance/tests/extracal/computed-abstain/plain-is-boolean.xc`
+- [x] R3.3 — `ABSTAIN expr FROM (n)` and `ABSTAIN expr FROM gerunds` add to the abstention count; each REINSTATE removes one. A count that would pass 2⁶³−1 saturates. Tests: `packages/conformance/tests/extracal/computed-abstain/counts.xc`, `packages/conformance/tests/extracal/computed-abstain/gerunds.xc`, `packages/conformance/tests/extracal/computed-abstain/huge-count.xc`, `packages/conformance/tests/extracal/computed-abstain/give-up.xc`, `packages/conformance/tests/extracal/computed-abstain/e139.xc`, `packages/conformance/tests/extracal/computed-abstain/traditional.xc` (L20 for saturation)
+- [x] R3.3 — plain ABSTAIN and REINSTATE keep Mode 1's on/off behavior. Tests: `packages/conformance/tests/extracal/computed-abstain/plain-is-boolean.xc`
 
 ### 4. ONCE and AGAIN
 
-- [ ] R3.4 — ONCE on a reinstated statement and AGAIN on an abstained one make it self-abstaining; the other two combinations self-reinstate. Tests: `packages/conformance/tests/extracal/once-again/combinations.xc`
-- [ ] R3.4 — ABSTAIN and REINSTATE turn a statement's ONCE back into AGAIN and back. Tests: `packages/conformance/tests/extracal/once-again/flip.xc`
+- [x] R3.4 — ONCE on a reinstated statement and AGAIN on an abstained one make it self-abstaining; the other two combinations self-reinstate. A NEXT's happens before it jumps, a COME FROM's where its target is, and an executed RESUME never reaches its own. Tests: `packages/conformance/tests/extracal/once-again/combinations.xc`, `packages/conformance/tests/extracal/once-again/next-once.xc`, `packages/conformance/tests/extracal/once-again/come-from-once.xc`, `packages/conformance/tests/extracal/once-again/resume-once.xc`, `packages/conformance/tests/extracal/once-again/traditional.xc`
+- [x] R3.4 — ABSTAIN and REINSTATE turn a statement's ONCE back into AGAIN and back. Tests: `packages/conformance/tests/extracal/once-again/flip.xc`
 
 ### 5. TRY AGAIN
 
-- [ ] R3.5 — TRY AGAIN restarts the program from the top; when it doesn't run, the program ends without E633. Tests: `packages/conformance/tests/extracal/try-again/loop.xc`, `packages/conformance/tests/extracal/try-again/abstained-ends.xc`
-- [ ] R3.5 — a statement after TRY AGAIN is a compile-time E993. Tests: `packages/conformance/tests/extracal/try-again/e993.xc`
+- [x] R3.5 — TRY AGAIN restarts the program from the top; when it doesn't run, the program ends without E633. Tests: `packages/conformance/tests/extracal/try-again/loop.xc`, `packages/conformance/tests/extracal/try-again/abstained-ends.xc`, `packages/conformance/tests/extracal/try-again/percent.xc`, `packages/conformance/tests/extracal/try-again/traditional.xc`
+- [x] R3.5 — a statement after TRY AGAIN is a compile-time E993. Tests: `packages/conformance/tests/extracal/try-again/e993.xc`
 
 ### 6. Threading
 
@@ -70,8 +72,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 8. Operand overloading
 
-- [ ] R3.8 — `.n/expr` returns `.n`'s value and makes `.n` stand for expr from then on. Tests: `packages/conformance/tests/extracal/overloading/slat.xc`
-- [ ] R3.8 — assigning to an overloaded variable assigns to its expression, and an impossible reverse assignment is E277. Tests: `packages/conformance/tests/extracal/overloading/reverse.xc`, `packages/conformance/tests/extracal/overloading/e277.xc`
+- [x] R3.8 — `.n/expr` returns `.n`'s value and makes `.n` stand for expr from then on; an expansion that reaches itself uses the true value; STASH and RETRIEVE keep the overloading; WRITE IN stores past it. Tests: `packages/conformance/tests/extracal/overloading/slat.xc`, `packages/conformance/tests/extracal/overloading/stash.xc`, `packages/conformance/tests/extracal/overloading/write-in.xc`, `packages/conformance/tests/extracal/overloading/narrowing.xc`
+- [x] R3.8 — assigning to an overloaded variable assigns to its expression, and an impossible reverse assignment is E277. Tests: `packages/conformance/tests/extracal/overloading/reverse.xc`, `packages/conformance/tests/extracal/overloading/e277.xc`, `packages/conformance/tests/extracal/overloading/e277-unary.xc`
 
 ### 9. CREATE
 
@@ -84,9 +86,9 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 12. Latin keywords
 
-- [ ] R3.12 — `PLACET`, `FAC` and the other Latin statement identifiers. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/latin/identifiers.xc`
-- [ ] R3.12 — the Latin statements, `NON`, `QUONDAM`/`ITERUM` and gerunds. Tests: `packages/conformance/tests/extracal/latin/statements.xc`
-- [ ] R3.12 — Latin number words in WRITE IN. Tests: `packages/conformance/tests/extracal/latin/write-in.xc`
+- [ ] R3.12 — `PLACET`, `FAC` and `PLACET FACERE` are statement identifiers, recognized anywhere as `ick` does. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/latin/identifiers.xc`
+- [x] R3.12 — the Latin statements, `NON`, `QUONDAM`/`ITERUM`, `MULTIPLICATUS A` and gerunds. Tests: `packages/conformance/tests/extracal/latin/statements.xc`, `packages/conformance/tests/extracal/latin/come-from.xc`, `packages/conformance/tests/extracal/latin/try-again.xc`
+- [x] R3.12 — Latin number words in WRITE IN, in EXTRACAL only (Mode 1's E579 stays, T29). Tests: `packages/conformance/tests/extracal/latin/write-in.xc`, `packages/conformance/tests/io/e579-latin.xc.out`
 
 ## 64-bit types (R4)
 
@@ -104,7 +106,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [x] R5 — operands up to 4294967295 give a 64-bit result. Tests: `packages/conformance/tests/extracal/mingle/wide-64.xc`
 - [x] R5 — larger operands give a 128-bit ephemeral value that a select can consume, with a 128-bit mask. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-select.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
 - [x] R5 — storing, mingling or applying a unary operator to an ephemeral value is E534. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`
-- [ ] R5, R3.8 — printing an ephemeral value, which only operand overloading can ask for, is E534. Tests: `packages/conformance/tests/extracal/overloading/ephemeral-read-out.xc`
+- [x] R5, R3.8 — printing an ephemeral value, which only operand overloading can ask for, is E534. Tests: `packages/conformance/tests/extracal/overloading/ephemeral-read-out.xc`
 - [x] R5 — a unary operator on a mingle rotates at the width the mingle had at run time. Tests: `packages/conformance/tests/extracal/mingle/unary-runtime-width.xc`
 
 ## Signed numbers (R6)

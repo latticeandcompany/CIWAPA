@@ -98,7 +98,7 @@ class DartEmitter {
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
         'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages'
-        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}' : ''});',
+        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}, latin: true' : ''});',
       );
     if (program.engine) {
       _emitEngine();
@@ -239,6 +239,12 @@ class DartEmitter {
   /// and calls back into the compiled bodies of the other statements.
   void _emitEngine() {
     final table = EngineTable(program);
+    if (program.overloading) {
+      _out.writeln(
+        '  ickInitOverloading(${program.scalars.length + program.wideScalars.length}, '
+        '${program.overloads.length}, _ovGet, _ovSet);',
+      );
+    }
     _out
       ..writeln(
         '  ickXRun(XProgram(table: _xTable, lists: _xLists, texts: _xTexts, '
@@ -292,6 +298,7 @@ class DartEmitter {
         ..writeln('}');
     }
 
+    _emitOverloads();
     _out
       ..writeln()
       ..writeln('int _xExpr(int ordinal) {')
@@ -301,6 +308,14 @@ class DartEmitter {
       if (s.op case IrForget(:final count) || IrResume(:final count)) {
         _out.writeln('    case ${s.ordinal}:');
         _line('return ${_count(count, s.next)};');
+      }
+      if (s.op case IrAbstain(count: final count?)) {
+        _out.writeln('    case ${s.ordinal}:');
+        _line('return ${_expr(count, s.next)};');
+      }
+      if (s.op case IrComputedComeFrom(:final label)) {
+        _out.writeln('    case ${s.ordinal}:');
+        _line('return ${_expr(label, s.next)};');
       }
     }
     _out
@@ -338,6 +353,107 @@ class DartEmitter {
       ..writeln('  }')
       ..writeln('  return false;')
       ..writeln('}');
+  }
+
+  /// Each overload's expression, read and assigned to (R3). `next` is the reading or assigning
+  /// statement's, which the runtime passes in.
+  void _emitOverloads() {
+    if (!program.overloading) return;
+    final locals =
+        '  final v = _v, ig = _ig${program.extracal ? ', w = _w, igw = _igw' : ''};';
+    _out
+      ..writeln()
+      ..writeln('int _ovGet(int id, int next) {')
+      ..writeln(locals)
+      ..writeln('  switch (id) {');
+    for (final (i, e) in program.overloads.indexed) {
+      _out.writeln('    case ${i + 1}:');
+      _line('return ${_expr(e, 'next')};');
+    }
+    _out
+      ..writeln('  }')
+      ..writeln('  return 0;')
+      ..writeln('}')
+      ..writeln()
+      ..writeln('void _ovSet(int id, int value, int next) {')
+      ..writeln(locals)
+      ..writeln('  switch (id) {');
+    for (final (i, e) in program.overloads.indexed) {
+      _out.writeln('    case ${i + 1}:');
+      _line('{');
+      _reverse(e, 'value');
+      _line('}');
+    }
+    _out
+      ..writeln('  }')
+      ..writeln('}');
+  }
+
+  var _reverseTemps = 0;
+
+  /// Assigns [target] to [e] backwards, as `ick` does for an overloaded variable: a mingle's
+  /// operands get the target's odd and even bits, a select's left operand gets the target and its
+  /// right operand all ones, a unary operator is undone, and a constant is E277. "All ones" is
+  /// [width] bits: `ick` starts at 16 and takes each unary operator's width on the way down.
+  void _reverse(IrExpr e, String target, [int width = 16]) {
+    String temp(String value) {
+      final name = 'r${_reverseTemps++}';
+      _line('final $name = $value;');
+      return name;
+    }
+
+    String fits(int to) =>
+        to == 64 ? target : 'ickCheckNarrow($target, $to, next)';
+    switch (e) {
+      case IrScalar(:final slot):
+        final store = slot.wide ? 'w' : 'v', flags = slot.wide ? 'igw' : 'ig';
+        _line('if (!ickOvSet(${_key(slot)}, $target, next)) {');
+        final value = temp(fits(slot.width));
+        _line(
+          'if ($flags[${slot.index}] == 0) $store[${slot.index}] = $value;',
+        );
+        _line('}');
+      case IrSlat(:final slot, :final id):
+        final store = slot.wide ? 'w' : 'v', flags = slot.wide ? 'igw' : 'ig';
+        final value = temp(fits(slot.width));
+        _line(
+          'if ($flags[${slot.index}] == 0) $store[${slot.index}] = $value;',
+        );
+        _line('ickOvSlat(${_key(slot)}, $id, 0);');
+      case IrElement(:final array, :final subscripts):
+        final suffix = _suffix(array);
+        final offset = temp(_element(array, subscripts, 'next'));
+        final value = temp(fits(array.width));
+        _line(
+          'if (!ickArrayIgnored$suffix(${array.index})) ickArrayData$suffix(${array.index})[$offset] = $value;',
+        );
+      case IrMingle(:final left, :final right) when program.base == 2:
+        final odd = temp('ickSelect64($target, 0xAAAAAAAAAAAAAAAA)');
+        final even = temp('ickSelect64($target, 0x5555555555555555)');
+        _reverseInto(left, odd, width);
+        _reverseInto(right, even, width);
+      case IrSelect(:final left, :final right) when program.base == 2:
+        _reverseInto(left, target, width);
+        _reverseInto(
+          right,
+          _literal(width == 64 ? -1 : (1 << width) - 1),
+          width,
+        );
+      case IrUnary(:final op, :final operand) when program.base == 2:
+        final undone = temp(
+          'ickReverseUnary(${UnaryOp.values.indexOf(op)}, $target, ${operand.valueWidth}, next)',
+        );
+        _reverseInto(operand, undone, operand.valueWidth);
+      default:
+        // Constants can't change, and the other bases' operators can't be undone.
+        _line('ickFatal(277, next);');
+    }
+  }
+
+  void _reverseInto(IrExpr e, String target, int width) {
+    _line('{');
+    _reverse(e, target, width);
+    _line('}');
   }
 
   /// The statements whose bodies are compiled for the control engine; it runs the rest itself.
@@ -484,6 +600,7 @@ class DartEmitter {
       case IrVarList(op: ListOp.stash, :final scalars, :final arrays):
         for (final v in scalars) {
           _line('ickStashScalar${_suffix(v)}(${v.index}, $next);');
+          if (program.overloading) _line('ickOvStash(${_key(v)});');
         }
         for (final a in arrays) {
           _line('ickStashArray${_suffix(a)}(${a.index}, $next);');
@@ -500,6 +617,7 @@ class DartEmitter {
       case IrVarList(op: ListOp.retrieve, :final scalars, :final arrays):
         for (final v in scalars) {
           _line('ickRetrieveScalar${_suffix(v)}(${v.index}, $next);');
+          if (program.overloading) _line('ickOvRetrieve(${_key(v)});');
         }
         for (final a in arrays) {
           _line('ickRetrieveArray${_suffix(a)}(${a.index}, $next);');
@@ -568,7 +686,7 @@ class DartEmitter {
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is
   /// read, then E275 (even when the target is IGNOREd, decision T24), then the store.
-  void _writeIn(IrExpr target, int next, {bool signed = false}) {
+  void _writeIn(IrExpr target, Object next, {bool signed = false}) {
     switch (target) {
       case IrScalar() || IrElement():
         _line('{');
@@ -587,7 +705,7 @@ class DartEmitter {
     }
   }
 
-  void _assign(IrExpr target, IrExpr value, int next) {
+  void _assign(IrExpr target, IrExpr value, Object next) {
     // A value can only exceed a narrower target; narrower ones were checked when they were stored.
     // 32 bits into 16 is Mode 1's E275, and anything wider is EXTRACAL's (R4).
     String checked(String v) {
@@ -602,6 +720,18 @@ class DartEmitter {
     }
 
     switch (target) {
+      // An overloaded variable's assignment goes into its expression instead. WRITE IN stores
+      // into the variable itself, as in `ick`.
+      case IrScalar(:final slot) when program.overloading && value is! IrInput:
+        final store = slot.wide ? 'w' : 'v', flags = slot.wide ? 'igw' : 'ig';
+        _line('final u = ${_expr(value, next)};');
+        _line('if (!ickOvSet(${_key(slot)}, u, $next)) {');
+        _line(
+          program.ignorable.contains(slot)
+              ? '  final t = ${checked('u')};\n        if ($flags[${slot.index}] == 0) $store[${slot.index}] = t;'
+              : '  $store[${slot.index}] = ${checked('u')};',
+        );
+        _line('}');
       case IrScalar(:final slot) when !program.ignorable.contains(slot):
         _line(
           '${slot.wide ? 'w' : 'v'}[${slot.index}] = ${checked(_expr(value, next))};',
@@ -627,13 +757,20 @@ class DartEmitter {
   /// `64` for EXTRACAL's 64-bit storage, whose runtime functions end in it.
   static String _suffix(Slot slot) => slot.wide ? '64' : '';
 
+  /// A scalar's key in the runtime's overloading table: 64-bit scalars come after the others.
+  int _key(Slot slot) =>
+      slot.wide ? program.scalars.length + slot.index : slot.index;
+
+  /// A scalar's true value, without its overloading.
+  String _trueValue(Slot slot) => '${slot.wide ? 'w' : 'v'}[${slot.index}]';
+
   /// A FORGET or RESUME count.
-  String _count(IrExpr count, int next) => count.valueWidth == 64
+  String _count(IrExpr count, Object next) => count.valueWidth == 64
       ? 'ickCount64(${_expr(count, next)})'
       : _expr(count, next);
 
   /// The checked offset of an element; one and two subscripts skip building a list.
-  String _element(Slot array, List<IrExpr> subscripts, int next) {
+  String _element(Slot array, List<IrExpr> subscripts, Object next) {
     final values = [
       for (final s in subscripts)
         s.valueWidth == 64
@@ -655,11 +792,15 @@ class DartEmitter {
       ? '$value'
       : '0x${BigInt.from(value).toUnsigned(64).toRadixString(16).toUpperCase()}';
 
-  String _expr(IrExpr e, int next) => switch (e) {
+  String _expr(IrExpr e, Object next) => switch (e) {
     _ when e.width == IrExpr.runtimeWidth =>
       'ickXValue(${_wide(e, next)}, $next)',
     IrConst(:final value) => _literal(value),
-    IrScalar(:final slot) => '${slot.wide ? 'w' : 'v'}[${slot.index}]',
+    IrScalar(:final slot) when program.overloading =>
+      'ickOvGet(${_key(slot)}, ${_trueValue(slot)}, ${slot.width}, $next)',
+    IrScalar(:final slot) => _trueValue(slot),
+    IrSlat(:final slot, :final id) =>
+      'ickOvSlat(${_key(slot)}, $id, ${_trueValue(slot)})',
     IrElement(:final array, :final subscripts) =>
       'ickArrayData${_suffix(array)}(${array.index})[${_element(array, subscripts, next)}]',
     IrMingle(:final left, :final right)
@@ -690,7 +831,7 @@ class DartEmitter {
 
   /// [e] as an [XValue] record of (width, high, low), for the operations whose result width
   /// depends on their operands' values: EXTRACAL's mingle and what is built on it (R5).
-  String _wide(IrExpr e, int next) => switch (e) {
+  String _wide(IrExpr e, Object next) => switch (e) {
     _ when e.width != IrExpr.runtimeWidth =>
       '(${e.width}, 0, ${_expr(e, next)})',
     IrMingle(:final left, :final right) =>
@@ -728,7 +869,7 @@ class DartEmitter {
 
   /// Binary uses rotate-and-combine bit operations; bases 3–7 use the digit-wise ones, where every
   /// logical operator is one that prefers a digit p (§6.6).
-  String _unary(UnaryOp op, IrExpr operand, int next) {
+  String _unary(UnaryOp op, IrExpr operand, Object next) {
     final value = _expr(operand, next);
     final large = operand.large;
     if (program.base == 2) {

@@ -62,10 +62,23 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   ).parse();
   if (traditional) {
     for (final (i, s) in statements.indexed) {
-      if (s.body is ComeFrom) throw CompileError(111, i + 1);
+      final gerund = s.body.gerund;
+      final body = s.body;
+      if (gerund == Gerund.comingFrom ||
+          gerund == Gerund.nextingFrom ||
+          (body is AbstainBody && body.count != null) ||
+          s.onceAgain != OnceAgain.none ||
+          body is TryAgain) {
+        throw CompileError(111, i + 1);
+      }
     }
   }
   _checkPoliteness(statements);
+  // `ick` allows nothing after a TRY AGAIN, not even a comment.
+  final tryAgain = statements.indexWhere((s) => s.body is TryAgain);
+  if (tryAgain >= 0 && tryAgain < statements.length - 1) {
+    throw CompileError(993, tryAgain + 2);
+  }
   final userStatements = statements.length;
   if (_needsLibrary(statements, base)) {
     statements.addAll(Parser(Source('syslib.i', syslibSource)).parse());
@@ -149,6 +162,8 @@ Iterable<Expr> expressionsOf(Body body) => switch (body) {
   Calculate(:final target, :final value) => [target, value],
   Dimension(:final dimensions) => dimensions,
   Forget(:final count) || Resume(:final count) => [count],
+  ComputedComeFrom(:final label) => [label],
+  AbstainBody(:final count?) => [count],
   IoBody(:final items) => items,
   _ => const [],
 };
@@ -165,6 +180,8 @@ Iterable<UnaryOp> unaryOps(Expr e) sync* {
       for (final s in subscripts) {
         yield* unaryOps(s);
       }
+    case Slat(:final expr):
+      yield* unaryOps(expr);
     case Constant() || Scalar() || ArrayItem():
       break;
   }

@@ -99,6 +99,18 @@ class Unary extends Expr {
 
 enum BinaryOp { mingle, select }
 
+/// `ick`'s operand overloading (R3): `.n/expr` has `.n`'s value, and makes `.n` stand for [expr]
+/// from then on, both when it is read and when it is assigned to.
+class Slat extends Expr {
+  const Slat(this.scalar, this.expr);
+
+  final VarRef scalar;
+  final Expr expr;
+
+  @override
+  String toString() => '$scalar/$expr';
+}
+
 class Binary extends Expr {
   const Binary(this.op, this.left, this.right, {this.ungrouped = false});
 
@@ -194,12 +206,17 @@ class AbstainBody extends Body {
     required this.abstain,
     this.label,
     this.gerunds = const [],
+    this.count,
   });
 
   /// True for ABSTAIN FROM, false for REINSTATE.
   final bool abstain;
   final int? label;
   final List<Gerund> gerunds;
+
+  /// `ick`'s computed ABSTAIN (`ABSTAIN expr FROM …`), which adds this to the abstention count
+  /// instead of just abstaining (R3).
+  final Expr? count;
 
   @override
   Gerund get gerund => abstain ? Gerund.abstaining : Gerund.reinstating;
@@ -238,10 +255,43 @@ class GiveUp extends Body {
 }
 
 /// COME FROM, or EXTRACAL's NEXT FROM, which also pushes a NEXT stack entry (R3).
+/// `ick`'s TRY AGAIN, which restarts the program from its first statement (R3). It must be the last
+/// statement (E993).
+class TryAgain extends Body {
+  const TryAgain();
+
+  @override
+  Gerund get gerund => Gerund.tryingAgain;
+}
+
 class ComeFrom extends Body {
   const ComeFrom(this.label, {this.nexting = false});
 
   final int label;
+  final bool nexting;
+
+  @override
+  Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
+}
+
+/// `ick`'s computed COME FROM and NEXT FROM: control comes here after any labelled statement whose
+/// label equals [label]'s value (R3).
+class ComputedComeFrom extends Body {
+  const ComputedComeFrom(this.label, {this.nexting = false});
+
+  final Expr label;
+  final bool nexting;
+
+  @override
+  Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
+}
+
+/// `ick`'s COME FROM and NEXT FROM a gerund list: control comes here after any statement of those
+/// kinds (R3, L18).
+class GerundComeFrom extends Body {
+  const GerundComeFrom(this.gerunds, {this.nexting = false});
+
+  final List<Gerund> gerunds;
   final bool nexting;
 
   @override
@@ -256,6 +306,10 @@ class Undecodable extends Body {
   Gerund? get gerund => null;
 }
 
+/// `ick`'s ONCE and AGAIN: after a statement is reached, ONCE on a reinstated statement (or AGAIN
+/// on an abstained one) abstains it, and the other two combinations reinstate it.
+enum OnceAgain { none, once, again }
+
 /// One statement as parsed: its qualifiers, its body and where its text lies in the source.
 class Statement {
   Statement({
@@ -268,6 +322,7 @@ class Statement {
     required this.percent,
     required this.body,
     this.chain = false,
+    this.onceAgain = OnceAgain.none,
   });
 
   /// The file the statement comes from: the user's program or the system library.
@@ -287,6 +342,9 @@ class Statement {
 
   /// The parser saw two or more ungrouped binary operators in a row.
   final bool chain;
+
+  /// `ick`'s ONCE or AGAIN at the end of the statement (R3).
+  final OnceAgain onceAgain;
 
   /// An ungrouped chain of binary operators: E017 when the statement executes (decision Q97).
   /// A statement that later turns out to be undecodable raises E000 instead (decision T9).

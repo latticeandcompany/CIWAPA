@@ -585,11 +585,25 @@ static const struct { const char *word; uint32_t digit; } numerals[] = {
   {"Z\xC3""\x9C""L", 9},
 };
 
+/* `ick`'s Latin number words, which only EXTRACAL reads (R3 item 12; Mode 1 has none, T29). */
+static const struct { const char *word; uint32_t digit; } latin_numerals[] = {
+  {"NIL", 0}, {"NIHIL", 0}, {"UNUS", 1}, {"UNA", 1}, {"UNUM", 1}, {"DUO", 2}, {"DUAE", 2},
+  {"TRES", 3}, {"QUATTUOR", 4}, {"QUATUOR", 4}, {"QUINQUE", 5}, {"SEX", 6}, {"SEPTEM", 7},
+  {"OCTO", 8}, {"NOVEM", 9},
+};
+
+static int latin;
+
 /* The digit a number word stands for, or -1. */
 static int numeral_digit(const char *word, size_t size) {
   for (size_t k = 0; k < sizeof numerals / sizeof numerals[0]; k++) {
     if (strlen(numerals[k].word) == size && memcmp(numerals[k].word, word, size) == 0) {
       return (int)numerals[k].digit;
+    }
+  }
+  for (size_t k = 0; latin && k < sizeof latin_numerals / sizeof latin_numerals[0]; k++) {
+    if (strlen(latin_numerals[k].word) == size && memcmp(latin_numerals[k].word, word, size) == 0) {
+      return (int)latin_numerals[k].digit;
     }
   }
   return -1;
@@ -908,7 +922,9 @@ static void parse_options(int argc, char **argv) {
 
 /* ---- EXTRACAL's 64-bit types (R4, Q107, Q123) ---------------------------------------- */
 
+/* EXTRACAL's own setup: its 64-bit storage, and the Latin number words (R3 item 12). */
 void ick_init_wide(uint64_t *values, uint8_t *ignored, uint32_t count, uint32_t array_count) {
+  latin = 1;
   wide_values = values;
   wide_ignored = ignored;
   wide_stashes = calloc(count ? count : 1, sizeof(ick_wide_stash));
@@ -1172,14 +1188,27 @@ enum {
 
 enum {
   X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
-  X_NEXT_FROM, X_UNDECODABLE
+  X_NEXT_FROM, X_UNDECODABLE, X_COMPUTED_COME_FROM, X_COMPUTED_NEXT_FROM, X_GERUND_COME_FROM,
+  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN, X_TRY_AGAIN
 };
+
+/* The computed and gerund COME FROMs and NEXT FROMs. */
+static int x_chained(int32_t kind) { return kind >= X_COMPUTED_COME_FROM && kind <= X_GERUND_NEXT_FROM; }
+
+static int x_gerund_kind(int32_t kind) { return kind == X_GERUND_COME_FROM || kind == X_GERUND_NEXT_FROM; }
+
+static int x_comes_from(int32_t kind) { return kind == X_COME_FROM || x_chained(kind); }
+
+static int x_nexting(int32_t kind) {
+  return kind == X_NEXT_FROM || kind == X_COMPUTED_NEXT_FROM || kind == X_GERUND_NEXT_FROM;
+}
 
 enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2 };
 enum { X_NO_ONCE_AGAIN, X_ABSTAIN_AFTER, X_REINSTATE_AFTER };
 
-/* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. */
-enum { X_START, X_TAIL, X_END, X_LANDING };
+/* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. Position
+ * X_CHAIN_END is the end of the computed COME FROM checks. */
+enum { X_START, X_TAIL, X_END, X_LANDING, X_CHECK, X_MATCHED, X_LANDED, X_CHAIN_END };
 
 typedef struct {
   const int32_t *table;
@@ -1196,13 +1225,21 @@ typedef struct {
 /* One thread's registers. Its variables, stashes and NEXT stack are the runtime's own while it
  * runs. candidates and chosen are `ick_ccfc` and `ick_cjb`; finishing is `truelineno`. */
 typedef struct {
-  uint32_t position, candidates, chosen, finishing;
+  uint32_t position, candidates, chosen, finishing, finishing_label;
   int64_t resume_to;
 } ick_x_thread;
 
 static ick_x_program x;
-static int32_t *x_abstained;
-static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, -1};
+/* Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more than
+ * 1, and it saturates instead of overflowing. */
+static int64_t *x_abstained;
+static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1};
+
+/* The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
+ * a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
+ * one (`compucomesused`, `gerucomesused`). x_chain_next maps each to the position after it. */
+static uint32_t *x_chain, x_chain_length, *x_chain_next;
+static int x_gerund_chain;
 
 static int32_t x_get(uint32_t ordinal, int field) { return x.table[ordinal * X_STRIDE + field]; }
 
@@ -1230,8 +1267,8 @@ static uint32_t x_fall_through(uint32_t ordinal) {
 }
 
 /* Updates a statement's abstention for its ONCE or AGAIN, and returns the abstention before. */
-static int32_t x_once_again(uint32_t ordinal) {
-  int32_t old = x_abstained[ordinal];
+static int64_t x_once_again(uint32_t ordinal) {
+  int64_t old = x_abstained[ordinal];
   switch (x_get(ordinal, X_ONCE_AGAIN)) {
   case X_ABSTAIN_AFTER: x_abstained[ordinal] = old ? old : 1; break;
   case X_REINSTATE_AFTER: x_abstained[ordinal] = 0; break;
@@ -1240,7 +1277,7 @@ static int32_t x_once_again(uint32_t ordinal) {
 }
 
 /* The guard: the `%` roll first (decision T22), then the abstention. */
-static int x_runs(uint32_t ordinal, int32_t abstained) {
+static int x_runs(uint32_t ordinal, int64_t abstained) {
   int32_t percent = x_get(ordinal, X_PERCENT);
   return (percent >= 100 || ick_roll((uint32_t)percent)) && abstained == 0;
 }
@@ -1256,10 +1293,14 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
   if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, next);
   int32_t kind = x_get(ordinal, X_KIND);
   t->position = ordinal * 8 + X_TAIL;
-  if (kind == X_COME_FROM || kind == X_NEXT_FROM) return;
-  int32_t abstained =
+  if (x_comes_from(kind)) return;
+  int64_t abstained =
       kind == X_NEXT_KIND || kind == X_UNDECODABLE ? x_once_again(ordinal) : x_abstained[ordinal];
-  if (!x_runs(ordinal, abstained)) return;
+  if (!x_runs(ordinal, abstained)) {
+    /* A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything. */
+    if (kind == X_TRY_AGAIN) ick_give_up();
+    return;
+  }
   int32_t fault = x_get(ordinal, X_FAULT);
   if (fault) ick_fatal((uint32_t)fault, next);
   int32_t start = x_get(ordinal, X_LIST_START), length = x_get(ordinal, X_LIST_LENGTH);
@@ -1279,6 +1320,10 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     t->resume_to = x_return(x_resume(x.expr(ordinal), next));
     break;
   case X_GIVE_UP: ick_give_up();
+  case X_TRY_AGAIN:
+    /* `ick` jumps straight back to the start, past this statement's tail. */
+    t->position = 1 * 8 + X_START;
+    break;
   case X_ABSTAIN:
     for (int32_t i = 0; i < length; i++) {
       int32_t target = x.lists[start + i];
@@ -1291,6 +1336,15 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
       if (x_abstained[target]) x_abstained[target]--;
     }
     break;
+  case X_COMPUTED_ABSTAIN: {
+    uint64_t amount = x.expr(ordinal);
+    for (int32_t i = 0; i < length; i++) {
+      int32_t target = x.lists[start + i];
+      uint64_t room = (uint64_t)(INT64_MAX - x_abstained[target]);
+      x_abstained[target] = amount > room ? INT64_MAX : x_abstained[target] + (int64_t)amount;
+    }
+    break;
+  }
   case X_UNDECODABLE: ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
   }
 }
@@ -1303,7 +1357,9 @@ static void x_candidate(ick_x_thread *t, uint32_t landing) {
 
 static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   int32_t kind = x_get(ordinal, X_KIND);
-  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_COME_FROM && kind != X_NEXT_FROM) {
+  /* An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen. */
+  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_COME_FROM && kind != X_NEXT_FROM &&
+      t->resume_to < 0) {
     x_once_again(ordinal);
   }
   t->candidates = 0;
@@ -1317,7 +1373,7 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   for (int32_t i = x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
     uint32_t from = (uint32_t)x.lists[start + i];
     if (resuming && x_get(from, X_KIND) != X_COME_FROM) continue;
-    int32_t abstained =
+    int64_t abstained =
         x_get(from, X_ONCE_AGAIN) != X_NO_ONCE_AGAIN ? x_once_again(from) : x_abstained[from];
     if (!x_runs(from, abstained)) continue;
     /* A COME FROM's own faults fire in place of its jump, unless a bug planted on it fires
@@ -1326,15 +1382,42 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
     if (fault && !(x_get(from, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(from, X_NEXT));
     x_candidate(t, from * 8 + X_LANDING);
   }
-  t->position = t->candidates     ? t->chosen
-                : t->resume_to >= 0 ? (uint32_t)t->resume_to
-                                    : ordinal * 8 + X_END;
+  uint32_t otherwise = t->resume_to >= 0 ? (uint32_t)t->resume_to : ordinal * 8 + X_END;
   t->resume_to = -1;
+  uint32_t label = (uint32_t)x_get(ordinal, X_LABEL);
+  if (!resuming && x_chain_length && (label || x_gerund_chain)) {
+    t->finishing_label = label;
+    if (!t->candidates) t->chosen = otherwise;
+    t->position = x_chain[0] * 8 + X_CHECK;
+    return;
+  }
+  t->position = t->candidates ? t->chosen : otherwise;
+}
+
+/* Checks whether computed or gerund COME FROM [ordinal] takes control from the statement being
+ * finished: a computed one when its value is that statement's label, a gerund one when that
+ * statement is of one of its kinds. The expression is only evaluated for a labelled statement. */
+static void x_check(ick_x_thread *t, uint32_t ordinal) {
+  int matches = 0;
+  if (!x_gerund_kind(x_get(ordinal, X_KIND))) {
+    matches = t->finishing_label && x.expr(ordinal) == t->finishing_label;
+  } else {
+    int32_t gerund = x_get(t->finishing, X_GERUND);
+    int32_t start = x_get(ordinal, X_LIST_START), length = x_get(ordinal, X_LIST_LENGTH);
+    for (int32_t i = 0; i < length; i++) matches |= gerund && x.lists[start + i] == gerund;
+  }
+  if (matches && x_runs(ordinal, x_abstained[ordinal])) {
+    int32_t fault = x_get(ordinal, X_FAULT);
+    if (fault && !(x_get(ordinal, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(ordinal, X_NEXT));
+    t->position = ordinal * 8 + X_MATCHED;
+  } else {
+    t->position = x_chain_next[ordinal];
+  }
 }
 
 static void x_landing(ick_x_thread *t, uint32_t ordinal) {
   if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, (uint32_t)x_get(ordinal, X_NEXT));
-  if (x_get(ordinal, X_KIND) == X_NEXT_FROM) x_next_push(t->finishing, ordinal);
+  if (x_nexting(x_get(ordinal, X_KIND))) x_next_push(t->finishing, ordinal);
   t->position = ordinal * 8 + X_TAIL;
 }
 
@@ -1343,24 +1426,156 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
                const uint32_t *text_lengths, uint32_t user_statements, void (*body)(uint32_t),
                uint64_t (*expr)(uint32_t), uint32_t (*native)(uint32_t)) {
   x = (ick_x_program){table, lists, texts, text_lengths, count, user_statements, body, expr, native};
-  x_abstained = calloc(count + 1, sizeof(int32_t));
+  x_abstained = calloc(count + 1, sizeof(int64_t));
   if (!x_abstained) ick_fatal(778, 1);
+  x_chain = calloc(count + 1, sizeof(uint32_t));
+  x_chain_next = calloc(count + 1, sizeof(uint32_t));
+  if (!x_chain || !x_chain_next) ick_fatal(778, 1);
   for (uint32_t s = 1; s <= count; s++) {
     if (x_get(s, X_FLAGS) & X_INITIALLY_ABSTAINED) x_abstained[s] = 1;
+    if (x_chained(x_get(s, X_KIND))) {
+      x_chain[x_chain_length++] = s;
+      x_gerund_chain |= x_gerund_kind(x_get(s, X_KIND));
+    }
+  }
+  for (uint32_t i = 0; i < x_chain_length; i++) {
+    x_chain_next[x_chain[i]] = i + 1 < x_chain_length ? x_chain[i + 1] * 8 + X_CHECK : X_CHAIN_END;
   }
   ick_x_thread *t = &x_thread;
   for (;;) {
+    if (t->position == X_CHAIN_END) {
+      t->position = t->chosen;
+      continue;
+    }
     uint32_t ordinal = t->position >> 3;
     if (ordinal > count || ordinal == 0) ick_fatal(633, count + 1);
     switch (t->position & 7) {
     case X_START: x_start(t, ordinal); break;
     case X_TAIL: x_tail(t, ordinal); break;
     case X_END: t->position = x_fall_through(ordinal); break;
-    case X_LANDING: x_landing(t, ordinal); break;
+    case X_LANDING:
+    case X_LANDED: x_landing(t, ordinal); break;
+    case X_CHECK: x_check(t, ordinal); break;
+    case X_MATCHED:
+      x_candidate(t, ordinal * 8 + X_LANDED);
+      t->position = x_chain_next[ordinal];
+      break;
     }
   }
 }
 
 /* Whether statement [ordinal] isn't abstained, for the native library guards. */
 uint32_t ick_x_clear(uint32_t ordinal) { return x_abstained[ordinal] == 0; }
+
+/* ---- EXTRACAL's operand overloading (R3) ------------------------------------------------- */
+/* After `.n/expr`, `.n` stands for expr: reading it evaluates expr, and assigning to it assigns to
+ * expr, working backwards through it (`ick`'s reverse assignment). A scalar's key is its index,
+ * with the 64-bit scalars numbered after the others. As in `ick`, an expansion that reaches
+ * itself again uses the variable's true value instead, and overloading is stashed with its
+ * variable. runtime.dart has the same. */
+
+typedef struct {
+  int32_t *items;
+  size_t count, capacity;
+} ick_overload_stash;
+
+static int32_t *overload_of;
+static ick_overload_stash *overload_stashes;
+static uint8_t *getting, *setting;
+static uint64_t (*ov_get)(uint32_t id, uint32_t next);
+static void (*ov_set)(uint32_t id, uint64_t value, uint32_t next);
+
+void ick_init_overloading(uint32_t keys, uint32_t overloads, uint64_t (*get)(uint32_t, uint32_t),
+                          void (*set)(uint32_t, uint64_t, uint32_t)) {
+  overload_of = calloc(keys ? keys : 1, sizeof(int32_t));
+  overload_stashes = calloc(keys ? keys : 1, sizeof(ick_overload_stash));
+  getting = calloc(overloads + 1, 1);
+  setting = calloc(overloads + 1, 1);
+  if (!overload_of || !overload_stashes || !getting || !setting) ick_fatal(778, 1);
+  ov_get = get;
+  ov_set = set;
+}
+
+/* Reading scalar [key], whose true value is [value]. An overloaded one gives its expression's
+ * value, which must fit the variable as an assignment would (E275, E276). */
+uint64_t ick_ov_get(uint32_t key, uint64_t value, uint32_t width, uint32_t next) {
+  int32_t id = overload_of[key];
+  if (id == 0 || getting[id]) return value;
+  getting[id] = 1;
+  uint64_t result = ov_get((uint32_t)id, next);
+  getting[id] = 0;
+  return width == 64 ? result : ick_check_narrow(result, width, next);
+}
+
+/* Assigning [value] to scalar [key]: 1 if it was overloaded, and the assignment went into its
+ * expression instead. */
+uint32_t ick_ov_set(uint32_t key, uint64_t value, uint32_t next) {
+  int32_t id = overload_of[key];
+  if (id == 0 || setting[id]) return 0;
+  setting[id] = 1;
+  ov_set((uint32_t)id, value, next);
+  setting[id] = 0;
+  return 1;
+}
+
+/* `.n/expr`: scalar [key] stands for overload [id] from now on; the slat's value is [value]. */
+uint64_t ick_ov_slat(uint32_t key, uint32_t id, uint64_t value) {
+  overload_of[key] = (int32_t)id;
+  return value;
+}
+
+void ick_ov_stash(uint32_t key) {
+  ick_overload_stash *s = &overload_stashes[key];
+  if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(int32_t), 1);
+  s->items[s->count++] = overload_of[key];
+}
+
+/* Like the value, an IGNOREd variable's overloading stays as it is, and the stash is still used
+ * up. */
+void ick_ov_retrieve(uint32_t key) {
+  ick_overload_stash *s = &overload_stashes[key];
+  int32_t stashed = s->items[--s->count];
+  uint32_t narrow = program->scalar_count;
+  uint8_t ignored = key < narrow ? program->ignored[key] : wide_ignored[key - narrow];
+  if (!ignored) overload_of[key] = stashed;
+}
+
+static uint64_t mask_of(uint32_t width) {
+  return width == 64 ? UINT64_MAX : ((uint64_t)1 << width) - 1;
+}
+
+static uint64_t rotate_right(uint64_t x, uint32_t width) {
+  return ((x >> 1) | (x << (width - 1))) & mask_of(width);
+}
+
+static uint64_t rotate_left(uint64_t x, uint32_t width) {
+  return ((x << 1) & mask_of(width)) | ((x >> (width - 1)) & 1);
+}
+
+static uint64_t unary_at(uint32_t op, uint64_t x, uint32_t width) {
+  uint64_t r = rotate_right(x, width);
+  return op == 0 ? x & r : op == 1 ? x | r : x ^ r;
+}
+
+/* The value AND (op 0), OR (1) or XOR (2) at [width] turns into [n], worked out as `ick` does:
+ * one candidate, checked, and E277 when it doesn't work. */
+uint64_t ick_reverse_unary(uint32_t op, uint64_t n, uint32_t width, uint32_t next) {
+  uint64_t candidate = 0;
+  if (op == 2) {
+    /* Each bit is the parity of the bits of [n] below it; `ick` stops at 2^14 for 16 bits and,
+     * short of the top, at 2^26 for 32. 64 bits go on to 2^62. */
+    uint64_t stop = width == 16 ? 0x4000u : width == 32 ? 0x4000000u : 0x4000000000000000ull;
+    int parity = 0;
+    for (uint64_t bit = 1; bit && bit <= stop; bit <<= 1) {
+      if (n & bit) parity ^= 1;
+      if (parity) candidate |= bit << 1;
+    }
+  } else {
+    /* AND's candidate comes from OR, and OR's from AND, rotated back left. */
+    uint64_t mixed = op == 0 ? n | rotate_right(n, width) : n & rotate_right(n, width);
+    candidate = rotate_left(mixed, width);
+  }
+  if (unary_at(op, candidate, width) != n) ick_fatal(277, next);
+  return candidate;
+}
 ''';

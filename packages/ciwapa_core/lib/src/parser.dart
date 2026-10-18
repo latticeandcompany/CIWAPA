@@ -21,13 +21,17 @@ class Parser {
     this.memoryLimit,
     bool wide = false,
     bool extensions = false,
-  }) : _tokens = Lexer(source, wide: wide, extensions: extensions).tokenize();
+  }) : _extensions = extensions,
+       _tokens = Lexer(source, wide: wide, extensions: extensions).tokenize();
 
   final Source source;
 
   /// Test-only: parsing more statements than this fails as if memory ran out (decision L7).
   final int? memoryLimit;
   final List<Token> _tokens;
+
+  /// Whether `ick`'s extensions parse (EXTRACAL, R3).
+  final bool _extensions;
   int _pos = 0;
   bool _chain = false;
 
@@ -55,8 +59,15 @@ class Parser {
 
       _chain = false;
       Body body;
+      var onceAgain = OnceAgain.none;
       try {
         body = _body();
+        // `ick`'s ONCE and AGAIN end a statement (R3).
+        if (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again) {
+          onceAgain = _tokens[_pos++].kind == TokenKind.once
+              ? OnceAgain.once
+              : OnceAgain.again;
+        }
       } on _Fail catch (fail) {
         _pos = _resync(fail.at);
         body = const Undecodable();
@@ -72,6 +83,7 @@ class Parser {
           percent: percent,
           body: body,
           chain: _chain,
+          onceAgain: onceAgain,
         ),
       );
     }
@@ -191,20 +203,34 @@ class Parser {
           _ => ListOp.remember,
         };
         return VarListBody(op, vars);
+      case TokenKind.abstain:
+        _pos++;
+        // The Latin ABSTINERE comes before a separate FROM.
+        if (_tok.kind == TokenKind.from) {
+          _pos++;
+          if (_tok.kind == TokenKind.label) {
+            return AbstainBody(abstain: true, label: _tokens[_pos++].value);
+          }
+          return AbstainBody(abstain: true, gerunds: _gerunds());
+        }
+        // `ick`'s computed ABSTAIN adds the expression's value to the abstention count (R3).
+        final count = _expr();
+        _expect(TokenKind.from);
+        if (_tok.kind == TokenKind.label) {
+          return AbstainBody(
+            abstain: true,
+            label: _tokens[_pos++].value,
+            count: count,
+          );
+        }
+        return AbstainBody(abstain: true, gerunds: _gerunds(), count: count);
       case TokenKind.abstainFrom || TokenKind.reinstate:
         _pos++;
         final abstain = kind == TokenKind.abstainFrom;
         if (_tok.kind == TokenKind.label) {
           return AbstainBody(abstain: abstain, label: _tokens[_pos++].value);
         }
-        if (_tok.kind != TokenKind.gerund) _fail();
-        final gerunds = [_tokens[_pos++].gerund!];
-        while (_tok.kind == TokenKind.intersection) {
-          _pos++;
-          if (_tok.kind != TokenKind.gerund) _fail();
-          gerunds.add(_tokens[_pos++].gerund!);
-        }
-        return AbstainBody(abstain: abstain, gerunds: gerunds);
+        return AbstainBody(abstain: abstain, gerunds: _gerunds());
       case TokenKind.writeIn || TokenKind.readOut:
         _pos++;
         final input = kind == TokenKind.writeIn;
@@ -219,16 +245,36 @@ class Parser {
       case TokenKind.giveUp:
         _pos++;
         return const GiveUp();
+      case TokenKind.tryAgain:
+        _pos++;
+        return const TryAgain();
       case TokenKind.comeFrom || TokenKind.nextFrom:
         _pos++;
-        if (_tok.kind != TokenKind.label) _fail();
-        return ComeFrom(
-          _tokens[_pos++].value,
-          nexting: kind == TokenKind.nextFrom,
-        );
+        final nexting = kind == TokenKind.nextFrom;
+        if (_tok.kind == TokenKind.label) {
+          return ComeFrom(_tokens[_pos++].value, nexting: nexting);
+        }
+        // `ick`'s computed and gerund forms (R3, L18).
+        if (!_extensions) _fail();
+        if (_tok.kind == TokenKind.gerund) {
+          return GerundComeFrom(_gerunds(), nexting: nexting);
+        }
+        return ComputedComeFrom(_expr(), nexting: nexting);
       default:
         _fail();
     }
+  }
+
+  /// A `+` list of gerunds.
+  List<Gerund> _gerunds() {
+    if (_tok.kind != TokenKind.gerund) _fail();
+    final gerunds = [_tokens[_pos++].gerund!];
+    while (_tok.kind == TokenKind.intersection) {
+      _pos++;
+      if (_tok.kind != TokenKind.gerund) _fail();
+      gerunds.add(_tokens[_pos++].gerund!);
+    }
+    return gerunds;
   }
 
   /// A variable or array name with no unary operator, as in STASH lists and assignment targets.
@@ -256,21 +302,32 @@ class Parser {
   /// top of an expression the statement still decodes, and raises E017 when it executes; inside a
   /// group it doesn't decode at all, as in 0.15's parser (decisions Q80, Q97, L4).
   Expr _expr({bool grouped = false}) {
-    var left = _operand();
+    var left = _slat(_operand(), grouped);
     var operators = 0;
-    while (_tok.kind == TokenKind.mingle || _tok.kind == TokenKind.select) {
+    while (left is! Slat &&
+        (_tok.kind == TokenKind.mingle || _tok.kind == TokenKind.select)) {
       final op = _tok.kind == TokenKind.mingle
           ? BinaryOp.mingle
           : BinaryOp.select;
       _pos++;
-      left = Binary(op, left, _operand(), ungrouped: operators > 0);
+      final right = _slat(_operand(), grouped);
+      left = Binary(op, left, right, ungrouped: operators > 0);
       operators++;
+      if (right is Slat) break;
     }
     if (operators >= 2) {
       if (grouped) _fail();
       _chain = true;
     }
     return left;
+  }
+
+  /// `ick`'s slat (R3): a scalar, `/`, then the rest of the expression, which the scalar stands for
+  /// from then on.
+  Expr _slat(Expr operand, bool grouped) {
+    if (operand is! Scalar || _tok.kind != TokenKind.slat) return operand;
+    _pos++;
+    return Slat(operand.ref, _expr(grouped: grouped));
   }
 
   UnaryOp? _unary() =>

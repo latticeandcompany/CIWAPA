@@ -89,7 +89,9 @@ void ickInit(
   Uint64List? wideValues,
   Uint8List? wideIgnored,
   int wideArrayCount = 0,
+  bool latin = false,
 }) {
+  _latin = latin;
   _messages = messages;
   _values = values;
   _ignored = ignored;
@@ -671,6 +673,31 @@ const _numerals = {
   'ZÜL': 9,
 };
 
+/// `ick`'s Latin number words, which only EXTRACAL reads (R3 item 12; Mode 1 has none, T29).
+const _latinNumerals = {
+  'NIL': 0,
+  'NIHIL': 0,
+  'UNUS': 1,
+  'UNA': 1,
+  'UNUM': 1,
+  'DUO': 2,
+  'DUAE': 2,
+  'TRES': 3,
+  'QUATTUOR': 4,
+  'QUATUOR': 4,
+  'QUINQUE': 5,
+  'SEX': 6,
+  'SEPTEM': 7,
+  'OCTO': 8,
+  'NOVEM': 9,
+};
+
+var _latin = false;
+
+/// The digit a number word stands for, or null.
+int? _digitOf(String word) =>
+    _numeralBytes[word] ?? (_latin ? _latinNumerals[word] : null);
+
 /// The number words as raw UTF-8 bytes (one char per byte), so input is matched byte for byte.
 final _numeralBytes = {
   for (final MapEntry(:key, :value) in _numerals.entries)
@@ -744,7 +771,7 @@ int ickWriteIn(int next) {
     while (i < line.length && line[i] != 0x20) {
       i++;
     }
-    final digit = _numeralBytes[String.fromCharCodes(line, start, i)];
+    final digit = _digitOf(String.fromCharCodes(line, start, i));
     if (digit == null) ickFatal(579, next);
     result = result * 10 + digit;
     if (result > 0xFFFFFFFF) ickFatal(533, next);
@@ -921,7 +948,7 @@ int ickWriteInSigned(int width, int next) {
         negative = true;
         continue;
       }
-      final digit = _numeralBytes[word];
+      final digit = _digitOf(word);
       if (digit == null) ickFatal(579, next);
       value = value * BigInt.from(10) + BigInt.from(digit);
       if (value > limit) ickFatal(536, next);
@@ -1175,7 +1202,7 @@ int ickWriteIn64(int next) {
     while (i < line.length && line[i] != 0x20) {
       i++;
     }
-    final digit = _numeralBytes[String.fromCharCodes(line, start, i)];
+    final digit = _digitOf(String.fromCharCodes(line, start, i));
     if (digit == null) ickFatal(579, next);
     result = result * BigInt.from(10) + BigInt.from(digit);
     if (result > _bits64Max) ickFatal(535, next);
@@ -1333,7 +1360,27 @@ const xPlain = 0,
     xReinstate = 6,
     xComeFromKind = 7,
     xNextFromKind = 8,
-    xUndecodable = 9;
+    xUndecodable = 9,
+    xComputedComeFrom = 10,
+    xComputedNextFrom = 11,
+    xGerundComeFrom = 12,
+    xGerundNextFrom = 13,
+    xComputedAbstain = 14,
+    xTryAgain = 15;
+
+bool _xComesFrom(int kind) => kind == xComeFromKind || _xChained(kind);
+
+/// The computed and gerund COME FROMs and NEXT FROMs.
+bool _xChained(int kind) =>
+    kind >= xComputedComeFrom && kind <= xGerundNextFrom;
+
+bool _xGerundKind(int kind) =>
+    kind == xGerundComeFrom || kind == xGerundNextFrom;
+
+bool _xNexting(int kind) =>
+    kind == xNextFromKind ||
+    kind == xComputedNextFrom ||
+    kind == xGerundNextFrom;
 
 /// [xFlags] bits.
 const xInitiallyAbstained = 1, xBug = 2;
@@ -1371,8 +1418,16 @@ class XProgram {
   final bool Function(int ordinal) native;
 }
 
-// Positions within a statement, as in `ick`'s generated code. A position is ordinal * 8 + phase.
-const _start = 0, _tail = 1, _end = 2, _landing = 3;
+// Positions within a statement, as in `ick`'s generated code. A position is ordinal * 8 + phase;
+// position [_chainEnd] is the end of the computed COME FROM checks.
+const _start = 0,
+    _tail = 1,
+    _end = 2,
+    _landing = 3,
+    _check = 4,
+    _matched = 5,
+    _landed = 6,
+    _chainEnd = 7;
 
 /// One thread's registers. Its variables, stashes and NEXT stack are the runtime's own while it
 /// runs.
@@ -1388,10 +1443,25 @@ class _XThread {
 
   /// Where an executed RESUME goes once its tail has found no COME FROM, or -1.
   int resumeTo = -1;
+
+  /// The label of the statement being finished, for computed COME FROMs (`ick_skipto`).
+  int finishingLabel = 0;
 }
 
 late XProgram _x;
-late Int32List _xAbstained;
+
+/// Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more
+/// than 1, and it saturates instead of overflowing.
+late Int64List _xAbstained;
+
+/// The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
+/// a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
+/// one (`compucomesused`, `gerucomesused`).
+var _xChain = <int>[];
+var _xGerundChain = false;
+
+/// The position after each statement in [_xChain]: the next one's check, or the chain's end.
+final _xChainNext = <int, int>{};
 final _xThread = _XThread();
 
 int _xGet(int ordinal, int field) => _x.table[ordinal * xStride + field];
@@ -1400,13 +1470,27 @@ int _xGet(int ordinal, int field) => _x.table[ordinal * xStride + field];
 Never ickXRun(XProgram program) {
   _x = program;
   final count = program.table.length ~/ xStride - 1;
-  _xAbstained = Int32List(count + 1);
+  _xAbstained = Int64List(count + 1);
   for (var s = 1; s <= count; s++) {
     if (_xGet(s, xFlags) & xInitiallyAbstained != 0) _xAbstained[s] = 1;
+  }
+  _xChain = [
+    for (var s = 1; s <= count; s++)
+      if (_xChained(_xGet(s, xKind))) s,
+  ];
+  _xGerundChain = _xChain.any((s) => _xGerundKind(_xGet(s, xKind)));
+  for (final (i, s) in _xChain.indexed) {
+    _xChainNext[s] = i + 1 < _xChain.length
+        ? _xChain[i + 1] * 8 + _check
+        : _chainEnd;
   }
   final t = _xThread;
   while (true) {
     final ordinal = t.position >> 3;
+    if (t.position == _chainEnd) {
+      t.position = t.chosen;
+      continue;
+    }
     if (ordinal > count || ordinal == 0) ickFatal(633, count + 1);
     switch (t.position & 7) {
       case _start:
@@ -1415,8 +1499,13 @@ Never ickXRun(XProgram program) {
         _xTail(t, ordinal);
       case _end:
         t.position = _xFallThrough(ordinal);
-      case _landing:
+      case _landing || _landed:
         _xLanding(t, ordinal);
+      case _check:
+        _xCheck(t, ordinal);
+      case _matched:
+        _xCandidate(t, ordinal * 8 + _landed);
+        t.position = _xNextCheck(ordinal);
     }
   }
 }
@@ -1450,7 +1539,7 @@ void _xStart(_XThread t, int ordinal) {
   final next = _xGet(ordinal, xNext);
   if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
   final kind = _xGet(ordinal, xKind);
-  if (kind == xComeFromKind || kind == xNextFromKind) {
+  if (_xComesFrom(kind)) {
     t.position = ordinal * 8 + _tail;
     return;
   }
@@ -1458,7 +1547,11 @@ void _xStart(_XThread t, int ordinal) {
       ? _xOnceAgain(ordinal)
       : _xAbstained[ordinal];
   t.position = ordinal * 8 + _tail;
-  if (!_xRuns(ordinal, abstained)) return;
+  if (!_xRuns(ordinal, abstained)) {
+    // A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything.
+    if (kind == xTryAgain) ickGiveUp();
+    return;
+  }
   final fault = _xGet(ordinal, xFault);
   if (fault != 0) ickFatal(fault, next);
   switch (kind) {
@@ -1477,6 +1570,9 @@ void _xStart(_XThread t, int ordinal) {
       t.resumeTo = _xReturn(ickResume(_x.expr(ordinal), next));
     case xGiveUp:
       ickGiveUp();
+    case xTryAgain:
+      // `ick` jumps straight back to the start, past this statement's tail.
+      t.position = 1 * 8 + _start;
     case xAbstain:
       _xEachTarget(ordinal, (t) {
         if (_xAbstained[t] == 0) _xAbstained[t] = 1;
@@ -1484,6 +1580,15 @@ void _xStart(_XThread t, int ordinal) {
     case xReinstate:
       _xEachTarget(ordinal, (t) {
         if (_xAbstained[t] != 0) _xAbstained[t]--;
+      });
+    case xComputedAbstain:
+      // A value from 2^63 up is a negative Dart int: either way it saturates.
+      final amount = _x.expr(ordinal);
+      _xEachTarget(ordinal, (t) {
+        final room = 0x7FFFFFFFFFFFFFFF - _xAbstained[t];
+        _xAbstained[t] = amount < 0 || amount > room
+            ? 0x7FFFFFFFFFFFFFFF
+            : _xAbstained[t] + amount;
       });
     case xUndecodable:
       ickUndecodable(_x.texts[ordinal]!, next);
@@ -1504,10 +1609,12 @@ int _xReturn(int ordinal) =>
 
 void _xTail(_XThread t, int ordinal) {
   final kind = _xGet(ordinal, xKind);
+  // An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen.
   if (kind != xNextKind &&
       kind != xUndecodable &&
       kind != xComeFromKind &&
-      kind != xNextFromKind) {
+      kind != xNextFromKind &&
+      t.resumeTo < 0) {
     _xOnceAgain(ordinal);
   }
   t.candidates = 0;
@@ -1533,13 +1640,43 @@ void _xTail(_XThread t, int ordinal) {
     }
     _xCandidate(t, from * 8 + _landing);
   }
-  t.position = t.candidates > 0
-      ? t.chosen
-      : t.resumeTo >= 0
-      ? t.resumeTo
-      : ordinal * 8 + _end;
+  final otherwise = t.resumeTo >= 0 ? t.resumeTo : ordinal * 8 + _end;
   t.resumeTo = -1;
+  final label = _xGet(ordinal, xLabel);
+  if (!resuming && _xChain.isNotEmpty && (label != 0 || _xGerundChain)) {
+    t.finishingLabel = label;
+    if (t.candidates == 0) t.chosen = otherwise;
+    t.position = _xChain.first * 8 + _check;
+    return;
+  }
+  t.position = t.candidates > 0 ? t.chosen : otherwise;
 }
+
+/// Checks whether computed or gerund COME FROM [ordinal] takes control from the statement being
+/// finished: a computed one when its value is that statement's label, a gerund one when that
+/// statement is of one of its kinds. The expression is only evaluated for a labelled statement.
+void _xCheck(_XThread t, int ordinal) {
+  final bool matches;
+  if (!_xGerundKind(_xGet(ordinal, xKind))) {
+    matches = t.finishingLabel != 0 && _x.expr(ordinal) == t.finishingLabel;
+  } else {
+    final gerund = _xGet(t.finishing, xGerund);
+    var found = false;
+    _xEachTarget(ordinal, (g) => found |= g == gerund);
+    matches = gerund != 0 && found;
+  }
+  if (matches && _xRuns(ordinal, _xAbstained[ordinal])) {
+    final fault = _xGet(ordinal, xFault);
+    if (fault != 0 && _xGet(ordinal, xFlags) & xBug == 0) {
+      ickFatal(fault, _xGet(ordinal, xNext));
+    }
+    t.position = ordinal * 8 + _matched;
+  } else {
+    t.position = _xNextCheck(ordinal);
+  }
+}
+
+int _xNextCheck(int ordinal) => _xChainNext[ordinal]!;
 
 /// One more COME FROM wants control. A second one would start a thread.
 void _xCandidate(_XThread t, int landing) {
@@ -1549,12 +1686,127 @@ void _xCandidate(_XThread t, int landing) {
 
 void _xLanding(_XThread t, int ordinal) {
   if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, _xGet(ordinal, xNext));
-  if (_xGet(ordinal, xKind) == xNextFromKind) {
-    ickNextPush(t.finishing, ordinal);
-  }
+  if (_xNexting(_xGet(ordinal, xKind))) ickNextPush(t.finishing, ordinal);
   t.position = ordinal * 8 + _tail;
 }
 
 /// Whether statement [ordinal] isn't abstained, for the native library guards.
 bool ickXClear(int ordinal) => _xAbstained[ordinal] == 0;
+
+// ---- EXTRACAL's operand overloading (R3) ------------------------------------------------------
+// After `.n/expr`, `.n` stands for expr: reading it evaluates expr, and assigning to it assigns to
+// expr, working backwards through it (`ick`'s reverse assignment). A scalar's key is its index,
+// with the 64-bit scalars numbered after the others. As in `ick`, an expansion that reaches itself
+// again uses the variable's true value instead, and overloading is stashed with its variable.
+
+/// Each scalar's overload: 0 for none, or the number of the expression it stands for.
+var _overloadOf = Int32List(0);
+var _overloadStashes = <List<int>>[];
+
+/// Whether each overload's expansion is in progress, for reading and for assigning.
+var _getting = Uint8List(0), _setting = Uint8List(0);
+late int Function(int id, int next) _ovGet;
+late void Function(int id, int value, int next) _ovSet;
+
+void ickInitOverloading(
+  int keys,
+  int overloads,
+  int Function(int id, int next) get,
+  void Function(int id, int value, int next) set,
+) {
+  _overloadOf = Int32List(keys);
+  _overloadStashes = List.generate(keys, (_) => <int>[]);
+  _getting = Uint8List(overloads + 1);
+  _setting = Uint8List(overloads + 1);
+  _ovGet = get;
+  _ovSet = set;
+}
+
+/// Reading scalar [key], whose true value is [value]. An overloaded one gives its expression's
+/// value, which must fit the variable as an assignment would (E275, E276).
+@pragma('vm:never-inline')
+int ickOvGet(int key, int value, int width, int next) {
+  final id = _overloadOf[key];
+  if (id == 0 || _getting[id] != 0) return value;
+  _getting[id] = 1;
+  final result = _ovGet(id, next);
+  _getting[id] = 0;
+  return width == 64 ? result : ickCheckNarrow(result, width, next);
+}
+
+/// Assigning [value] to scalar [key]: true if it was overloaded, and the assignment went into its
+/// expression instead.
+@pragma('vm:never-inline')
+bool ickOvSet(int key, int value, int next) {
+  final id = _overloadOf[key];
+  if (id == 0 || _setting[id] != 0) return false;
+  _setting[id] = 1;
+  _ovSet(id, value, next);
+  _setting[id] = 0;
+  return true;
+}
+
+/// `.n/expr`: scalar [key] stands for overload [id] from now on; the slat's value is [value].
+int ickOvSlat(int key, int id, int value) {
+  _overloadOf[key] = id;
+  return value;
+}
+
+void ickOvStash(int key) => _overloadStashes[key].add(_overloadOf[key]);
+
+/// Like the value, an IGNOREd variable's overloading stays as it is, and the stash is still used up.
+void ickOvRetrieve(int key) {
+  final stashed = _overloadStashes[key].removeLast();
+  final narrow = _ignored.length;
+  final ignored = key < narrow ? _ignored[key] : _wideIgnored[key - narrow];
+  if (ignored == 0) _overloadOf[key] = stashed;
+}
+
+int _maskOf(int width) => width == 64 ? -1 : (1 << width) - 1;
+
+int _rotateRight(int x, int width) => switch (width) {
+  16 => _rotate16(x),
+  32 => _rotate32(x),
+  _ => _rotate64(x),
+};
+
+int _rotateLeft(int x, int width) {
+  final top = (x >>> (width - 1)) & 1;
+  return ((x << 1) & _maskOf(width)) | top;
+}
+
+/// The value AND (op 0), OR (1) or XOR (2) at [width] turns into [n], worked out as `ick` does:
+/// one candidate, checked, and E277 when it doesn't work.
+@pragma('vm:never-inline')
+int ickReverseUnary(int op, int n, int width, int next) {
+  int forward(int x) => switch (op) {
+    0 => x & _rotateRight(x, width),
+    1 => x | _rotateRight(x, width),
+    _ => x ^ _rotateRight(x, width),
+  };
+  int candidate;
+  if (op == 2) {
+    // Each bit is the parity of the bits of [n] below it; `ick` stops at 2^14 for 16 bits and,
+    // short of the top, at 2^26 for 32. 64 bits go on to 2^62.
+    final stop = switch (width) {
+      16 => 0x4000,
+      32 => 0x4000000,
+      _ => 0x4000000000000000,
+    };
+    candidate = 0;
+    var parity = 0;
+    for (var bit = 1; bit != 0 && bit <= stop; bit <<= 1) {
+      if (n & bit != 0) parity ^= 1;
+      if (parity != 0) candidate |= bit << 1;
+    }
+  } else {
+    // AND's candidate comes from OR, and OR's from AND, rotated back left.
+    final mixed = op == 0
+        ? n | _rotateRight(n, width)
+        : n & _rotateRight(n, width);
+    candidate = _rotateLeft(mixed, width);
+  }
+  if (forward(candidate) != n) ickFatal(277, next);
+  return candidate;
+}
 ''';
