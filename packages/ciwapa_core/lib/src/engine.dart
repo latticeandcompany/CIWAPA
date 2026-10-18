@@ -18,6 +18,7 @@ enum EngineKind {
   gerundComeFrom,
   gerundNextFrom,
   computedAbstain,
+  tryAgain,
 }
 
 /// The fields of one statement's row, in order.
@@ -53,6 +54,7 @@ class EngineTable {
         IrForget() => (EngineKind.forget, const <int>[]),
         IrResume() => (EngineKind.resume, const <int>[]),
         IrGiveUp() => (EngineKind.giveUp, const <int>[]),
+        IrTryAgain() => (EngineKind.tryAgain, const <int>[]),
         IrAbstain(count: _?, :final targets) => (
           EngineKind.computedAbstain,
           targets,

@@ -243,6 +243,15 @@ class GiveUp extends Body {
 }
 
 /// COME FROM, or EXTRACAL's NEXT FROM, which also pushes a NEXT stack entry (R3).
+/// `ick`'s TRY AGAIN, which restarts the program from its first statement (R3). It must be the last
+/// statement (E993).
+class TryAgain extends Body {
+  const TryAgain();
+
+  @override
+  Gerund get gerund => Gerund.tryingAgain;
+}
+
 class ComeFrom extends Body {
   const ComeFrom(this.label, {this.nexting = false});
 

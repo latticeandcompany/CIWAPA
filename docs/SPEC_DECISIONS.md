@@ -1260,3 +1260,10 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Source:** R6. The ranges are −2^(n−1) to 2^(n−1)−1 for an n-bit variable. Wimp mode reads the number as C's atol does (T32), then checks the same range.
 - **Tests:** `packages/conformance/tests/extracal/signed/out-of-range.xc`, `packages/conformance/tests/extracal/signed/out-of-range-negative.xc`
 - **Date:** 2026-10-18
+
+### E993: a statement after TRY AGAIN
+- **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
+- **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`
+- **Source:** R3 item 5, with `ick` 0.35 semantics. This is `ick`'s own code for `ick`'s own condition, so it keeps the number (R11 is about conditions new to CIWAPA); the text is CIWAPA's. It is a compile-time error reported against the first statement after the TRY AGAIN. The system library, appended after the user's statements, doesn't count.
+- **Tests:** `packages/conformance/tests/extracal/try-again/e993.xc`
+- **Date:** 2026-10-18

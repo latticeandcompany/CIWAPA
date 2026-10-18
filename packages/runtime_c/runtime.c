@@ -1171,7 +1171,7 @@ enum {
 enum {
   X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
   X_NEXT_FROM, X_UNDECODABLE, X_COMPUTED_COME_FROM, X_COMPUTED_NEXT_FROM, X_GERUND_COME_FROM,
-  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN
+  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN, X_TRY_AGAIN
 };
 
 /* The computed and gerund COME FROMs and NEXT FROMs. */
@@ -1244,6 +1244,8 @@ static void x_forget(uint64_t count) {
 /* The statement after [ordinal]'s, or E633 off the end of the user's program or the library
  * (decision T37). */
 static uint32_t x_fall_through(uint32_t ordinal) {
+  /* A TRY AGAIN that didn't run ends the program without E633. */
+  if (x_get(ordinal, X_KIND) == X_TRY_AGAIN) ick_give_up();
   if (ordinal == x.user_statements) ick_fatal(633, ordinal + 1);
   return (ordinal + 1) * 8 + X_START;
 }
@@ -1298,6 +1300,10 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     t->resume_to = x_return(x_resume(x.expr(ordinal), next));
     break;
   case X_GIVE_UP: ick_give_up();
+  case X_TRY_AGAIN:
+    /* `ick` jumps straight back to the start, past this statement's tail. */
+    t->position = 1 * 8 + X_START;
+    break;
   case X_ABSTAIN:
     for (int32_t i = 0; i < length; i++) {
       int32_t target = x.lists[start + i];

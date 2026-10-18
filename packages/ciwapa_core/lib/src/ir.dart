@@ -337,6 +337,14 @@ class IrReadOut extends IrOp {
   String toString() => 'READ OUT ${signed ? 'SIGNED ' : ''}${items.join('+')}';
 }
 
+/// `ick`'s TRY AGAIN (R3). Only the control engine runs it.
+class IrTryAgain extends IrOp {
+  const IrTryAgain();
+
+  @override
+  String toString() => 'TRY AGAIN';
+}
+
 class IrGiveUp extends IrOp {
   const IrGiveUp();
 
@@ -636,7 +644,8 @@ class _Lowering {
     IrComeFrom(nexting: true) ||
     IrComputedComeFrom() ||
     IrGerundComeFrom() ||
-    IrAbstain(count: _?) => true,
+    IrAbstain(count: _?) ||
+    IrTryAgain() => true,
     _ => false,
   };
 
@@ -672,6 +681,7 @@ class _Lowering {
         for (final i in items) _expr(i),
       ], signed: signed),
       GiveUp() => const IrGiveUp(),
+      TryAgain() => const IrTryAgain(),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),

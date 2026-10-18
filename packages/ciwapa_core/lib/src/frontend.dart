@@ -67,12 +67,18 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
       if (gerund == Gerund.comingFrom ||
           gerund == Gerund.nextingFrom ||
           (body is AbstainBody && body.count != null) ||
-          s.onceAgain != OnceAgain.none) {
+          s.onceAgain != OnceAgain.none ||
+          body is TryAgain) {
         throw CompileError(111, i + 1);
       }
     }
   }
   _checkPoliteness(statements);
+  // `ick` allows nothing after a TRY AGAIN, not even a comment.
+  final tryAgain = statements.indexWhere((s) => s.body is TryAgain);
+  if (tryAgain >= 0 && tryAgain < statements.length - 1) {
+    throw CompileError(993, tryAgain + 2);
+  }
   final userStatements = statements.length;
   if (_needsLibrary(statements, base)) {
     statements.addAll(Parser(Source('syslib.i', syslibSource)).parse());

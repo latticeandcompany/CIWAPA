@@ -39,6 +39,7 @@ enum TokenKind {
   comeFrom,
   nextFrom,
   giveUp,
+  tryAgain,
   gerund,
   signed,
   once,
@@ -77,6 +78,7 @@ enum Gerund {
   writingIn,
   comingFrom,
   nextingFrom,
+  tryingAgain,
 }
 
 class Token {
@@ -349,6 +351,8 @@ class Lexer {
     ('ABSTAIN', _kind(TokenKind.abstain)),
     ('FROM', _kind(TokenKind.from)),
     ('ONCE', _kind(TokenKind.once)),
+    ('TRY AGAIN', _kind(TokenKind.tryAgain)),
+    ('TRYING AGAIN', _gerund(Gerund.tryingAgain)),
     ('AGAIN', _kind(TokenKind.again)),
     ('NEXTING FROM', _gerund(Gerund.nextingFrom)),
   ];

@@ -55,8 +55,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 5. TRY AGAIN
 
-- [ ] R3.5 — TRY AGAIN restarts the program from the top; when it doesn't run, the program ends without E633. Tests: `packages/conformance/tests/extracal/try-again/loop.xc`, `packages/conformance/tests/extracal/try-again/abstained-ends.xc`
-- [ ] R3.5 — a statement after TRY AGAIN is a compile-time E993. Tests: `packages/conformance/tests/extracal/try-again/e993.xc`
+- [x] R3.5 — TRY AGAIN restarts the program from the top; when it doesn't run, the program ends without E633. Tests: `packages/conformance/tests/extracal/try-again/loop.xc`, `packages/conformance/tests/extracal/try-again/abstained-ends.xc`, `packages/conformance/tests/extracal/try-again/percent.xc`, `packages/conformance/tests/extracal/try-again/traditional.xc`
+- [x] R3.5 — a statement after TRY AGAIN is a compile-time E993. Tests: `packages/conformance/tests/extracal/try-again/e993.xc`
 
 ### 6. Threading
 

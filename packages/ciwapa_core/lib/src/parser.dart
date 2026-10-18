@@ -237,6 +237,9 @@ class Parser {
       case TokenKind.giveUp:
         _pos++;
         return const GiveUp();
+      case TokenKind.tryAgain:
+        _pos++;
+        return const TryAgain();
       case TokenKind.comeFrom || TokenKind.nextFrom:
         _pos++;
         final nexting = kind == TokenKind.nextFrom;

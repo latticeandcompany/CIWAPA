@@ -1336,7 +1336,8 @@ const xPlain = 0,
     xComputedNextFrom = 11,
     xGerundComeFrom = 12,
     xGerundNextFrom = 13,
-    xComputedAbstain = 14;
+    xComputedAbstain = 14,
+    xTryAgain = 15;
 
 bool _xComesFrom(int kind) => kind == xComeFromKind || _xChained(kind);
 
@@ -1483,6 +1484,8 @@ Never ickXRun(XProgram program) {
 /// The statement after [ordinal]'s, or E633 off the end of the user's program or the library
 /// (decision T37).
 int _xFallThrough(int ordinal) {
+  // A TRY AGAIN that didn't run ends the program without E633.
+  if (_xGet(ordinal, xKind) == xTryAgain) ickGiveUp();
   if (ordinal == _x.userStatements) ickFatal(633, ordinal + 1);
   return (ordinal + 1) * 8 + _start;
 }
@@ -1536,6 +1539,9 @@ void _xStart(_XThread t, int ordinal) {
       t.resumeTo = _xReturn(ickResume(_x.expr(ordinal), next));
     case xGiveUp:
       ickGiveUp();
+    case xTryAgain:
+      // `ick` jumps straight back to the start, past this statement's tail.
+      t.position = 1 * 8 + _start;
     case xAbstain:
       _xEachTarget(ordinal, (t) {
         if (_xAbstained[t] == 0) _xAbstained[t] = 1;
