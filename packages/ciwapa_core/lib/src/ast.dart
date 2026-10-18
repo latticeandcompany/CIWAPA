@@ -99,6 +99,18 @@ class Unary extends Expr {
 
 enum BinaryOp { mingle, select }
 
+/// `ick`'s operand overloading (R3): `.n/expr` has `.n`'s value, and makes `.n` stand for [expr]
+/// from then on, both when it is read and when it is assigned to.
+class Slat extends Expr {
+  const Slat(this.scalar, this.expr);
+
+  final VarRef scalar;
+  final Expr expr;
+
+  @override
+  String toString() => '$scalar/$expr';
+}
+
 class Binary extends Expr {
   const Binary(this.op, this.left, this.right, {this.ungrouped = false});
 

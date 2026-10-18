@@ -165,6 +165,13 @@ declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
 declare i64 @ick_write_in_signed(i32, i32)
 declare void @ick_x_run(ptr, i32, ptr, ptr, ptr, i32, ptr, ptr, ptr)
 declare i32 @ick_x_clear(i32)
+declare void @ick_init_overloading(i32, i32, ptr, ptr)
+declare i64 @ick_ov_get(i32, i64, i32, i32)
+declare i32 @ick_ov_set(i32, i64, i32)
+declare i64 @ick_ov_slat(i32, i32, i64)
+declare void @ick_ov_stash(i32)
+declare void @ick_ov_retrieve(i32)
+declare i64 @ick_reverse_unary(i32, i64, i32, i32)
 declare void @ick_read_out_signed(i64, i32)
 ''';
 
@@ -323,6 +330,29 @@ declare void @ick_read_out_signed(i64, i32)
       }
     });
 
+    if (program.overloading) {
+      _engineFunction('i64 @ov_get(i32 %id, i32 %next)', 'ret i64 0', () {
+        final ids = [for (var i = 1; i <= program.overloads.length; i++) i];
+        _line(
+          'switch i32 %id, label %done [${ids.map((i) => 'i32 $i, label %g$i').join(' ')}]',
+        );
+        for (final id in ids) {
+          _block('g$id');
+          _line('ret i64 ${_as64(program.overloads[id - 1], '%next')}');
+        }
+      });
+      _engineFunction('void @ov_set(i32 %id, i64 %value, i32 %next)', 'ret void', () {
+        final ids = [for (var i = 1; i <= program.overloads.length; i++) i];
+        _line(
+          'switch i32 %id, label %done [${ids.map((i) => 'i32 $i, label %s$i').join(' ')}]',
+        );
+        for (final id in ids) {
+          _block('s$id');
+          _reverse(program.overloads[id - 1], '%value');
+          _line('br label %done');
+        }
+      });
+    }
     final texts = [
       for (var o = 0; o <= count; o++)
         table.texts[o] == null
@@ -356,6 +386,12 @@ declare void @ick_read_out_signed(i64, i32)
         '  call void @ick_init_wide(ptr @v64, ptr @igw, i32 ${program.wideScalars.length}, '
         'i32 ${program.wideArrays.length})',
       )
+      ..write(
+        program.overloading
+            ? '  call void @ick_init_overloading(i32 ${program.scalars.length + program.wideScalars.length}, '
+                  'i32 ${program.overloads.length}, ptr @ov_get, ptr @ov_set)\n'
+            : '',
+      )
       ..writeln(
         '  call void @ick_x_run(ptr @x_table, i32 $count, ptr @x_lists, ptr @x_texts, '
         'ptr @x_text_lengths, i32 ${program.userStatements}, ptr @x_body, ptr @x_expr, ptr @x_native)',
@@ -363,6 +399,65 @@ declare void @ick_read_out_signed(i64, i32)
       ..writeln('  unreachable')
       ..writeln('}');
     return out.toString();
+  }
+
+  /// Assigns i64 [target] to [e] backwards, as `ick` does for an overloaded variable: a mingle's
+  /// operands get the target's odd and even bits, a select's left operand gets the target and its
+  /// right operand #65535 (`ick`'s "all ones" for a target whose width it never set), a unary
+  /// operator is undone, and a constant is E277. Runs inside @ov_set, whose `%next` it uses.
+  void _reverse(IrExpr e, String target) {
+    const next = '%next';
+    switch (e) {
+      case IrScalar(:final slot):
+        final handled = _fresh(), went = _fresh();
+        _line(
+          '$handled = call i32 @ick_ov_set(i32 ${_key(slot)}, i64 $target, i32 $next)',
+        );
+        _line('$went = icmp ne i32 $handled, 0');
+        final store = _newBlock('store'), done = _newBlock('stored');
+        _line('br i1 $went, label %$done, label %$store');
+        _block(store);
+        _storeFitting(slot, target, next);
+        _line('br label %$done');
+        _block(done);
+      case IrSlat(:final slot, :final id):
+        _storeFitting(slot, target, next);
+        _line('call i64 @ick_ov_slat(i32 ${_key(slot)}, i32 $id, i64 0)');
+      case IrElement(:final array, :final subscripts):
+        final pointer = _elementPointer(array, subscripts, next);
+        final v = _fitting(target, array.width, next);
+        final flag = _fresh(), ignored = _fresh();
+        _line(
+          '$flag = call i32 @ick_array_ignored${_suffix(array)}(i32 ${array.index})',
+        );
+        _line('$ignored = icmp ne i32 $flag, 0');
+        _storeUnlessIgnored(pointer, v, ignored, array.wide ? 'i64' : 'i32');
+      case IrMingle(:final left, :final right) when program.base == 2:
+        final odd = _fresh(), even = _fresh();
+        _line(
+          '$odd = call i64 @ick_select64(i64 $target, i64 -6148914691236517206)',
+        );
+        _line(
+          '$even = call i64 @ick_select64(i64 $target, i64 6148914691236517205)',
+        );
+        _reverse(left, odd);
+        _reverse(right, even);
+      case IrSelect(:final left, :final right) when program.base == 2:
+        _reverse(left, target);
+        _reverse(right, '65535');
+      case IrUnary(:final op, :final operand) when program.base == 2:
+        final undone = _fresh();
+        _line(
+          '$undone = call i64 @ick_reverse_unary(i32 ${UnaryOp.values.indexOf(op)}, i64 $target, '
+          'i32 ${operand.valueWidth}, i32 $next)',
+        );
+        _reverse(operand, undone);
+      default:
+        // Constants can't change, and the other bases' operators can't be undone.
+        _line('call void @ick_fatal(i32 277, i32 $next)');
+        _line('unreachable');
+        _block(_newBlock('dead'));
+    }
   }
 
   /// Emits one of the engine's callbacks: [emit] writes its body, which ends at `done` unless it
@@ -611,6 +706,11 @@ declare void @ick_read_out_signed(i64, i32)
           _line(
             'call void @ick_${verb}_scalar${_suffix(v)}(i32 ${v.index}, i32 $next)',
           );
+          if (program.overloading) {
+            _line(
+              'call void @ick_ov_${op == ListOp.stash ? 'stash' : 'retrieve'}(i32 ${_key(v)})',
+            );
+          }
         }
         for (final a in arrays) {
           _line(
@@ -709,6 +809,49 @@ declare void @ick_read_out_signed(i64, i32)
   /// `64` for EXTRACAL's 64-bit storage, whose runtime functions end in it.
   static String _suffix(Slot slot) => slot.wide ? '64' : '';
 
+  /// A scalar's key in the runtime's overloading table: 64-bit scalars come after the others.
+  int _key(Slot slot) =>
+      slot.wide ? program.scalars.length + slot.index : slot.index;
+
+  /// [value], an i64, as a value [width] bits wide can hold: E275 or E276 when it doesn't fit.
+  String _fitting(String value, int width, Object next) {
+    if (width == 64) return value;
+    final narrow = _fresh();
+    _line(
+      '$narrow = call i32 @ick_check_narrow(i64 $value, i32 $width, i32 $next)',
+    );
+    return narrow;
+  }
+
+  /// Stores i64 [value] in [slot] past its overloading, unless the slot is IGNOREd.
+  void _storeFitting(Slot slot, String value, Object next) {
+    final type = slot.wide ? 'i64' : 'i32';
+    final v = _fitting(value, slot.width, next);
+    final pointer = _scalarPointer(slot);
+    final flag = _fresh(), ignored = _fresh();
+    _line('$flag = load i8, ptr ${_ignoredFlag(slot)}');
+    _line('$ignored = icmp ne i8 $flag, 0');
+    _storeUnlessIgnored(pointer, v, ignored, type);
+  }
+
+  /// A scalar's true value, without its overloading, as an i64.
+  String _trueValue(Slot slot) {
+    final p = _scalarPointer(slot), t = _fresh();
+    _line('$t = load ${slot.wide ? 'i64' : 'i32'}, ptr $p');
+    if (slot.wide) return t;
+    final wide = _fresh();
+    _line('$wide = zext i32 $t to i64');
+    return wide;
+  }
+
+  /// An i64 [value] narrowed back to [slot]'s type.
+  String _asSlotType(Slot slot, String value) {
+    if (slot.wide) return value;
+    final narrow = _fresh();
+    _line('$narrow = trunc i64 $value to i32');
+    return narrow;
+  }
+
   /// A pointer to [slot]'s IGNORE flag.
   String _ignoredFlag(Slot slot) {
     final p = _fresh();
@@ -722,7 +865,7 @@ declare void @ick_read_out_signed(i64, i32)
   }
 
   /// [e] as an i64, widening a 16- or 32-bit value.
-  String _as64(IrExpr e, int next) {
+  String _as64(IrExpr e, Object next) {
     final v = _expr(e, next);
     if (e.valueWidth == 64) return v;
     final wide = _fresh();
@@ -740,12 +883,12 @@ declare void @ick_read_out_signed(i64, i32)
   }
 
   /// A FORGET or RESUME count: a 64-bit one past 32 bits acts like the largest 32-bit count.
-  String _count(IrExpr count, int next) {
+  String _count(IrExpr count, Object next) {
     final v = _expr(count, next);
     return count.valueWidth == 64 ? _clamp32(v, -1) : v;
   }
 
-  void _assign(IrExpr target, IrExpr value, int next) {
+  void _assign(IrExpr target, IrExpr value, Object next) {
     // A value can only exceed a narrower target; narrower ones were checked when they were stored.
     // 32 bits into 16 is Mode 1's E275, and anything wider is EXTRACAL's (R4).
     String checked(String v) {
@@ -773,6 +916,20 @@ declare void @ick_read_out_signed(i64, i32)
 
     final type = target.width == 64 ? 'i64' : 'i32';
     switch (target) {
+      // An overloaded variable's assignment goes into its expression instead. WRITE IN stores
+      // into the variable itself, as in `ick`.
+      case IrScalar(:final slot) when program.overloading && value is! IrInput:
+        final v = _as64(value, next), handled = _fresh(), went = _fresh();
+        _line(
+          '$handled = call i32 @ick_ov_set(i32 ${_key(slot)}, i64 $v, i32 $next)',
+        );
+        _line('$went = icmp ne i32 $handled, 0');
+        final store = _newBlock('store'), done = _newBlock('stored');
+        _line('br i1 $went, label %$done, label %$store');
+        _block(store);
+        _storeFitting(slot, v, next);
+        _line('br label %$done');
+        _block(done);
       case IrScalar(:final slot):
         final v = checked(_expr(value, next));
         final pointer = _scalarPointer(slot);
@@ -874,7 +1031,7 @@ declare void @ick_read_out_signed(i64, i32)
 
   /// [e] as (width, high, low): an i32 and two i64s, for the operations whose result width
   /// depends on their operands' values: EXTRACAL's mingle and what is built on it (R5).
-  (String, String, String) _wide(IrExpr e, int next) => switch (e) {
+  (String, String, String) _wide(IrExpr e, Object next) => switch (e) {
     _ when e.width != IrExpr.runtimeWidth => (
       '${e.width}',
       '0',
@@ -946,7 +1103,7 @@ declare void @ick_read_out_signed(i64, i32)
   }
 
   /// A subscript past 32 bits is past the end of any array, so it becomes 0, which is E241 too.
-  String _elementPointer(Slot array, List<IrExpr> subscripts, int next) {
+  String _elementPointer(Slot array, List<IrExpr> subscripts, Object next) {
     final values = [
       for (final s in subscripts)
         s.valueWidth == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
@@ -965,7 +1122,7 @@ declare void @ick_read_out_signed(i64, i32)
     return t;
   }
 
-  String _expr(IrExpr e, int next) {
+  String _expr(IrExpr e, Object next) {
     switch (e) {
       case _ when e.width == IrExpr.runtimeWidth:
         final (width, _, low) = _wide(e, next);
@@ -991,6 +1148,18 @@ declare void @ick_read_out_signed(i64, i32)
         return narrow;
       case IrConst(:final value):
         return '$value';
+      case IrScalar(:final slot) when program.overloading:
+        final read = _fresh();
+        _line(
+          '$read = call i64 @ick_ov_get(i32 ${_key(slot)}, i64 ${_trueValue(slot)}, i32 ${slot.width}, i32 $next)',
+        );
+        return _asSlotType(slot, read);
+      case IrSlat(:final slot, :final id):
+        final value = _fresh();
+        _line(
+          '$value = call i64 @ick_ov_slat(i32 ${_key(slot)}, i32 $id, i64 ${_trueValue(slot)})',
+        );
+        return _asSlotType(slot, value);
       case IrScalar(:final slot):
         final p = _scalarPointer(slot), t = _fresh();
         _line('$t = load ${_type(e)}, ptr $p');

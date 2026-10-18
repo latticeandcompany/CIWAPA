@@ -192,6 +192,21 @@ class IrUnary extends IrExpr {
   String toString() => '${op.name}$operand';
 }
 
+/// `ick`'s slat (R3): [slot]'s true value, and from then on [slot] stands for overload [id] of
+/// [IrProgram.overloads] (1-based).
+class IrSlat extends IrExpr {
+  const IrSlat(this.slot, this.id);
+
+  final Slot slot;
+  final int id;
+
+  @override
+  int get width => slot.width;
+
+  @override
+  String toString() => '$slot/#$id';
+}
+
 /// The next number from input, as WRITE IN reads it (§4.4.12), for a target of [width] bits. The
 /// emitters use it to share the assignment path; lowering never produces it. A [signed] input
 /// already has its target's width (R6).
@@ -475,7 +490,14 @@ class IrProgram {
     this.wideScalars = const [],
     this.wideArrays = const [],
     this.engine = false,
+    this.overloads = const [],
   });
+
+  /// The expressions slats make variables stand for (R3), numbered from 1. A program with any
+  /// reads and writes every scalar through its overloading.
+  final List<IrExpr> overloads;
+
+  bool get overloading => overloads.isNotEmpty;
 
   final int base;
 
@@ -554,6 +576,7 @@ class _Lowering {
   final _arrays = <VarRef, Slot>{};
   final _wideScalars = <VarRef, Slot>{};
   final _wideArrays = <VarRef, Slot>{};
+  final _overloads = <IrExpr>[];
   final _labels = <int, int>{};
   late List<Fault> _faults;
 
@@ -630,9 +653,11 @@ class _Lowering {
       extracal: program.extracal,
       wideScalars: _wideScalars.values.toList(),
       wideArrays: _wideArrays.values.toList(),
+      overloads: _overloads,
       engine:
           program.extracal &&
           (options.forceEngine ||
+              _overloads.isNotEmpty ||
               ir.any(
                 (s) => _needsEngine(s.op) || s.onceAgain != OnceAgain.none,
               )),
@@ -773,8 +798,15 @@ class _Lowering {
     ]),
     ArrayItem(:final array) => IrArrayItem(_array(array)),
     Unary(:final op, :final operand) => IrUnary(op, _expr(operand)),
+    Slat(:final scalar, :final expr) => _slat(scalar, expr),
     Binary() => _binary(e),
   };
+
+  IrExpr _slat(VarRef scalar, Expr expr) {
+    final slot = _scalar(scalar);
+    _overloads.add(_expr(expr));
+    return IrSlat(slot, _overloads.length);
+  }
 
   /// Lowers left to right, so an ungrouped chain's E017 lands at its second operator, after the
   /// faults of the operands before it.

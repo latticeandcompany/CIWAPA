@@ -1692,4 +1692,116 @@ void _xLanding(_XThread t, int ordinal) {
 
 /// Whether statement [ordinal] isn't abstained, for the native library guards.
 bool ickXClear(int ordinal) => _xAbstained[ordinal] == 0;
+
+// ---- EXTRACAL's operand overloading (R3) ------------------------------------------------------
+// After `.n/expr`, `.n` stands for expr: reading it evaluates expr, and assigning to it assigns to
+// expr, working backwards through it (`ick`'s reverse assignment). A scalar's key is its index,
+// with the 64-bit scalars numbered after the others. As in `ick`, an expansion that reaches itself
+// again uses the variable's true value instead, and overloading is stashed with its variable.
+
+/// Each scalar's overload: 0 for none, or the number of the expression it stands for.
+var _overloadOf = Int32List(0);
+var _overloadStashes = <List<int>>[];
+
+/// Whether each overload's expansion is in progress, for reading and for assigning.
+var _getting = Uint8List(0), _setting = Uint8List(0);
+late int Function(int id, int next) _ovGet;
+late void Function(int id, int value, int next) _ovSet;
+
+void ickInitOverloading(
+  int keys,
+  int overloads,
+  int Function(int id, int next) get,
+  void Function(int id, int value, int next) set,
+) {
+  _overloadOf = Int32List(keys);
+  _overloadStashes = List.generate(keys, (_) => <int>[]);
+  _getting = Uint8List(overloads + 1);
+  _setting = Uint8List(overloads + 1);
+  _ovGet = get;
+  _ovSet = set;
+}
+
+/// Reading scalar [key], whose true value is [value]. An overloaded one gives its expression's
+/// value, which must fit the variable as an assignment would (E275, E276).
+@pragma('vm:never-inline')
+int ickOvGet(int key, int value, int width, int next) {
+  final id = _overloadOf[key];
+  if (id == 0 || _getting[id] != 0) return value;
+  _getting[id] = 1;
+  final result = _ovGet(id, next);
+  _getting[id] = 0;
+  return width == 64 ? result : ickCheckNarrow(result, width, next);
+}
+
+/// Assigning [value] to scalar [key]: true if it was overloaded, and the assignment went into its
+/// expression instead.
+@pragma('vm:never-inline')
+bool ickOvSet(int key, int value, int next) {
+  final id = _overloadOf[key];
+  if (id == 0 || _setting[id] != 0) return false;
+  _setting[id] = 1;
+  _ovSet(id, value, next);
+  _setting[id] = 0;
+  return true;
+}
+
+/// `.n/expr`: scalar [key] stands for overload [id] from now on; the slat's value is [value].
+int ickOvSlat(int key, int id, int value) {
+  _overloadOf[key] = id;
+  return value;
+}
+
+void ickOvStash(int key) => _overloadStashes[key].add(_overloadOf[key]);
+
+void ickOvRetrieve(int key) =>
+    _overloadOf[key] = _overloadStashes[key].removeLast();
+
+int _maskOf(int width) => width == 64 ? -1 : (1 << width) - 1;
+
+int _rotateRight(int x, int width) => switch (width) {
+  16 => _rotate16(x),
+  32 => _rotate32(x),
+  _ => _rotate64(x),
+};
+
+int _rotateLeft(int x, int width) {
+  final top = (x >>> (width - 1)) & 1;
+  return ((x << 1) & _maskOf(width)) | top;
+}
+
+/// The value AND (op 0), OR (1) or XOR (2) at [width] turns into [n], worked out as `ick` does:
+/// one candidate, checked, and E277 when it doesn't work.
+@pragma('vm:never-inline')
+int ickReverseUnary(int op, int n, int width, int next) {
+  int forward(int x) => switch (op) {
+    0 => x & _rotateRight(x, width),
+    1 => x | _rotateRight(x, width),
+    _ => x ^ _rotateRight(x, width),
+  };
+  int candidate;
+  if (op == 2) {
+    // Each bit is the parity of the bits of [n] below it; `ick` stops at 2^14 for 16 bits and,
+    // short of the top, at 2^26 for 32. 64 bits go on to 2^62.
+    final stop = switch (width) {
+      16 => 0x4000,
+      32 => 0x4000000,
+      _ => 0x4000000000000000,
+    };
+    candidate = 0;
+    var parity = 0;
+    for (var bit = 1; bit != 0 && bit <= stop; bit <<= 1) {
+      if (n & bit != 0) parity ^= 1;
+      if (parity != 0) candidate |= bit << 1;
+    }
+  } else {
+    final other = op == 0 ? 1 : 0;
+    candidate = _rotateLeft(
+      other == 1 ? n | _rotateRight(n, width) : n & _rotateRight(n, width),
+      width,
+    );
+  }
+  if (forward(candidate) != n) ickFatal(277, next);
+  return candidate;
+}
 ''';

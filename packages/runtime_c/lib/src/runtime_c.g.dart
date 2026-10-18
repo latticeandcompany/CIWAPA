@@ -1466,4 +1466,111 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
 
 /* Whether statement [ordinal] isn't abstained, for the native library guards. */
 uint32_t ick_x_clear(uint32_t ordinal) { return x_abstained[ordinal] == 0; }
+
+/* ---- EXTRACAL's operand overloading (R3) ------------------------------------------------- */
+/* After `.n/expr`, `.n` stands for expr: reading it evaluates expr, and assigning to it assigns to
+ * expr, working backwards through it (`ick`'s reverse assignment). A scalar's key is its index,
+ * with the 64-bit scalars numbered after the others. As in `ick`, an expansion that reaches
+ * itself again uses the variable's true value instead, and overloading is stashed with its
+ * variable. runtime.dart has the same. */
+
+typedef struct {
+  int32_t *items;
+  size_t count, capacity;
+} ick_overload_stash;
+
+static int32_t *overload_of;
+static ick_overload_stash *overload_stashes;
+static uint8_t *getting, *setting;
+static uint64_t (*ov_get)(uint32_t id, uint32_t next);
+static void (*ov_set)(uint32_t id, uint64_t value, uint32_t next);
+
+void ick_init_overloading(uint32_t keys, uint32_t overloads, uint64_t (*get)(uint32_t, uint32_t),
+                          void (*set)(uint32_t, uint64_t, uint32_t)) {
+  overload_of = calloc(keys ? keys : 1, sizeof(int32_t));
+  overload_stashes = calloc(keys ? keys : 1, sizeof(ick_overload_stash));
+  getting = calloc(overloads + 1, 1);
+  setting = calloc(overloads + 1, 1);
+  if (!overload_of || !overload_stashes || !getting || !setting) ick_fatal(778, 1);
+  ov_get = get;
+  ov_set = set;
+}
+
+/* Reading scalar [key], whose true value is [value]. An overloaded one gives its expression's
+ * value, which must fit the variable as an assignment would (E275, E276). */
+uint64_t ick_ov_get(uint32_t key, uint64_t value, uint32_t width, uint32_t next) {
+  int32_t id = overload_of[key];
+  if (id == 0 || getting[id]) return value;
+  getting[id] = 1;
+  uint64_t result = ov_get((uint32_t)id, next);
+  getting[id] = 0;
+  return width == 64 ? result : ick_check_narrow(result, width, next);
+}
+
+/* Assigning [value] to scalar [key]: 1 if it was overloaded, and the assignment went into its
+ * expression instead. */
+uint32_t ick_ov_set(uint32_t key, uint64_t value, uint32_t next) {
+  int32_t id = overload_of[key];
+  if (id == 0 || setting[id]) return 0;
+  setting[id] = 1;
+  ov_set((uint32_t)id, value, next);
+  setting[id] = 0;
+  return 1;
+}
+
+/* `.n/expr`: scalar [key] stands for overload [id] from now on; the slat's value is [value]. */
+uint64_t ick_ov_slat(uint32_t key, uint32_t id, uint64_t value) {
+  overload_of[key] = (int32_t)id;
+  return value;
+}
+
+void ick_ov_stash(uint32_t key) {
+  ick_overload_stash *s = &overload_stashes[key];
+  if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(int32_t), 1);
+  s->items[s->count++] = overload_of[key];
+}
+
+void ick_ov_retrieve(uint32_t key) {
+  ick_overload_stash *s = &overload_stashes[key];
+  overload_of[key] = s->items[--s->count];
+}
+
+static uint64_t mask_of(uint32_t width) {
+  return width == 64 ? UINT64_MAX : ((uint64_t)1 << width) - 1;
+}
+
+static uint64_t rotate_right(uint64_t x, uint32_t width) {
+  return ((x >> 1) | (x << (width - 1))) & mask_of(width);
+}
+
+static uint64_t rotate_left(uint64_t x, uint32_t width) {
+  return ((x << 1) & mask_of(width)) | ((x >> (width - 1)) & 1);
+}
+
+static uint64_t unary_at(uint32_t op, uint64_t x, uint32_t width) {
+  uint64_t r = rotate_right(x, width);
+  return op == 0 ? x & r : op == 1 ? x | r : x ^ r;
+}
+
+/* The value AND (op 0), OR (1) or XOR (2) at [width] turns into [n], worked out as `ick` does:
+ * one candidate, checked, and E277 when it doesn't work. */
+uint64_t ick_reverse_unary(uint32_t op, uint64_t n, uint32_t width, uint32_t next) {
+  uint64_t candidate = 0;
+  if (op == 2) {
+    /* Each bit is the parity of the bits of [n] below it; `ick` stops at 2^14 for 16 bits and,
+     * short of the top, at 2^26 for 32. 64 bits go on to 2^62. */
+    uint64_t stop = width == 16 ? 0x4000u : width == 32 ? 0x4000000u : 0x4000000000000000ull;
+    int parity = 0;
+    for (uint64_t bit = 1; bit && bit <= stop; bit <<= 1) {
+      if (n & bit) parity ^= 1;
+      if (parity) candidate |= bit << 1;
+    }
+  } else {
+    /* AND's candidate comes from OR, and OR's from AND, rotated back left. */
+    uint64_t mixed = op == 0 ? n | rotate_right(n, width) : n & rotate_right(n, width);
+    candidate = rotate_left(mixed, width);
+  }
+  if (unary_at(op, candidate, width) != n) ick_fatal(277, next);
+  return candidate;
+}
 ''';

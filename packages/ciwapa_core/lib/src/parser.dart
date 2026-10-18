@@ -302,21 +302,32 @@ class Parser {
   /// top of an expression the statement still decodes, and raises E017 when it executes; inside a
   /// group it doesn't decode at all, as in 0.15's parser (decisions Q80, Q97, L4).
   Expr _expr({bool grouped = false}) {
-    var left = _operand();
+    var left = _slat(_operand(), grouped);
     var operators = 0;
-    while (_tok.kind == TokenKind.mingle || _tok.kind == TokenKind.select) {
+    while (left is! Slat &&
+        (_tok.kind == TokenKind.mingle || _tok.kind == TokenKind.select)) {
       final op = _tok.kind == TokenKind.mingle
           ? BinaryOp.mingle
           : BinaryOp.select;
       _pos++;
-      left = Binary(op, left, _operand(), ungrouped: operators > 0);
+      final right = _slat(_operand(), grouped);
+      left = Binary(op, left, right, ungrouped: operators > 0);
       operators++;
+      if (right is Slat) break;
     }
     if (operators >= 2) {
       if (grouped) _fail();
       _chain = true;
     }
     return left;
+  }
+
+  /// `ick`'s slat (R3): a scalar, `/`, then the rest of the expression, which the scalar stands for
+  /// from then on.
+  Expr _slat(Expr operand, bool grouped) {
+    if (operand is! Scalar || _tok.kind != TokenKind.slat) return operand;
+    _pos++;
+    return Slat(operand.ref, _expr(grouped: grouped));
   }
 
   UnaryOp? _unary() =>

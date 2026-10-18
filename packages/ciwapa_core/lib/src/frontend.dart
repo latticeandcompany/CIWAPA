@@ -180,6 +180,8 @@ Iterable<UnaryOp> unaryOps(Expr e) sync* {
       for (final s in subscripts) {
         yield* unaryOps(s);
       }
+    case Slat(:final expr):
+      yield* unaryOps(expr);
     case Constant() || Scalar() || ArrayItem():
       break;
   }

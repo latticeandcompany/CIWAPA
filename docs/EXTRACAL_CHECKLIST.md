@@ -72,8 +72,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 8. Operand overloading
 
-- [ ] R3.8 — `.n/expr` returns `.n`'s value and makes `.n` stand for expr from then on. Tests: `packages/conformance/tests/extracal/overloading/slat.xc`
-- [ ] R3.8 — assigning to an overloaded variable assigns to its expression, and an impossible reverse assignment is E277. Tests: `packages/conformance/tests/extracal/overloading/reverse.xc`, `packages/conformance/tests/extracal/overloading/e277.xc`
+- [x] R3.8 — `.n/expr` returns `.n`'s value and makes `.n` stand for expr from then on; an expansion that reaches itself uses the true value; STASH and RETRIEVE keep the overloading; WRITE IN stores past it. Tests: `packages/conformance/tests/extracal/overloading/slat.xc`, `packages/conformance/tests/extracal/overloading/stash.xc`, `packages/conformance/tests/extracal/overloading/write-in.xc`, `packages/conformance/tests/extracal/overloading/narrowing.xc`
+- [x] R3.8 — assigning to an overloaded variable assigns to its expression, and an impossible reverse assignment is E277. Tests: `packages/conformance/tests/extracal/overloading/reverse.xc`, `packages/conformance/tests/extracal/overloading/e277.xc`, `packages/conformance/tests/extracal/overloading/e277-unary.xc`
 
 ### 9. CREATE
 
@@ -106,7 +106,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [x] R5 — operands up to 4294967295 give a 64-bit result. Tests: `packages/conformance/tests/extracal/mingle/wide-64.xc`
 - [x] R5 — larger operands give a 128-bit ephemeral value that a select can consume, with a 128-bit mask. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-select.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
 - [x] R5 — storing, mingling or applying a unary operator to an ephemeral value is E534. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`
-- [ ] R5, R3.8 — printing an ephemeral value, which only operand overloading can ask for, is E534. Tests: `packages/conformance/tests/extracal/overloading/ephemeral-read-out.xc`
+- [x] R5, R3.8 — printing an ephemeral value, which only operand overloading can ask for, is E534. Tests: `packages/conformance/tests/extracal/overloading/ephemeral-read-out.xc`
 - [x] R5 — a unary operator on a mingle rotates at the width the mingle had at run time. Tests: `packages/conformance/tests/extracal/mingle/unary-runtime-width.xc`
 
 ## Signed numbers (R6)
