@@ -34,7 +34,7 @@ void main() {
     });
 
     test('a program that defines a label in the block gets none of it', () {
-      expect(included('p.xc', '${callsSystem}(8999) DO GIVE UP\n'), {'p.xc'});
+      expect(included('p.xc', '$callsSystem(8999) DO GIVE UP\n'), {'p.xc'});
       expect(included('p.xc', 'DO (8999) NEXT\n(8999) PLEASE GIVE UP\n'), {
         'p.xc',
       });
