@@ -1343,7 +1343,7 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   uint32_t otherwise = t->resume_to >= 0 ? (uint32_t)t->resume_to : ordinal * 8 + X_END;
   t->resume_to = -1;
   uint32_t label = (uint32_t)x_get(ordinal, X_LABEL);
-  if (x_chain_length && (label || x_gerund_chain)) {
+  if (!resuming && x_chain_length && (label || x_gerund_chain)) {
     t->finishing_label = label;
     if (!t->candidates) t->chosen = otherwise;
     t->position = x_chain[0] * 8 + X_CHECK;

@@ -40,6 +40,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [x] R3.2 — `COME FROM expr` takes control after any labelled statement whose label equals the expression's value, evaluated each time a labelled statement finishes. Tests: `packages/conformance/tests/extracal/computed-come-from/basic.xc`, `packages/conformance/tests/extracal/computed-come-from/expression.xc`
 - [x] R3.2 — `NEXT FROM expr` does the same and pushes a NEXT stack entry. Tests: `packages/conformance/tests/extracal/computed-come-from/next-from.xc`
 - [x] R3.2 — a computed COME FROM may aim at a label that doesn't exist, and does nothing. Tests: `packages/conformance/tests/extracal/computed-come-from/missing-label.xc`
+- [x] R3.2 — an executed RESUME springs no computed COME FROM, as in `ick`. Tests: `packages/conformance/tests/extracal/computed-come-from/resume-target.xc`
 - [x] R3.2, L18 — `COME FROM` and `NEXT FROM` a gerund list take control after any statement of those kinds; `--traditional` rejects all of them. Tests: `packages/conformance/tests/extracal/computed-come-from/gerund.xc`, `packages/conformance/tests/extracal/computed-come-from/gerund-next-from.xc`, `packages/conformance/tests/extracal/computed-come-from/traditional.xc`
 
 ### 3. Computed ABSTAIN

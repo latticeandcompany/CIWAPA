@@ -1577,7 +1577,7 @@ void _xTail(_XThread t, int ordinal) {
   final otherwise = t.resumeTo >= 0 ? t.resumeTo : ordinal * 8 + _end;
   t.resumeTo = -1;
   final label = _xGet(ordinal, xLabel);
-  if (_xChain.isNotEmpty && (label != 0 || _xGerundChain)) {
+  if (!resuming && _xChain.isNotEmpty && (label != 0 || _xGerundChain)) {
     t.finishingLabel = label;
     if (t.candidates == 0) t.chosen = otherwise;
     t.position = _xChain.first * 8 + _check;
