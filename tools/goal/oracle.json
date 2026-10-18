@@ -307,8 +307,8 @@
    "flavor": "llvm",
    "ick_exit": "127",
    "ciwapa_exit": "0:ICL000",
-   "status": "not a difference",
-   "reason": "not a difference: ick 0.35 can't build it either without -P, and R3 drops PIC-INTERCAL (item 13)"
+   "status": "divergence",
+   "reason": "R3 (item 13, PIC-INTERCAL, is dropped: ick 0.35 can't build it without -P, and CIWAPA's build reaches E000)"
   },
   {
    "program": "pit_tests_pictest.xc",
@@ -316,8 +316,8 @@
    "flavor": "dart",
    "ick_exit": "127",
    "ciwapa_exit": "0:ICL000",
-   "status": "not a difference",
-   "reason": "not a difference: ick 0.35 can't build it either without -P, and R3 drops PIC-INTERCAL (item 13)"
+   "status": "divergence",
+   "reason": "R3 (item 13, PIC-INTERCAL, is dropped: ick 0.35 can't build it without -P, and CIWAPA's build reaches E000)"
   },
   {
    "program": "pit_tests_test16bit.xc",
