@@ -50,7 +50,8 @@ class Parser {
         continue;
       }
       final label = labelled ? _tokens[_pos++].value : null;
-      final polite = _tokens[_pos++].polite;
+      final polite = _tokens[_pos].polite;
+      final maybe = _tokens[_pos++].maybe;
       final not = _tok.kind == TokenKind.not;
       if (not) _pos++;
       final percent = _tok.kind == TokenKind.percent
@@ -95,6 +96,7 @@ class Parser {
           body: body,
           chain: _chain,
           onceAgain: onceAgain,
+          maybe: maybe,
         ),
       );
     }
@@ -367,6 +369,12 @@ class Parser {
       case TokenKind.tryAgain:
         _pos++;
         return const TryAgain();
+      case TokenKind.goBack:
+        _pos++;
+        return const GoBack();
+      case TokenKind.goAhead:
+        _pos++;
+        return const GoAhead();
       case TokenKind.createLabel:
         final label = _tokens[_pos++].value;
         if (_isOperatorName(_tok)) {

@@ -134,3 +134,17 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The compiler does (a) until this is answered.
 - **Blocks:** no checklist items; `create/abandon.xc`, `create/forget.xc`, `create/e129.xc` and `create/e277-array.xc` pin (a).
 - **Raised:** 2026-10-18
+
+## L25: Where may CIWAPA's backtracking differ from `ick`'s?
+
+- **Context:** R3 asks for `ick` 0.35's backtracking. A few corners of `ick`'s come from how its C is put together rather than from a design:
+  - `ick` stores MAYBE in the same number as the `%` chance, so `MAYBE DO %0` loses its MAYBE and makes no choicepoint.
+  - A ONCE or AGAIN on a NEXT or GO BACK keeps the abstention it found in a single global variable, which a choicepoint doesn't save, so going back can test a later statement's value.
+  - `ick` has no created operators and backtracking together (they need `-e` and `-m`), so it doesn't say what going back to a choicepoint made inside a created operator that has since finished means.
+- **Options:**
+  - (a) As CIWAPA does: MAYBE always makes its choicepoint; each choicepoint saves the abstention its guard tested; a choicepoint made inside a finished created operator is discarded like a stale one, and one made at a shallower level abandons the operators in between.
+  - (b) Copy `ick`'s first two quirks.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+

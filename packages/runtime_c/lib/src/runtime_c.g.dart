@@ -113,6 +113,7 @@ static uint8_t *wide_ignored;
 static ick_wide_stash *wide_stashes;
 static ick_wide_array *wide_arrays;
 static ick_wide_array_stash *wide_array_stashes;
+static uint32_t wide_count, wide_array_count;
 
 static uint32_t pow_u32(uint32_t base, uint32_t exponent) {
   uint32_t result = 1;
@@ -928,6 +929,8 @@ void ick_init_wide(uint64_t *values, uint8_t *ignored, uint32_t count, uint32_t 
   latin = 1;
   wide_values = values;
   wide_ignored = ignored;
+  wide_count = count;
+  wide_array_count = array_count;
   wide_stashes = calloc(count ? count : 1, sizeof(ick_wide_stash));
   wide_arrays = calloc(array_count ? array_count : 1, sizeof(ick_wide_array));
   wide_array_stashes = calloc(array_count ? array_count : 1, sizeof(ick_wide_array_stash));
@@ -1190,7 +1193,8 @@ enum {
 enum {
   X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
   X_NEXT_FROM, X_UNDECODABLE, X_COMPUTED_COME_FROM, X_COMPUTED_NEXT_FROM, X_GERUND_COME_FROM,
-  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN, X_TRY_AGAIN, X_CREATE, X_COMPUTED_CREATE, X_UNKNOWN
+  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN, X_TRY_AGAIN, X_CREATE, X_COMPUTED_CREATE, X_UNKNOWN,
+  X_GO_BACK, X_GO_AHEAD
 };
 
 /* The computed and gerund COME FROMs and NEXT FROMs. */
@@ -1204,7 +1208,7 @@ static int x_nexting(int32_t kind) {
   return kind == X_NEXT_FROM || kind == X_COMPUTED_NEXT_FROM || kind == X_GERUND_NEXT_FROM;
 }
 
-enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2 };
+enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2, X_MAYBE = 4 };
 enum { X_NO_ONCE_AGAIN, X_ABSTAIN_AFTER, X_REINSTATE_AFTER };
 
 /* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. Position
@@ -1233,16 +1237,27 @@ typedef struct {
 typedef struct {
   uint32_t position, candidates, chosen, finishing, finishing_label;
   int64_t resume_to;
+  /* Backtracking (R3): whether the thread has just gone back to the guard at position, which it
+   * evaluates reversed; the COME FROM a tail was trying (by its index); and the abstention a ONCE
+   * or AGAIN found before updating it (`ick_oldabstain`). */
+  int maybe_back;
+  int32_t tail_index;
+  int64_t old_abstain;
 } ick_x_thread;
 
 static ick_x_program x;
 static void x_loop(uint32_t level);
+
+typedef struct {
+  int32_t *items;
+  size_t count, capacity;
+} ick_overload_stash;
 void ick_ov_stash(uint32_t key);
 void ick_ov_retrieve(uint32_t key);
 /* Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more than
  * 1, and it saturates instead of overflowing. */
 static int64_t *x_abstained;
-static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1};
+static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1, 0, 0, 0};
 
 /* The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
  * a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
@@ -1271,7 +1286,8 @@ static jmp_buf x_levels[NEXT_DEPTH + 2];
 static uint8_t *x_expanding[NEXT_DEPTH + 2][2];
 static uint8_t *getting, *setting;
 static int32_t *overload_of;
-static uint32_t overload_count;
+static uint32_t overload_count, overload_keys;
+static ick_overload_stash *overload_stashes;
 
 void ick_x_creates(uint32_t signatures, void (*unknown)(uint32_t, uint32_t)) {
   x_creations = calloc(signatures + 1, sizeof(uint64_t));
@@ -1350,6 +1366,239 @@ static uint32_t x_level_in(uint32_t from, uint32_t to) {
   return 0;
 }
 
+/* Everything a choicepoint holds of its own (R3): variables, arrays, stashes, the NEXT stack and
+ * the overloading. As in `ick`, abstentions, CREATEs, input and output aren't restored when a
+ * program goes back. runtime.dart's _XMachine is its twin. */
+typedef struct {
+  uint32_t *values;
+  uint8_t *ignored;
+  uint64_t *wide_values;
+  uint8_t *wide_ignored;
+  ick_array *arrays;
+  ick_wide_array *wide_arrays;
+  ick_value_stash *scalar_stashes;
+  ick_wide_stash *wide_stashes;
+  ick_array_stash *array_stashes;
+  ick_wide_array_stash *wide_array_stashes;
+  uint32_t next_stack[NEXT_DEPTH];
+  uint32_t next_depth;
+  int32_t *overload_of;
+  ick_overload_stash *overload_stashes;
+} ick_x_machine;
+
+static void *x_copy(const void *from, size_t size) {
+  void *to = malloc(size ? size : 1);
+  if (!to) ick_fatal(778, 1);
+  if (size) memcpy(to, from, size);
+  return to;
+}
+
+static ick_shape x_copy_shape(ick_shape s) {
+  ick_shape c = {s.rank, NULL, NULL, s.size};
+  if (s.rank) {
+    c.dims = x_copy(s.dims, s.rank * sizeof(uint32_t));
+    c.data = x_copy(s.data, s.size * sizeof(uint32_t));
+  }
+  return c;
+}
+
+static ick_wide_shape x_copy_wide_shape(ick_wide_shape s) {
+  ick_wide_shape c = {s.rank, NULL, NULL, s.size};
+  if (s.rank) {
+    c.dims = x_copy(s.dims, s.rank * sizeof(uint32_t));
+    c.data = x_copy(s.data, s.size * sizeof(uint64_t));
+  }
+  return c;
+}
+
+static ick_x_machine *x_capture(void) {
+  ick_x_machine *m = malloc(sizeof *m);
+  if (!m) ick_fatal(778, 1);
+  uint32_t scalars = program->scalar_count, count = program->array_count;
+  m->values = x_copy(program->values, scalars * sizeof(uint32_t));
+  m->ignored = x_copy(program->ignored, scalars);
+  m->wide_values = x_copy(wide_values, wide_count * sizeof(uint64_t));
+  m->wide_ignored = x_copy(wide_ignored, wide_count);
+  m->arrays = x_copy(arrays, count * sizeof(ick_array));
+  m->array_stashes = x_copy(array_stashes, count * sizeof(ick_array_stash));
+  for (uint32_t i = 0; i < count; i++) {
+    m->arrays[i].shape = x_copy_shape(arrays[i].shape);
+    ick_array_stash *st = &m->array_stashes[i];
+    st->items = x_copy(st->items, st->capacity * sizeof(ick_shape));
+    for (size_t j = 0; j < st->count; j++) st->items[j] = x_copy_shape(st->items[j]);
+  }
+  m->wide_arrays = x_copy(wide_arrays, wide_array_count * sizeof(ick_wide_array));
+  m->wide_array_stashes = x_copy(wide_array_stashes, wide_array_count * sizeof(ick_wide_array_stash));
+  for (uint32_t i = 0; i < wide_array_count; i++) {
+    m->wide_arrays[i].shape = x_copy_wide_shape(wide_arrays[i].shape);
+    ick_wide_array_stash *st = &m->wide_array_stashes[i];
+    st->items = x_copy(st->items, st->capacity * sizeof(ick_wide_shape));
+    for (size_t j = 0; j < st->count; j++) st->items[j] = x_copy_wide_shape(st->items[j]);
+  }
+  m->scalar_stashes = x_copy(scalar_stashes, scalars * sizeof(ick_value_stash));
+  for (uint32_t i = 0; i < scalars; i++) {
+    ick_value_stash *st = &m->scalar_stashes[i];
+    st->items = x_copy(st->items, st->capacity * sizeof(uint32_t));
+  }
+  m->wide_stashes = x_copy(wide_stashes, wide_count * sizeof(ick_wide_stash));
+  for (uint32_t i = 0; i < wide_count; i++) {
+    ick_wide_stash *st = &m->wide_stashes[i];
+    st->items = x_copy(st->items, st->capacity * sizeof(uint64_t));
+  }
+  memcpy(m->next_stack, ick_next_stack, sizeof m->next_stack);
+  m->next_depth = ick_next_depth;
+  m->overload_of = NULL;
+  m->overload_stashes = NULL;
+  if (overload_of) {
+    m->overload_of = x_copy(overload_of, overload_keys * sizeof(int32_t));
+    m->overload_stashes = x_copy(overload_stashes, overload_keys * sizeof(ick_overload_stash));
+    for (uint32_t i = 0; i < overload_keys; i++) {
+      ick_overload_stash *st = &m->overload_stashes[i];
+      st->items = x_copy(st->items, st->capacity * sizeof(int32_t));
+    }
+  }
+  return m;
+}
+
+static void x_free_arrays(ick_array *a, ick_array_stash *as, ick_wide_array *w,
+                          ick_wide_array_stash *ws) {
+  for (uint32_t i = 0; i < program->array_count; i++) {
+    free(a[i].shape.dims);
+    free(a[i].shape.data);
+    for (size_t j = 0; j < as[i].count; j++) {
+      free(as[i].items[j].dims);
+      free(as[i].items[j].data);
+    }
+    free(as[i].items);
+  }
+  for (uint32_t i = 0; i < wide_array_count; i++) {
+    free(w[i].shape.dims);
+    free(w[i].shape.data);
+    for (size_t j = 0; j < ws[i].count; j++) {
+      free(ws[i].items[j].dims);
+      free(ws[i].items[j].data);
+    }
+    free(ws[i].items);
+  }
+  free(a);
+  free(as);
+  free(w);
+  free(ws);
+}
+
+static void x_free_stashes(ick_value_stash *s, ick_wide_stash *ws, ick_overload_stash *os) {
+  for (uint32_t i = 0; i < program->scalar_count; i++) free(s[i].items);
+  for (uint32_t i = 0; i < wide_count; i++) free(ws[i].items);
+  if (os) {
+    for (uint32_t i = 0; i < overload_keys; i++) free(os[i].items);
+  }
+  free(s);
+  free(ws);
+  free(os);
+}
+
+static void x_free_machine(ick_x_machine *m) {
+  x_free_arrays(m->arrays, m->array_stashes, m->wide_arrays, m->wide_array_stashes);
+  x_free_stashes(m->scalar_stashes, m->wide_stashes, m->overload_stashes);
+  free(m->values);
+  free(m->ignored);
+  free(m->wide_values);
+  free(m->wide_ignored);
+  free(m->overload_of);
+  free(m);
+}
+
+/* Makes [m] the running state and frees what it replaces. The program's own variable tables are
+ * shared with the compiled code, so their contents are copied back; everything else is handed
+ * over. */
+static void x_restore(ick_x_machine *m) {
+  memcpy(program->values, m->values, program->scalar_count * sizeof(uint32_t));
+  memcpy(program->ignored, m->ignored, program->scalar_count);
+  memcpy(wide_values, m->wide_values, wide_count * sizeof(uint64_t));
+  memcpy(wide_ignored, m->wide_ignored, wide_count);
+  x_free_arrays(arrays, array_stashes, wide_arrays, wide_array_stashes);
+  x_free_stashes(scalar_stashes, wide_stashes, overload_stashes);
+  arrays = m->arrays;
+  array_stashes = m->array_stashes;
+  wide_arrays = m->wide_arrays;
+  wide_array_stashes = m->wide_array_stashes;
+  scalar_stashes = m->scalar_stashes;
+  wide_stashes = m->wide_stashes;
+  memcpy(ick_next_stack, m->next_stack, sizeof m->next_stack);
+  ick_next_depth = m->next_depth;
+  if (overload_of) {
+    free(overload_of);
+    overload_of = m->overload_of;
+    overload_stashes = m->overload_stashes;
+  }
+  free(m->values);
+  free(m->ignored);
+  free(m->wide_values);
+  free(m->wide_ignored);
+  free(m);
+}
+
+/* A choicepoint: the state, the thread's registers with the position of the MAYBE guard that made
+ * it, and the created operator level it was made at. A stale one, left where a program went back
+ * to, has no state: going back to it just discards it. */
+typedef struct {
+  ick_x_machine *machine;
+  ick_x_thread registers;
+  uint32_t level;
+} ick_x_choice;
+
+static ick_x_choice *x_choices;
+static size_t x_choice_count, x_choice_capacity;
+
+static void x_push_choice(ick_x_machine *m, const ick_x_thread *registers) {
+  if (x_choice_count == x_choice_capacity) {
+    x_choice_capacity = x_choice_capacity ? 2 * x_choice_capacity : 16;
+    x_choices = realloc(x_choices, x_choice_capacity * sizeof(ick_x_choice));
+    if (!x_choices) ick_fatal(778, 1);
+  }
+  x_choices[x_choice_count].machine = m;
+  if (registers) x_choices[x_choice_count].registers = *registers;
+  x_choices[x_choice_count++].level = x_level;
+}
+
+/* The kinds whose ONCE or AGAIN takes effect before they run, as in `ick`. */
+static int x_updates_first(int32_t kind) {
+  return kind == X_NEXT_KIND || kind == X_UNDECODABLE || kind == X_UNKNOWN || kind == X_GO_BACK;
+}
+
+/* A guard, `ick`'s way, for a statement that may have a MAYBE: the first time through, it makes a
+ * choicepoint that returns to [site]; going back there, it leaves a stale one and is reversed. */
+static int x_guard(ick_x_thread *t, uint32_t ordinal, int64_t abstained, uint32_t site) {
+  if (!(x_get(ordinal, X_FLAGS) & X_MAYBE)) return x_runs(ordinal, abstained);
+  if (t->maybe_back) {
+    t->maybe_back = 0;
+    x_push_choice(NULL, NULL);
+    return !x_runs(ordinal, abstained);
+  }
+  t->old_abstain = abstained;
+  ick_x_thread registers = *t;
+  registers.position = site;
+  x_push_choice(x_capture(), &registers);
+  return x_runs(ordinal, abstained);
+}
+
+/* GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; any
+ * other replaces the running state. One made inside a created operator that has since finished
+ * is discarded like a stale one. */
+static void x_go_back(ick_x_thread *t, uint32_t next) {
+  if (!x_choice_count) ick_fatal(404, next);
+  ick_x_choice choice = x_choices[--x_choice_count];
+  if (!choice.machine) return;
+  if (choice.level > x_level) {
+    x_free_machine(choice.machine);
+    return;
+  }
+  x_restore(choice.machine);
+  *t = choice.registers;
+  t->maybe_back = 1;
+  x_unwind_to(choice.level);
+}
+
 /* Pushes [id] for a NEXT to created label [label], and returns the label's ordinal: E123 first, as
  * in `ick`, then E129 when there is no such label. */
 static uint32_t x_created_next(uint32_t id, uint64_t label, uint32_t next) {
@@ -1361,14 +1610,15 @@ static uint32_t x_created_next(uint32_t id, uint64_t label, uint32_t next) {
 
 static void x_start(ick_x_thread *t, uint32_t ordinal) {
   uint32_t next = (uint32_t)x_get(ordinal, X_NEXT);
-  if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, next);
+  int back = t->maybe_back;
+  if (!back && (x_get(ordinal, X_FLAGS) & X_BUG)) ick_fatal(774, next);
   int32_t kind = x_get(ordinal, X_KIND);
   t->position = ordinal * 8 + X_TAIL;
   if (x_comes_from(kind)) return;
-  int64_t abstained = kind == X_NEXT_KIND || kind == X_UNDECODABLE || kind == X_UNKNOWN
-                          ? x_once_again(ordinal)
-                          : x_abstained[ordinal];
-  if (!x_runs(ordinal, abstained)) {
+  int64_t abstained = !x_updates_first(kind) ? x_abstained[ordinal]
+                      : back                 ? t->old_abstain
+                                             : x_once_again(ordinal);
+  if (!x_guard(t, ordinal, abstained, ordinal * 8 + X_START)) {
     /* A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything. */
     if (kind == X_TRY_AGAIN) ick_give_up();
     return;
@@ -1439,6 +1689,11 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     x_creations[x_get(ordinal, X_SIGNATURE)] = (uint32_t)x_get(ordinal, X_TARGET);
     break;
   case X_COMPUTED_CREATE: x_creations[x_get(ordinal, X_SIGNATURE)] = x.expr(ordinal); break;
+  case X_GO_BACK: x_go_back(t, next); break;
+  case X_GO_AHEAD:
+    if (!x_choice_count) ick_fatal(404, next);
+    if (x_choices[--x_choice_count].machine) x_free_machine(x_choices[x_choice_count].machine);
+    break;
   case X_UNKNOWN: {
     uint64_t label = x_creations[x_get(ordinal, X_SIGNATURE)];
     if (!label) ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
@@ -1457,25 +1712,31 @@ static void x_candidate(ick_x_thread *t, uint32_t landing) {
 
 static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   int32_t kind = x_get(ordinal, X_KIND);
+  /* Going back to a MAYBE COME FROM's guard resumes the tail at that COME FROM. */
+  int back = t->maybe_back;
   /* An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen. */
-  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_UNKNOWN && kind != X_COME_FROM &&
-      kind != X_NEXT_FROM && t->resume_to == X_NO_RESUME) {
+  if (!back && !x_updates_first(kind) && kind != X_COME_FROM && kind != X_NEXT_FROM &&
+      t->resume_to == X_NO_RESUME) {
     x_once_again(ordinal);
   }
-  t->candidates = 0;
-  t->finishing = ordinal;
+  if (!back) {
+    t->candidates = 0;
+    t->finishing = ordinal;
+  }
   /* `ick` tries the COME FROMs aimed here in reverse program order, so the first in the program
    * is the one this thread follows. */
   /* An executed RESUME springs only a plain COME FROM, by Mode 1's rule; in `ick` it springs
    * nothing, and so it is for the extensions. */
   int resuming = t->resume_to != X_NO_RESUME;
   int32_t start = x_get(ordinal, X_COME_FROM_START);
-  for (int32_t i = x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
+  for (int32_t i = back ? t->tail_index : x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
     uint32_t from = (uint32_t)x.lists[start + i];
     if (resuming && x_get(from, X_KIND) != X_COME_FROM) continue;
-    int64_t abstained =
-        x_get(from, X_ONCE_AGAIN) != X_NO_ONCE_AGAIN ? x_once_again(from) : x_abstained[from];
-    if (!x_runs(from, abstained)) continue;
+    int64_t abstained = x_get(from, X_ONCE_AGAIN) == X_NO_ONCE_AGAIN ? x_abstained[from]
+                        : t->maybe_back                              ? t->old_abstain
+                                                                     : x_once_again(from);
+    t->tail_index = i;
+    if (!x_guard(t, from, abstained, ordinal * 8 + X_TAIL)) continue;
     /* A COME FROM's own faults fire in place of its jump, unless a bug planted on it fires
      * first at its landing (decisions L2, T23). */
     int32_t fault = x_get(from, X_FAULT);
@@ -1506,14 +1767,16 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
  * statement is of one of its kinds. The expression is only evaluated for a labelled statement. */
 static void x_check(ick_x_thread *t, uint32_t ordinal) {
   int matches = 0;
-  if (!x_gerund_kind(x_get(ordinal, X_KIND))) {
+  if (t->maybe_back) {
+    matches = 1;
+  } else if (!x_gerund_kind(x_get(ordinal, X_KIND))) {
     matches = t->finishing_label && x.expr(ordinal) == t->finishing_label;
   } else {
     int32_t gerund = x_get(t->finishing, X_GERUND);
     int32_t start = x_get(ordinal, X_LIST_START), length = x_get(ordinal, X_LIST_LENGTH);
     for (int32_t i = 0; i < length; i++) matches |= gerund && x.lists[start + i] == gerund;
   }
-  if (matches && x_runs(ordinal, x_abstained[ordinal])) {
+  if (matches && x_guard(t, ordinal, x_abstained[ordinal], ordinal * 8 + X_CHECK)) {
     int32_t fault = x_get(ordinal, X_FAULT);
     if (fault && !(x_get(ordinal, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(ordinal, X_NEXT));
     t->position = ordinal * 8 + X_MATCHED;
@@ -1642,12 +1905,6 @@ uint32_t ick_x_clear(uint32_t ordinal) { return x_abstained[ordinal] == 0; }
  * itself again uses the variable's true value instead, and overloading is stashed with its
  * variable. runtime.dart has the same. */
 
-typedef struct {
-  int32_t *items;
-  size_t count, capacity;
-} ick_overload_stash;
-
-static ick_overload_stash *overload_stashes;
 static uint64_t (*ov_get)(uint32_t id, uint32_t next);
 static void (*ov_set)(uint32_t id, uint64_t value, uint32_t next);
 
@@ -1658,6 +1915,7 @@ void ick_init_overloading(uint32_t keys, uint32_t overloads, uint64_t (*get)(uin
   getting = calloc(overloads + 1, 1);
   setting = calloc(overloads + 1, 1);
   overload_count = overloads;
+  overload_keys = keys;
   if (!overload_of || !overload_stashes || !getting || !setting) ick_fatal(778, 1);
   ov_get = get;
   ov_set = set;

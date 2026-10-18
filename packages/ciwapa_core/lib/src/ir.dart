@@ -391,6 +391,21 @@ class IrTryAgain extends IrOp {
   String toString() => 'TRY AGAIN';
 }
 
+/// `ick`'s GO BACK and GO AHEAD (R3). Only the control engine runs them.
+class IrGoBack extends IrOp {
+  const IrGoBack();
+
+  @override
+  String toString() => 'GO BACK';
+}
+
+class IrGoAhead extends IrOp {
+  const IrGoAhead();
+
+  @override
+  String toString() => 'GO AHEAD';
+}
+
 class IrGiveUp extends IrOp {
   const IrGiveUp();
 
@@ -484,6 +499,7 @@ class IrStatement {
     required this.percent,
     required this.faults,
     this.onceAgain = OnceAgain.none,
+    this.maybe = false,
   });
 
   final int ordinal;
@@ -504,6 +520,9 @@ class IrStatement {
 
   /// `ick`'s ONCE or AGAIN, as written (R3). Only the control engine runs it.
   final OnceAgain onceAgain;
+
+  /// `ick`'s MAYBE (R3). Only the control engine runs it.
+  final bool maybe;
 
   /// The ordinal printed on line 3 of an error raised here (decision T33).
   late int next;
@@ -683,6 +702,7 @@ class _Lowering {
           faults: _faults,
           // An unknown statement whose operands would fault is a comment, ONCE and all (L22).
           onceAgain: op is IrUndecodable ? OnceAgain.none : s.onceAgain,
+          maybe: s.maybe,
         ),
       );
     }
@@ -736,7 +756,10 @@ class _Lowering {
               _overloads.isNotEmpty ||
               _creates ||
               ir.any(
-                (s) => _needsEngine(s.op) || s.onceAgain != OnceAgain.none,
+                (s) =>
+                    _needsEngine(s.op) ||
+                    s.onceAgain != OnceAgain.none ||
+                    s.maybe,
               )),
     );
   }
@@ -747,7 +770,9 @@ class _Lowering {
     IrComputedComeFrom() ||
     IrGerundComeFrom() ||
     IrAbstain(count: _?) ||
-    IrTryAgain() => true,
+    IrTryAgain() ||
+    IrGoBack() ||
+    IrGoAhead() => true,
     _ => false,
   };
 
@@ -784,6 +809,8 @@ class _Lowering {
       ], signed: signed),
       GiveUp() => const IrGiveUp(),
       TryAgain() => const IrTryAgain(),
+      GoBack() => const IrGoBack(),
+      GoAhead() => const IrGoAhead(),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),

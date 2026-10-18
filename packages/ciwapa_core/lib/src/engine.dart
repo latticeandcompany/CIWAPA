@@ -22,6 +22,8 @@ enum EngineKind {
   create,
   computedCreate,
   unknown,
+  goBack,
+  goAhead,
 }
 
 /// The fields of one statement's row, in order.
@@ -42,7 +44,7 @@ enum EngineField {
   signature,
 }
 
-const engineInitiallyAbstained = 1, engineBug = 2;
+const engineInitiallyAbstained = 1, engineBug = 2, engineMaybe = 4;
 
 /// What EXTRACAL's control engine needs to know about a program (R3): a row of [EngineField]s per
 /// statement (row 0 is unused, so a row's index is its ordinal), the lists the rows point into,
@@ -74,6 +76,8 @@ class EngineTable {
         IrCreate(target: _?) => (EngineKind.computedCreate, const <int>[]),
         IrCreate() => (EngineKind.create, const <int>[]),
         IrUnknown() => (EngineKind.unknown, const <int>[]),
+        IrGoBack() => (EngineKind.goBack, const <int>[]),
+        IrGoAhead() => (EngineKind.goAhead, const <int>[]),
         IrComputedComeFrom(nexting: true) => (
           EngineKind.computedNextFrom,
           const <int>[],
@@ -96,7 +100,8 @@ class EngineTable {
       set(
         EngineField.flags,
         (s.initiallyAbstained ? engineInitiallyAbstained : 0) |
-            (s.bug ? engineBug : 0),
+            (s.bug ? engineBug : 0) |
+            (s.maybe ? engineMaybe : 0),
       );
       set(EngineField.percent, s.percent ?? 100);
       // What reaching the statement does to its abstention, after `ick`'s swap of ONCE and AGAIN

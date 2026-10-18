@@ -1,0 +1,6 @@
+	DO ,1 <- #2
+	DO ,1 SUB #1 <- #3
+	MAYBE DO ,1 SUB #1 <- #4
+	DO READ OUT ,1 SUB #1
+	PLEASE GO BACK
+	PLEASE GIVE UP

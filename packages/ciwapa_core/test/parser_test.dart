@@ -474,4 +474,35 @@ void main() {
       expect((s.value as CreatedOp).signature, 'u78');
     });
   });
+
+  group('backtracking (R3)', () {
+    List<Statement> xc(String text) =>
+        Parser(Source('test.xc', text), extensions: true).parse();
+
+    test('MAYBE is a statement identifier, with or without DO and PLEASE', () {
+      for (final (text, polite) in [
+        ('MAYBE .1 <- #1', false),
+        ('MAYBE DO .1 <- #1', false),
+        ('MAYBE PLEASE .1 <- #1', true),
+        ('MAYBE PLEASE DO .1 <- #1', true),
+      ]) {
+        final s = xc(text).single;
+        expect(s.maybe, isTrue, reason: text);
+        expect(s.polite, polite, reason: text);
+        expect(s.body, isA<Calculate>(), reason: text);
+      }
+      expect(xc('MAYBE NOT GO BACK').single.not, isTrue);
+    });
+
+    test('GO BACK and GO AHEAD, in English and Latin', () {
+      expect(xc('DO GO BACK').single.body, isA<GoBack>());
+      expect(xc('DO REDIRE').single.body, isA<GoBack>());
+      expect(xc('DO GO AHEAD').single.body, isA<GoAhead>());
+      expect(xc('DO GRASSOR').single.body, isA<GoAhead>());
+    });
+
+    test('Mode 1 has no MAYBE', () {
+      expect(parse('MAYBE DO .1 <- #1').any((s) => s.maybe), isFalse);
+    });
+  });
 }

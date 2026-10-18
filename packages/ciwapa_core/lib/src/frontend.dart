@@ -69,7 +69,10 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           (body is AbstainBody && body.count != null) ||
           s.onceAgain != OnceAgain.none ||
           body is TryAgain ||
-          body is Create) {
+          body is Create ||
+          body is GoBack ||
+          body is GoAhead ||
+          s.maybe) {
         throw CompileError(111, i + 1);
       }
     }

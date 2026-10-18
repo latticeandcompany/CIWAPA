@@ -285,6 +285,23 @@ class TryAgain extends Body {
   Gerund get gerund => Gerund.tryingAgain;
 }
 
+/// `ick`'s GO BACK (R3): returns to the newest choicepoint, which a MAYBE statement made, and
+/// runs that statement again with its abstention reversed.
+class GoBack extends Body {
+  const GoBack();
+
+  @override
+  Gerund get gerund => Gerund.goingBack;
+}
+
+/// `ick`'s GO AHEAD (R3): discards the newest choicepoint.
+class GoAhead extends Body {
+  const GoAhead();
+
+  @override
+  Gerund get gerund => Gerund.goingAhead;
+}
+
 class ComeFrom extends Body {
   const ComeFrom(this.label, {this.nexting = false});
 
@@ -376,6 +393,7 @@ class Statement {
     required this.body,
     this.chain = false,
     this.onceAgain = OnceAgain.none,
+    this.maybe = false,
   });
 
   /// The file the statement comes from: the user's program or the system library.
@@ -398,6 +416,9 @@ class Statement {
 
   /// `ick`'s ONCE or AGAIN at the end of the statement (R3).
   OnceAgain onceAgain;
+
+  /// `ick`'s MAYBE in place of DO (R3): reaching the statement makes a choicepoint.
+  final bool maybe;
 
   /// An ungrouped chain of binary operators: E017 when the statement executes (decision Q97).
   /// A statement that later turns out to be undecodable raises E000 instead (decision T9).

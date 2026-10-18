@@ -199,7 +199,7 @@ Never ickGiveUp() {
 // ---- The NEXT stack (§4.4.2–§4.4.4, decisions T16, T17) ---------------------------------------
 
 const _nextDepth = 79;
-final _nextStack = Int64List(_nextDepth);
+var _nextStack = Int64List(_nextDepth);
 var _nextCount = 0;
 
 /// [target] is the NEXT's target ordinal: the statement that would have run next.
@@ -1375,7 +1375,9 @@ const xPlain = 0,
     xTryAgain = 15,
     xCreate = 16,
     xComputedCreate = 17,
-    xUnknown = 18;
+    xUnknown = 18,
+    xGoBack = 19,
+    xGoAhead = 20;
 
 bool _xComesFrom(int kind) => kind == xComeFromKind || _xChained(kind);
 
@@ -1392,7 +1394,7 @@ bool _xNexting(int kind) =>
     kind == xGerundNextFrom;
 
 /// [xFlags] bits.
-const xInitiallyAbstained = 1, xBug = 2;
+const xInitiallyAbstained = 1, xBug = 2, xMaybe = 4;
 
 /// [xOnceAgain]: what a statement does to its own abstention when it is reached, after `ick`'s swap
 /// for initially abstained statements: abstain itself, or reinstate itself.
@@ -1470,6 +1472,12 @@ class _XThread {
   /// The label of the statement being finished, for computed COME FROMs (`ick_skipto`).
   int finishingLabel = 0;
 
+  /// Backtracking (R3): whether the thread has just gone back to the guard at [position], which it
+  /// evaluates reversed; the COME FROM a tail was trying (by its index); and the abstention a
+  /// ONCE or AGAIN found before updating it (`ick_oldabstain`).
+  bool maybeBack = false;
+  int tailIndex = 0, oldAbstain = 0;
+
   List<int> save() => [
     position,
     candidates,
@@ -1477,6 +1485,8 @@ class _XThread {
     finishing,
     resumeTo,
     finishingLabel,
+    tailIndex,
+    oldAbstain,
   ];
 
   void restore(List<int> r) {
@@ -1486,7 +1496,141 @@ class _XThread {
     finishing = r[3];
     resumeTo = r[4];
     finishingLabel = r[5];
+    tailIndex = r[6];
+    oldAbstain = r[7];
   }
+}
+
+/// Everything a choicepoint holds of its own (R3): variables, arrays, stashes, the NEXT stack and
+/// the overloading. As in `ick`, abstentions, CREATEs, input and output aren't restored when a
+/// program goes back.
+class _XMachine {
+  _XMachine.capture()
+    : values = Uint32List.fromList(_values),
+      ignored = Uint8List.fromList(_ignored),
+      wideValues = Uint64List.fromList(_wideValues),
+      wideIgnored = Uint8List.fromList(_wideIgnored),
+      arrays = [
+        for (final a in _arrays)
+          _Array()
+            ..shape = _copyShape(a.shape)
+            ..ignored = a.ignored,
+      ],
+      wideArrays = [
+        for (final a in _wideArrays)
+          _WideArray()
+            ..shape = _copyWideShape(a.shape)
+            ..ignored = a.ignored,
+      ],
+      scalarStashes = [
+        for (final st in _scalarStashes)
+          _ScalarStash()
+            ..values = Uint32List.fromList(st.values)
+            ..length = st.length,
+      ],
+      wideStashes = [
+        for (final st in _wideStashes)
+          _WideStash()
+            ..values = Uint64List.fromList(st.values)
+            ..length = st.length,
+      ],
+      arrayStashes = [
+        for (final st in _arrayStashes) [for (final sh in st) _copyShape(sh)],
+      ],
+      wideArrayStashes = [
+        for (final st in _wideArrayStashes)
+          [for (final sh in st) _copyWideShape(sh)],
+      ],
+      nextStack = Int64List.fromList(_nextStack),
+      nextCount = _nextCount,
+      overloadOf = Int32List.fromList(_overloadOf),
+      overloadStashes = [for (final st in _overloadStashes) List.of(st)];
+
+  final Uint32List values;
+  final Uint8List ignored;
+  final Uint64List wideValues;
+  final Uint8List wideIgnored;
+  final List<_Array> arrays;
+  final List<_WideArray> wideArrays;
+  final List<_ScalarStash> scalarStashes;
+  final List<_WideStash> wideStashes;
+  final List<List<_Shape>> arrayStashes;
+  final List<List<_WideShape>> wideArrayStashes;
+  final Int64List nextStack;
+  final int nextCount;
+  final Int32List overloadOf;
+  final List<List<int>> overloadStashes;
+
+  static _Shape _copyShape(_Shape s) =>
+      _Shape(Uint32List.fromList(s.dims), Uint32List.fromList(s.data));
+
+  static _WideShape _copyWideShape(_WideShape s) =>
+      _WideShape(Uint32List.fromList(s.dims), Uint64List.fromList(s.data));
+
+  /// Makes this the running state. The program's own variable tables are shared with the compiled
+  /// code, so their contents are copied back; everything else is handed over.
+  void restore() {
+    _values.setAll(0, values);
+    _ignored.setAll(0, ignored);
+    _wideValues.setAll(0, wideValues);
+    _wideIgnored.setAll(0, wideIgnored);
+    _arrays = arrays;
+    _wideArrays = wideArrays;
+    _scalarStashes = scalarStashes;
+    _wideStashes = wideStashes;
+    _arrayStashes = arrayStashes;
+    _wideArrayStashes = wideArrayStashes;
+    _nextStack = nextStack;
+    _nextCount = nextCount;
+    _overloadOf = overloadOf;
+    _overloadStashes = overloadStashes;
+  }
+}
+
+/// A choicepoint: the state, the thread's registers with the position of the MAYBE guard that
+/// made it, and the created operator level it was made at. A stale one, left where a program
+/// went back to, has no state: going back to it just discards it.
+class _XChoice {
+  _XChoice(this.machine, this.registers, this.level);
+
+  _XChoice.stale() : machine = null, registers = const [], level = 0;
+
+  final _XMachine? machine;
+  final List<int> registers;
+  final int level;
+}
+
+final _xChoices = <_XChoice>[];
+
+/// A guard, `ick`'s way, for a statement that may have a MAYBE: the first time through, it makes
+/// a choicepoint that returns to [site]; going back there, it leaves a stale one and is reversed.
+bool _xGuard(_XThread t, int ordinal, int abstained, int site) {
+  if (_xGet(ordinal, xFlags) & xMaybe == 0) return _xRuns(ordinal, abstained);
+  if (t.maybeBack) {
+    t.maybeBack = false;
+    _xChoices.add(_XChoice.stale());
+    return !_xRuns(ordinal, abstained);
+  }
+  t.oldAbstain = abstained;
+  final position = t.position;
+  t.position = site;
+  _xChoices.add(_XChoice(_XMachine.capture(), t.save(), _xLevel));
+  t.position = position;
+  return _xRuns(ordinal, abstained);
+}
+
+/// GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; any
+/// other replaces the running state. One made inside a created operator that has since finished
+/// is discarded like a stale one.
+void _xGoBack(_XThread t, int next) {
+  if (_xChoices.isEmpty) ickFatal(404, next);
+  final choice = _xChoices.removeLast();
+  final machine = choice.machine;
+  if (machine == null || choice.level > _xLevel) return;
+  machine.restore();
+  t.restore(choice.registers);
+  t.maybeBack = true;
+  _xUnwindTo(choice.level);
 }
 
 late XProgram _x;
@@ -1699,20 +1843,29 @@ bool _xRuns(int ordinal, int abstained) {
   return (percent >= 100 || ickRoll(percent)) && abstained == 0;
 }
 
+/// The kinds whose ONCE or AGAIN takes effect before they run, as in `ick`.
+bool _xUpdatesFirst(int kind) =>
+    kind == xNextKind ||
+    kind == xUndecodable ||
+    kind == xUnknown ||
+    kind == xGoBack;
+
 void _xStart(_XThread t, int ordinal) {
   final next = _xGet(ordinal, xNext);
-  if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
+  final back = t.maybeBack;
+  if (!back && _xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
   final kind = _xGet(ordinal, xKind);
   if (_xComesFrom(kind)) {
     t.position = ordinal * 8 + _tail;
     return;
   }
-  final abstained =
-      kind == xNextKind || kind == xUndecodable || kind == xUnknown
-      ? _xOnceAgain(ordinal)
-      : _xAbstained[ordinal];
+  final abstained = !_xUpdatesFirst(kind)
+      ? _xAbstained[ordinal]
+      : back
+      ? t.oldAbstain
+      : _xOnceAgain(ordinal);
   t.position = ordinal * 8 + _tail;
-  if (!_xRuns(ordinal, abstained)) {
+  if (!_xGuard(t, ordinal, abstained, ordinal * 8 + _start)) {
     // A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything.
     if (kind == xTryAgain) ickGiveUp();
     return;
@@ -1774,6 +1927,11 @@ void _xStart(_XThread t, int ordinal) {
       _xCreations[_xGet(ordinal, xSignature)] = _xGet(ordinal, xTarget);
     case xComputedCreate:
       _xCreations[_xGet(ordinal, xSignature)] = _x.expr(ordinal);
+    case xGoBack:
+      _xGoBack(t, next);
+    case xGoAhead:
+      if (_xChoices.isEmpty) ickFatal(404, next);
+      _xChoices.removeLast();
     case xUnknown:
       final label = _xCreations[_xGet(ordinal, xSignature)];
       if (label == 0) ickUndecodable(_x.texts[ordinal]!, next);
@@ -1801,30 +1959,37 @@ int _xReturn(int ordinal) =>
 
 void _xTail(_XThread t, int ordinal) {
   final kind = _xGet(ordinal, xKind);
+  // Going back to a MAYBE COME FROM's guard resumes the tail at that COME FROM.
+  final back = t.maybeBack;
   // An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen.
-  if (kind != xNextKind &&
-      kind != xUndecodable &&
-      kind != xUnknown &&
+  if (!back &&
+      !_xUpdatesFirst(kind) &&
       kind != xComeFromKind &&
       kind != xNextFromKind &&
       t.resumeTo == -1) {
     _xOnceAgain(ordinal);
   }
-  t.candidates = 0;
-  t.finishing = ordinal;
+  if (!back) {
+    t.candidates = 0;
+    t.finishing = ordinal;
+  }
   // `ick` tries the COME FROMs aimed here in reverse program order, so the first in the program is
   // the one this thread follows.
   // An executed RESUME springs only a plain COME FROM, by Mode 1's rule; in `ick` it springs
   // nothing, and so it is for the extensions.
   final resuming = t.resumeTo != -1;
   final start = _xGet(ordinal, xComeFromStart);
-  for (var i = _xGet(ordinal, xComeFromLength) - 1; i >= 0; i--) {
+  final first = back ? t.tailIndex : _xGet(ordinal, xComeFromLength) - 1;
+  for (var i = first; i >= 0; i--) {
     final from = _x.lists[start + i];
     if (resuming && _xGet(from, xKind) != xComeFromKind) continue;
-    final abstained = _xGet(from, xOnceAgain) != xNoOnceAgain
-        ? _xOnceAgain(from)
-        : _xAbstained[from];
-    if (!_xRuns(from, abstained)) continue;
+    final abstained = _xGet(from, xOnceAgain) == xNoOnceAgain
+        ? _xAbstained[from]
+        : t.maybeBack
+        ? t.oldAbstain
+        : _xOnceAgain(from);
+    t.tailIndex = i;
+    if (!_xGuard(t, from, abstained, ordinal * 8 + _tail)) continue;
     // A COME FROM's own faults fire in place of its jump, unless a bug planted on it fires first
     // at its landing (decisions L2, T23).
     final fault = _xGet(from, xFault);
@@ -1855,7 +2020,9 @@ void _xTail(_XThread t, int ordinal) {
 /// statement is of one of its kinds. The expression is only evaluated for a labelled statement.
 void _xCheck(_XThread t, int ordinal) {
   final bool matches;
-  if (!_xGerundKind(_xGet(ordinal, xKind))) {
+  if (t.maybeBack) {
+    matches = true;
+  } else if (!_xGerundKind(_xGet(ordinal, xKind))) {
     matches = t.finishingLabel != 0 && _x.expr(ordinal) == t.finishingLabel;
   } else {
     final gerund = _xGet(t.finishing, xGerund);
@@ -1863,7 +2030,8 @@ void _xCheck(_XThread t, int ordinal) {
     _xEachTarget(ordinal, (g) => found |= g == gerund);
     matches = gerund != 0 && found;
   }
-  if (matches && _xRuns(ordinal, _xAbstained[ordinal])) {
+  if (matches &&
+      _xGuard(t, ordinal, _xAbstained[ordinal], ordinal * 8 + _check)) {
     final fault = _xGet(ordinal, xFault);
     if (fault != 0 && _xGet(ordinal, xFlags) & xBug == 0) {
       ickFatal(fault, _xGet(ordinal, xNext));

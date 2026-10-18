@@ -43,6 +43,8 @@ enum TokenKind {
   tryAgain,
   create,
   createLabel,
+  goBack,
+  goAhead,
   gerund,
   signed,
   once,
@@ -84,6 +86,8 @@ enum Gerund {
   tryingAgain,
   creating,
   commenting,
+  goingBack,
+  goingAhead,
 }
 
 class Token {
@@ -93,6 +97,7 @@ class Token {
     this.end, {
     this.value = 0,
     this.polite = false,
+    this.maybe = false,
     this.unary,
     this.gerund,
     this.bits,
@@ -112,6 +117,9 @@ class Token {
 
   /// Whether an [TokenKind.identifier] includes PLEASE.
   final bool polite;
+
+  /// Whether an [TokenKind.identifier] is `ick`'s MAYBE (R3).
+  final bool maybe;
 
   final UnaryOp? unary;
   final Gerund? gerund;
@@ -323,8 +331,12 @@ class Lexer {
   static Token Function(int, int) _gerund(Gerund g) =>
       (start, end) => Token(TokenKind.gerund, start, end, gerund: g);
 
-  static Token Function(int, int) _identifier({required bool polite}) =>
-      (start, end) => Token(TokenKind.identifier, start, end, polite: polite);
+  static Token Function(int, int) _identifier({
+    required bool polite,
+    bool maybe = false,
+  }) =>
+      (start, end) =>
+          Token(TokenKind.identifier, start, end, polite: polite, maybe: maybe);
 
   static final _patterns = <(String, Token Function(int, int))>[
     ('.', _kind(TokenKind.oneSpot)),
@@ -439,6 +451,18 @@ class Lexer {
     ('COMMENTS', _gerund(Gerund.commenting)),
     ('COMMENTING', _gerund(Gerund.commenting)),
     ('COMMEMERO', _gerund(Gerund.commenting)),
+    // Backtracking (R3 item 7).
+    ('MAYBE', _identifier(polite: false, maybe: true)),
+    ('MAYBE DO', _identifier(polite: false, maybe: true)),
+    ('MAYBE PLEASE', _identifier(polite: true, maybe: true)),
+    ('MAYBE PLEASE DO', _identifier(polite: true, maybe: true)),
+    ('GO BACK', _kind(TokenKind.goBack)),
+    ('REDIRE', _kind(TokenKind.goBack)),
+    ('GO AHEAD', _kind(TokenKind.goAhead)),
+    ('GRASSOR', _kind(TokenKind.goAhead)),
+    ('GOING BACK', _gerund(Gerund.goingBack)),
+    ('REDENDUM', _gerund(Gerund.goingBack)),
+    ('GOING AHEAD', _gerund(Gerund.goingAhead)),
   ];
 
   static final _widePatterns = <(String, Token Function(int, int))>[
