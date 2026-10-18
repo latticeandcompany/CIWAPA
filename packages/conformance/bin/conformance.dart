@@ -15,6 +15,10 @@
 //   .timeout  seconds the program must still be running after; it is then killed and its
 //             output so far is compared. Only for programs that loop forever by design and print
 //             nothing, since how much a looping program prints in N seconds varies.
+//   .server   a second program, built with the same flags, that the test talks to over the
+//             network. It starts first, with CIWAPA_TEST_PORT set to a free port in both programs'
+//             environments, and the test starts once the server prints its first line. The server
+//             must then exit 0, and its stdout must match .server.out.
 // Any other program that runs longer than a minute fails as timed out.
 //
 // Every Mode 1 test also runs a second time as EXTRACAL, copied to <name>.xc (or .2xc–.7xc), and
@@ -24,9 +28,11 @@
 // error, unless a .xc.reason file says which decision or open question allows it.
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:args/args.dart';
 
@@ -165,6 +171,19 @@ Future<String?> _check(
       const [],
       environment: environment,
     );
+    Server? server;
+    if (build.exitCode == 0 && File('$stem.server').existsSync()) {
+      environment['CIWAPA_TEST_PORT'] = '${await _freePort()}';
+      final started = await Server.start(
+        compiler,
+        File('$stem.server'),
+        temp,
+        _lines(File('$stem.flags')),
+        environment,
+      );
+      if (started is String) return started;
+      server = started as Server;
+    }
     final timeoutFile = File('$stem.timeout');
     final mustLoop = timeoutFile.existsSync();
     final timeout = mustLoop
@@ -188,11 +207,106 @@ Future<String?> _check(
           'but it exited with ${outcome.exitCode}';
     }
     if (build.exitCode == 0 && !mustLoop && outcome.timedOut) {
+      await server?.stop();
       return 'timed out after ${timeout.inSeconds}s';
     }
-    return _compare(stem, outcome, superset: superset);
+    final serverProblem = await server?.finish(stem);
+    return [
+      _compare(stem, outcome, superset: superset),
+      serverProblem,
+    ].nonNulls.join('\n').nullIfEmpty;
   } finally {
     await _deleteQuietly(temp);
+  }
+}
+
+extension on String {
+  String? get nullIfEmpty => isEmpty ? null : this;
+}
+
+/// A port nothing is listening on, as far as anyone can tell.
+Future<int> _freePort() async {
+  final socket = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+  final port = socket.port;
+  await socket.close();
+  return port;
+}
+
+/// A test's companion server (`.server`), running.
+class Server {
+  Server._(this.process, this.stdout);
+
+  final Process process;
+  final BytesBuilder stdout;
+
+  /// Builds and starts [source] in [temp], and waits for its first line of output: the server or
+  /// what went wrong.
+  static Future<Object> start(
+    String compiler,
+    File source,
+    Directory temp,
+    List<String> flags,
+    Map<String, String> environment,
+  ) async {
+    final sep = Platform.pathSeparator;
+    final copy = '${temp.path}${sep}server.xc';
+    source.copySync(copy);
+    final exe = '${temp.path}${sep}server${Platform.isWindows ? '.exe' : ''}';
+    final build = await _run(
+      compiler,
+      ['build', '--no-random-bug', ...flags, copy, '-o', exe],
+      const [],
+      environment: environment,
+    );
+    if (build.exitCode != 0) {
+      return 'the server did not build:\n${utf8.decode(build.stderr, allowMalformed: true)}';
+    }
+    final process = await Process.start(
+      exe,
+      const [],
+      environment: environment,
+      workingDirectory: temp.path,
+    );
+    final stdout = BytesBuilder();
+    final ready = Completer<void>();
+    process.stdout.listen((data) {
+      stdout.add(data);
+      if (!ready.isCompleted && data.contains(10)) ready.complete();
+    }, onDone: () => ready.isCompleted ? null : ready.complete());
+    process.stderr.drain<void>();
+    try {
+      await ready.future.timeout(_defaultTimeout);
+    } on TimeoutException {
+      process.kill();
+      return 'the server printed nothing for ${_defaultTimeout.inSeconds}s';
+    }
+    return Server._(process, stdout);
+  }
+
+  Future<void> stop() async {
+    process.kill();
+    await process.exitCode;
+  }
+
+  /// Waits for the server to end, and checks it ended cleanly with the stdout [stem].server.out
+  /// expects.
+  Future<String?> finish(String stem) async {
+    final int status;
+    try {
+      status = await process.exitCode.timeout(_defaultTimeout);
+    } on TimeoutException {
+      await stop();
+      return 'the server was still running ${_defaultTimeout.inSeconds}s after the test ended';
+    }
+    final expectedFile = File('$stem.server.out');
+    final expected = expectedFile.existsSync()
+        ? expectedFile.readAsBytesSync()
+        : const <int>[];
+    final actual = stdout.takeBytes();
+    return [
+      if (status != 0) 'the server exited with $status',
+      if (!_same(expected, actual)) _diff('server stdout', expected, actual),
+    ].join('\n').nullIfEmpty;
   }
 }
 

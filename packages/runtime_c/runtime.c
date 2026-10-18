@@ -32,9 +32,23 @@ static int ick_getchar(void) {
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <wchar.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
+typedef SOCKET ick_socket;
+#define ICK_NO_SOCKET INVALID_SOCKET
+#define close_socket closesocket
 #else
+#include <netdb.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <signal.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <unistd.h>
+typedef int ick_socket;
+#define ICK_NO_SOCKET (-1)
+#define close_socket close
 #endif
 
 typedef struct {
@@ -2459,16 +2473,37 @@ static uint64_t monotonic_ns(void) {
  * stdout go the way READ OUT's do; anything for stderr flushes stdout first, so the two keep their
  * order on a terminal. runtime.dart has the same. */
 
+/* A handle is a file open one way, a network connection, or a listening socket. */
+enum { HANDLE_FREE, HANDLE_READ, HANDLE_WRITE, HANDLE_CONNECTION, HANDLE_LISTENER };
+
 typedef struct {
+  int kind;
   FILE *file;
-  int reading;
+  ick_socket socket;
 } ick_handle;
 
 static ick_handle *handles;
 static uint32_t handle_count;
 
-static ick_handle *handle_at(uint32_t handle) {
-  return handle >= 3 && handle < handle_count && handles[handle].file ? &handles[handle] : NULL;
+static ick_handle *handle_at(uint64_t handle) {
+  return handle >= 3 && handle < handle_count && handles[handle].kind != HANDLE_FREE
+             ? &handles[handle]
+             : NULL;
+}
+
+/* The lowest free handle from 3 up, made [kind]. */
+static uint32_t new_handle(int kind, FILE *file, ick_socket socket) {
+  uint32_t handle = 3;
+  while (handle < handle_count && handles[handle].kind != HANDLE_FREE) handle++;
+  if (handle >= handle_count) {
+    uint32_t count = handle_count ? handle_count * 2 : 8;
+    handles = realloc(handles, count * sizeof(ick_handle));
+    if (!handles) ick_fatal(778, 1);
+    memset(handles + handle_count, 0, (count - handle_count) * sizeof(ick_handle));
+    handle_count = count;
+  }
+  handles[handle] = (ick_handle){kind, file, socket};
+  return handle;
 }
 
 /* A byte from [handle], or -1 at the end of input. A handle that isn't open for reading is
@@ -2479,8 +2514,13 @@ static int read_byte_from(uint64_t handle, uint32_t next) {
     int c = ICK_GETCHAR();
     return c == EOF ? -1 : c;
   }
-  ick_handle *h = handle < UINT32_MAX ? handle_at((uint32_t)handle) : NULL;
-  if (!h || !h->reading) ick_fatal(804, next);
+  ick_handle *h = handle_at(handle);
+  if (!h || (h->kind != HANDLE_READ && h->kind != HANDLE_CONNECTION)) ick_fatal(804, next);
+  if (h->kind == HANDLE_CONNECTION) {
+    ICK_FLUSH();
+    unsigned char byte;
+    return recv(h->socket, (char *)&byte, 1, 0) == 1 ? byte : -1;
+  }
   int c = fgetc(h->file);
   if (c == EOF) clearerr(h->file);
   return c == EOF ? -1 : c;
@@ -2489,8 +2529,10 @@ static int read_byte_from(uint64_t handle, uint32_t next) {
 /* Writes [byte] to [handle]: 1 if it was written. A handle that isn't open for writing is E804,
  * and a byte over 255 is E805. */
 static int write_byte_to(uint64_t handle, uint64_t byte, uint32_t next) {
-  ick_handle *h = handle > 2 && handle < UINT32_MAX ? handle_at((uint32_t)handle) : NULL;
-  if (handle == 0 || (handle > 2 && (!h || h->reading))) ick_fatal(804, next);
+  ick_handle *h = handle_at(handle);
+  if (handle == 0 || (handle > 2 && (!h || (h->kind != HANDLE_WRITE && h->kind != HANDLE_CONNECTION)))) {
+    ick_fatal(804, next);
+  }
   if (byte > 255) ick_fatal(805, next);
   if (handle == 1) {
     putchar((int)byte);
@@ -2501,6 +2543,10 @@ static int write_byte_to(uint64_t handle, uint64_t byte, uint32_t next) {
     ICK_FLUSH();
     fputc((int)byte, stderr);
     return 1;
+  }
+  if (h->kind == HANDLE_CONNECTION) {
+    char c = (char)byte;
+    return send(h->socket, &c, 1, 0) == 1;
   }
   return fputc((int)byte, h->file) != EOF;
 }
@@ -2533,27 +2579,146 @@ static uint32_t open_file(const uint32_t *units, size_t length, uint64_t mode, u
   }
 #endif
   setvbuf(file, NULL, _IONBF, 0);
-  uint32_t handle = 3;
-  while (handle < handle_count && handles[handle].file) handle++;
-  if (handle >= handle_count) {
-    uint32_t count = handle_count ? handle_count * 2 : 8;
-    handles = realloc(handles, count * sizeof(ick_handle));
-    if (!handles) ick_fatal(778, 1);
-    memset(handles + handle_count, 0, (count - handle_count) * sizeof(ick_handle));
-    handle_count = count;
-  }
-  handles[handle] = (ick_handle){file, mode == 1};
-  return handle;
+  return new_handle(mode == 1 ? HANDLE_READ : HANDLE_WRITE, file, ICK_NO_SOCKET);
 }
 
+/* Closes a file, connection or listener: 1 if that went cleanly. */
 static int close_file(uint64_t handle, uint32_t next) {
-  ick_handle *h = handle < UINT32_MAX ? handle_at((uint32_t)handle) : NULL;
+  ick_handle *h = handle_at(handle);
   if (!h) ick_fatal(804, next);
-  int ok = fclose(h->file) == 0;
-  h->file = NULL;
+  int ok = h->file ? fclose(h->file) == 0 : close_socket(h->socket) == 0;
+  *h = (ick_handle){HANDLE_FREE, NULL, ICK_NO_SOCKET};
   return ok;
 }
 
+/* ---- EXTRACAL's Network block (R10, L34) ------------------------------------------------ */
+/* Connections and listeners are I/O-block handles: (2000) and (2010) read and write connections a
+ * byte at a time, and CLOSE closes either. Every call blocks; Nagle's delay is off, since the
+ * bytes go one at a time. runtime.dart has the same. */
+
+static void network_start(void) {
+  static int started;
+  if (started) return;
+  started = 1;
+#ifdef _WIN32
+  WSADATA data;
+  WSAStartup(MAKEWORD(2, 2), &data);
+#else
+  signal(SIGPIPE, SIG_IGN);
+#endif
+}
+
+/* A connection to [host] (UTF-16 code units) on [port], trying each address the name has, or 0 if
+ * none answers. */
+static uint32_t connect_to(const uint32_t *units, size_t length, uint64_t port) {
+  network_start();
+  if (port == 0 || port > 65535) return 0;
+  for (size_t i = 0; i < length; i++) {
+    if (!units[i]) return 0;
+  }
+#ifdef _WIN32
+  wchar_t *host = malloc((length + 1) * sizeof(wchar_t)), service[8];
+  if (!host) ick_fatal(778, 1);
+  for (size_t i = 0; i < length; i++) host[i] = (wchar_t)units[i];
+  host[length] = 0;
+  swprintf(service, 8, L"%u", (unsigned)port);
+  ADDRINFOW hints = {0}, *found, *a;
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  int failed = GetAddrInfoW(host, service, &hints, &found);
+#else
+  char *host = utf8_from_units(units, length), service[8];
+  snprintf(service, sizeof service, "%u", (unsigned)port);
+  struct addrinfo hints = {0}, *found, *a;
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  int failed = getaddrinfo(host, service, &hints, &found);
+#endif
+  free(host);
+  if (failed) return 0;
+  ick_socket s = ICK_NO_SOCKET;
+  for (a = found; a; a = a->ai_next) {
+    s = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+    if (s == ICK_NO_SOCKET) continue;
+    if (connect(s, a->ai_addr, (int)a->ai_addrlen) == 0) break;
+    close_socket(s);
+    s = ICK_NO_SOCKET;
+  }
+#ifdef _WIN32
+  FreeAddrInfoW(found);
+#else
+  freeaddrinfo(found);
+#endif
+  if (s == ICK_NO_SOCKET) return 0;
+  int on = 1;
+  setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof on);
+  return new_handle(HANDLE_CONNECTION, NULL, s);
+}
+
+/* A socket listening on [port] (0 for any free one) on every address, IPv6 and IPv4 where the host
+ * has both, or 0 if it can't. */
+static uint32_t listen_on(uint64_t port) {
+  network_start();
+  if (port > 65535) return 0;
+  for (int family = 0; family < 2; family++) {
+    struct sockaddr_storage address;
+    memset(&address, 0, sizeof address);
+    int size;
+    ick_socket s;
+    if (family == 0) {
+      struct sockaddr_in6 *a = (struct sockaddr_in6 *)&address;
+      a->sin6_family = AF_INET6;
+      a->sin6_port = htons((uint16_t)port);
+      a->sin6_addr = in6addr_any;
+      size = sizeof *a;
+      s = socket(AF_INET6, SOCK_STREAM, 0);
+      int off = 0;
+      if (s != ICK_NO_SOCKET) {
+        setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&off, sizeof off);
+      }
+    } else {
+      struct sockaddr_in *a = (struct sockaddr_in *)&address;
+      a->sin_family = AF_INET;
+      a->sin_port = htons((uint16_t)port);
+      a->sin_addr.s_addr = htonl(INADDR_ANY);
+      size = sizeof *a;
+      s = socket(AF_INET, SOCK_STREAM, 0);
+    }
+    if (s == ICK_NO_SOCKET) continue;
+#ifndef _WIN32
+    int on = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+#endif
+    if (bind(s, (struct sockaddr *)&address, size) == 0 && listen(s, 16) == 0) {
+      return new_handle(HANDLE_LISTENER, NULL, s);
+    }
+    close_socket(s);
+  }
+  return 0;
+}
+
+/* The next connection to [listener], or 0 if accepting failed. Not a listener is E804. */
+static uint32_t accept_on(uint64_t listener, uint32_t next) {
+  ick_handle *h = handle_at(listener);
+  if (!h || h->kind != HANDLE_LISTENER) ick_fatal(804, next);
+  ICK_FLUSH();
+  ick_socket s = accept(h->socket, NULL, NULL);
+  if (s == ICK_NO_SOCKET) return 0;
+  int on = 1;
+  setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof on);
+  return new_handle(HANDLE_CONNECTION, NULL, s);
+}
+
+/* The port [listener] listens on. Not a listener is E804. */
+static uint32_t port_of(uint64_t listener, uint32_t next) {
+  ick_handle *h = handle_at(listener);
+  if (!h || h->kind != HANDLE_LISTENER) ick_fatal(804, next);
+  struct sockaddr_storage address;
+  socklen_t size = sizeof address;
+  if (getsockname(h->socket, (struct sockaddr *)&address, &size) != 0) return 0;
+  return ntohs(address.ss_family == AF_INET6 ? ((struct sockaddr_in6 *)&address)->sin6_port
+                                             : ((struct sockaddr_in *)&address)->sin_port);
+}
 
 void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3,
                   uint32_t a0, uint32_t a1, uint32_t a2, uint32_t next) {
@@ -2638,6 +2803,27 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
     break;
   }
   case 2030: set_scalar(s1, close_file(scalar_at(s0), next) ? 1 : 2); break;
+  case 9000: {
+    size_t length;
+    const uint32_t *host = string_at(a0, &length, next);
+    uint32_t handle = connect_to(host, length, scalar_at(s0));
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 9010: {
+    uint32_t handle = listen_on(scalar_at(s0));
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 9020: {
+    uint32_t handle = accept_on(scalar_at(s0), next);
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 9030: set_scalar(s1, port_of(scalar_at(s0), next)); break;
   case 3000: {
     size_t length;
     string_at(a0, &length, next);
@@ -2663,10 +2849,12 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   }
   case 6003:
   case 6103: set_string(a0, NULL, 0); break;
+  case 9203: set_string(a0, NULL, 0); break;
   case 807:
   case 808:
   case 809:
-  case 813: ick_fatal(service, next); break;
+  case 813:
+  case 817: ick_fatal(service, next); break;
   default: ick_fatal(801, next);
   }
 }

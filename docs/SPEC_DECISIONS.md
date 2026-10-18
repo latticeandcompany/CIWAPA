@@ -1345,6 +1345,13 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/lib-math/e813-add64.xc`, `packages/conformance/tests/extracal/lib-math/e813-div32.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul16.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow32.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv64.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul32.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub16.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sub64.xc`, each with a `-no-opt` twin
 - **Date:** 2026-10-18
 
+### E817: a URL that isn't plain HTTP
+- **Text:** `AN ADDRESS THAT IS NOT A PLAIN HTTP URL HAS BEEN REQUESTED.`
+- **Joke:** `THERE IS NO S IN THIS PROTOCOL, AND NO SECURITY IN THIS PROGRAM.`
+- **Source:** R10, R11, Q110, Q139, L34's lean. A new code. The Network block's GET (9100) and POST (9110) take `http://host[:port][/path]`; any other scheme (there is no TLS), an empty host, or a port that is empty, not decimal or above 65535 is a programming error. A refused connection is not: it gives `.3 = #2`.
+- **Tests:** `packages/conformance/tests/extracal/lib-network/e817.xc`, `packages/conformance/tests/extracal/lib-network/e817-port.xc`, each with a `-no-opt` twin
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

@@ -184,6 +184,46 @@ Each is a single PETITION of the same number.
 - **Clocks:** (8050) counts in nanoseconds, but how finely it moves depends on the host: by the
   microsecond in ciwapa-dart programs.
 
+## Network, (9000)–(9999)
+
+Connections and listening sockets are I/O-block handles (L34): (2000)–(2310) read and write a
+connection, and (2030) closes either kind. Every call blocks, and there are no timeouts.
+
+| Entry | Inputs | Results | Notes |
+|---|---|---|---|
+| (9000) | ,1 = host, .1 = port | .2 = connection; .3 | .3 = #2 if the name doesn't resolve or nothing answers on any of its addresses |
+| (9010) | .1 = port | .2 = listener; .3 | listens on every address, IPv6 and IPv4 where the host has both; port #0 picks a free one; .3 = #2 if the port is taken |
+| (9020) | .1 = listener | .2 = connection; .3 | waits for the next connection |
+| (9030) | .1 = listener | .2 = its port | |
+| (9100) | ,1 = URL | .1 = status code, ,1 = body; .3 | HTTP/1.1 GET |
+| (9110) | ,1 = URL, ,2 = body | .1 = status code, ,1 = body; .3 | HTTP/1.1 POST |
+| (9200) | .1 = connection | ,1 = method, ,2 = target, ,3 = body; .3 | reads one HTTP request |
+| (9210) | .1 = connection, .2 = status code, ,1 = body, ,2 = reason phrase | .3 | writes one HTTP response, `Connection: close` |
+
+Reading from a listener, or accepting on a connection, is E804.
+
+- **URLs** are `http://host[:port][/path]`: `http` in lower case, a port from 0 to 65535 (80 when it
+  is missing), and the path, or `/`, sent as it is. Anything else is E817. There is no HTTPS (Q110).
+- **The client** sends `Host` and `Connection: close` (and `Content-Length` for POST), reads the
+  three-digit status from the status line, and takes the body from `Content-Length`, or up to the
+  end of input when there is none. Header names are matched without regard to case. Chunked
+  transfer and redirects aren't handled. When no connection can be made, or the status line or a
+  `Content-Length` body is cut short, .3 is #2, .1 is #0 and ,1 is the empty string.
+- **The server helpers:** (9200) reads the request line and headers, and a body of the request's
+  `Content-Length` (none without one). For a request cut short, or a request line without two
+  spaces, .3 is #2 and all three strings are empty. (9210) writes the status line, the reason
+  phrase, `Content-Length` and the body; .3 is #2 if any byte couldn't be written.
+- **Bytes:** bodies and strings go out one element per byte, as (2300) writes them, so text
+  beyond ASCII wants (3070) first and (3080) after.
+- **Native versions:** the four services are native in both runtimes. The HTTP routines run their
+  INTERCAL, on top of the I/O and Strings routines' natives; their time goes to the network.
+- **ciwapa-dart programs** hold listening sockets in a helper isolate, since `dart:io` can't accept
+  connections synchronously, and reach each accepted connection through it over loopback (L34).
+
+The INTERCAL versions use the system library, the I/O, Strings and Arrays blocks, and these labels
+of their own: (9300)–(9374), (9800), (9900), (9920), (9930), (9940), (9950), (9960), (9990),
+(9991) and (9993)–(9997).
+
 ## Services
 
 | Service | Reads | Writes | Does |
@@ -198,6 +238,8 @@ Each is a single PETITION of the same number.
 | #6000, #6100 | ,1 or ;1 | :1 | its number of dimensions |
 | #6010, #6110 | ,1 or ;1, :1 | :1 | the size of one dimension; E812 for one it doesn't have |
 | #6003, #6103 | | ,2 or ;2 | makes it an array with no dimensions |
-| #807, #808, #809, #813 | | | raise E807, E808, E809 and E813 for the INTERCAL versions |
+| #9000–#9030 | | | as the Network routines of the same numbers |
+| #9203 | | ,3 | makes ,3 the empty string |
+| #807, #808, #809, #813, #817 | | | raise E807, E808, E809, E813 and E817 for the INTERCAL versions |
 | #8000–#8060 | | | as the System routines of the same numbers |
 

@@ -19,6 +19,7 @@ const libraryBlocks = [
   LibraryBlock('math', 4000, 4999),
   LibraryBlock('arrays', 6000, 6999),
   LibraryBlock('system', 8000, 8999),
+  LibraryBlock('network', 9000, 9999),
 ];
 
 /// The host services PETITION asks for (R10, L29), and the variables each reads and writes, in
@@ -45,6 +46,12 @@ const petitionServices = <int, ({List<String> scalars, List<String> arrays})>{
   6100: (scalars: [':1'], arrays: [';1']),
   6103: (scalars: [], arrays: [';2']),
   6110: (scalars: [':1'], arrays: [';1']),
+  9000: (scalars: ['.1', '.2', '.3'], arrays: [',1']),
+  9010: (scalars: ['.1', '.2', '.3'], arrays: []),
+  9020: (scalars: ['.1', '.2', '.3'], arrays: []),
+  9030: (scalars: ['.1', '.2'], arrays: []),
+  9203: (scalars: [], arrays: [',3']),
+  817: (scalars: [], arrays: []),
   807: (scalars: [], arrays: []),
   808: (scalars: [], arrays: []),
   809: (scalars: [], arrays: []),

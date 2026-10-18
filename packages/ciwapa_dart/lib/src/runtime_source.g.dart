@@ -3,7 +3,9 @@ const runtimeSource = r'''
 // The runtime that ciwapa-dart copies next to every generated program. runtime.c is its twin;
 // the conformance suite keeps the two byte-for-byte identical in behavior.
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 class IckMessage {
@@ -2512,6 +2514,23 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       _setScalar(scalars[2], handle >= 0 ? 1 : 2);
     case 2030:
       _setScalar(scalars[1], _closeFile(_scalarAt(scalars[0]), next) ? 1 : 2);
+    case 9000:
+      final handle = _connectTo(
+        _stringAt(arrays[0], next),
+        _scalarAt(scalars[0]),
+      );
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 9010:
+      final handle = _listenOn(_scalarAt(scalars[0]));
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 9020:
+      final handle = _acceptOn(_scalarAt(scalars[0]), next);
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 9030:
+      _setScalar(scalars[1], _portOf(_scalarAt(scalars[0]), next));
     case 3000:
       _setScalar(scalars[0], _stringAt(arrays[0], next).length);
     case 3001:
@@ -2527,7 +2546,9 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       _setScalar(scalars[0], dims[n - 1]);
     case 6003 || 6103:
       _setString(arrays[0], '');
-    case 807 || 808 || 809 || 813:
+    case 9203:
+      _setString(arrays[0], '');
+    case 807 || 808 || 809 || 813 || 817:
       ickFatal(service, next);
     default:
       ickFatal(801, next);
@@ -2539,15 +2560,40 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
 // stdout share READ OUT's buffer; anything for stderr flushes stdout first, so the two keep their
 // order on a terminal.
 
-/// An open file and which way it goes.
-class _Handle {
-  _Handle(this.file, {required this.reading});
+/// A handle: a file open one way, a network connection, or a listening socket.
+sealed class _Handle {}
+
+class _File extends _Handle {
+  _File(this.file, {required this.reading});
 
   final RandomAccessFile file;
   final bool reading;
 }
 
+class _Connection extends _Handle {
+  _Connection(this.socket);
+
+  final RawSynchronousSocket socket;
+}
+
+/// A listening socket, which the helper isolate holds under [id].
+class _Listener extends _Handle {
+  _Listener(this.id, this.port);
+
+  final int id;
+  final int port;
+}
+
 final _handles = <int, _Handle>{};
+
+int _newHandle(_Handle h) {
+  var handle = 3;
+  while (_handles.containsKey(handle)) {
+    handle++;
+  }
+  _handles[handle] = h;
+  return handle;
+}
 
 /// A byte from [handle], or -1 at the end of input. A handle that isn't open for reading is E804.
 int _readByteFrom(int handle, int next) {
@@ -2555,19 +2601,32 @@ int _readByteFrom(int handle, int next) {
     _flush();
     return ickReadByte();
   }
-  final h = _handles[handle];
-  if (h == null || !h.reading) ickFatal(804, next);
-  try {
-    return h.file.readByteSync();
-  } on FileSystemException {
-    return -1;
+  switch (_handles[handle]) {
+    case _File(:final file, reading: true):
+      try {
+        return file.readByteSync();
+      } on FileSystemException {
+        return -1;
+      }
+    case _Connection(:final socket):
+      _flush();
+      try {
+        final bytes = socket.readSync(1);
+        return bytes == null || bytes.isEmpty ? -1 : bytes[0];
+      } on SocketException {
+        return -1;
+      }
+    default:
+      ickFatal(804, next);
   }
 }
 
 /// Writes [byte] to [handle]: true if it was written. A handle that isn't open for writing is
 /// E804, and a byte over 255 is E805.
 bool _writeByteTo(int handle, int byte, int next) {
-  if (handle == 0 || (handle > 2 && !(_handles[handle]?.reading == false))) {
+  final h = _handles[handle];
+  if (handle == 0 ||
+      (handle > 2 && h is! _Connection && !(h is _File && !h.reading))) {
     ickFatal(804, next);
   }
   if (byte > 255) ickFatal(805, next);
@@ -2577,14 +2636,17 @@ bool _writeByteTo(int handle, int byte, int next) {
     return true;
   }
   try {
-    if (handle == 2) {
-      _flush();
-      stderr.add([byte]);
-    } else {
-      _handles[handle]!.file.writeByteSync(byte);
+    switch (h) {
+      case _File(:final file):
+        file.writeByteSync(byte);
+      case _Connection(:final socket):
+        socket.writeFromSync([byte]);
+      default:
+        _flush();
+        stderr.add([byte]);
     }
     return true;
-  } on FileSystemException {
+  } on IOException {
     return false;
   }
 }
@@ -2603,21 +2665,192 @@ int _openFile(String path, int mode, int next) {
   } on FileSystemException {
     return -1;
   }
-  var handle = 3;
-  while (_handles.containsKey(handle)) {
-    handle++;
-  }
-  _handles[handle] = _Handle(file, reading: mode == 1);
-  return handle;
+  return _newHandle(_File(file, reading: mode == 1));
 }
 
+/// Closes a file, connection or listener: true if that went cleanly.
 bool _closeFile(int handle, int next) {
   final h = _handles.remove(handle) ?? ickFatal(804, next);
   try {
-    h.file.closeSync();
+    switch (h) {
+      case _File(:final file):
+        file.closeSync();
+      case _Connection(:final socket):
+        socket.closeSync();
+      case _Listener(:final id):
+        _askHelper('C $id');
+    }
     return true;
-  } on FileSystemException {
+  } on IOException {
     return false;
+  }
+}
+
+// ---- EXTRACAL's Network block (R10, L34) -------------------------------------------------------
+// Connections and listeners are I/O-block handles: (2000) and (2010) read and write connections a
+// byte at a time, and CLOSE closes either. Every call blocks. dart:io has no synchronous server
+// socket, so a helper isolate holds the listeners. The program asks it for things over a loopback
+// control connection, and reaches each accepted connection through a loopback connection to the
+// helper's proxy, which copies bytes both ways. runtime.c has the same, on the platform's sockets.
+
+/// A connection to [host] on [port], or -1 if none can be made.
+int _connectTo(String host, int port) {
+  if (port == 0 || port > 65535 || host.contains('\u0000')) return -1;
+  try {
+    return _newHandle(
+      _Connection(RawSynchronousSocket.connectSync(host, port)),
+    );
+  } on SocketException {
+    return -1;
+  }
+}
+
+RawSynchronousSocket? _helper;
+var _proxyPort = 0;
+
+/// Sends the helper one command and returns its one-line answer.
+String _askHelper(String command) {
+  if (_helper == null) {
+    final dir = Directory.systemTemp.createTempSync('ciwapa-net');
+    final ports = File('${dir.path}${Platform.pathSeparator}ports');
+    Isolate.spawn(_helperMain, ports.path);
+    while (!ports.existsSync()) {
+      sleep(const Duration(milliseconds: 1));
+    }
+    final [control, proxy] = ports.readAsStringSync().split(' ');
+    dir.deleteSync(recursive: true);
+    _helper = RawSynchronousSocket.connectSync(
+      InternetAddress.loopbackIPv4,
+      int.parse(control),
+    );
+    _proxyPort = int.parse(proxy);
+  }
+  _helper!.writeFromSync(ascii.encode('$command\n'));
+  final answer = <int>[];
+  while (true) {
+    final byte = _helper!.readSync(1);
+    if (byte == null || byte.isEmpty || byte[0] == 10) break;
+    answer.add(byte[0]);
+  }
+  return ascii.decode(answer);
+}
+
+/// A listener on [port] (0 for any free one) on every address, or -1 if it can't.
+int _listenOn(int port) {
+  if (port > 65535) return -1;
+  final answer = _askHelper('L $port');
+  if (answer == '-') return -1;
+  final [id, actual] = answer.split(' ');
+  return _newHandle(_Listener(int.parse(id), int.parse(actual)));
+}
+
+/// The next connection to [listener], or -1 if accepting failed. Not a listener is E804.
+int _acceptOn(int listener, int next) {
+  final h = _handles[listener];
+  if (h is! _Listener) ickFatal(804, next);
+  _flush();
+  final answer = _askHelper('A ${h.id}');
+  if (answer == '-') return -1;
+  try {
+    final socket = RawSynchronousSocket.connectSync(
+      InternetAddress.loopbackIPv4,
+      _proxyPort,
+    );
+    socket.writeFromSync(ascii.encode('$answer\n'));
+    return _newHandle(_Connection(socket));
+  } on SocketException {
+    return -1;
+  }
+}
+
+/// The port [listener] listens on. Not a listener is E804.
+int _portOf(int listener, int next) {
+  final h = _handles[listener];
+  if (h is! _Listener) ickFatal(804, next);
+  return h.port;
+}
+
+/// The helper isolate. It writes its control and proxy ports to [portsFile], then serves one
+/// control connection: `L port` listens, `A id` waits for a connection to listener `id`, and
+/// `C id` closes it. An accepted connection waits under its number until the program's proxy
+/// connection names it on its first line; the two then copy bytes both ways, each passing on the
+/// other's end of input.
+Future<void> _helperMain(String portsFile) async {
+  final listeners = <int, StreamIterator<Socket>>{};
+  final waiting = <int, Socket>{};
+  var count = 0;
+
+  final proxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  proxy.listen((inside) {
+    final name = <int>[];
+    Socket? outside;
+    inside.listen(
+      (data) {
+        if (outside != null) return outside!.add(data);
+        final end = data.indexOf(10);
+        if (end < 0) return name.addAll(data);
+        name.addAll(data.sublist(0, end));
+        final joined = outside = waiting.remove(int.parse(ascii.decode(name)))!;
+        if (end + 1 < data.length) joined.add(data.sublist(end + 1));
+        joined.listen(
+          inside.add,
+          onDone: () => inside.close(),
+          onError: (_) {
+            joined.destroy();
+            inside.destroy();
+          },
+        );
+      },
+      onDone: () => outside?.close(),
+      onError: (_) {
+        inside.destroy();
+        outside?.destroy();
+      },
+    );
+  });
+
+  final control = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final temporary = File('$portsFile.tmp')
+    ..writeAsStringSync('${control.port} ${proxy.port}');
+  temporary.renameSync(portsFile);
+  final program = await control.first;
+  final lines = program
+      .cast<List<int>>()
+      .transform(ascii.decoder)
+      .transform(const LineSplitter());
+  await for (final line in lines) {
+    final [command, argument] = line.split(' ');
+    final n = int.parse(argument);
+    switch (command) {
+      case 'L':
+        try {
+          final server = await _bindEverywhere(n);
+          listeners[++count] = StreamIterator(server);
+          program.add(ascii.encode('$count ${server.port}\n'));
+        } on SocketException {
+          program.add(ascii.encode('-\n'));
+        }
+      case 'A':
+        final listener = listeners[n];
+        if (listener != null && await listener.moveNext()) {
+          waiting[++count] = listener.current;
+          program.add(ascii.encode('$count\n'));
+        } else {
+          program.add(ascii.encode('-\n'));
+        }
+      case 'C':
+        await listeners.remove(n)?.cancel();
+        program.add(ascii.encode('ok\n'));
+    }
+  }
+}
+
+/// IPv6 and IPv4 where the host has both, else IPv4 alone, as runtime.c binds.
+Future<ServerSocket> _bindEverywhere(int port) async {
+  try {
+    return await ServerSocket.bind(InternetAddress.anyIPv6, port);
+  } on SocketException {
+    return ServerSocket.bind(InternetAddress.anyIPv4, port);
   }
 }
 

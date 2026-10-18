@@ -240,6 +240,7 @@ So defining one label in a block's range replaces the whole block with your own.
 | Math | (4000)–(4999) | 64-bit and signed arithmetic, power, square root, modulo, gcd |
 | Arrays | (6000)–(6999) | rank and dimensions, fill, copy, sort, find |
 | System | (8000)–(8999) | command-line arguments, environment variables, exit status, clocks, the random seed |
+| Network | (9000)–(9999) | TCP connections and listeners as I/O handles, an HTTP/1.1 client, and request and response helpers for servers |
 
 Strings are tail arrays of UTF-16 code units, and most routines that make strings put them in `,1`,
 so they chain:

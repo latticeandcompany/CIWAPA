@@ -152,9 +152,9 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### Network (9000)–(9999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-network`
-- [ ] R10 — a TCP echo round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/tcp-echo.xc`
-- [ ] R10 — an HTTP/1.1 client/server round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/http-round-trip.xc`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-network`
+- [x] R10 — a TCP echo round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/tcp-echo.xc`
+- [x] R10 — an HTTP/1.1 client/server round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/http-round-trip.xc`, `packages/conformance/tests/extracal/lib-network/http-post.xc`
 
 ### Auto-inclusion
 
