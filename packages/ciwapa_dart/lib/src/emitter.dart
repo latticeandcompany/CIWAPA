@@ -555,7 +555,7 @@ class DartEmitter {
 
   /// Whether [e] can't be above 65535: a small value, or a constant that fits.
   static bool _fitsSmall(IrExpr e) =>
-      !e.large || (e is IrConst && e.value <= 65535);
+      !e.large || (e is IrConst && e.value >= 0 && e.value <= 65535);
 
   /// A binary select by a constant mask becomes one shift and mask per run of 1-bits, or the
   /// compress steps when they're fewer, in a function per mask so the operand is evaluated once.

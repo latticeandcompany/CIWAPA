@@ -574,6 +574,8 @@ class _Lowering {
         ],
       ),
       AbstainBody() => _abstain(body),
+      // SIGNED parses already, but its meaning comes with signed numbers (R6).
+      IoBody(signed: true) => IrUndecodable(_text(s)),
       IoBody(input: true, :final items) => IrWriteIn([
         for (final i in items) _expr(i),
       ]),

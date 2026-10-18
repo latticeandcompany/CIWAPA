@@ -671,7 +671,7 @@ declare void @ick_turing_out64(i32, i32)
 
   /// Whether [e] can't be above 65535: a small value, or a constant that fits.
   static bool _fitsSmall(IrExpr e) =>
-      !e.large || (e is IrConst && e.value <= 65535);
+      !e.large || (e is IrConst && e.value >= 0 && e.value <= 65535);
 
   /// Spreads the 16 bits of [v] to the even bit positions, for mingle (§3.4.1).
   String _spread(String v) {

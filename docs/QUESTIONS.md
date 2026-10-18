@@ -25,6 +25,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - `MAYBE`, `FAC`, `PLACET` and `PLACET FACERE` start a new statement, like `DO` (T8). A Mode 1 comment such as `PLEASE NOTE THE FACT THAT MAYBE ...` becomes three statements in `.xc`. The new ones aren't abstained, so they raise E000 if reached, and the politeness count changes.
   - A comment that happens to read as `TRY AGAIN` before the last statement is a compile-time E993 in `ick`.
   - A comment that reads as `NEXT FROM (n)` with no label `n` is a compile-time E444.
+  - A keyword that ends in `D`, such as `SIGNED` or `GO AHEAD`, swallows the `D` of a `DO` that follows it with no space, so a Mode 1 comment containing `SIGNEDO` is split differently in `.xc`.
 
   `ick`'s manual warns about exactly this for `MAYBE` ("be careful what words you use in comments!"). No existing conformance test or `pit/` program trips over it, but user programs could. There is no rule that keeps every Mode 1 program identical while still letting `MAYBE` and the Latin identifiers start statements.
 - **Options:**
