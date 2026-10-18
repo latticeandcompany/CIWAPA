@@ -82,6 +82,35 @@ static ick_array_stash *array_stashes;
 static uint64_t stash_limit = UINT64_MAX, stashed;
 static uint64_t rng_state;
 
+/* EXTRACAL's 64-bit scalars and arrays (R4), set up by ick_init_wide. */
+typedef struct {
+  uint32_t rank;
+  uint32_t *dims;
+  uint64_t *data;
+  size_t size;
+} ick_wide_shape;
+
+typedef struct {
+  ick_wide_shape shape;
+  uint32_t ignored;
+} ick_wide_array;
+
+typedef struct {
+  uint64_t *items;
+  size_t count, capacity;
+} ick_wide_stash;
+
+typedef struct {
+  ick_wide_shape *items;
+  size_t count, capacity;
+} ick_wide_array_stash;
+
+static uint64_t *wide_values;
+static uint8_t *wide_ignored;
+static ick_wide_stash *wide_stashes;
+static ick_wide_array *wide_arrays;
+static ick_wide_array_stash *wide_array_stashes;
+
 static uint32_t pow_u32(uint32_t base, uint32_t exponent) {
   uint32_t result = 1;
   while (exponent--) result *= base;
@@ -554,6 +583,16 @@ static const struct { const char *word; uint32_t digit; } numerals[] = {
   {"Z\xC3""\x9C""L", 9},
 };
 
+/* The digit a number word stands for, or -1. */
+static int numeral_digit(const char *word, size_t size) {
+  for (size_t k = 0; k < sizeof numerals / sizeof numerals[0]; k++) {
+    if (strlen(numerals[k].word) == size && memcmp(numerals[k].word, word, size) == 0) {
+      return (int)numerals[k].digit;
+    }
+  }
+  return -1;
+}
+
 static char *line_buffer;
 static size_t line_capacity;
 
@@ -578,7 +617,12 @@ static int read_line(size_t *length, uint32_t next) {
 
 /* Wimp mode reads a line the way C's atoi does, with a 64-bit long: whitespace, a sign and
  * digits, saturating at the long's range, and keeping the low 32 bits (decision T32). */
-static uint32_t wimp_number(void) {
+static uint64_t wimp_long(void);
+
+static uint32_t wimp_number(void) { return (uint32_t)wimp_long(); }
+
+/* The 64-bit long C's atol would read from the line. */
+static uint64_t wimp_long(void) {
   const char *p = line_buffer;
   while (*p == ' ' || (*p >= '\t' && *p <= '\r')) p++;
   int negative = *p == '-';
@@ -589,7 +633,7 @@ static uint32_t wimp_number(void) {
     uint64_t digit = (uint64_t)(*p - '0');
     magnitude = magnitude > (limit - digit) / 10 ? limit : magnitude * 10 + digit;
   }
-  return (uint32_t)(negative ? 0 - magnitude : magnitude);
+  return negative ? 0 - magnitude : magnitude;
 }
 
 /* One number per line, each digit a word separated by spaces: E562 for a blank line or the end
@@ -611,14 +655,7 @@ uint32_t ick_write_in(uint32_t next) {
     if (i == length) break;
     size_t start = i;
     while (i < length && line_buffer[i] != ' ') i++;
-    size_t size = i - start;
-    int digit = -1;
-    for (size_t k = 0; k < sizeof numerals / sizeof numerals[0]; k++) {
-      if (strlen(numerals[k].word) == size && memcmp(numerals[k].word, line_buffer + start, size) == 0) {
-        digit = (int)numerals[k].digit;
-        break;
-      }
-    }
+    int digit = numeral_digit(line_buffer + start, i - start);
     if (digit < 0) ick_fatal(579, next);
     result = result * 10 + (uint64_t)digit;
     if (result > 0xFFFFFFFFu) ick_fatal(533, next);
@@ -630,6 +667,8 @@ uint32_t ick_write_in(uint32_t next) {
 }
 
 /* ---- READ OUT (§4.4.13, decision T30) -------------------------------------------------- */
+/* Rows 10 and 11 only come up in EXTRACAL's 64-bit numerals (R7): the fourth tier, overlined
+ * lowercase, goes on up to m̅ = 10^12 the way rows 3-5 do for the overlined capitals. */
 
 /* Butchered Roman numerals, by C-INTERCAL's butcher() algorithm. For each decimal digit, the
  * pattern says how many symbols to write and which columns of the digit's row they come from. */
@@ -640,16 +679,33 @@ static const int roman_patterns[10][5] = {
 static const int clockface_four[5] = {4, 0, 0, 0, 0};
 
 /* Four columns per digit position because of the odd way M and I interact. */
-static const char roman_symbols[10][4] = {
+static const char roman_symbols[12][4] = {
     {'I', 'I', 'V', 'X'}, {'X', 'X', 'L', 'C'}, {'C', 'C', 'D', 'M'}, {'M', 'I', 'V', 'X'},
     {'X', 'X', 'L', 'C'}, {'C', 'C', 'D', 'M'}, {'M', 'i', 'v', 'x'}, {'x', 'x', 'l', 'c'},
-    {'c', 'c', 'd', 'm'}, {'m', 'i', 'v', 'x'},
+    {'c', 'c', 'd', 'm'}, {'m', 'i', 'v', 'x'}, {'x', 'x', 'l', 'c'}, {'c', 'c', 'd', 'm'},
 };
-static const char roman_bars[10][4] = {
+static const char roman_bars[12][4] = {
     {' ', ' ', ' ', ' '}, {' ', ' ', ' ', ' '}, {' ', ' ', ' ', ' '}, {' ', '_', '_', '_'},
     {'_', '_', '_', '_'}, {'_', '_', '_', '_'}, {'_', ' ', ' ', ' '}, {' ', ' ', ' ', ' '},
-    {' ', ' ', ' ', ' '}, {' ', '_', '_', '_'},
+    {' ', ' ', ' ', ' '}, {' ', '_', '_', '_'}, {'_', '_', '_', '_'}, {'_', '_', '_', '_'},
 };
+
+/* Writes the numeral for [value], below 10^12, ending just before [end] in [numeral] and [bars],
+ * and returns where it starts. Each digit takes at most four characters. */
+static int butcher(uint64_t value, char *numeral, char *bars, int end) {
+  int at = end;
+  for (int position = 0; value > 0; position++) {
+    uint32_t digit = (uint32_t)(value % 10);
+    const int *pattern = digit == 4 && program->clockface ? clockface_four : roman_patterns[digit];
+    for (int j = pattern[0]; j > 0; j--) {
+      at--;
+      numeral[at] = roman_symbols[position][pattern[j]];
+      bars[at] = roman_bars[position][pattern[j]];
+    }
+    value /= 10;
+  }
+  return at;
+}
 
 void ick_read_out(uint32_t value) {
   if (wimp_mode) {
@@ -665,17 +721,42 @@ void ick_read_out(uint32_t value) {
     fflush(stdout);
     return;
   }
-  for (int position = 0; position < 10 && value > 0; position++) {
-    uint32_t digit = value % 10;
-    const int *pattern = digit == 4 && program->clockface ? clockface_four : roman_patterns[digit];
-    for (int j = pattern[0]; j > 0; j--) {
-      at--;
-      numeral[at] = roman_symbols[position][pattern[j]];
-      bars[at] = roman_bars[position][pattern[j]];
-    }
-    value /= 10;
-  }
+  at = butcher(value, numeral, bars, at);
   printf("%s\n%s\n", bars + at, numeral + at);
+  fflush(stdout);
+}
+
+/* R7, Q125: a 64-bit value splits into groups of 12 decimal digits. The x10^12 group is printed
+ * like the low one with an extra overline on every character, in a row of its own on top. */
+void ick_read_out64(uint64_t value) {
+  if (wimp_mode) {
+    char digits[24];
+    int at = 23;
+    digits[at] = '\0';
+    do {
+      digits[--at] = (char)('0' + value % 10);
+      value /= 10;
+    } while (value);
+    printf("%s\n", digits + at);
+    ICK_FLUSH();
+    return;
+  }
+  if (value <= 0xFFFFFFFFu) {
+    ick_read_out((uint32_t)value);
+    return;
+  }
+  uint64_t high = value / 1000000000000ull, low = value % 1000000000000ull;
+  char numeral[96], bars[96], top[96];
+  int end = 95;
+  numeral[end] = bars[end] = top[end] = '\0';
+  int split = butcher(low, numeral, bars, end);
+  int at = butcher(high, numeral, bars, split);
+  for (int i = at; i < end; i++) top[i] = i < split ? '_' : ' ';
+  if (high == 0) {
+    printf("%s\n%s\n", bars + at, numeral + at);
+  } else {
+    printf("%s\n%s\n%s\n", top + at, bars + at, numeral + at);
+  }
   fflush(stdout);
 }
 
@@ -762,5 +843,182 @@ static void parse_options(int argc, char **argv) {
   if (wimp_mode) {
     fputs(wimp_message, stderr);
     fflush(stderr);
+  }
+}
+
+/* ---- EXTRACAL's 64-bit types (R4, Q107, Q123) ---------------------------------------- */
+
+void ick_init_wide(uint64_t *values, uint8_t *ignored, uint32_t count, uint32_t array_count) {
+  wide_values = values;
+  wide_ignored = ignored;
+  wide_stashes = calloc(count ? count : 1, sizeof(ick_wide_stash));
+  wide_arrays = calloc(array_count ? array_count : 1, sizeof(ick_wide_array));
+  wide_array_stashes = calloc(array_count ? array_count : 1, sizeof(ick_wide_array_stash));
+}
+
+/* A value stored in a narrower variable: over 32 bits is E276, and 32 bits into a small
+ * variable stays Mode 1's E275 (R4). */
+uint32_t ick_check_narrow(uint64_t value, uint32_t width, uint32_t next) {
+  if (value > 0xFFFFFFFFu) ick_fatal(276, next);
+  if (width == 16 && value > small_max) ick_fatal(275, next);
+  return (uint32_t)value;
+}
+
+uint64_t ick_select64(uint64_t value, uint64_t mask) {
+  uint64_t result = 0, bit = 1;
+  for (; mask; mask >>= 1, value >>= 1) {
+    if (!(mask & 1)) continue;
+    if (value & 1) result |= bit;
+    bit <<= 1;
+  }
+  return result;
+}
+
+void ick_stash_scalar64(uint32_t slot, uint32_t next) {
+  ick_wide_stash *s = &wide_stashes[slot];
+  count_stash(next);
+  if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(uint64_t), next);
+  s->items[s->count++] = wide_values[slot];
+}
+
+void ick_retrieve_scalar64(uint32_t slot, uint32_t next) {
+  ick_wide_stash *s = &wide_stashes[slot];
+  if (s->count == 0) ick_fatal(436, next);
+  uint64_t value = s->items[--s->count];
+  stashed--;
+  if (!wide_ignored[slot]) wide_values[slot] = value;
+}
+
+/* Dimensions are 64-bit values in EXTRACAL; one that doesn't fit in 32 bits can't be stored, so
+ * it is E241, like any array too large to allocate. Zero dimensions are E240 first. */
+static uint64_t elements(uint32_t rank, const uint64_t *dims, uint32_t next) {
+  uint64_t size = 1;
+  for (uint32_t i = 0; i < rank; i++) {
+    if (dims[i] > 0xFFFFFFFFu || dims[i] > ICK_MAX_ELEMENTS / size) ick_fatal(241, next);
+    size *= dims[i];
+  }
+  return size;
+}
+
+/* EXTRACAL dimensions any array, small or wide, from 64-bit dimension values. */
+void ick_dimension_x(uint32_t index, uint32_t wide, uint32_t rank, const uint64_t *dims,
+                     uint32_t next) {
+  for (uint32_t i = 0; i < rank; i++) {
+    if (dims[i] == 0) ick_fatal(240, next);
+  }
+  if (wide ? wide_arrays[index].ignored : arrays[index].ignored) return;
+  uint64_t size = elements(rank, dims, next);
+  uint32_t *copy = malloc(rank * sizeof(uint32_t));
+  void *data = calloc((size_t)size, wide ? sizeof(uint64_t) : sizeof(uint32_t));
+  if (!data || !copy) ick_fatal(241, next);
+  for (uint32_t i = 0; i < rank; i++) copy[i] = (uint32_t)dims[i];
+  if (wide) {
+    ick_wide_shape *a = &wide_arrays[index].shape;
+    free(a->data);
+    free(a->dims);
+    *a = (ick_wide_shape){rank, copy, data, (size_t)size};
+  } else {
+    ick_shape *a = &arrays[index].shape;
+    free(a->data);
+    free(a->dims);
+    *a = (ick_shape){rank, copy, data, (size_t)size};
+  }
+}
+
+uint64_t *ick_element64(uint32_t index, uint32_t count, const uint32_t *subscripts, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (count != a->rank) ick_fatal(241, next);
+  size_t offset = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    if (subscripts[i] == 0 || subscripts[i] > a->dims[i]) ick_fatal(241, next);
+    offset = offset * a->dims[i] + subscripts[i] - 1;
+  }
+  return &a->data[offset];
+}
+
+uint32_t ick_array_ignored64(uint32_t index) { return wide_arrays[index].ignored; }
+
+void ick_array_set_ignored64(uint32_t index, uint32_t ignored) { wide_arrays[index].ignored = ignored; }
+
+void ick_stash_array64(uint32_t index, uint32_t next) {
+  ick_wide_array_stash *s = &wide_array_stashes[index];
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  count_stash(next);
+  if (s->count == s->capacity) s->items = grow(s->items, &s->capacity, sizeof(ick_wide_shape), next);
+  ick_wide_shape copy = {a->rank, NULL, NULL, a->size};
+  if (a->rank) {
+    copy.dims = malloc(a->rank * sizeof(uint32_t));
+    copy.data = malloc(a->size * sizeof(uint64_t));
+    if (!copy.dims || !copy.data) ick_fatal(222, next);
+    memcpy(copy.dims, a->dims, a->rank * sizeof(uint32_t));
+    memcpy(copy.data, a->data, a->size * sizeof(uint64_t));
+  }
+  s->items[s->count++] = copy;
+}
+
+void ick_retrieve_array64(uint32_t index, uint32_t next) {
+  ick_wide_array_stash *s = &wide_array_stashes[index];
+  if (s->count == 0) ick_fatal(436, next);
+  ick_wide_shape saved = s->items[--s->count];
+  stashed--;
+  ick_wide_array *a = &wide_arrays[index];
+  if (a->ignored) {
+    free(saved.dims);
+    free(saved.data);
+    return;
+  }
+  free(a->shape.dims);
+  free(a->shape.data);
+  a->shape = saved;
+}
+
+/* WRITE IN into a 64-bit variable: up to 20 digits, and a value over 2^64 - 1 is E535 (R7).
+ * Wimp mode reads like C's atol, as for the other variables (decision T32), keeping 64 bits. */
+uint64_t ick_write_in64(uint32_t next) {
+  size_t length;
+  if (!read_line(&length, next)) ick_fatal(562, next);
+  if (wimp_mode) return wimp_long();
+  uint64_t result = 0;
+  int digits = 0;
+  size_t i = 0;
+  while (i < length) {
+    while (i < length && line_buffer[i] == ' ') i++;
+    if (i == length) break;
+    size_t start = i;
+    while (i < length && line_buffer[i] != ' ') i++;
+    int digit = numeral_digit(line_buffer + start, i - start);
+    if (digit < 0) ick_fatal(579, next);
+    if (result > (UINT64_MAX - (uint64_t)digit) / 10) ick_fatal(535, next);
+    result = result * 10 + (uint64_t)digit;
+    digits++;
+  }
+  if (digits == 0) ick_fatal(562, next);
+  return result;
+}
+
+void ick_turing_in64(uint32_t index, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  ICK_FLUSH();
+  for (uint32_t i = 0; i < a->dims[0]; i++) {
+    int c = ICK_GETCHAR();
+    uint64_t value = c == EOF ? 256 : ((uint32_t)c - last_in) & 0xFFu;
+    last_in = (uint32_t)c;
+    if (!wide_arrays[index].ignored) a->data[i] = value;
+  }
+}
+
+void ick_turing_out64(uint32_t index, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  for (uint32_t i = 0; i < a->dims[0]; i++) {
+    uint32_t c = last_out - (uint32_t)a->data[i];
+    last_out = c;
+    c &= 0xFFu;
+    c = (c & 0x0Fu) << 4 | (c & 0xF0u) >> 4;
+    c = (c & 0x33u) << 2 | (c & 0xCCu) >> 2;
+    c = (c & 0x55u) << 1 | (c & 0xAAu) >> 1;
+    putchar((int)c);
+    if (c == '\n') ICK_FLUSH();
   }
 }

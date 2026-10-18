@@ -16,17 +16,18 @@ int largeMax(int base) => pow(base, 2 * smallDigits[base]!).toInt() - 1;
 
 /// A binary select by a constant [mask], as the runs of 1-bits in the mask: in each, `width` bits
 /// of the value from bit `from` land at bit `to` of the result, packed toward the low end in order
-/// (§3.4.1). Emitters turn a constant-mask select into one shift and mask per run.
-List<({int from, int width, int to})> selectRuns(int mask) {
+/// (§3.4.1). Emitters turn a constant-mask select into one shift and mask per run. A 64-bit mask
+/// ([bits] 64) is a Dart int's 64 bits.
+List<({int from, int width, int to})> selectRuns(int mask, {int bits = 32}) {
   final runs = <({int from, int width, int to})>[];
   var to = 0;
-  for (var bit = 0; bit < 32;) {
-    if ((mask >> bit) & 1 == 0) {
+  for (var bit = 0; bit < bits;) {
+    if ((mask >>> bit) & 1 == 0) {
       bit++;
       continue;
     }
     var width = 0;
-    while (bit + width < 32 && (mask >> (bit + width)) & 1 == 1) {
+    while (bit + width < bits && (mask >>> (bit + width)) & 1 == 1) {
       width++;
     }
     runs.add((from: bit, width: width, to: to));
@@ -74,14 +75,20 @@ class Fault {
   String toString() => 'E${code.toString().padLeft(3, '0')}';
 }
 
-/// A storage slot. Scalars and arrays are numbered separately, in order of first appearance.
+/// A storage slot. Scalars and arrays are numbered separately, in order of first appearance, and
+/// EXTRACAL's 64-bit ones (`::`, `;;`) separately again.
 class Slot {
   const Slot(this.index, this.ref);
 
   final int index;
   final VarRef ref;
 
-  bool get large => ref.kind.width == 32;
+  /// 16, 32 or 64.
+  int get width => ref.kind.width;
+
+  bool get large => width != 16;
+
+  bool get wide => width == 64;
 
   @override
   String toString() => '$ref';
@@ -90,21 +97,25 @@ class Slot {
 sealed class IrExpr {
   const IrExpr();
 
-  /// Whether the static type is large (32-bit in binary): the type of a mingle, of a `:` or `;`, or
-  /// of a select with a large right operand (decisions Q77, Q79).
-  bool get large;
+  /// The static type's width: 16 or 32 in Mode 1 (32 for a mingle, a `:` or `;`, or a select with
+  /// a large right operand, decisions Q77, Q79), or 64 for EXTRACAL's 64-bit types (R4).
+  int get width;
+
+  /// Whether the static type is large (32-bit in binary, or wider).
+  bool get large => width != 16;
 }
 
 class IrConst extends IrExpr {
-  const IrConst(this.value, {this.large = false});
+  const IrConst(this.value, {this.width = 16});
 
+  /// A 64-bit constant's 64 bits, negative from 2^63 up.
   final int value;
 
   @override
-  final bool large;
+  final int width;
 
   @override
-  String toString() => '#$value';
+  String toString() => '#${BigInt.from(value).toUnsigned(64)}';
 }
 
 class IrScalar extends IrExpr {
@@ -113,7 +124,7 @@ class IrScalar extends IrExpr {
   final Slot slot;
 
   @override
-  bool get large => slot.large;
+  int get width => slot.width;
 
   @override
   String toString() => '$slot';
@@ -126,7 +137,7 @@ class IrElement extends IrExpr {
   final List<IrExpr> subscripts;
 
   @override
-  bool get large => array.large;
+  int get width => array.width;
 
   @override
   String toString() => '($array SUB ${subscripts.join(' ')})';
@@ -139,7 +150,7 @@ class IrMingle extends IrExpr {
   final IrExpr right;
 
   @override
-  bool get large => true;
+  int get width => 32;
 
   @override
   String toString() => '(\$ $left $right)';
@@ -152,7 +163,7 @@ class IrSelect extends IrExpr {
   final IrExpr right;
 
   @override
-  bool get large => right.large;
+  int get width => right.width;
 
   @override
   String toString() => '(~ $left $right)';
@@ -165,19 +176,19 @@ class IrUnary extends IrExpr {
   final IrExpr operand;
 
   @override
-  bool get large => operand.large;
+  int get width => operand.width;
 
   @override
   String toString() => '${op.name}$operand';
 }
 
-/// The next number from input, as WRITE IN reads it (§4.4.12). The emitters use it to share the
-/// assignment path; lowering never produces it.
+/// The next number from input, as WRITE IN reads it (§4.4.12), for a target of [width] bits. The
+/// emitters use it to share the assignment path; lowering never produces it.
 class IrInput extends IrExpr {
-  const IrInput();
+  const IrInput({this.width = 32});
 
   @override
-  bool get large => true;
+  final int width;
 
   @override
   String toString() => 'input';
@@ -190,7 +201,7 @@ class IrArrayItem extends IrExpr {
   final Slot array;
 
   @override
-  bool get large => array.large;
+  int get width => array.width;
 
   @override
   String toString() => '$array';
@@ -393,6 +404,8 @@ class IrProgram {
     this.arrays,
     this.userStatements, {
     required this.extracal,
+    this.wideScalars = const [],
+    this.wideArrays = const [],
   });
 
   final int base;
@@ -400,8 +413,14 @@ class IrProgram {
   /// Whether the program is EXTRACAL rather than Mode 1.
   final bool extracal;
   final List<IrStatement> statements;
+
+  /// The 16- and 32-bit scalars and arrays.
   final List<Slot> scalars;
   final List<Slot> arrays;
+
+  /// EXTRACAL's 64-bit scalars and arrays (R4), numbered apart from the others.
+  final List<Slot> wideScalars;
+  final List<Slot> wideArrays;
 
   /// How many statements are the user's; any after them are the system library's (§7.3).
   final int userStatements;
@@ -451,6 +470,8 @@ class _Lowering {
   final int? memoryLimit;
   final _scalars = <VarRef, Slot>{};
   final _arrays = <VarRef, Slot>{};
+  final _wideScalars = <VarRef, Slot>{};
+  final _wideArrays = <VarRef, Slot>{};
   final _labels = <int, int>{};
   late List<Fault> _faults;
 
@@ -523,6 +544,8 @@ class _Lowering {
       _arrays.values.toList(),
       program.userStatements,
       extracal: program.extracal,
+      wideScalars: _wideScalars.values.toList(),
+      wideArrays: _wideArrays.values.toList(),
     );
   }
 
@@ -551,6 +574,8 @@ class _Lowering {
         ],
       ),
       AbstainBody() => _abstain(body),
+      // SIGNED parses already, but its meaning comes with signed numbers (R6).
+      IoBody(signed: true) => IrUndecodable(_text(s)),
       IoBody(input: true, :final items) => IrWriteIn([
         for (final i in items) _expr(i),
       ]),
@@ -610,19 +635,24 @@ class _Lowering {
   Slot _slot(Map<VarRef, Slot> slots, VarRef ref) {
     if (ref.number < 1 || ref.number > 65535) _faults.add(const Fault(200));
     return slots.putIfAbsent(ref, () {
-      if (_scalars.length + _arrays.length == memoryLimit) {
-        throw OutOfMemoryError();
-      }
+      final laidOut =
+          _scalars.length +
+          _arrays.length +
+          _wideScalars.length +
+          _wideArrays.length;
+      if (laidOut == memoryLimit) throw OutOfMemoryError();
       return Slot(slots.length, ref);
     });
   }
 
-  Slot _scalar(VarRef ref) => _slot(_scalars, ref);
+  Slot _scalar(VarRef ref) =>
+      _slot(ref.kind.width == 64 ? _wideScalars : _scalars, ref);
 
-  Slot _array(VarRef ref) => _slot(_arrays, ref);
+  Slot _array(VarRef ref) =>
+      _slot(ref.kind.width == 64 ? _wideArrays : _arrays, ref);
 
   IrExpr _expr(Expr e) => switch (e) {
-    Constant(:final value) => _constant(value),
+    Constant() => _constant(e),
     Scalar(:final ref) => IrScalar(_scalar(ref)),
     Element(:final array, :final subscripts) => IrElement(_array(array), [
       for (final s in subscripts) _expr(s),
@@ -641,9 +671,9 @@ class _Lowering {
     if (e.op == BinaryOp.mingle) {
       // A mingle of two constants that fit is a constant; one that doesn't fit stays, for E533.
       final max = smallMax(program.base);
-      if (left case IrConst(value: final l) when l <= max) {
-        if (right case IrConst(value: final r) when r <= max) {
-          return IrConst(_mingle(l, r), large: true);
+      if (left case IrConst(value: final l) when l >= 0 && l <= max) {
+        if (right case IrConst(value: final r) when r >= 0 && r <= max) {
+          return IrConst(_mingle(l, r), width: 32);
         }
       }
       return IrMingle(left, right);
@@ -667,8 +697,15 @@ class _Lowering {
     return result;
   }
 
-  IrExpr _constant(int value) {
-    if (value > smallMax(program.base)) _faults.add(const Fault(17));
-    return IrConst(value);
+  /// A constant above its sigil's range is E017: `#` holds a small value in the base (§3.2), `##`
+  /// 32 bits and `####` 64 bits (R4).
+  IrExpr _constant(Constant c) {
+    final tooBig = switch (c.width) {
+      16 => c.value > smallMax(program.base),
+      32 => c.value < 0 || c.value > 0xFFFFFFFF,
+      _ => c.overflow,
+    };
+    if (tooBig) _faults.add(const Fault(17));
+    return IrConst(c.value, width: c.width);
   }
 }

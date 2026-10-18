@@ -82,6 +82,12 @@ class DartEmitter {
       ..writeln()
       ..writeln('final _v = Uint32List(${program.scalars.length});')
       ..writeln('final _ig = Uint8List(${program.scalars.length});')
+      ..write(
+        program.extracal
+            ? 'final _w = Uint64List(${program.wideScalars.length});\n'
+                  'final _igw = Uint8List(${program.wideScalars.length});\n'
+            : '',
+      )
       ..writeln('final _ab = Uint8List(${program.statements.length + 1});')
       ..writeln('final _abT = Int64List(${program.statements.length + 1});')
       ..writeln('final _ger = Uint8List(${Gerund.values.length});')
@@ -91,7 +97,8 @@ class DartEmitter {
       ..writeln('void main(List<String> args) {')
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
-        'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages);',
+        'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages'
+        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}' : ''});',
       );
     for (final s in program.statements) {
       if (s.initiallyAbstained) _out.writeln('  _ab[${s.ordinal}] = 1;');
@@ -136,7 +143,8 @@ class DartEmitter {
         ..writeln('int _chunk$c(int pc) {')
         // Locals, because every access to a lazily initialized top-level checks it first.
         ..writeln(
-          '  final v = _v, ig = _ig, ab = _ab, abT = _abT, ger = _ger, gerT = _gerT;',
+          '  final v = _v, ig = _ig, ab = _ab, abT = _abT, ger = _ger, gerT = _gerT'
+          '${program.extracal ? ', w = _w, igw = _igw' : ''};',
         )
         ..writeln('  while (true) {')
         ..writeln('    switch (pc) {');
@@ -155,6 +163,17 @@ class DartEmitter {
         ..writeln('    }')
         ..writeln('  }')
         ..writeln('}');
+    }
+    for (final MapEntry(key: mask, value: name) in _selectFunctions64.entries) {
+      final parts = [
+        for (final run in selectRuns(mask, bits: 64))
+          '((x >>> ${run.from}) & ${_literal(run.width == 64 ? -1 : (1 << run.width) - 1)}) << ${run.to}',
+      ];
+      _out
+        ..writeln()
+        ..writeln(
+          'int $name(int x) => ${parts.isEmpty ? '0' : parts.join(' | ')};',
+        );
     }
     for (final MapEntry(key: mask, value: name) in _selectFunctions.entries) {
       final steps = compressSteps(mask);
@@ -320,18 +339,18 @@ class DartEmitter {
         _assign(target, value, next);
       case IrDimension(:final array, :final dimensions):
         _line(
-          'ickDimension(${array.index}, [${dimensions.map((d) => _expr(d, next)).join(', ')}], $next);',
+          'ickDimension${array.wide ? '64' : ''}(${array.index}, [${dimensions.map((d) => _expr(d, next)).join(', ')}], $next);',
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
         _line('ickNextPush(${after(s.ordinal)}, $target);');
         _line(_jump(entry(target)));
       case IrForget(:final count):
-        _line('ickForget(${_expr(count, next)});');
+        _line('ickForget(${_count(count, next)});');
       case IrResume(:final count):
         // An executed RESUME still springs a COME FROM aimed at it; only an executed NEXT waits
         // for its RESUME (§4.4.14.2).
-        _line('final r = ickResume(${_expr(count, next)}, $next);');
+        _line('final r = ickResume(${_count(count, next)}, $next);');
         _trap(s);
         _line('pc = r;');
         _line('break;');
@@ -339,26 +358,26 @@ class DartEmitter {
         _line('ickGiveUp();');
       case IrVarList(op: ListOp.stash, :final scalars, :final arrays):
         for (final v in scalars) {
-          _line('ickStashScalar(${v.index}, $next);');
+          _line('ickStashScalar${_suffix(v)}(${v.index}, $next);');
         }
         for (final a in arrays) {
-          _line('ickStashArray(${a.index}, $next);');
+          _line('ickStashArray${_suffix(a)}(${a.index}, $next);');
         }
       case IrVarList(:final op, :final scalars, :final arrays)
           when op == ListOp.ignore || op == ListOp.remember:
         final ignored = op == ListOp.ignore;
         for (final v in scalars) {
-          _line('ig[${v.index}] = ${ignored ? 1 : 0};');
+          _line('${v.wide ? 'igw' : 'ig'}[${v.index}] = ${ignored ? 1 : 0};');
         }
         for (final a in arrays) {
-          _line('ickArraySetIgnored(${a.index}, $ignored);');
+          _line('ickArraySetIgnored${_suffix(a)}(${a.index}, $ignored);');
         }
       case IrVarList(op: ListOp.retrieve, :final scalars, :final arrays):
         for (final v in scalars) {
-          _line('ickRetrieveScalar(${v.index}, $next);');
+          _line('ickRetrieveScalar${_suffix(v)}(${v.index}, $next);');
         }
         for (final a in arrays) {
-          _line('ickRetrieveArray(${a.index}, $next);');
+          _line('ickRetrieveArray${_suffix(a)}(${a.index}, $next);');
         }
       case IrAbstain(:final abstain, :final targets, :final gerunds):
         final value = abstain ? 1 : 0;
@@ -380,9 +399,13 @@ class DartEmitter {
       case IrReadOut(:final items):
         for (final item in items) {
           if (item is IrArrayItem) {
-            _line('ickTuringOut(${item.array.index}, $next);');
+            _line(
+              'ickTuringOut${_suffix(item.array)}(${item.array.index}, $next);',
+            );
           } else {
-            _line('ickReadOut(${_expr(item, next)});');
+            _line(
+              'ickReadOut${item.width == 64 ? '64' : ''}(${_expr(item, next)});',
+            );
           }
         }
       case IrComeFrom():
@@ -422,45 +445,69 @@ class DartEmitter {
     switch (target) {
       case IrScalar() || IrElement():
         _line('{');
-        _assign(target, IrInput(), next);
+        _assign(target, IrInput(width: target.width == 64 ? 64 : 32), next);
         _line('}');
       case IrArrayItem(:final array):
-        _line('ickTuringIn(${array.index}, $next);');
+        _line('ickTuringIn${_suffix(array)}(${array.index}, $next);');
       default:
         throw StateError('cannot WRITE IN $target');
     }
   }
 
   void _assign(IrExpr target, IrExpr value, int next) {
-    // Only a large value can exceed a small target; small ones were checked when they were stored.
-    String checked(String v) =>
-        target.large ||
-            !value.large ||
-            (value is IrConst && value.value <= program.smallLimit)
-        ? v
-        : 'ickCheckSmall($v, $next)';
+    // A value can only exceed a narrower target; narrower ones were checked when they were stored.
+    // 32 bits into 16 is Mode 1's E275, and anything wider is EXTRACAL's (R4).
+    String checked(String v) {
+      if (value.width <= target.width) return v;
+      if (value is IrConst && value.value >= 0) {
+        final max = target.width == 16 ? program.smallLimit : 0xFFFFFFFF;
+        if (value.value <= max) return v;
+      }
+      return value.width == 32
+          ? 'ickCheckSmall($v, $next)'
+          : 'ickCheckNarrow($v, ${target.width}, $next)';
+    }
+
     switch (target) {
       case IrScalar(:final slot) when !program.ignorable.contains(slot):
-        _line('v[${slot.index}] = ${checked(_expr(value, next))};');
+        _line(
+          '${slot.wide ? 'w' : 'v'}[${slot.index}] = ${checked(_expr(value, next))};',
+        );
       case IrScalar(:final slot):
+        final store = slot.wide ? 'w' : 'v', flags = slot.wide ? 'igw' : 'ig';
         _line('final t = ${checked(_expr(value, next))};');
-        _line('if (ig[${slot.index}] == 0) v[${slot.index}] = t;');
+        _line('if ($flags[${slot.index}] == 0) $store[${slot.index}] = t;');
       case IrElement(:final array, :final subscripts):
+        final suffix = _suffix(array);
         _line('final o = ${_element(array, subscripts, next)};');
         _line('final t = ${checked(_expr(value, next))};');
         _line(
           program.ignorable.contains(array)
-              ? 'if (!ickArrayIgnored(${array.index})) ickArrayData(${array.index})[o] = t;'
-              : 'ickArrayData(${array.index})[o] = t;',
+              ? 'if (!ickArrayIgnored$suffix(${array.index})) ickArrayData$suffix(${array.index})[o] = t;'
+              : 'ickArrayData$suffix(${array.index})[o] = t;',
         );
       default:
         throw StateError('cannot assign to $target');
     }
   }
 
+  /// `64` for EXTRACAL's 64-bit storage, whose runtime functions end in it.
+  static String _suffix(Slot slot) => slot.wide ? '64' : '';
+
+  /// A FORGET or RESUME count.
+  String _count(IrExpr count, int next) => count.width == 64
+      ? 'ickCount64(${_expr(count, next)})'
+      : _expr(count, next);
+
   /// The checked offset of an element; one and two subscripts skip building a list.
   String _element(Slot array, List<IrExpr> subscripts, int next) {
-    final values = [for (final s in subscripts) _expr(s, next)];
+    final values = [
+      for (final s in subscripts)
+        s.width == 64 ? 'ickSubscript64(${_expr(s, next)})' : _expr(s, next),
+    ];
+    if (array.wide) {
+      return 'ickElement64(${array.index}, [${values.join(', ')}], $next)';
+    }
     return switch (values.length) {
       1 || 2 =>
         'ickElement${values.length}(${array.index}, ${values.join(', ')}, $next)',
@@ -468,29 +515,47 @@ class DartEmitter {
     };
   }
 
+  /// A Dart int literal for a value's 64 bits.
+  static String _literal(int value) => value >= 0
+      ? '$value'
+      : '0x${BigInt.from(value).toUnsigned(64).toRadixString(16).toUpperCase()}';
+
   String _expr(IrExpr e, int next) => switch (e) {
-    IrConst(:final value) => '$value',
-    IrScalar(:final slot) => 'v[${slot.index}]',
+    IrConst(:final value) => _literal(value),
+    IrScalar(:final slot) => '${slot.wide ? 'w' : 'v'}[${slot.index}]',
     IrElement(:final array, :final subscripts) =>
-      'ickArrayData(${array.index})[${_element(array, subscripts, next)}]',
+      'ickArrayData${_suffix(array)}(${array.index})[${_element(array, subscripts, next)}]',
     IrMingle(:final left, :final right)
         when program.base == 2 && _fitsSmall(left) && _fitsSmall(right) =>
       'ickMingleSmall(${_expr(left, next)}, ${_expr(right, next)})',
     IrMingle(:final left, :final right) =>
-      'ickMingle(${_expr(left, next)}, ${_expr(right, next)}, $next)',
+      'ickMingle(${_mingleOperand(left, next)}, ${_mingleOperand(right, next)}, $next)',
     IrSelect(:final left, right: IrConst(value: final mask))
-        when program.base == 2 =>
+        when program.base == 2 && e.width == 64 =>
+      '${_selectFunction64(mask)}(${_expr(left, next)})',
+    IrSelect(:final left, right: IrConst(value: final mask))
+        when program.base == 2 && left.width != 64 =>
       '${_selectFunction(mask)}(${_expr(left, next)})',
+    IrSelect(:final left, :final right)
+        when left.width == 64 || right.width == 64 =>
+      'ickSelect64(${_expr(left, next)}, ${_expr(right, next)})',
     IrSelect(:final left, :final right) =>
       'ickSelect(${_expr(left, next)}, ${_expr(right, next)})',
     IrUnary(:final op, :final operand) => _unary(op, operand, next),
+    IrInput(width: 64) => 'ickWriteIn64($next)',
     IrInput() => 'ickWriteIn($next)',
     IrArrayItem() => throw StateError('a whole array is not a value'),
   };
 
+  /// A 64-bit mingle operand, from 2^63 up a negative Dart int, as one the mingle sees is too big.
+  String _mingleOperand(IrExpr e, int next) {
+    final value = _expr(e, next);
+    return e.width == 64 ? 'ickMingleOperand64($value)' : value;
+  }
+
   /// Whether [e] can't be above 65535: a small value, or a constant that fits.
   static bool _fitsSmall(IrExpr e) =>
-      !e.large || (e is IrConst && e.value <= 65535);
+      !e.large || (e is IrConst && e.value >= 0 && e.value <= 65535);
 
   /// A binary select by a constant mask becomes one shift and mask per run of 1-bits, or the
   /// compress steps when they're fewer, in a function per mask so the operand is evaluated once.
@@ -498,6 +563,19 @@ class DartEmitter {
 
   String _selectFunction(int mask) =>
       _selectFunctions.putIfAbsent(mask, () => '_select$mask');
+
+  /// A 64-bit select by a constant mask with few runs of 1-bits; [ickSelect64] does the rest.
+  final _selectFunctions64 = <int, String>{};
+
+  String _selectFunction64(int mask) {
+    if (selectRuns(mask, bits: 64).length > 8) {
+      return '((int x) => ickSelect64(x, ${_literal(mask)}))';
+    }
+    return _selectFunctions64.putIfAbsent(
+      mask,
+      () => '_select64x${BigInt.from(mask).toUnsigned(64).toRadixString(16)}',
+    );
+  }
 
   /// Binary uses rotate-and-combine bit operations; bases 3–7 use the digit-wise ones, where every
   /// logical operator is one that prefers a digit p (§6.6).
@@ -511,7 +589,7 @@ class DartEmitter {
         UnaryOp.xor => 'Xor',
         _ => throw StateError('$op in binary is E997 at compile time'),
       };
-      return 'ick$name${large ? 32 : 16}($value)';
+      return 'ick$name${operand.width}($value)';
     }
     return switch (op) {
       UnaryOp.xor => 'ickMinus($large, $value)',

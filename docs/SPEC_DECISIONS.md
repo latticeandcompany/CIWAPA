@@ -1228,3 +1228,21 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
 - **Options:** count as met / compare their times anyway / fix how they're run, else drop them from that program
 - **Decision:** First make INTERCAL-64 and CLC-INTERCAL run `tpk`, `primes`, `pi` and `life` correctly, by investigating input files, command-line flags and each baseline's own system library. Only configuration and harness changes are allowed, never patches to the baselines' source. If a program still can't run correctly on a baseline, remove that baseline from that program in `programs.txt` with the reason recorded next to it. The guardrail then compares only against baselines that produce the correct output. Wrong-output runs are never timed. **Code change needed:** the investigation, plus `programs.txt` and the bench's handling.
 - **Date:** 2026-10-16
+
+## EXTRACAL error codes
+
+New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 0.15 nor 0.35 uses (R11, Q90). Each has official text written for CIWAPA and a joke line, like every other code. Conditions that are the same as Mode 1's keep Mode 1's code: a constant above its sigil's range is E017, 32 bits into a 16-bit variable is E275 (R4), and WRITE IN of more than 32 bits into a 16- or 32-bit variable is E533.
+
+### E276: a value over 32 bits stored in a 16- or 32-bit variable
+- **Text:** `A VALUE REQUIRING OVER 32 BITS HAS BEEN ASSIGNED TO A VARIABLE OF 32 BITS OR FEWER.`
+- **Joke:** `THE BIG NUMBER WAS ASKED TO SQUEEZE IN. IT DECLINED.`
+- **Source:** R4 ("narrowing overflow involving 64-bit values"). Fires when the statement executes, before the store, even into an IGNOREd variable (as T24 does for E275).
+- **Tests:** `packages/conformance/tests/extracal/wide/narrowing-32.xc`, `packages/conformance/tests/extracal/wide/narrowing-16.xc`
+- **Date:** 2026-10-18
+
+### E535: WRITE IN of a value over 64 bits into a 64-bit variable
+- **Text:** `A WRITE IN STATEMENT HAS PRODUCED A VALUE REQUIRING OVER 64 BITS TO REPRESENT.`
+- **Joke:** `SIXTY-FOUR BITS WAS SUPPOSED TO BE ENOUGH FOR ANYBODY. YOU ARE NOT ANYBODY.`
+- **Source:** R7 ("A value over 2^64−1 is an error").
+- **Tests:** `packages/conformance/tests/extracal/numerals/write-in-over.xc`
+- **Date:** 2026-10-18

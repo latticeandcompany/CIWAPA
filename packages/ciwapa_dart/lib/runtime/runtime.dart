@@ -31,7 +31,31 @@ class _ScalarStash {
   var length = 0;
 }
 
+class _WideShape {
+  _WideShape(this.dims, this.data);
+
+  final Uint32List dims;
+  final Uint64List data;
+
+  int get rank => dims.length;
+}
+
+class _WideArray {
+  _WideShape shape = _WideShape(Uint32List(0), Uint64List(0));
+  bool ignored = false;
+}
+
+class _WideStash {
+  var values = Uint64List(4);
+  var length = 0;
+}
+
 late Map<int, IckMessage> _messages;
+late Uint64List _wideValues;
+late Uint8List _wideIgnored;
+late List<_WideStash> _wideStashes;
+late List<_WideArray> _wideArrays;
+late List<List<_WideShape>> _wideArrayStashes;
 late Uint32List _values;
 late Uint8List _ignored;
 late List<_ScalarStash> _scalarStashes;
@@ -60,10 +84,18 @@ void ickInit(
   required Uint32List values,
   required Uint8List ignored,
   required Map<int, IckMessage> messages,
+  Uint64List? wideValues,
+  Uint8List? wideIgnored,
+  int wideArrayCount = 0,
 }) {
   _messages = messages;
   _values = values;
   _ignored = ignored;
+  _wideValues = wideValues ?? Uint64List(0);
+  _wideIgnored = wideIgnored ?? Uint8List(0);
+  _wideStashes = List.generate(_wideValues.length, (_) => _WideStash());
+  _wideArrays = List.generate(wideArrayCount, (_) => _WideArray());
+  _wideArrayStashes = List.generate(wideArrayCount, (_) => <_WideShape>[]);
   _scalarStashes = List.generate(values.length, (_) => _ScalarStash());
   _arrayStashes = List.generate(arrayCount, (_) => <_Shape>[]);
   _base = base;
@@ -420,11 +452,7 @@ void ickDimension(int index, List<int> dims, int next) {
     if (d == 0) ickFatal(240, next);
   }
   if (a.ignored) return;
-  var size = 1;
-  for (final d in dims) {
-    if (d > _maxElements ~/ size) ickFatal(241, next);
-    size *= d;
-  }
+  final size = _elements(dims, next);
   final Uint32List data;
   try {
     data = Uint32List(size);
@@ -433,6 +461,19 @@ void ickDimension(int index, List<int> dims, int next) {
     ickFatal(241, next);
   }
   a.shape = _Shape(Uint32List.fromList(dims), data);
+}
+
+/// The number of elements [dims] hold. A dimension can be 64-bit only in EXTRACAL; one that doesn't
+/// fit in 32 bits can't be stored, so it is E241, like any array too large to allocate.
+int _elements(List<int> dims, int next) {
+  var size = 1;
+  for (final d in dims) {
+    if (d < 0 || d > 0xFFFFFFFF || d > _maxElements ~/ size) {
+      ickFatal(241, next);
+    }
+    size *= d;
+  }
+  return size;
 }
 
 /// The offset of an element in [ickArrayData], after checking the subscripts.
@@ -653,7 +694,10 @@ List<int>? _readLine() {
 
 /// Wimp mode reads a line the way C's atoi does, with a 64-bit long: whitespace, a sign and
 /// digits, saturating at the long's range, and keeping the low 32 bits (decision T32).
-int _wimpNumber(List<int> line) {
+int _wimpNumber(List<int> line) => _wimpLong(line) & 0xFFFFFFFF;
+
+/// The 64-bit long C's atol would read from [line].
+int _wimpLong(List<int> line) {
   var i = 0;
   while (i < line.length &&
       (line[i] == 0x20 || (line[i] >= 0x09 && line[i] <= 0x0D))) {
@@ -672,8 +716,8 @@ int _wimpNumber(List<int> line) {
       magnitude = magnitude * 10 + digit;
     }
   }
-  if (saturated) return negative ? 0 : 0xFFFFFFFF;
-  return (negative ? -magnitude : magnitude) & 0xFFFFFFFF;
+  if (saturated) return negative ? 1 << 63 : 0x7FFFFFFFFFFFFFFF;
+  return negative ? -magnitude : magnitude;
 }
 
 /// One number per line, each digit a word separated by spaces: E562 for a blank line or the end
@@ -728,6 +772,8 @@ const _romanPatterns = [
 const _clockfaceFour = [4, 0, 0, 0, 0];
 
 // Four columns per digit position because of the odd way M and I interact.
+// Rows 10 and 11 only come up in EXTRACAL's 64-bit numerals (R7): the fourth tier, overlined
+// lowercase, goes on up to m̅ = 10^12 the way rows 3–5 do for the overlined capitals.
 const _romanSymbols = [
   'IIVX',
   'XXLC',
@@ -739,6 +785,8 @@ const _romanSymbols = [
   'xxlc',
   'ccdm',
   'mivx',
+  'xxlc',
+  'ccdm',
 ];
 const _romanBars = [
   '    ',
@@ -751,6 +799,8 @@ const _romanBars = [
   '    ',
   '    ',
   ' ___',
+  '____',
+  '____',
 ];
 
 @pragma('vm:never-inline')
@@ -765,9 +815,15 @@ void ickReadOut(int value) {
     _flush();
     return;
   }
-  final numeral = StringBuffer(), bars = StringBuffer();
+  final (bars, numeral) = _butcher(value);
+  _write(utf8.encode('$bars\n$numeral\n'));
+  _flush();
+}
+
+/// The overline row and the letters for [value], below 10^12.
+(String, String) _butcher(int value) {
   final symbols = <String>[], marks = <String>[];
-  for (var position = 0; position < 10 && value > 0; position++) {
+  for (var position = 0; value > 0; position++) {
     final digit = value % 10;
     final pattern = digit == 4 && _clockface
         ? _clockfaceFour
@@ -778,11 +834,34 @@ void ickReadOut(int value) {
     }
     value ~/= 10;
   }
-  for (var i = symbols.length - 1; i >= 0; i--) {
-    numeral.write(symbols[i]);
-    bars.write(marks[i]);
+  return (marks.reversed.join(), symbols.reversed.join());
+}
+
+final _trillion = BigInt.from(1000000000000);
+
+/// R7, Q125: a 64-bit value splits into groups of 12 decimal digits. The ×10^12 group is printed
+/// like the low one with an extra overline on every character, in a row of its own on top.
+@pragma('vm:never-inline')
+void ickReadOut64(int bits) {
+  final value = BigInt.from(bits).toUnsigned(64);
+  if (_wimpMode) {
+    _write(utf8.encode('$value\n'));
+    _flush();
+    return;
   }
-  _write(utf8.encode('$bars\n$numeral\n'));
+  final high = (value ~/ _trillion).toInt();
+  if (high == 0) {
+    ickReadOut((value % _trillion).toInt());
+    return;
+  }
+  final (highBars, highNumeral) = _butcher(high);
+  final (lowBars, lowNumeral) = _butcher((value % _trillion).toInt());
+  _write(
+    utf8.encode(
+      '${'_' * highNumeral.length}${' ' * lowNumeral.length}\n'
+      '$highBars$lowBars\n$highNumeral$lowNumeral\n',
+    ),
+  );
   _flush();
 }
 
@@ -889,4 +968,183 @@ void _parseOptions(List<String> args) {
     ickFatal(778, 1);
   }
   if (_wimpMode) stderr.add(utf8.encode(_wimpMessage));
+}
+
+// ---- EXTRACAL's 64-bit types (R4, Q107, Q123) ---------------------------------------------------
+// A 64-bit value is a Dart int's 64 bits, so values from 2^63 up are negative: every comparison
+// and shift below is the unsigned one.
+
+/// A value stored in a narrower variable: over 32 bits is E276, and 32 bits into a small variable
+/// stays Mode 1's E275 (R4).
+int ickCheckNarrow(int value, int width, int next) {
+  if (value < 0 || value > 0xFFFFFFFF) ickFatal(276, next);
+  if (width == 16 && value > _smallMax) ickFatal(275, next);
+  return value;
+}
+
+/// A 64-bit subscript: one that doesn't fit in 32 bits is past the end of any array, which the
+/// subscript check reports as E241, so it becomes 0, which is E241 there too.
+int ickSubscript64(int value) => value < 0 || value > 0xFFFFFFFF ? 0 : value;
+
+/// A 64-bit FORGET or RESUME count: past 32 bits it behaves like the largest 32-bit count.
+int ickCount64(int value) =>
+    value < 0 || value > 0xFFFFFFFF ? 0xFFFFFFFF : value;
+
+/// Mingle's E533 check compares as a Dart int, so a value from 2^63 up must still look too big.
+int ickMingleOperand64(int x) => x < 0 ? 0x7FFFFFFFFFFFFFFF : x;
+
+int _rotate64(int x) => (x >>> 1) | (x << 63);
+
+int ickAnd64(int x) => x & _rotate64(x);
+int ickOr64(int x) => x | _rotate64(x);
+int ickXor64(int x) => x ^ _rotate64(x);
+
+@pragma('vm:never-inline')
+int ickSelect64(int value, int mask) {
+  var result = 0, bit = 1;
+  for (; mask != 0; mask >>>= 1, value >>>= 1) {
+    if (mask & 1 == 0) continue;
+    if (value & 1 != 0) result |= bit;
+    bit <<= 1;
+  }
+  return result;
+}
+
+@pragma('vm:never-inline')
+void ickStashScalar64(int slot, int next) {
+  if (_stashed == _stashLimit) ickFatal(222, next);
+  final stash = _wideStashes[slot];
+  if (stash.length == stash.values.length) {
+    try {
+      stash.values = Uint64List(2 * stash.length)..setAll(0, stash.values);
+    } on OutOfMemoryError {
+      ickFatal(222, next);
+    }
+  }
+  stash.values[stash.length++] = _wideValues[slot];
+  _stashed++;
+}
+
+@pragma('vm:never-inline')
+void ickRetrieveScalar64(int slot, int next) {
+  final stash = _wideStashes[slot];
+  if (stash.length == 0) ickFatal(436, next);
+  final value = stash.values[--stash.length];
+  _stashed--;
+  if (_wideIgnored[slot] == 0) _wideValues[slot] = value;
+}
+
+@pragma('vm:never-inline')
+void ickDimension64(int index, List<int> dims, int next) {
+  final a = _wideArrays[index];
+  for (final d in dims) {
+    if (d == 0) ickFatal(240, next);
+  }
+  if (a.ignored) return;
+  final size = _elements(dims, next);
+  final Uint64List data;
+  try {
+    data = Uint64List(size);
+  } on Error {
+    ickFatal(241, next);
+  }
+  a.shape = _WideShape(Uint32List.fromList(dims), data);
+}
+
+@pragma('vm:never-inline')
+int ickElement64(int index, List<int> subscripts, int next) {
+  final a = _wideArrays[index].shape;
+  if (subscripts.length != a.rank) ickFatal(241, next);
+  var offset = 0;
+  for (var i = 0; i < subscripts.length; i++) {
+    final s = subscripts[i];
+    if (s == 0 || s > a.dims[i]) ickFatal(241, next);
+    offset = offset * a.dims[i] + s - 1;
+  }
+  return offset;
+}
+
+Uint64List ickArrayData64(int index) => _wideArrays[index].shape.data;
+
+bool ickArrayIgnored64(int index) => _wideArrays[index].ignored;
+
+void ickArraySetIgnored64(int index, bool ignored) =>
+    _wideArrays[index].ignored = ignored;
+
+@pragma('vm:never-inline')
+void ickStashArray64(int index, int next) {
+  final a = _wideArrays[index].shape;
+  _push(
+    _wideArrayStashes[index],
+    () => _WideShape(Uint32List.fromList(a.dims), Uint64List.fromList(a.data)),
+    next,
+  );
+}
+
+@pragma('vm:never-inline')
+void ickRetrieveArray64(int index, int next) {
+  final stash = _wideArrayStashes[index];
+  if (stash.isEmpty) ickFatal(436, next);
+  final saved = stash.removeLast();
+  _stashed--;
+  if (!_wideArrays[index].ignored) _wideArrays[index].shape = saved;
+}
+
+final _bits64Max = (BigInt.one << 64) - BigInt.one;
+
+/// WRITE IN into a 64-bit variable: up to 20 digits, and a value over 2^64 - 1 is E535 (R7). Wimp
+/// mode reads like C's atol, as for the other variables (decision T32), keeping all 64 bits.
+@pragma('vm:never-inline')
+int ickWriteIn64(int next) {
+  final line = _readLine();
+  if (line == null) ickFatal(562, next);
+  if (_wimpMode) return _wimpLong(line);
+  var result = BigInt.zero, digits = 0, i = 0;
+  while (i < line.length) {
+    while (i < line.length && line[i] == 0x20) {
+      i++;
+    }
+    if (i == line.length) break;
+    final start = i;
+    while (i < line.length && line[i] != 0x20) {
+      i++;
+    }
+    final digit = _numeralBytes[String.fromCharCodes(line, start, i)];
+    if (digit == null) ickFatal(579, next);
+    result = result * BigInt.from(10) + BigInt.from(digit);
+    if (result > _bits64Max) ickFatal(535, next);
+    digits++;
+  }
+  if (digits == 0) ickFatal(562, next);
+  return result.toSigned(64).toInt();
+}
+
+@pragma('vm:never-inline')
+void ickTuringIn64(int index, int next) {
+  final shape = _wideArrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  final ignored = _wideArrays[index].ignored;
+  _flush();
+  for (var i = 0; i < shape.dims[0]; i++) {
+    final c = ickReadByte();
+    final value = c == -1 ? 256 : (c - _lastIn) & 0xFF;
+    _lastIn = c & 0xFFFFFFFF;
+    if (!ignored) shape.data[i] = value;
+  }
+}
+
+@pragma('vm:never-inline')
+void ickTuringOut64(int index, int next) {
+  final shape = _wideArrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  for (var i = 0; i < shape.dims[0]; i++) {
+    final c = (_lastOut - shape.data[i]) & 0xFFFFFFFF;
+    _lastOut = c;
+    var b = c & 0xFF;
+    b = ((b & 0x0F) << 4) | ((b & 0xF0) >> 4);
+    b = ((b & 0x33) << 2) | ((b & 0xCC) >> 2);
+    b = ((b & 0x55) << 1) | ((b & 0xAA) >> 1);
+    _writeByte(b);
+    if (b == 0x0A) _flush();
+  }
 }

@@ -54,7 +54,11 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   final base = dialect.base;
   if (traditional && base != 2) throw CompileError(111, 1);
 
-  final statements = Parser(source, memoryLimit: memoryLimit).parse();
+  final statements = Parser(
+    source,
+    memoryLimit: memoryLimit,
+    wide: dialect.extracal && base == 2,
+  ).parse();
   if (traditional) {
     for (final (i, s) in statements.indexed) {
       if (s.body is ComeFrom) throw CompileError(111, i + 1);

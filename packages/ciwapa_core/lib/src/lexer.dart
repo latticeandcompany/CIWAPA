@@ -6,7 +6,11 @@ enum TokenKind {
   twoSpot,
   tail,
   hybrid,
+  doubleCateye,
+  doubleHybrid,
   mesh,
+  fence,
+  stockade,
   mingle,
   select,
   unary,
@@ -33,6 +37,7 @@ enum TokenKind {
   comeFrom,
   giveUp,
   gerund,
+  signed,
   intersection,
   badChar,
   end,
@@ -77,6 +82,7 @@ class Token {
     this.polite = false,
     this.unary,
     this.gerund,
+    this.bits,
   });
 
   final TokenKind kind;
@@ -95,6 +101,10 @@ class Token {
   final UnaryOp? unary;
   final Gerund? gerund;
 
+  /// A [TokenKind.number]'s exact value as 64 bits (negative from 2^63 up, as a Dart int), or
+  /// null when it is above 2^64 - 1.
+  final int? bits;
+
   @override
   String toString() => '$kind@$start';
 }
@@ -103,12 +113,21 @@ class Token {
 /// starts no token becomes a [TokenKind.badChar], which is how a statement identifier is found even
 /// in the middle of a word (§4.5, decision T8).
 class Lexer {
-  Lexer(this.source) : _text = source.runes;
+  Lexer(this.source, {this.wide = false}) : _text = source.runes;
 
   static const numberCap = 1 << 40;
 
+  static final _bitsMax = (BigInt.one << 64) - BigInt.one;
+
   final Source source;
+
+  /// Whether EXTRACAL's 64-bit sigils and SIGNED are tokens (R4, R6). They are only in binary
+  /// EXTRACAL; in Mode 1, and in EXTRACAL's bases 3–7 (L17), they are the separate characters.
+  final bool wide;
   final List<int> _text;
+  late final _activePatterns = wide
+      ? [..._patterns, ..._widePatterns]
+      : _patterns;
 
   List<Token> tokenize() {
     final tokens = <Token>[];
@@ -159,7 +178,7 @@ class Lexer {
   }
 
   Iterable<Token> _fixed(int i) sync* {
-    for (final (pattern, make) in _patterns) {
+    for (final (pattern, make) in _activePatterns) {
       final end = _match(pattern, i);
       if (end != null) yield make(i, end);
     }
@@ -194,7 +213,24 @@ class Lexer {
       }
       j++;
     }
-    return Token(TokenKind.number, i, lastDigitEnd, value: value);
+    return Token(
+      TokenKind.number,
+      i,
+      lastDigitEnd,
+      value: value,
+      bits: value < numberCap ? value : _exactBits(i, lastDigitEnd),
+    );
+  }
+
+  /// The digits between [start] and [end] as 64 bits, or null above 2^64 - 1.
+  int? _exactBits(int start, int end) {
+    var exact = BigInt.zero;
+    for (var k = start; k < end; k++) {
+      if (!_isDigit(_text[k])) continue;
+      exact = exact * BigInt.from(10) + BigInt.from(_text[k] - 0x30);
+      if (exact > _bitsMax) return null;
+    }
+    return exact.toSigned(64).toInt();
   }
 
   /// `[2-5]{W}@`: a numbered whirlpool such as `2@` (§6.6).
@@ -294,5 +330,13 @@ class Lexer {
     ('COMING FROM', _gerund(Gerund.comingFrom)),
     ('GIVE UP', _kind(TokenKind.giveUp)),
     ('+', _kind(TokenKind.intersection)),
+  ];
+
+  static final _widePatterns = <(String, Token Function(int, int))>[
+    ('::', _kind(TokenKind.doubleCateye)),
+    (';;', _kind(TokenKind.doubleHybrid)),
+    ('##', _kind(TokenKind.fence)),
+    ('####', _kind(TokenKind.stockade)),
+    ('SIGNED', _kind(TokenKind.signed)),
   ];
 }

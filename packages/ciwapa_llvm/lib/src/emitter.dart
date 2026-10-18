@@ -140,6 +140,24 @@ done:
 }
 ''';
 
+  static const _wideDeclarations = '''
+declare void @ick_init_wide(ptr, ptr, i32, i32)
+declare i32 @ick_check_narrow(i64, i32, i32)
+declare i64 @ick_select64(i64, i64)
+declare void @ick_stash_scalar64(i32, i32)
+declare void @ick_retrieve_scalar64(i32, i32)
+declare void @ick_dimension_x(i32, i32, i32, ptr, i32)
+declare ptr @ick_element64(i32, i32, ptr, i32)
+declare i32 @ick_array_ignored64(i32)
+declare void @ick_array_set_ignored64(i32, i32)
+declare void @ick_stash_array64(i32, i32)
+declare void @ick_retrieve_array64(i32, i32)
+declare i64 @ick_write_in64(i32)
+declare void @ick_read_out64(i64)
+declare void @ick_turing_in64(i32, i32)
+declare void @ick_turing_out64(i32, i32)
+''';
+
   String emit() {
     for (final s in program.statements) {
       _statement(s);
@@ -193,6 +211,12 @@ done:
       ..writeln()
       ..writeln('@v = internal global [$scalars x i32] zeroinitializer')
       ..writeln('@ig = internal global [$scalars x i8] zeroinitializer')
+      ..write(
+        program.extracal
+            ? '@v64 = internal global [${program.wideScalars.length} x i64] zeroinitializer\n'
+                  '@igw = internal global [${program.wideScalars.length} x i8] zeroinitializer\n'
+            : '',
+      )
       ..writeln(
         '@ab = internal global [${statements + 1} x i8] [${abstained.join(', ')}]',
       )
@@ -206,6 +230,7 @@ done:
       ..write(_globals)
       ..writeln()
       ..write(_declarations)
+      ..write(program.extracal ? _wideDeclarations : '')
       ..writeln()
       ..writeln(
         'define internal i32 @check_small(i32 %value, i32 %next) alwaysinline {',
@@ -223,7 +248,16 @@ done:
       ..writeln('define i32 @main(i32 %argc, ptr %argv) {')
       ..writeln('entry:')
       ..writeln('  %subs = alloca [$_maxSubscripts x i32]')
+      ..write(
+        program.extracal ? '  %dims64 = alloca [$_maxSubscripts x i64]\n' : '',
+      )
       ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
+      ..write(
+        program.extracal
+            ? '  call void @ick_init_wide(ptr @v64, ptr @igw, i32 ${program.wideScalars.length}, '
+                  'i32 ${program.wideArrays.length})\n'
+            : '',
+      )
       ..writeln('  br label %${statements == 0 ? 'fell' : 's1'}')
       ..write(_body)
       ..writeln('}');
@@ -336,6 +370,19 @@ done:
     switch (s.op) {
       case IrAssign(:final target, :final value):
         _assign(target, value, next);
+      case IrDimension(:final array, :final dimensions) when program.extracal:
+        // EXTRACAL dimensions are 64-bit values, checked against 32 bits by the runtime (R4).
+        final values = [for (final d in dimensions) _as64(d, next)];
+        if (values.length > _maxSubscripts) _maxSubscripts = values.length;
+        for (final (i, value) in values.indexed) {
+          final slot = _fresh();
+          _line('$slot = getelementptr inbounds i64, ptr %dims64, i64 $i');
+          _line('store i64 $value, ptr $slot');
+        }
+        _line(
+          'call void @ick_dimension_x(i32 ${array.index}, i32 ${array.wide ? 1 : 0}, '
+          'i32 ${values.length}, ptr %dims64, i32 $next)',
+        );
       case IrDimension(:final array, :final dimensions):
         final values = [for (final d in dimensions) _expr(d, next)];
         _storeSubscripts(values);
@@ -348,10 +395,10 @@ done:
         _line('br label %s$target');
         _block(_newBlock('dead'));
       case IrForget(:final count):
-        _line('call void @forget(i32 ${_expr(count, next)})');
+        _line('call void @forget(i32 ${_count(count, next)})');
       case IrResume(:final count):
         final id = _fresh();
-        _line('$id = call i32 @resume(i32 ${_expr(count, next)}, i32 $next)');
+        _line('$id = call i32 @resume(i32 ${_count(count, next)}, i32 $next)');
         // An executed RESUME still springs a COME FROM aimed at it; only an executed NEXT waits
         // for its RESUME (§4.4.14.2).
         final dispatch = _newBlock('return');
@@ -368,24 +415,24 @@ done:
           when op == ListOp.stash || op == ListOp.retrieve:
         final verb = op == ListOp.stash ? 'stash' : 'retrieve';
         for (final v in scalars) {
-          _line('call void @ick_${verb}_scalar(i32 ${v.index}, i32 $next)');
+          _line(
+            'call void @ick_${verb}_scalar${_suffix(v)}(i32 ${v.index}, i32 $next)',
+          );
         }
         for (final a in arrays) {
-          _line('call void @ick_${verb}_array(i32 ${a.index}, i32 $next)');
+          _line(
+            'call void @ick_${verb}_array${_suffix(a)}(i32 ${a.index}, i32 $next)',
+          );
         }
       case IrVarList(:final op, :final scalars, :final arrays)
           when op == ListOp.ignore || op == ListOp.remember:
         final ignored = op == ListOp.ignore ? 1 : 0;
         for (final v in scalars) {
-          final p = _fresh();
-          _line(
-            '$p = getelementptr inbounds [${program.scalars.length} x i8], ptr @ig, i64 0, i64 ${v.index}',
-          );
-          _line('store i8 $ignored, ptr $p');
+          _line('store i8 $ignored, ptr ${_ignoredFlag(v)}');
         }
         for (final a in arrays) {
           _line(
-            'call void @ick_array_set_ignored(i32 ${a.index}, i32 $ignored)',
+            'call void @ick_array_set_ignored${_suffix(a)}(i32 ${a.index}, i32 $ignored)',
           );
         }
       case IrAbstain(:final abstain, :final targets):
@@ -400,20 +447,22 @@ done:
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
-              'call void @ick_turing_in(i32 ${item.array.index}, i32 $next)',
+              'call void @ick_turing_in${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
             );
             continue;
           }
           // Element subscripts are checked first, then the number is read, then E275 (even when
           // the target is IGNOREd, decision T24), then the store.
-          _assign(item, const IrInput(), next);
+          _assign(item, IrInput(width: item.width == 64 ? 64 : 32), next);
         }
       case IrReadOut(:final items):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
-              'call void @ick_turing_out(i32 ${item.array.index}, i32 $next)',
+              'call void @ick_turing_out${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
             );
+          } else if (item.width == 64) {
+            _line('call void @ick_read_out64(i64 ${_expr(item, next)})');
           } else {
             _line('call void @ick_read_out(i32 ${_expr(item, next)})');
           }
@@ -442,49 +491,109 @@ done:
   }
 
   /// Stores [value] at [pointer] unless [ignored] (an i1) is set.
-  void _storeUnlessIgnored(String pointer, String value, String ignored) {
+  void _storeUnlessIgnored(
+    String pointer,
+    String value,
+    String ignored, [
+    String type = 'i32',
+  ]) {
     final old = _fresh(), chosen = _fresh();
-    _line('$old = load i32, ptr $pointer');
-    _line('$chosen = select i1 $ignored, i32 $old, i32 $value');
-    _line('store i32 $chosen, ptr $pointer');
+    _line('$old = load $type, ptr $pointer');
+    _line('$chosen = select i1 $ignored, $type $old, $type $value');
+    _line('store $type $chosen, ptr $pointer');
+  }
+
+  /// `64` for EXTRACAL's 64-bit storage, whose runtime functions end in it.
+  static String _suffix(Slot slot) => slot.wide ? '64' : '';
+
+  /// A pointer to [slot]'s IGNORE flag.
+  String _ignoredFlag(Slot slot) {
+    final p = _fresh();
+    final (flags, count) = slot.wide
+        ? ('@igw', program.wideScalars.length)
+        : ('@ig', program.scalars.length);
+    _line(
+      '$p = getelementptr inbounds [$count x i8], ptr $flags, i64 0, i64 ${slot.index}',
+    );
+    return p;
+  }
+
+  /// [e] as an i64, widening a 16- or 32-bit value.
+  String _as64(IrExpr e, int next) {
+    final v = _expr(e, next);
+    if (e.width == 64) return v;
+    final wide = _fresh();
+    _line('$wide = zext i32 $v to i64');
+    return wide;
+  }
+
+  /// An i64 [value] clamped to 32 bits: past them it becomes [past].
+  String _clamp32(String value, int past) {
+    final big = _fresh(), low = _fresh(), clamped = _fresh();
+    _line('$big = icmp ugt i64 $value, 4294967295');
+    _line('$low = trunc i64 $value to i32');
+    _line('$clamped = select i1 $big, i32 $past, i32 $low');
+    return clamped;
+  }
+
+  /// A FORGET or RESUME count: a 64-bit one past 32 bits acts like the largest 32-bit count.
+  String _count(IrExpr count, int next) {
+    final v = _expr(count, next);
+    return count.width == 64 ? _clamp32(v, -1) : v;
   }
 
   void _assign(IrExpr target, IrExpr value, int next) {
-    // Only a large value can exceed a small target; small ones were checked when they were stored.
+    // A value can only exceed a narrower target; narrower ones were checked when they were stored.
+    // 32 bits into 16 is Mode 1's E275, and anything wider is EXTRACAL's (R4).
     String checked(String v) {
-      if (target.large || !value.large) return v;
-      if (value is IrConst && value.value <= program.smallLimit) return v;
+      if (target.width == 64) {
+        if (value.width == 64) return v;
+        final wide = _fresh();
+        _line('$wide = zext i32 $v to i64');
+        return wide;
+      }
+      if (value.width <= target.width) return v;
+      if (value is IrConst && value.value >= 0) {
+        final max = target.width == 16 ? program.smallLimit : 0xFFFFFFFF;
+        if (value.value <= max) return value.width == 64 ? '${value.value}' : v;
+      }
       final c = _fresh();
-      _line('$c = call i32 @check_small(i32 $v, i32 $next)');
+      if (value.width == 64) {
+        _line(
+          '$c = call i32 @ick_check_narrow(i64 $v, i32 ${target.width}, i32 $next)',
+        );
+      } else {
+        _line('$c = call i32 @check_small(i32 $v, i32 $next)');
+      }
       return c;
     }
 
+    final type = target.width == 64 ? 'i64' : 'i32';
     switch (target) {
       case IrScalar(:final slot):
         final v = checked(_expr(value, next));
         final pointer = _scalarPointer(slot);
         if (!program.ignorable.contains(slot)) {
-          _line('store i32 $v, ptr $pointer');
+          _line('store $type $v, ptr $pointer');
           return;
         }
-        final flagPointer = _fresh(), flag = _fresh(), ignored = _fresh();
-        _line(
-          '$flagPointer = getelementptr inbounds [${program.scalars.length} x i8], ptr @ig, i64 0, i64 ${slot.index}',
-        );
-        _line('$flag = load i8, ptr $flagPointer');
+        final flag = _fresh(), ignored = _fresh();
+        _line('$flag = load i8, ptr ${_ignoredFlag(slot)}');
         _line('$ignored = icmp ne i8 $flag, 0');
-        _storeUnlessIgnored(pointer, v, ignored);
+        _storeUnlessIgnored(pointer, v, ignored, type);
       case IrElement(:final array, :final subscripts):
         final pointer = _elementPointer(array, subscripts, next);
         final v = checked(_expr(value, next));
         if (!program.ignorable.contains(array)) {
-          _line('store i32 $v, ptr $pointer');
+          _line('store $type $v, ptr $pointer');
           return;
         }
         final flag = _fresh(), ignored = _fresh();
-        _line('$flag = call i32 @ick_array_ignored(i32 ${array.index})');
+        _line(
+          '$flag = call i32 @ick_array_ignored${_suffix(array)}(i32 ${array.index})',
+        );
         _line('$ignored = icmp ne i32 $flag, 0');
-        _storeUnlessIgnored(pointer, v, ignored);
+        _storeUnlessIgnored(pointer, v, ignored, type);
       default:
         throw StateError('cannot assign to $target');
     }
@@ -551,9 +660,18 @@ done:
     return t;
   }
 
+  String _op64(String op, String a, String b) {
+    final t = _fresh();
+    _line('$t = $op i64 $a, $b');
+    return t;
+  }
+
+  /// The LLVM type [e] evaluates to.
+  static String _type(IrExpr e) => e.width == 64 ? 'i64' : 'i32';
+
   /// Whether [e] can't be above 65535: a small value, or a constant that fits.
   static bool _fitsSmall(IrExpr e) =>
-      !e.large || (e is IrConst && e.value <= 65535);
+      !e.large || (e is IrConst && e.value >= 0 && e.value <= 65535);
 
   /// Spreads the 16 bits of [v] to the even bit positions, for mingle (§3.4.1).
   String _spread(String v) {
@@ -571,17 +689,23 @@ done:
   String _scalarPointer(Slot slot) {
     final p = _fresh();
     _line(
-      '$p = getelementptr inbounds [${program.scalars.length} x i32], ptr @v, i64 0, i64 ${slot.index}',
+      slot.wide
+          ? '$p = getelementptr inbounds [${program.wideScalars.length} x i64], ptr @v64, i64 0, i64 ${slot.index}'
+          : '$p = getelementptr inbounds [${program.scalars.length} x i32], ptr @v, i64 0, i64 ${slot.index}',
     );
     return p;
   }
 
+  /// A subscript past 32 bits is past the end of any array, so it becomes 0, which is E241 too.
   String _elementPointer(Slot array, List<IrExpr> subscripts, int next) {
-    final values = [for (final s in subscripts) _expr(s, next)];
+    final values = [
+      for (final s in subscripts)
+        s.width == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
+    ];
     _storeSubscripts(values);
     final p = _fresh();
     _line(
-      '$p = call ptr @ick_element(i32 ${array.index}, i32 ${values.length}, ptr %subs, i32 $next)',
+      '$p = call ptr @ick_element${_suffix(array)}(i32 ${array.index}, i32 ${values.length}, ptr %subs, i32 $next)',
     );
     return p;
   }
@@ -598,29 +722,70 @@ done:
         return '$value';
       case IrScalar(:final slot):
         final p = _scalarPointer(slot), t = _fresh();
-        _line('$t = load i32, ptr $p');
+        _line('$t = load ${_type(e)}, ptr $p');
         return t;
       case IrElement(:final array, :final subscripts):
         final p = _elementPointer(array, subscripts, next), t = _fresh();
-        _line('$t = load i32, ptr $p');
+        _line('$t = load ${_type(e)}, ptr $p');
         return t;
       case IrMingle(:final left, :final right) when program.base == 2:
         final l = _expr(left, next), r = _expr(right, next);
+        final operands = <String>[];
         for (final (operand, value) in [(left, l), (right, r)]) {
-          if (_fitsSmall(operand)) continue;
+          if (_fitsSmall(operand)) {
+            operands.add(value);
+            continue;
+          }
+          final type = _type(operand);
           final tooBig = _fresh(), fine = _newBlock('mingle');
           final fault = _newBlock('e533');
-          _line('$tooBig = icmp ugt i32 $value, 65535');
+          _line('$tooBig = icmp ugt $type $value, 65535');
           _line('br i1 $tooBig, label %$fault, label %$fine');
           _block(fault);
           _line('call void @ick_fatal(i32 533, i32 $next)');
           _line('unreachable');
           _block(fine);
+          if (type == 'i64') {
+            final narrow = _fresh();
+            _line('$narrow = trunc i64 $value to i32');
+            operands.add(narrow);
+          } else {
+            operands.add(value);
+          }
         }
-        return _op('or', _op('shl', _spread(l), '1'), _spread(r));
+        return _op(
+          'or',
+          _op('shl', _spread(operands[0]), '1'),
+          _spread(operands[1]),
+        );
       case IrMingle(:final left, :final right):
         final l = _expr(left, next), r = _expr(right, next);
         return _call('ick_mingle', [l, r, '$next']);
+      case IrSelect(:final left, :final right)
+          when left.width == 64 || right.width == 64:
+        final l = _as64(left, next);
+        String result;
+        if (right case IrConst(value: final mask)
+            when selectRuns(mask, bits: 64).length <= 8) {
+          result = '0';
+          for (final run in selectRuns(mask, bits: 64)) {
+            var part = run.from == 0 ? l : _op64('lshr', l, '${run.from}');
+            if (run.from + run.width < 64) {
+              part = _op64('and', part, '${(1 << run.width) - 1}');
+            }
+            if (run.to > 0) part = _op64('shl', part, '${run.to}');
+            result = result == '0' ? part : _op64('or', result, part);
+          }
+        } else {
+          result = _fresh();
+          _line(
+            '$result = call i64 @ick_select64(i64 $l, i64 ${_as64(right, next)})',
+          );
+        }
+        if (e.width == 64) return result;
+        final narrow = _fresh();
+        _line('$narrow = trunc i64 $result to i32');
+        return narrow;
       case IrSelect(:final left, right: IrConst(value: final mask))
           when program.base == 2 &&
               compressSteps(mask).length < selectRuns(mask).length:
@@ -650,6 +815,22 @@ done:
       case IrSelect(:final left, :final right):
         final l = _expr(left, next), r = _expr(right, next);
         return _call(program.base == 2 ? 'select2' : 'ick_select', [l, r]);
+      case IrUnary(:final op, :final operand) when operand.width == 64:
+        final value = _expr(operand, next);
+        final rotated = _op64(
+          'or',
+          _op64('lshr', value, '1'),
+          _op64('shl', value, '63'),
+        );
+        return _op64(
+          switch (op) {
+            UnaryOp.and => 'and',
+            UnaryOp.or => 'or',
+            _ => 'xor',
+          },
+          value,
+          rotated,
+        );
       case IrUnary(:final op, :final operand):
         final value = _expr(operand, next);
         final large = operand.large ? 1 : 0;
@@ -679,6 +860,10 @@ done:
             value,
           ]),
         };
+      case IrInput(width: 64):
+        final t = _fresh();
+        _line('$t = call i64 @ick_write_in64(i32 $next)');
+        return t;
       case IrInput():
         return _call('ick_write_in', ['$next']);
       case IrArrayItem():
