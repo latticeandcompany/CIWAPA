@@ -102,7 +102,11 @@ lists: arrays with one dimension, or none for the empty list. Anything else is E
 | (6050), (6150) | ,1, .1 | :1 = where .1 first is in ,1; .2 = #1, or #2 if it isn't, leaving :1 alone | |
 
 INTERCAL can make an array with no dimensions only by never dimensioning it, or by RETRIEVEing
-one stashed before it was; COPY of an empty list makes one too.
+one stashed before it was. COPY of an empty list, services #6003 and #6103, and the Strings block's
+empty strings make them too. There are no versions for 64-bit (`;;`) arrays.
+
+The routines get a list's length through `:1`, with #6000 and #6010, so FILL, COPY, SORT and FIND
+need `:1` to be free, though they don't change it: if it is IGNOREd, they misbehave.
 
 The INTERCAL versions use the system library and the labels from (6200) on.
 
