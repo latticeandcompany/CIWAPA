@@ -148,3 +148,35 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-18
 
+## L26: Does EXTRACAL accept `ick`'s right-associative operator chains?
+
+- **Context:** Mode 1 follows `ick` 0.15 (Q85, Q97): an ungrouped chain such as `#1$#2~#3` is E017 when it runs, and inside a group it doesn't decode at all. `ick` 0.35 accepts chains, CLC-INTERCAL style, as right-associative: `#1$#2~#3` is `#1$'#2~#3'`. Programs written for `ick` 0.35 use them, such as `pit/tests/whileadd.i`, whose WHILE line can't decode in CIWAPA because of them.
+- **Options:**
+  - (a) EXTRACAL keeps Mode 1's rule. Programs that rely on chains need grouping added.
+  - (b) EXTRACAL accepts chains right-associatively, as `ick` 0.35 does. A Mode 1 program with a chain then runs as `.xc` instead of failing with E017, which R1 allows. But a chain inside a group makes a statement undecodable in Mode 1 and decodable in `.xc`, the same kind of difference as L15.
+- **Lean:** (a), because chains aren't one of R3's listed extensions. The compiler does (a) until this is answered.
+- **Blocks:** no checklist items. `pit/tests/whileadd.i` can't be used as an oracle test under (a).
+- **Raised:** 2026-10-18
+
+## L27: How do threads and created operators interact?
+
+- **Context:** R3 asks for `ick` 0.35's threading and CREATE. `ick` has no created operators and threads together: operators need `-e`, which replaces the code generator that threads use.
+- **Options:**
+  - (a) As CIWAPA does:
+    - A created operator's code runs as one turn, so no other thread runs until it returns.
+    - Several COME FROMs taking control inside it can't split the thread, so they are E555 as in Mode 1.
+    - A GIVE UP inside it ends the thread and abandons the operator.
+  - (b) Let operators split and yield, which needs each thread to carry its own stack of operator calls.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+
+## L28: What happens when a computed COME FROM splits a thread?
+
+- **Context:** R3 asks for `ick` 0.35's threading. When a computed or gerund COME FROM is one of several taking control from a statement, `ick` 0.35's generated code splits the thread but then resumes the new thread at the wrong place, so it runs the same COME FROM's code over and over: a program with two computed COME FROMs on one label prints the second one's output forever.
+- **Options:**
+  - (a) Each thread follows its own COME FROM, as with plain ones: the new thread takes the one found earlier, the running thread the one found last.
+  - (b) Copy `ick`'s loop.
+- **Lean:** (a), since `ick`'s loop is a bug in how it saves the jump target. The compiler does (a) until this is answered.
+- **Blocks:** no checklist items; `threads/computed.xc` pins (a).
+- **Raised:** 2026-10-18

@@ -14,7 +14,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 - [x] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead; one whose Mode 1 run doesn't end in an error also needs a `.xc.reason` citing what allows it (such as L15, `come-from/dead-next-from.i`). Tests: `packages/conformance/bin/conformance.dart`
 - [x] R1, R5 — a Mode 1 program that ends in E533 by mingling a value over 65535 gets a 64-bit result as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/calculate/e533-mingle-operand.xc.err`, `packages/conformance/tests/ignore/statement-still-executes.xc.err`
-- [ ] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.out`
+- [x] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.exit`
 
 ## Mode selection (R2)
 
@@ -60,10 +60,10 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 6. Threading
 
-- [ ] R3.6 — several COME FROMs or NEXT FROMs aimed at one label split the thread; each thread has its own variables, stashes and NEXT stack and shares abstentions. Tests: `packages/conformance/tests/extracal/threads/split.xc`
-- [ ] R3.6 — threads take turns one statement at a time, as in `ick`. Tests: `packages/conformance/tests/extracal/threads/round-robin.xc`
-- [ ] R3.6 — GIVE UP ends only the current thread while others remain. Tests: `packages/conformance/tests/extracal/threads/give-up.xc`
-- [ ] R3.6 — `a WHILE b` runs b in a woven thread for as long as a is running. Tests: `packages/conformance/tests/extracal/threads/while.xc`
+- [x] R3.6 — several COME FROMs or NEXT FROMs aimed at one label split the thread; each thread has its own variables, stashes and NEXT stack and shares abstentions. Tests: `packages/conformance/tests/extracal/threads/split.xc`, `packages/conformance/tests/extracal/threads/own-variables.xc`, `packages/conformance/tests/extracal/threads/shared-abstentions.xc`, `packages/conformance/tests/extracal/threads/next-from.xc`, `packages/conformance/tests/extracal/threads/computed.xc`, `packages/conformance/tests/extracal/threads/choicepoints.xc`
+- [x] R3.6 — threads take turns one statement at a time, as in `ick`. Tests: `packages/conformance/tests/extracal/threads/round-robin.xc`, `packages/conformance/tests/extracal/threads/split.xc`
+- [x] R3.6 — GIVE UP ends only the current thread while others remain. Tests: `packages/conformance/tests/extracal/threads/give-up.xc`
+- [x] R3.6 — `a WHILE b` runs b in a woven thread for as long as a is running. Tests: `packages/conformance/tests/extracal/threads/while.xc`, `packages/conformance/tests/extracal/threads/while-shares.xc`, `packages/conformance/tests/extracal/threads/traditional.xc`
 
 ### 7. Backtracking
 

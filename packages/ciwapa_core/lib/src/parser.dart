@@ -62,8 +62,14 @@ class Parser {
       Body body;
       var onceAgain = OnceAgain.none;
       final bodyStart = _pos;
+      Body? whileBody;
       try {
         body = _body();
+        // `ick`'s `a WHILE b` (R3): b is another statement body.
+        if (_tok.kind == TokenKind.whileKeyword) {
+          _pos++;
+          whileBody = _body();
+        }
         // `ick`'s ONCE and AGAIN end a statement (R3).
         if (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again) {
           onceAgain = _tokens[_pos++].kind == TokenKind.once
@@ -97,6 +103,7 @@ class Parser {
           chain: _chain,
           onceAgain: onceAgain,
           maybe: maybe,
+          whileBody: whileBody,
         ),
       );
     }

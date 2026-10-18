@@ -391,6 +391,14 @@ class IrTryAgain extends IrOp {
   String toString() => 'TRY AGAIN';
 }
 
+/// A statement of `ick`'s WHILE expansion that does nothing (R3).
+class IrNothing extends IrOp {
+  const IrNothing();
+
+  @override
+  String toString() => 'NOTHING';
+}
+
 /// `ick`'s GO BACK and GO AHEAD (R3). Only the control engine runs them.
 class IrGoBack extends IrOp {
   const IrGoBack();
@@ -500,6 +508,8 @@ class IrStatement {
     required this.faults,
     this.onceAgain = OnceAgain.none,
     this.maybe = false,
+    this.preproc = false,
+    this.weave = 0,
   });
 
   final int ordinal;
@@ -523,6 +533,10 @@ class IrStatement {
 
   /// `ick`'s MAYBE (R3). Only the control engine runs it.
   final bool maybe;
+
+  /// A statement of `ick`'s WHILE expansion, and what it does to weaving (R3).
+  final bool preproc;
+  final int weave;
 
   /// The ordinal printed on line 3 of an error raised here (decision T33).
   late int next;
@@ -676,7 +690,7 @@ class _Lowering {
     final statements = program.statements;
     for (final (i, s) in statements.indexed) {
       final label = s.label;
-      if (label != null && isValidLabel(label)) {
+      if (label != null && (isValidLabel(label) || s.preproc)) {
         _labels.putIfAbsent(label, () => i + 1);
       }
     }
@@ -684,7 +698,7 @@ class _Lowering {
     final ir = <IrStatement>[];
     for (final (i, s) in statements.indexed) {
       _faults = [];
-      if (s.label != null && !isValidLabel(s.label!)) {
+      if (s.label != null && !isValidLabel(s.label!) && !s.preproc) {
         _faults.add(const Fault(197));
       }
       final percent = s.percent;
@@ -696,13 +710,15 @@ class _Lowering {
           ordinal: i + 1,
           label: s.label,
           op: op,
-          gerund: s.body.gerund,
+          gerund: s.preproc ? null : s.body.gerund,
           initiallyAbstained: s.not,
           percent: percent != null && percent <= 100 ? percent : null,
           faults: _faults,
           // An unknown statement whose operands would fault is a comment, ONCE and all (L22).
           onceAgain: op is IrUndecodable ? OnceAgain.none : s.onceAgain,
           maybe: s.maybe,
+          preproc: s.preproc,
+          weave: s.weave,
         ),
       );
     }
@@ -759,7 +775,9 @@ class _Lowering {
                 (s) =>
                     _needsEngine(s.op) ||
                     s.onceAgain != OnceAgain.none ||
-                    s.maybe,
+                    s.maybe ||
+                    s.preproc ||
+                    s.comeFroms.length > 1,
               )),
     );
   }
@@ -811,6 +829,7 @@ class _Lowering {
       TryAgain() => const IrTryAgain(),
       GoBack() => const IrGoBack(),
       GoAhead() => const IrGoAhead(),
+      Nothing() => const IrNothing(),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),
@@ -910,7 +929,7 @@ class _Lowering {
       abstain: body.abstain,
       targets: [
         for (final (i, s) in program.statements.indexed)
-          if (gerunds.contains(s.body.gerund)) i + 1,
+          if (!s.preproc && gerunds.contains(s.body.gerund)) i + 1,
       ],
       gerunds: gerunds.whereType<Gerund>().toSet(),
       count: count,

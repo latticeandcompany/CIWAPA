@@ -72,11 +72,13 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           body is Create ||
           body is GoBack ||
           body is GoAhead ||
-          s.maybe) {
+          s.maybe ||
+          s.whileBody != null) {
         throw CompileError(111, i + 1);
       }
     }
   }
+  _expandWhiles(statements);
   _checkPoliteness(statements);
   // `ick` allows nothing after a TRY AGAIN, not even a comment.
   final tryAgain = statements.indexWhere((s) => s.body is TryAgain);
@@ -87,7 +89,7 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   if (_needsLibrary(statements, base)) {
     statements.addAll(Parser(Source('syslib.i', syslibSource)).parse());
   }
-  _checkLabels(statements);
+  _checkLabels(statements, extracal: dialect.extracal);
   _checkOperators(statements, base);
   _demoteUnreadable(statements, base);
   return Program(
@@ -97,6 +99,101 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
     userStatements,
     extracal: dialect.extracal,
   );
+}
+
+/// `ick`'s `(x) DO a WHILE b` (R3), expanded the way `ick`'s preprocessor does it, into 11
+/// statements with internal labels l0 to l3:
+///
+///     (l0) DO REINSTATE (l3)              weaving on
+///     (l1) DO COME FROM (l2) AGAIN
+///          DO b
+///          DO COME FROM (l0)
+///          DO NOTHING
+///          DO NOTHING
+///     (l2) DO NOTHING
+///          DO GIVE UP
+///          DO COME FROM (l0)
+///      (x) DO a                           with the statement's own qualifiers
+///     (l3) DON'T ABSTAIN FROM (l1) AGAIN  weaving off
+///
+/// The two COME FROMs on l0 split the thread: the new one runs b over and over, sharing the
+/// variables, until a finishes and abstains l1. Three of the added statements count as polite, as
+/// in `ick`.
+void _expandWhiles(List<Statement> statements) {
+  var next = 65536;
+  for (var i = statements.length - 1; i >= 0; i--) {
+    final a = statements[i];
+    final b = a.whileBody;
+    if (b == null) continue;
+    final l0 = next, l1 = next + 1, l2 = next + 2, l3 = next + 3;
+    next += 4;
+    Statement added(
+      Body body, {
+      int? label,
+      bool polite = false,
+      bool not = false,
+      OnceAgain onceAgain = OnceAgain.none,
+      int weave = 0,
+    }) => Statement(
+      source: a.source,
+      start: a.start,
+      end: a.end,
+      label: label,
+      polite: polite,
+      not: not,
+      percent: null,
+      body: body,
+      onceAgain: onceAgain,
+      preproc: true,
+      weave: weave,
+    );
+    statements.replaceRange(i, i + 1, [
+      added(
+        AbstainBody(abstain: false, label: l3),
+        label: l0,
+        polite: true,
+        weave: 1,
+      ),
+      added(ComeFrom(l2), label: l1, polite: true, onceAgain: OnceAgain.again),
+      Statement(
+        source: a.source,
+        start: a.start,
+        end: a.end,
+        label: null,
+        polite: false,
+        not: false,
+        percent: null,
+        body: b,
+      ),
+      added(ComeFrom(l0)),
+      added(const Nothing()),
+      added(const Nothing()),
+      added(const Nothing(), label: l2),
+      added(const GiveUp()),
+      added(ComeFrom(l0)),
+      Statement(
+        source: a.source,
+        start: a.start,
+        end: a.end,
+        label: a.label,
+        polite: a.polite,
+        not: a.not,
+        percent: a.percent,
+        body: a.body,
+        chain: a.chain,
+        onceAgain: a.onceAgain,
+        maybe: a.maybe,
+      ),
+      added(
+        AbstainBody(abstain: true, label: l1),
+        label: l3,
+        polite: true,
+        not: true,
+        onceAgain: OnceAgain.again,
+        weave: -1,
+      ),
+    ]);
+  }
 }
 
 /// §7.3 and decision T36: the library is included when a NEXT targets a label from 1000 to 1999
@@ -123,12 +220,12 @@ void _checkPoliteness(List<Statement> statements) {
   if (3 * polite > total) throw CompileError(99, 1);
 }
 
-void _checkLabels(List<Statement> statements) {
+void _checkLabels(List<Statement> statements, {required bool extracal}) {
   final firstWithLabel = <int, int>{};
   final duplicated = <int>{};
   for (final (i, s) in statements.indexed) {
     final label = s.label;
-    if (label == null || !isValidLabel(label)) continue;
+    if (label == null || !(isValidLabel(label) || s.preproc)) continue;
     if (firstWithLabel.containsKey(label)) duplicated.add(label);
     firstWithLabel.putIfAbsent(label, () => i);
   }
@@ -144,7 +241,8 @@ void _checkLabels(List<Statement> statements) {
     final body = s.body;
     if (body is! ComeFrom) continue;
     if (!firstWithLabel.containsKey(body.label)) throw CompileError(444, i + 1);
-    if (!targeted.add(body.label)) throw CompileError(555, i + 1);
+    // In EXTRACAL, several COME FROMs on one label start threads (R3).
+    if (!targeted.add(body.label) && !extracal) throw CompileError(555, i + 1);
   }
 }
 

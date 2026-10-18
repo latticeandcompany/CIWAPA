@@ -294,6 +294,14 @@ class GoBack extends Body {
   Gerund get gerund => Gerund.goingBack;
 }
 
+/// A statement that does nothing, which only `ick`'s WHILE expansion makes (R3).
+class Nothing extends Body {
+  const Nothing();
+
+  @override
+  Gerund? get gerund => null;
+}
+
 /// `ick`'s GO AHEAD (R3): discards the newest choicepoint.
 class GoAhead extends Body {
   const GoAhead();
@@ -394,6 +402,9 @@ class Statement {
     this.chain = false,
     this.onceAgain = OnceAgain.none,
     this.maybe = false,
+    this.whileBody,
+    this.preproc = false,
+    this.weave = 0,
   });
 
   /// The file the statement comes from: the user's program or the system library.
@@ -419,6 +430,16 @@ class Statement {
 
   /// `ick`'s MAYBE in place of DO (R3): reaching the statement makes a choicepoint.
   final bool maybe;
+
+  /// The `b` of `ick`'s `a WHILE b` (R3), until the front end expands it.
+  final Body? whileBody;
+
+  /// One of the statements `ick`'s WHILE expansion adds: its label is internal, and no gerund,
+  /// computed COME FROM or created statement can reach it.
+  final bool preproc;
+
+  /// 1 if reaching the statement turns weaving on, -1 if it turns it off (`ick`'s `setweave`).
+  final int weave;
 
   /// An ungrouped chain of binary operators: E017 when the statement executes (decision Q97).
   /// A statement that later turns out to be undecodable raises E000 instead (decision T9).

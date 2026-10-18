@@ -1400,7 +1400,12 @@ bool _xNexting(int kind) =>
     kind == xGerundNextFrom;
 
 /// [xFlags] bits.
-const xInitiallyAbstained = 1, xBug = 2, xMaybe = 4;
+const xInitiallyAbstained = 1,
+    xBug = 2,
+    xMaybe = 4,
+    xPreproc = 8,
+    xWeaveOn = 16,
+    xWeaveOff = 32;
 
 /// [xOnceAgain]: what a statement does to its own abstention when it is reached, after `ick`'s swap
 /// for initially abstained statements: abstain itself, or reinstate itself.
@@ -1484,6 +1489,9 @@ class _XThread {
   bool maybeBack = false;
   int tailIndex = 0, oldAbstain = 0;
 
+  /// Whether the thread has had its turn at the end of the statement it is finishing.
+  bool yielded = false;
+
   List<int> save() => [
     position,
     candidates,
@@ -1493,6 +1501,7 @@ class _XThread {
     finishingLabel,
     tailIndex,
     oldAbstain,
+    yielded ? 1 : 0,
   ];
 
   void restore(List<int> r) {
@@ -1504,14 +1513,16 @@ class _XThread {
     finishingLabel = r[5];
     tailIndex = r[6];
     oldAbstain = r[7];
+    yielded = r[8] != 0;
   }
 }
 
-/// Everything a choicepoint holds of its own (R3): variables, arrays, stashes, the NEXT stack and
-/// the overloading. As in `ick`, abstentions, CREATEs, input and output aren't restored when a
-/// program goes back.
-class _XMachine {
-  _XMachine.capture()
+/// A thread's data (R3): variables, arrays, stashes and overloading. Threads woven by WHILE share
+/// one. As in `ick`, abstentions, CREATEs, input and output are shared by every thread, and aren't
+/// restored when a program goes back.
+class _XData {
+  /// A deep copy of the running data, for a new thread or a choicepoint.
+  _XData.copy()
     : values = Uint32List.fromList(_values),
       ignored = Uint8List.fromList(_ignored),
       wideValues = Uint64List.fromList(_wideValues),
@@ -1547,29 +1558,38 @@ class _XMachine {
         for (final st in _wideArrayStashes)
           [for (final sh in st) _copyWideShape(sh)],
       ],
-      nextStack = Int64List.fromList(_nextStack),
-      nextCount = _nextCount,
       overloadOf = Int32List.fromList(_overloadOf),
-      overloadStashes = [for (final st in _overloadStashes) List.of(st)],
-      stashed = _stashed;
+      overloadStashes = [for (final st in _overloadStashes) List.of(st)];
+
+  /// The running data itself, to hold while another thread runs.
+  _XData.live()
+    : values = Uint32List(_values.length),
+      ignored = Uint8List(_ignored.length),
+      wideValues = Uint64List(_wideValues.length),
+      wideIgnored = Uint8List(_wideIgnored.length),
+      arrays = _arrays,
+      wideArrays = _wideArrays,
+      scalarStashes = _scalarStashes,
+      wideStashes = _wideStashes,
+      arrayStashes = _arrayStashes,
+      wideArrayStashes = _wideArrayStashes,
+      overloadOf = _overloadOf,
+      overloadStashes = _overloadStashes {
+    store();
+  }
 
   final Uint32List values;
   final Uint8List ignored;
   final Uint64List wideValues;
   final Uint8List wideIgnored;
-  final List<_Array> arrays;
-  final List<_WideArray> wideArrays;
-  final List<_ScalarStash> scalarStashes;
-  final List<_WideStash> wideStashes;
-  final List<List<_Shape>> arrayStashes;
-  final List<List<_WideShape>> wideArrayStashes;
-  final Int64List nextStack;
-  final int nextCount;
-  final Int32List overloadOf;
-  final List<List<int>> overloadStashes;
-
-  /// The test-only count of stashed values (decision L7).
-  final int stashed;
+  List<_Array> arrays;
+  List<_WideArray> wideArrays;
+  List<_ScalarStash> scalarStashes;
+  List<_WideStash> wideStashes;
+  List<List<_Shape>> arrayStashes;
+  List<List<_WideShape>> wideArrayStashes;
+  Int32List overloadOf;
+  List<List<int>> overloadStashes;
 
   static _Shape _copyShape(_Shape s) =>
       _Shape(Uint32List.fromList(s.dims), Uint32List.fromList(s.data));
@@ -1577,9 +1597,25 @@ class _XMachine {
   static _WideShape _copyWideShape(_WideShape s) =>
       _WideShape(Uint32List.fromList(s.dims), Uint64List.fromList(s.data));
 
-  /// Makes this the running state. The program's own variable tables are shared with the compiled
-  /// code, so their contents are copied back; everything else is handed over.
-  void restore() {
+  /// Takes in the running data.
+  void store() {
+    values.setAll(0, _values);
+    ignored.setAll(0, _ignored);
+    wideValues.setAll(0, _wideValues);
+    wideIgnored.setAll(0, _wideIgnored);
+    arrays = _arrays;
+    wideArrays = _wideArrays;
+    scalarStashes = _scalarStashes;
+    wideStashes = _wideStashes;
+    arrayStashes = _arrayStashes;
+    wideArrayStashes = _wideArrayStashes;
+    overloadOf = _overloadOf;
+    overloadStashes = _overloadStashes;
+  }
+
+  /// Makes this the running data. The program's own variable tables are shared with the compiled
+  /// code, so their contents are copied in; everything else is handed over.
+  void load() {
     _values.setAll(0, values);
     _ignored.setAll(0, ignored);
     _wideValues.setAll(0, wideValues);
@@ -1590,33 +1626,49 @@ class _XMachine {
     _wideStashes = wideStashes;
     _arrayStashes = arrayStashes;
     _wideArrayStashes = wideArrayStashes;
-    _nextStack = nextStack;
-    _nextCount = nextCount;
     _overloadOf = overloadOf;
     _overloadStashes = overloadStashes;
-    _stashed = stashed;
   }
 }
 
-/// A choicepoint: the state, the thread's registers with the position of the MAYBE guard that
-/// made it, and the created operator level it was made at. A stale one, left where a program
-/// went back to, has no state: going back to it just discards it.
+/// A choicepoint (R3): a copy of the thread's data and NEXT stack, its registers with the position
+/// of the MAYBE guard that made it, and the created operator level it was made at. A stale one,
+/// left where a program went back to, has no data: going back to it just discards it.
+/// Choicepoints form a stack per thread; after a thread splits, both share the ones below the
+/// split, counted in [refcount], as in `ick`.
 class _XChoice {
-  _XChoice(this.machine, this.registers, this.level)
-    : serial = _xSerials[level];
+  _XChoice(
+    this.data,
+    this.nextStack,
+    this.nextCount,
+    this.registers,
+    this.level,
+    this.next,
+  ) : serial = _xSerials[level],
+      stashed = _stashed;
 
-  _XChoice.stale()
-    : machine = null,
+  _XChoice.stale(this.next)
+    : data = null,
+      nextStack = Int64List(0),
+      nextCount = 0,
       registers = const [],
       level = 0,
-      serial = 0;
+      serial = 0,
+      stashed = 0;
 
-  final _XMachine? machine;
+  final _XData? data;
+  final Int64List nextStack;
+  final int nextCount;
   final List<int> registers;
   final int level;
+  final _XChoice? next;
+  int refcount = 1;
 
   /// Which call of a created operator [level] belonged to.
   final int serial;
+
+  /// The test-only count of stashed values (decision L7).
+  final int stashed;
 }
 
 /// The serial number of the created operator call running at each level, so that a choicepoint
@@ -1624,7 +1676,8 @@ class _XChoice {
 final _xSerials = <int>[0];
 var _xSerialCount = 0;
 
-final _xChoices = <_XChoice>[];
+/// The running thread's newest choicepoint.
+_XChoice? _xTop;
 
 /// A guard, `ick`'s way, for a statement that may have a MAYBE: the first time through, it makes
 /// a choicepoint that returns to [site]; going back there, it leaves a stale one and is reversed.
@@ -1632,33 +1685,141 @@ bool _xGuard(_XThread t, int ordinal, int abstained, int site) {
   if (_xGet(ordinal, xFlags) & xMaybe == 0) return _xRuns(ordinal, abstained);
   if (t.maybeBack) {
     t.maybeBack = false;
-    _xChoices.add(_XChoice.stale());
+    _xTop = _XChoice.stale(_xTop);
     return !_xRuns(ordinal, abstained);
   }
   t.oldAbstain = abstained;
   final position = t.position;
   t.position = site;
-  _xChoices.add(_XChoice(_XMachine.capture(), t.save(), _xLevel));
+  _xTop = _XChoice(
+    _XData.copy(),
+    Int64List.fromList(_nextStack),
+    _nextCount,
+    t.save(),
+    _xLevel,
+    _xTop,
+  );
   t.position = position;
   return _xRuns(ordinal, abstained);
 }
 
-/// GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; any
-/// other replaces the running state. One made inside a created operator that has since finished
-/// is discarded like a stale one.
+/// GO AHEAD: discards the newest choicepoint, for this thread only when others share it.
+void _xGoAhead(int next) {
+  final top = _xTop ?? ickFatal(404, next);
+  top.refcount--;
+  _xTop = top.next;
+}
+
+/// GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; one
+/// another thread shares ends this thread, as in `ick`; any other replaces the running state. One
+/// made inside a created operator that has since finished is discarded like a stale one.
 void _xGoBack(_XThread t, int next) {
-  if (_xChoices.isEmpty) ickFatal(404, next);
-  final choice = _xChoices.removeLast();
-  final machine = choice.machine;
-  if (machine == null ||
-      choice.level > _xLevel ||
-      _xSerials[choice.level] != choice.serial) {
-    return;
-  }
-  machine.restore();
-  t.restore(choice.registers);
+  final top = _xTop ?? ickFatal(404, next);
+  final data = top.data;
+  if (data == null) return _xGoAhead(next);
+  if (top.refcount > 1) _xKill(t);
+  _xTop = top.next;
+  if (top.level > _xLevel || _xSerials[top.level] != top.serial) return;
+  // Threads woven with this one keep the data it leaves.
+  final strand = _xRing[_xCurrent];
+  strand.data?.store();
+  strand.data = data;
+  data.load();
+  _nextStack = top.nextStack;
+  _nextCount = top.nextCount;
+  _stashed = top.stashed;
+  t.restore(top.registers);
   t.maybeBack = true;
-  _xUnwindTo(choice.level);
+  _xUnwindTo(top.level);
+}
+
+/// A thread that isn't running (R3): its registers, its data, its NEXT stack and its choicepoints.
+class _XStrand {
+  _XStrand(this.registers, this.data, this.nextStack, this.nextCount, this.top);
+
+  List<int> registers;
+  _XData? data;
+  Int64List nextStack;
+  int nextCount;
+  _XChoice? top;
+}
+
+/// The threads in `ick`'s order, which take turns one statement at a time; the running one is
+/// [_xCurrent], whose strand is only brought up to date when it stops running.
+final _xRing = <_XStrand>[];
+var _xCurrent = 0;
+
+/// Whether a split shares the data instead of copying it (`ick`'s `weaving`, set by WHILE).
+var _xWeaving = false;
+
+void _xSave(_XThread t) {
+  final strand = _xRing[_xCurrent];
+  strand.registers = t.save();
+  if (strand.data case final data?) {
+    data.store();
+  } else {
+    strand.data = _XData.live();
+  }
+  strand
+    ..nextStack = _nextStack
+    ..nextCount = _nextCount
+    ..top = _xTop;
+}
+
+void _xLoad(_XThread t, _XStrand strand) {
+  t.restore(strand.registers);
+  strand.data!.load();
+  _nextStack = strand.nextStack;
+  _nextCount = strand.nextCount;
+  _xTop = strand.top;
+}
+
+/// The end of a turn: the next thread runs. A created operator's code runs as a single turn.
+void _xYield(_XThread t) {
+  if (_xRing.length == 1 || _xLevel > 0) return;
+  _xSave(t);
+  _xCurrent = (_xCurrent + 1) % _xRing.length;
+  _xLoad(t, _xRing[_xCurrent]);
+}
+
+/// Several COME FROMs want control (`ick`'s `multicome1`): a new thread, placed just before this
+/// one, follows the one found earlier, at [position], with a copy of this thread's data, or the
+/// same data while weaving, and its own copy of the NEXT stack. Both share the choicepoints.
+void _xFork(_XThread t, int position) {
+  final registers = t.save();
+  registers[0] = position;
+  registers[4] = -1;
+  registers[8] = 0;
+  final current = _xRing[_xCurrent];
+  final data = _xWeaving ? (current.data ??= _XData.live()) : _XData.copy();
+  for (var c = _xTop; c != null; c = c.next) {
+    c.refcount++;
+  }
+  _xRing.insert(
+    _xCurrent,
+    _XStrand(
+      registers,
+      data,
+      Int64List.fromList(_nextStack),
+      _nextCount,
+      _xTop,
+    ),
+  );
+  _xCurrent++;
+}
+
+/// GIVE UP ends the running thread, and the program with the last one. Threads woven with it keep
+/// its data; a created operator it was running is abandoned.
+Never _xKill(_XThread t) {
+  while (_xTop != null) {
+    _xGoAhead(0);
+  }
+  if (_xRing.length == 1) ickGiveUp();
+  _xRing[_xCurrent].data?.store();
+  _xRing.removeAt(_xCurrent);
+  _xCurrent %= _xRing.length;
+  _xLoad(t, _xRing[_xCurrent]);
+  throw _XUnwind(0);
 }
 
 late XProgram _x;
@@ -1708,6 +1869,10 @@ Never ickXRun(XProgram program) {
     final label = _xGet(s, xLabel);
     if (label != 0) _xLabels.putIfAbsent(label, () => s);
   }
+  _xRing
+    ..clear()
+    ..add(_XStrand(const [], null, _nextStack, 0, null));
+  _xCurrent = 0;
   _xAbstained = Int64List(count + 1);
   for (var s = 1; s <= count; s++) {
     if (_xGet(s, xFlags) & xInitiallyAbstained != 0) _xAbstained[s] = 1;
@@ -1747,8 +1912,19 @@ void _xLoop(int level) {
           case _tail:
             _xTail(t, ordinal);
           case _end:
+            // Each statement ends a turn, before control runs on to the next.
+            if (!t.yielded && _xRing.length > 1 && _xLevel == 0) {
+              t.yielded = true;
+              _xYield(t);
+              continue;
+            }
+            t.yielded = false;
             t.position = _xFallThrough(ordinal);
-          case _landing || _landed:
+          case _landing:
+            _xLanding(t, ordinal);
+            // So does arriving at a COME FROM, before its own tail.
+            _xYield(t);
+          case _landed:
             _xLanding(t, ordinal);
           case _check:
             _xCheck(t, ordinal);
@@ -1884,7 +2060,10 @@ bool _xUpdatesFirst(int kind) =>
 void _xStart(_XThread t, int ordinal) {
   final next = _xGet(ordinal, xNext);
   final back = t.maybeBack;
-  if (!back && _xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
+  final flags = _xGet(ordinal, xFlags);
+  if (!back && flags & xWeaveOn != 0) _xWeaving = true;
+  if (!back && flags & xWeaveOff != 0) _xWeaving = false;
+  if (!back && flags & xBug != 0) ickFatal(774, next);
   final kind = _xGet(ordinal, xKind);
   if (_xComesFrom(kind)) {
     t.position = ordinal * 8 + _tail;
@@ -1931,7 +2110,7 @@ void _xStart(_XThread t, int ordinal) {
         if (abandoned > 0) _xUnwindTo(abandoned - 1);
       }
     case xGiveUp:
-      ickGiveUp();
+      _xKill(t);
     case xTryAgain:
       // `ick` jumps straight back to the start, past this statement's tail.
       t.position = 1 * 8 + _start;
@@ -1961,8 +2140,7 @@ void _xStart(_XThread t, int ordinal) {
     case xGoBack:
       _xGoBack(t, next);
     case xGoAhead:
-      if (_xChoices.isEmpty) ickFatal(404, next);
-      _xChoices.removeLast();
+      _xGoAhead(next);
     case xUnknown:
       final label = _xCreations[_xGet(ordinal, xSignature)];
       if (label == 0) ickUndecodable(_x.texts[ordinal]!, next);
@@ -2037,7 +2215,11 @@ void _xTail(_XThread t, int ordinal) {
     _xUnwindTo(_xLevel - 1);
   }
   final label = _xGet(ordinal, xLabel);
-  if (!resuming && _xChain.isNotEmpty && (label != 0 || _xGerundChain)) {
+  // `ick` never checks WHILE's own statements against computed or gerund COME FROMs.
+  if (!resuming &&
+      _xChain.isNotEmpty &&
+      (label != 0 || _xGerundChain) &&
+      _xGet(ordinal, xFlags) & xPreproc == 0) {
     t.finishingLabel = label;
     if (t.candidates == 0) t.chosen = otherwise;
     t.position = _xChain.first * 8 + _check;
@@ -2068,6 +2250,8 @@ void _xCheck(_XThread t, int ordinal) {
       ickFatal(fault, _xGet(ordinal, xNext));
     }
     t.position = ordinal * 8 + _matched;
+    // `ick` ends the turn as soon as a computed COME FROM matches.
+    _xYield(t);
   } else {
     t.position = _xNextCheck(ordinal);
   }
@@ -2077,7 +2261,11 @@ int _xNextCheck(int ordinal) => _xChainNext[ordinal]!;
 
 /// One more COME FROM wants control. A second one would start a thread.
 void _xCandidate(_XThread t, int landing) {
-  if (++t.candidates > 1) ickFatal(555, landing >> 3);
+  if (++t.candidates > 1) {
+    // A created operator's code runs as one turn, so it can't split.
+    if (_xLevel > 0) ickFatal(555, landing >> 3);
+    _xFork(t, t.chosen);
+  }
   t.chosen = landing;
 }
 
