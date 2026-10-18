@@ -2633,10 +2633,11 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
     break;
   }
   case 807:
-  case 808: ick_fatal(service, next);
+  case 808: ick_fatal(service, next); break;
   default: ick_fatal(801, next);
   }
 }
+
 /* ---- EXTRACAL's Strings block (R8, R10) ------------------------------------------------ */
 
 /* UTF-8 bytes for UTF-16 code units, as the Strings block's (3070) makes them: a lone surrogate

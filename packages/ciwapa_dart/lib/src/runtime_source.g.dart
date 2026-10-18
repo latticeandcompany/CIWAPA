@@ -2725,6 +2725,8 @@ void ickLibrary(
   }
 }
 
+// ---- EXTRACAL's Strings block (R8, R10) -----------------------------------------------------
+
 /// -1, 0 or 1 as [a] sorts before, with or after [b], element by element.
 int _compareUnits(List<int> a, List<int> b) {
   for (var i = 0; i < a.length && i < b.length; i++) {
@@ -2732,8 +2734,6 @@ int _compareUnits(List<int> a, List<int> b) {
   }
   return a.length.compareTo(b.length);
 }
-
-// ---- EXTRACAL's Strings block (R8, R10) -----------------------------------------------------
 
 /// UTF-8 bytes for UTF-16 code units, as the Strings block's (3070) makes them: a lone surrogate
 /// becomes U+FFFD.

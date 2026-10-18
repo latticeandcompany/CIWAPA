@@ -1,0 +1,5 @@
+	DO ,1 <- #2
+	DO ,1 SUB #1 <- #195
+	PLEASE ,1 SUB #2 <- #300
+	DO (3080) NEXT
+	DO GIVE UP
