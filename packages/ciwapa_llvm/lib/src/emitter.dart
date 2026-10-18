@@ -156,6 +156,11 @@ declare i64 @ick_write_in64(i32)
 declare void @ick_read_out64(i64)
 declare void @ick_turing_in64(i32, i32)
 declare void @ick_turing_out64(i32, i32)
+declare void @ick_xmingle(ptr, i32, i64, i64, i32, i64, i64, i32)
+declare void @ick_xselect(ptr, i32, i64, i64, i32, i64, i64)
+declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
+declare i64 @ick_write_in_signed(i32, i32)
+declare void @ick_read_out_signed(i64, i32)
 ''';
 
   String emit() {
@@ -249,7 +254,10 @@ declare void @ick_turing_out64(i32, i32)
       ..writeln('entry:')
       ..writeln('  %subs = alloca [$_maxSubscripts x i32]')
       ..write(
-        program.extracal ? '  %dims64 = alloca [$_maxSubscripts x i64]\n' : '',
+        program.extracal
+            ? '  %dims64 = alloca [$_maxSubscripts x i64]\n'
+                  '  %xout = alloca [3 x i64]\n'
+            : '',
       )
       ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
       ..write(
@@ -443,7 +451,7 @@ declare void @ick_turing_out64(i32, i32)
           );
           _line('store i8 ${abstain ? 1 : 0}, ptr $p');
         }
-      case IrWriteIn(:final items):
+      case IrWriteIn(:final items, :final signed):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
@@ -453,13 +461,23 @@ declare void @ick_turing_out64(i32, i32)
           }
           // Element subscripts are checked first, then the number is read, then E275 (even when
           // the target is IGNOREd, decision T24), then the store.
-          _assign(item, IrInput(width: item.width == 64 ? 64 : 32), next);
+          _assign(
+            item,
+            signed
+                ? IrInput(width: item.width, signed: true)
+                : IrInput(width: item.width == 64 ? 64 : 32),
+            next,
+          );
         }
-      case IrReadOut(:final items):
+      case IrReadOut(:final items, :final signed):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
               'call void @ick_turing_out${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
+            );
+          } else if (signed) {
+            _line(
+              'call void @ick_read_out_signed(i64 ${_as64(item, next)}, i32 ${item.width})',
             );
           } else if (item.width == 64) {
             _line('call void @ick_read_out64(i64 ${_expr(item, next)})');
@@ -521,7 +539,7 @@ declare void @ick_turing_out64(i32, i32)
   /// [e] as an i64, widening a 16- or 32-bit value.
   String _as64(IrExpr e, int next) {
     final v = _expr(e, next);
-    if (e.width == 64) return v;
+    if (e.valueWidth == 64) return v;
     final wide = _fresh();
     _line('$wide = zext i32 $v to i64');
     return wide;
@@ -539,7 +557,7 @@ declare void @ick_turing_out64(i32, i32)
   /// A FORGET or RESUME count: a 64-bit one past 32 bits acts like the largest 32-bit count.
   String _count(IrExpr count, int next) {
     final v = _expr(count, next);
-    return count.width == 64 ? _clamp32(v, -1) : v;
+    return count.valueWidth == 64 ? _clamp32(v, -1) : v;
   }
 
   void _assign(IrExpr target, IrExpr value, int next) {
@@ -547,18 +565,18 @@ declare void @ick_turing_out64(i32, i32)
     // 32 bits into 16 is Mode 1's E275, and anything wider is EXTRACAL's (R4).
     String checked(String v) {
       if (target.width == 64) {
-        if (value.width == 64) return v;
+        if (value.valueWidth == 64) return v;
         final wide = _fresh();
         _line('$wide = zext i32 $v to i64');
         return wide;
       }
-      if (value.width <= target.width) return v;
+      if (value.valueWidth <= target.width) return v;
       if (value is IrConst && value.value >= 0) {
         final max = target.width == 16 ? program.smallLimit : 0xFFFFFFFF;
         if (value.value <= max) return value.width == 64 ? '${value.value}' : v;
       }
       final c = _fresh();
-      if (value.width == 64) {
+      if (value.valueWidth == 64) {
         _line(
           '$c = call i32 @ick_check_narrow(i64 $v, i32 ${target.width}, i32 $next)',
         );
@@ -667,7 +685,53 @@ declare void @ick_turing_out64(i32, i32)
   }
 
   /// The LLVM type [e] evaluates to.
-  static String _type(IrExpr e) => e.width == 64 ? 'i64' : 'i32';
+  static String _type(IrExpr e) => e.valueWidth == 64 ? 'i64' : 'i32';
+
+  /// [e] as (width, high, low): an i32 and two i64s, for the operations whose result width
+  /// depends on their operands' values: EXTRACAL's mingle and what is built on it (R5).
+  (String, String, String) _wide(IrExpr e, int next) => switch (e) {
+    _ when e.width != IrExpr.runtimeWidth => (
+      '${e.width}',
+      '0',
+      _as64(e, next),
+    ),
+    IrMingle(:final left, :final right) => _xcall('ick_xmingle', [
+      ..._wideArgs(_wide(left, next)),
+      ..._wideArgs(_wide(right, next)),
+      'i32 $next',
+    ]),
+    IrSelect(:final left, :final right) => _xcall('ick_xselect', [
+      ..._wideArgs(_wide(left, next)),
+      ..._wideArgs(_wide(right, next)),
+    ]),
+    IrUnary(:final op, :final operand) => _xcall('ick_xunary', [
+      'i32 ${UnaryOp.values.indexOf(op)}',
+      ..._wideArgs(_wide(operand, next)),
+      'i32 $next',
+    ]),
+    _ => throw StateError('$e has no run-time width'),
+  };
+
+  static List<String> _wideArgs((String, String, String) value) => [
+    'i32 ${value.$1}',
+    'i64 ${value.$2}',
+    'i64 ${value.$3}',
+  ];
+
+  /// Calls a runtime routine that leaves a (width, high, low) result in %xout, and loads it.
+  (String, String, String) _xcall(String function, List<String> args) {
+    _line('call void @$function(ptr %xout, ${args.join(', ')})');
+    final parts = <String>[];
+    for (var i = 0; i < 3; i++) {
+      final p = _fresh(), t = _fresh();
+      _line('$p = getelementptr inbounds [3 x i64], ptr %xout, i64 0, i64 $i');
+      _line('$t = load i64, ptr $p');
+      parts.add(t);
+    }
+    final width = _fresh();
+    _line('$width = trunc i64 ${parts[0]} to i32');
+    return (width, parts[1], parts[2]);
+  }
 
   /// Whether [e] can't be above 65535: a small value, or a constant that fits.
   static bool _fitsSmall(IrExpr e) =>
@@ -700,7 +764,7 @@ declare void @ick_turing_out64(i32, i32)
   String _elementPointer(Slot array, List<IrExpr> subscripts, int next) {
     final values = [
       for (final s in subscripts)
-        s.width == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
+        s.valueWidth == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
     ];
     _storeSubscripts(values);
     final p = _fresh();
@@ -718,6 +782,28 @@ declare void @ick_turing_out64(i32, i32)
 
   String _expr(IrExpr e, int next) {
     switch (e) {
+      case _ when e.width == IrExpr.runtimeWidth:
+        final (width, _, low) = _wide(e, next);
+        final ephemeral = _fresh(),
+            fine = _newBlock('x'),
+            fault = _newBlock('e534');
+        _line('$ephemeral = icmp eq i32 $width, 128');
+        _line('br i1 $ephemeral, label %$fault, label %$fine');
+        _block(fault);
+        _line('call void @ick_fatal(i32 534, i32 $next)');
+        _line('unreachable');
+        _block(fine);
+        return low;
+      case IrSelect(:final left, :final right)
+          when left.width == IrExpr.runtimeWidth:
+        final (_, _, low) = _xcall('ick_xselect', [
+          ..._wideArgs(_wide(left, next)),
+          ..._wideArgs(_wide(right, next)),
+        ]);
+        if (e.width == 64) return low;
+        final narrow = _fresh();
+        _line('$narrow = trunc i64 $low to i32');
+        return narrow;
       case IrConst(:final value):
         return '$value';
       case IrScalar(:final slot):
@@ -730,34 +816,18 @@ declare void @ick_turing_out64(i32, i32)
         return t;
       case IrMingle(:final left, :final right) when program.base == 2:
         final l = _expr(left, next), r = _expr(right, next);
-        final operands = <String>[];
         for (final (operand, value) in [(left, l), (right, r)]) {
-          if (_fitsSmall(operand)) {
-            operands.add(value);
-            continue;
-          }
-          final type = _type(operand);
+          if (_fitsSmall(operand)) continue;
           final tooBig = _fresh(), fine = _newBlock('mingle');
           final fault = _newBlock('e533');
-          _line('$tooBig = icmp ugt $type $value, 65535');
+          _line('$tooBig = icmp ugt i32 $value, 65535');
           _line('br i1 $tooBig, label %$fault, label %$fine');
           _block(fault);
           _line('call void @ick_fatal(i32 533, i32 $next)');
           _line('unreachable');
           _block(fine);
-          if (type == 'i64') {
-            final narrow = _fresh();
-            _line('$narrow = trunc i64 $value to i32');
-            operands.add(narrow);
-          } else {
-            operands.add(value);
-          }
         }
-        return _op(
-          'or',
-          _op('shl', _spread(operands[0]), '1'),
-          _spread(operands[1]),
-        );
+        return _op('or', _op('shl', _spread(l), '1'), _spread(r));
       case IrMingle(:final left, :final right):
         final l = _expr(left, next), r = _expr(right, next);
         return _call('ick_mingle', [l, r, '$next']);
@@ -860,6 +930,13 @@ declare void @ick_turing_out64(i32, i32)
             value,
           ]),
         };
+      case IrInput(signed: true, :final width):
+        final t = _fresh();
+        _line('$t = call i64 @ick_write_in_signed(i32 $width, i32 $next)');
+        if (width == 64) return t;
+        final narrow = _fresh();
+        _line('$narrow = trunc i64 $t to i32');
+        return narrow;
       case IrInput(width: 64):
         final t = _fresh();
         _line('$t = call i64 @ick_write_in64(i32 $next)');

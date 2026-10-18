@@ -324,6 +324,27 @@ void main() {
       );
     });
 
+    test('a mingle widens by value unless both operands surely fit (R5)', () {
+      expect(value('DO :1 <- .1\$.2').width, 32);
+      expect(value('DO :1 <- .1\$#65535').width, 32);
+      expect(value('DO :1 <- :1\$.2').width, IrExpr.runtimeWidth);
+      expect(value('DO :1 <- .1\$##65536').width, IrExpr.runtimeWidth);
+      expect(value('DO :1 <- ::1~:1\$.2').width, IrExpr.runtimeWidth);
+      expect(value('DO :1 <- :1\$.2~#3').width, 16);
+      expect(
+        (build('DO :1 <- :1\$.2', path: 't.i').at(1).op as IrAssign)
+            .value
+            .width,
+        32,
+      );
+      expect(
+        (build('DO :1 <- :1\$.2', path: 't.3xc').at(1).op as IrAssign)
+            .value
+            .width,
+        32,
+      );
+    });
+
     test('Mode 1 and bases 3–7 have no 64-bit sigils (L17)', () {
       for (final path in ['test.i', 'test.3xc']) {
         expect(

@@ -1246,3 +1246,17 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Source:** R7 ("A value over 2^64−1 is an error").
 - **Tests:** `packages/conformance/tests/extracal/numerals/write-in-over.xc`
 - **Date:** 2026-10-18
+
+### E534: an ephemeral 128-bit value used for something other than a select
+- **Text:** `AN EPHEMERAL 128-BIT VALUE HAS BEEN USED FOR SOMETHING OTHER THAN A SELECT.`
+- **Joke:** `IT WAS ONLY EVER MEANT TO BE A PHASE.`
+- **Source:** R5. A mingle of operands over 32 bits makes a 128-bit value that only a select may consume. Storing it, printing it, using it as a subscript or count, giving it to a unary operator or mingling it again is E534 when the statement executes. A select whose result doesn't fit in 64 bits is another such value (L16's lean).
+- **Tests:** `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-subscript.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-count.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
+- **Date:** 2026-10-18
+
+### E536: WRITE IN SIGNED of a value outside the variable's signed range
+- **Text:** `A WRITE IN SIGNED STATEMENT HAS PRODUCED A VALUE OUTSIDE ITS VARIABLE'S SIGNED RANGE.`
+- **Joke:** `THE NUMBER WAS TOO NEGATIVE, OR TOO POSITIVE, OR POSSIBLY BOTH.`
+- **Source:** R6. The ranges are −2^(n−1) to 2^(n−1)−1 for an n-bit variable. Wimp mode reads the number as C's atol does (T32), then checks the same range.
+- **Tests:** `packages/conformance/tests/extracal/signed/out-of-range.xc`, `packages/conformance/tests/extracal/signed/out-of-range-negative.xc`
+- **Date:** 2026-10-18

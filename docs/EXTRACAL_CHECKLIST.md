@@ -13,7 +13,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 ## Superset (R1)
 
 - [x] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead. Tests: `packages/conformance/bin/conformance.dart`
-- [ ] R1, R5 — a Mode 1 program that ends in E533 by mingling a value over 65535 gets a 64-bit result as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/calculate/e533-mingle-left.xc.out`
+- [x] R1, R5 — a Mode 1 program that ends in E533 by mingling a value over 65535 gets a 64-bit result as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/calculate/e533-mingle-operand.xc.err`, `packages/conformance/tests/ignore/statement-still-executes.xc.err`
 - [ ] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.out`
 
 ## Mode selection (R2)
@@ -97,17 +97,18 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Mingle widening (R5)
 
-- [ ] R5 — operands up to 65535 give a 32-bit result, as in Mode 1. Tests: `packages/conformance/tests/extracal/mingle/small.xc`
-- [ ] R5 — operands up to 4294967295 give a 64-bit result. Tests: `packages/conformance/tests/extracal/mingle/wide-64.xc`
-- [ ] R5 — larger operands give a 128-bit ephemeral value that a select can consume, with a 128-bit mask. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-select.xc`
-- [ ] R5 — storing, printing or applying a unary operator to an ephemeral value is an error. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-read-out.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`
-- [ ] R5 — a unary operator on a mingle rotates at the width the mingle had at run time. Tests: `packages/conformance/tests/extracal/mingle/unary-runtime-width.xc`
+- [x] R5 — operands up to 65535 give a 32-bit result, as in Mode 1. Tests: `packages/conformance/tests/extracal/mingle/small.xc`
+- [x] R5 — operands up to 4294967295 give a 64-bit result. Tests: `packages/conformance/tests/extracal/mingle/wide-64.xc`
+- [x] R5 — larger operands give a 128-bit ephemeral value that a select can consume, with a 128-bit mask. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-select.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
+- [x] R5 — storing, mingling or applying a unary operator to an ephemeral value is E534. Tests: `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`
+- [ ] R5, R3.8 — printing an ephemeral value, which only operand overloading can ask for, is E534. Tests: `packages/conformance/tests/extracal/overloading/ephemeral-read-out.xc`
+- [x] R5 — a unary operator on a mingle rotates at the width the mingle had at run time. Tests: `packages/conformance/tests/extracal/mingle/unary-runtime-width.xc`
 
 ## Signed numbers (R6)
 
-- [ ] R6 — `WRITE IN SIGNED` reads an optional `MINUS` before the digits, at 16, 32 and 64 bits, including each width's extremes. Tests: `packages/conformance/tests/extracal/signed/write-in.xc`
-- [ ] R6 — `READ OUT SIGNED` prints negative values as `-` and the numeral of the magnitude, including each width's most negative value. Tests: `packages/conformance/tests/extracal/signed/read-out.xc`
-- [ ] R6 — a signed value out of its variable's range is an error. Tests: `packages/conformance/tests/extracal/signed/out-of-range.xc`
+- [x] R6 — `WRITE IN SIGNED` reads an optional `MINUS` before the digits, at 16, 32 and 64 bits, including each width's extremes, and in wimp mode. Tests: `packages/conformance/tests/extracal/signed/write-in.xc`, `packages/conformance/tests/extracal/signed/minus-in-the-middle.xc`, `packages/conformance/tests/extracal/signed/wimp-signed.xc`
+- [x] R6 — `READ OUT SIGNED` prints negative values as `-` and the numeral of the magnitude, including each width's most negative value. Tests: `packages/conformance/tests/extracal/signed/read-out.xc`
+- [x] R6 — a signed value out of its variable's range is E536. Tests: `packages/conformance/tests/extracal/signed/out-of-range.xc`, `packages/conformance/tests/extracal/signed/out-of-range-negative.xc`
 
 ## 64-bit numerals (R7)
 

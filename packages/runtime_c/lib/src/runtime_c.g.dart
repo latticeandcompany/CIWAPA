@@ -728,23 +728,26 @@ void ick_read_out(uint32_t value) {
   fflush(stdout);
 }
 
+static void write_decimal(uint64_t value, int negative) {
+  char digits[24];
+  int at = 23;
+  digits[at] = '\0';
+  do {
+    digits[--at] = (char)('0' + value % 10);
+    value /= 10;
+  } while (value);
+  printf("%s%s\n", negative ? "-" : "", digits + at);
+  ICK_FLUSH();
+}
+
 /* R7, Q125: a 64-bit value splits into groups of 12 decimal digits. The x10^12 group is printed
- * like the low one with an extra overline on every character, in a row of its own on top. */
-void ick_read_out64(uint64_t value) {
-  if (wimp_mode) {
-    char digits[24];
-    int at = 23;
-    digits[at] = '\0';
-    do {
-      digits[--at] = (char)('0' + value % 10);
-      value /= 10;
-    } while (value);
-    printf("%s\n", digits + at);
-    ICK_FLUSH();
-    return;
-  }
-  if (value <= 0xFFFFFFFFu) {
-    ick_read_out((uint32_t)value);
+ * like the low one with an extra overline on every character, in a row of its own on top. A
+ * [negative] value (R6, Q138) gets a `-` before the letters and a space above it. */
+static void print_numeral(uint64_t value, int negative) {
+  const char *sign = negative ? "-" : "", *above = negative ? " " : "";
+  if (value == 0) {
+    printf("%s_\n%s\n", above, sign);
+    fflush(stdout);
     return;
   }
   uint64_t high = value / 1000000000000ull, low = value % 1000000000000ull;
@@ -754,12 +757,67 @@ void ick_read_out64(uint64_t value) {
   int split = butcher(low, numeral, bars, end);
   int at = butcher(high, numeral, bars, split);
   for (int i = at; i < end; i++) top[i] = i < split ? '_' : ' ';
-  if (high == 0) {
-    printf("%s\n%s\n", bars + at, numeral + at);
-  } else {
-    printf("%s\n%s\n%s\n", top + at, bars + at, numeral + at);
-  }
+  if (high != 0) printf("%s%s\n", above, top + at);
+  printf("%s%s\n%s%s\n", above, bars + at, sign, numeral + at);
   fflush(stdout);
+}
+
+void ick_read_out64(uint64_t value) {
+  if (wimp_mode) {
+    write_decimal(value, 0);
+    return;
+  }
+  print_numeral(value, 0);
+}
+
+/* R6, Q124, Q138: [value] read as two's complement at [width] bits. */
+void ick_read_out_signed(uint64_t value, uint32_t width) {
+  uint64_t mask = width == 64 ? UINT64_MAX : ((uint64_t)1 << width) - 1;
+  value &= mask;
+  int negative = (value >> (width - 1)) & 1;
+  uint64_t magnitude = negative ? (0 - value) & mask : value;
+  if (wimp_mode) {
+    write_decimal(magnitude, negative);
+    return;
+  }
+  print_numeral(magnitude, negative);
+}
+
+/* WRITE IN SIGNED (R6): an optional MINUS, then the digits, for a variable of [width] bits. A
+ * value outside the variable's signed range is E536. Returns the two's complement in [width]
+ * bits. Wimp mode reads like C's atol (decision T32), then checks the same range. */
+uint64_t ick_write_in_signed(uint32_t width, uint32_t next) {
+  size_t length;
+  if (!read_line(&length, next)) ick_fatal(562, next);
+  uint64_t limit = (uint64_t)1 << (width - 1), magnitude = 0;
+  uint64_t mask = width == 64 ? UINT64_MAX : ((uint64_t)1 << width) - 1;
+  int negative = 0;
+  if (wimp_mode) {
+    uint64_t value = wimp_long();
+    negative = (int)(value >> 63);
+    magnitude = negative ? 0 - value : value;
+  } else {
+    int digits = 0;
+    size_t i = 0;
+    while (i < length) {
+      while (i < length && line_buffer[i] == ' ') i++;
+      if (i == length) break;
+      size_t start = i;
+      while (i < length && line_buffer[i] != ' ') i++;
+      if (i - start == 5 && memcmp(line_buffer + start, "MINUS", 5) == 0 && digits == 0 && !negative) {
+        negative = 1;
+        continue;
+      }
+      int digit = numeral_digit(line_buffer + start, i - start);
+      if (digit < 0) ick_fatal(579, next);
+      if (magnitude > (limit - (uint64_t)digit) / 10) ick_fatal(536, next);
+      magnitude = magnitude * 10 + (uint64_t)digit;
+      digits++;
+    }
+    if (digits == 0) ick_fatal(562, next);
+  }
+  if (negative ? magnitude > limit : magnitude >= limit) ick_fatal(536, next);
+  return (negative ? 0 - magnitude : magnitude) & mask;
 }
 
 /* ---- Turing Text (§5.2, decision T31) -------------------------------------------------- */
@@ -1023,5 +1081,78 @@ void ick_turing_out64(uint32_t index, uint32_t next) {
     putchar((int)c);
     if (c == '\n') ICK_FLUSH();
   }
+}
+
+/* ---- EXTRACAL's mingle widening (R5, Q122) ---------------------------------------------- */
+/* A mingle's width depends on its operands' values, so its result is held as (width, high, low):
+ * width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can
+ * use. The generated code passes the parts separately and gets the result in out[0..2]. */
+
+static uint64_t spread32(uint64_t x) {
+  x = (x | x << 16) & 0x0000FFFF0000FFFFull;
+  x = (x | x << 8) & 0x00FF00FF00FF00FFull;
+  x = (x | x << 4) & 0x0F0F0F0F0F0F0F0Full;
+  x = (x | x << 2) & 0x3333333333333333ull;
+  return (x | x << 1) & 0x5555555555555555ull;
+}
+
+/* Operands up to 65535 give 32 bits exactly as in Mode 1, up to 2^32 - 1 give 64 bits, and
+ * anything larger gives a 128-bit ephemeral value. An ephemeral operand is E534. */
+void ick_xmingle(uint64_t *out, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t bw, uint64_t bhi,
+                 uint64_t blo, uint32_t next) {
+  (void)ahi;
+  (void)bhi;
+  if (aw == 128 || bw == 128) ick_fatal(534, next);
+  if (alo <= 0xFFFFu && blo <= 0xFFFFu) {
+    out[0] = 32;
+    out[1] = 0;
+    out[2] = spread32(alo) << 1 | spread32(blo);
+  } else if (alo <= 0xFFFFFFFFu && blo <= 0xFFFFFFFFu) {
+    out[0] = 64;
+    out[1] = 0;
+    out[2] = spread32(alo) << 1 | spread32(blo);
+  } else {
+    out[0] = 128;
+    out[1] = spread32(alo >> 32) << 1 | spread32(blo >> 32);
+    out[2] = spread32(alo & 0xFFFFFFFFu) << 1 | spread32(blo & 0xFFFFFFFFu);
+  }
+}
+
+/* Takes its right operand's width (Q77). A 128-bit mask gives a 64-bit result when it fits in 64
+ * bits, and otherwise another ephemeral value (L16's lean). */
+void ick_xselect(uint64_t *out, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t bw, uint64_t bhi,
+                 uint64_t blo) {
+  (void)aw;
+  uint64_t result[2] = {0, 0}, values[2] = {alo, ahi}, masks[2] = {blo, bhi};
+  unsigned at = 0;
+  for (int half = 0; half < 2; half++) {
+    for (uint64_t v = values[half], m = masks[half]; m; m >>= 1, v >>= 1) {
+      if (!(m & 1)) continue;
+      if (v & 1) result[at / 64] |= (uint64_t)1 << (at % 64);
+      at++;
+    }
+  }
+  out[1] = 0;
+  out[2] = result[0];
+  if (bw != 128) {
+    out[0] = bw;
+  } else if (result[1] == 0) {
+    out[0] = 64;
+  } else {
+    out[0] = 128;
+    out[1] = result[1];
+  }
+}
+
+/* [op] is 0 for AND, 1 for OR and 2 for XOR, rotating at the value's width (R4, R5). */
+void ick_xunary(uint64_t *out, uint32_t op, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t next) {
+  (void)ahi;
+  if (aw == 128) ick_fatal(534, next);
+  uint64_t rotated = aw == 16   ? ((alo >> 1) | (alo << 15)) & 0xFFFFu
+                     : aw == 32 ? ((alo >> 1) | (alo << 31)) & 0xFFFFFFFFu
+                                : (alo >> 1) | (alo << 63);
+  out[0] = aw;
+  out[1] = 0;
+  out[2] = op == 0 ? alo & rotated : op == 1 ? alo | rotated : alo ^ rotated;
 }
 ''';
