@@ -779,70 +779,74 @@ const extracalSources = {
         DO RESUME #1
 (4711)  DO FORGET #1
         DO PETITION #813
-
-(4009)  PLEASE STASH .50 + .51 + :50 + :51 + :52 + :53
-        DO :50 <- ::1~####12297829382473034410
-        DO :51 <- ::1~####6148914691236517205
-        DO :52 <- ::2~####12297829382473034410
-        PLEASE :53 <- ::2~####6148914691236517205
-        DO .50 <- #0
-        DO (4400) NEXT
-        DO ::3 <- :50$:51
-        PLEASE .51 <- "?'.50$#1'"~#1
-        DO ::4 <- '.50$.51'
-        DO RETRIEVE .50 + .51 + :50 + :51 + :52 + :53
+        PLEASE RETRIEVE .5 + ::4
         DO RESUME #1
 
-(4010)  PLEASE STASH .50 + :50 + :51 + :52 + :53
+(4009)  DO STASH .50 + .51 + :50 + :51 + :52 + :53
         DO :50 <- ::1~####12297829382473034410
-        DO :50 <- "?':50$##4294967295'"~'##0$##4294967295'
-        DO :51 <- ::1~####6148914691236517205
-        PLEASE :51 <- "?':51$##4294967295'"~'##0$##4294967295'
+        PLEASE :51 <- ::1~####6148914691236517205
         DO :52 <- ::2~####12297829382473034410
         DO :53 <- ::2~####6148914691236517205
         DO .50 <- #0
         PLEASE (4400) NEXT
-        DO :50 <- "?':50$##4294967295'"~'##0$##4294967295'
-        DO :51 <- "?':51$##4294967295'"~'##0$##4294967295'
         DO ::3 <- :50$:51
-        PLEASE RETRIEVE .50 + :50 + :51 + :52 + :53
+        DO .51 <- "?'.50$#1'"~#1
+        DO ::4 <- '.50$.51'
+        PLEASE RETRIEVE .50 + .51 + :50 + :51 + :52 + :53
         DO RESUME #1
 
-(4020)  DO STASH .1 + .2 + .50 + .51 + .52 + .53 + :1 + :50
+(4010)  DO STASH .50 + :50 + :51 + :52 + :53
+        DO :50 <- ::1~####12297829382473034410
+        PLEASE :50 <- "?':50$##4294967295'"~'##0$##4294967295'
+        DO :51 <- ::1~####6148914691236517205
+        DO :51 <- "?':51$##4294967295'"~'##0$##4294967295'
+        DO :52 <- ::2~####12297829382473034410
+        PLEASE :53 <- ::2~####6148914691236517205
+        DO .50 <- #0
+        DO (4400) NEXT
+        DO :50 <- "?':50$##4294967295'"~'##0$##4294967295'
+        PLEASE :51 <- "?':51$##4294967295'"~'##0$##4294967295'
+        DO ::3 <- :50$:51
+        DO RETRIEVE .50 + :50 + :51 + :52 + :53
+        DO RESUME #1
+
+(4020)  PLEASE STASH .1 + .2 + .50 + .51 + .52 + .53 + :1 + :50
         DO .50 <- :1~'#65535$#0'
-        PLEASE .51 <- :2~'#65535$#0'
+        DO .51 <- :2~'#65535$#0'
         DO .52 <- :1~'#0$#65535'
-        DO .53 <- :2~'#0$#65535'
+        PLEASE .53 <- :2~'#0$#65535'
         DO .1 <- .50
-        PLEASE .2 <- .51
+        DO .2 <- .51
         DO (1520) NEXT
-        DO :50 <- :1
+        PLEASE :50 <- :1
         DO .1 <- .52
-        PLEASE .2 <- .53
+        DO .2 <- .53
         DO (1520) NEXT
-        DO ::1 <- :50$:1
+        PLEASE ::1 <- :50$:1
         DO RETRIEVE .1 + .2 + .50 + .51 + .52 + .53 + :1 + :50
-        PLEASE RESUME #1
+        DO RESUME #1
 
 (4030)  DO STASH ::2 + ::3 + ::4
-        DO ::1 <- :1
+        PLEASE ::1 <- :1
         DO ::2 <- :2
-        PLEASE (4049) NEXT
+        DO (4049) NEXT
         DO ::1 <- ::3
-        DO RETRIEVE ::2 + ::3 + ::4
+        PLEASE RETRIEVE ::2 + ::3 + ::4
         DO RESUME #1
 
-(4040)  PLEASE STASH .5 + ::4
+(4040)  DO STASH .5 + ::4
         DO (4049) NEXT
-        DO .5 <- ::4~#2
+        PLEASE .5 <- ::4~#2
         DO (4712) NEXT
-        PLEASE (4713) NEXT
+        DO (4713) NEXT
 (4712)  DO (1990) NEXT
-        DO FORGET #1
+        PLEASE FORGET #1
         DO RETRIEVE .5 + ::4
-        PLEASE RESUME #1
+        DO RESUME #1
 (4713)  DO FORGET #1
-        DO PETITION #813
+        PLEASE PETITION #813
+        DO RETRIEVE .5 + ::4
+        DO RESUME #1
 
 (4049)  DO STASH .5 + .50 + .51 + .52 + :50 + :51 + :52 + :53 + :56 + :57 + :58 + :59 + :60 + :61 + :62
         PLEASE :56 <- #0
@@ -948,32 +952,36 @@ const extracalSources = {
         PLEASE RESUME #1
 (4721)  DO FORGET #1
         DO PETITION #813
-
-(4109)  DO STASH .50 + .51 + .52
-        PLEASE (1009) NEXT
-        DO .50 <- .1~#32768
-        DO .51 <- .2~#32768
-        DO .52 <- .3~#32768
-        PLEASE .51 <- "?'.50$.51'"~#1
-        DO .51 <- "?'.51$#1'"~#1
-        DO .52 <- "?'.50$.52'"~#1
-        DO .50 <- "&'.51$.52'"~#1
-        PLEASE .51 <- "?'.50$#1'"~#1
-        DO .4 <- '.50$.51'
-        DO RETRIEVE .50 + .51 + .52
-        DO RESUME #1
-
-(4110)  PLEASE STASH .5 + .4
-        DO (4119) NEXT
-        DO .5 <- .4~#2
-        DO (4722) NEXT
-        PLEASE (4723) NEXT
-(4722)  DO (1990) NEXT
-        DO FORGET #1
         DO RETRIEVE .5 + .4
         PLEASE RESUME #1
+
+(4109)  DO STASH .50 + .51 + .52
+        DO (1009) NEXT
+        DO .50 <- .1~#32768
+        PLEASE .51 <- .2~#32768
+        DO .52 <- .3~#32768
+        DO .51 <- "?'.50$.51'"~#1
+        DO .51 <- "?'.51$#1'"~#1
+        PLEASE .52 <- "?'.50$.52'"~#1
+        DO .50 <- "&'.51$.52'"~#1
+        DO .51 <- "?'.50$#1'"~#1
+        DO .4 <- '.50$.51'
+        PLEASE RETRIEVE .50 + .51 + .52
+        DO RESUME #1
+
+(4110)  DO STASH .5 + .4
+        DO (4119) NEXT
+        PLEASE .5 <- .4~#2
+        DO (4722) NEXT
+        DO (4723) NEXT
+(4722)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO RETRIEVE .5 + .4
+        DO RESUME #1
 (4723)  DO FORGET #1
-        DO PETITION #813
+        PLEASE PETITION #813
+        DO RETRIEVE .5 + .4
+        DO RESUME #1
 
 (4119)  DO STASH .50 + .51 + .52
         PLEASE (1010) NEXT
@@ -999,134 +1007,142 @@ const extracalSources = {
         DO RESUME #1
 (4725)  PLEASE FORGET #1
         DO PETITION #813
+        DO RETRIEVE .5 + .4
+        DO RESUME #1
 
-(4149)  DO STASH .5 + .50 + .51 + .52 + .53 + .54 + .1 + .2 + .60 + .61 + .62
+(4149)  PLEASE STASH .5 + .50 + .51 + .52 + .53 + .54 + .1 + .2 + .60 + .61 + .62
         DO (1039) NEXT
-        PLEASE .62 <- .3
+        DO .62 <- .3
         DO .50 <- .1~#32768
-        DO .51 <- .2~#32768
+        PLEASE .51 <- .2~#32768
         DO .60 <- .1
-        PLEASE .5 <- .50
-        DO .5 <- "?'.5$#1'"~#1
-        DO (4726) NEXT
-        DO (4727) NEXT
-(4726)  PLEASE (1990) NEXT
-        DO FORGET #1
-        DO (4410) NEXT
-        DO (4727) NEXT
-(4727)  PLEASE FORGET #1
-        DO .61 <- .60
-        DO .60 <- .2
-        DO .5 <- .51
-        PLEASE .5 <- "?'.5$#1'"~#1
-        DO (4728) NEXT
-        DO (4729) NEXT
-(4728)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO (4410) NEXT
-        DO (4729) NEXT
-(4729)  DO FORGET #1
-        PLEASE .1 <- .61
-        DO .2 <- .60
-        DO (1039) NEXT
-        DO .52 <- .4~#2
-        PLEASE .50 <- "?'.50$.51'"~#1
-        DO .51 <- .3~#32768
-        DO .60 <- .3~#32767
-        DO .53 <- '.60~.60'~#1
-        PLEASE .54 <- "?'.50$#1'"~#1
-        DO .54 <- "V'.54$.53'"~#1
-        DO .54 <- "&'.54$.51'"~#1
-        DO .52 <- "V'.52$.54'"~#1
-        PLEASE .53 <- "?'.52$#1'"~#1
-        DO .3 <- .62
-        DO .4 <- '.52$.53'
-        DO RETRIEVE .5 + .50 + .51 + .52 + .53 + .54 + .1 + .2 + .60 + .61 + .62
-        PLEASE RESUME #1
-
-(4150)  DO STASH .5 + .50 + .51 + .52 + .1 + .2 + .60 + .61
-        DO .50 <- .1~#32768
-        DO .51 <- .2~#32768
-        PLEASE .60 <- .1
         DO .5 <- .50
         DO .5 <- "?'.5$#1'"~#1
-        DO (4730) NEXT
-        PLEASE (4731) NEXT
-(4730)  DO (1990) NEXT
-        DO FORGET #1
-        DO (4410) NEXT
-        PLEASE (4731) NEXT
-(4731)  DO FORGET #1
-        DO .61 <- .60
-        DO .60 <- .2
-        PLEASE .5 <- .51
-        DO .5 <- "?'.5$#1'"~#1
-        DO (4732) NEXT
-        DO (4733) NEXT
-(4732)  PLEASE (1990) NEXT
-        DO FORGET #1
-        DO (4410) NEXT
-        DO (4733) NEXT
-(4733)  PLEASE FORGET #1
-        DO .1 <- .61
-        DO .2 <- .60
-        DO (1040) NEXT
-        PLEASE .50 <- "?'.50$.51'"~#1
-        DO .52 <- .3~#32768
-        DO .51 <- "?'.50$#1'"~#1
-        DO .52 <- "&'.52$.51'"~#1
-        PLEASE .5 <- .52
-        DO (4734) NEXT
-        DO (4735) NEXT
-(4734)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO .60 <- .3
-        DO .5 <- .50
-        DO .5 <- "?'.5$#1'"~#1
-        PLEASE (4736) NEXT
-        DO (4737) NEXT
-(4736)  DO (1990) NEXT
+        PLEASE (4726) NEXT
+        DO (4727) NEXT
+(4726)  DO (1990) NEXT
         DO FORGET #1
         PLEASE (4410) NEXT
+        DO (4727) NEXT
+(4727)  DO FORGET #1
+        DO .61 <- .60
+        PLEASE .60 <- .2
+        DO .5 <- .51
+        DO .5 <- "?'.5$#1'"~#1
+        DO (4728) NEXT
+        PLEASE (4729) NEXT
+(4728)  DO (1990) NEXT
+        DO FORGET #1
+        DO (4410) NEXT
+        PLEASE (4729) NEXT
+(4729)  DO FORGET #1
+        DO .1 <- .61
+        DO .2 <- .60
+        PLEASE (1039) NEXT
+        DO .52 <- .4~#2
+        DO .50 <- "?'.50$.51'"~#1
+        DO .51 <- .3~#32768
+        PLEASE .60 <- .3~#32767
+        DO .53 <- '.60~.60'~#1
+        DO .54 <- "?'.50$#1'"~#1
+        DO .54 <- "V'.54$.53'"~#1
+        PLEASE .54 <- "&'.54$.51'"~#1
+        DO .52 <- "V'.52$.54'"~#1
+        DO .53 <- "?'.52$#1'"~#1
+        DO .3 <- .62
+        PLEASE .4 <- '.52$.53'
+        DO RETRIEVE .5 + .50 + .51 + .52 + .53 + .54 + .1 + .2 + .60 + .61 + .62
+        DO RESUME #1
+
+(4150)  DO STASH .5 + .50 + .51 + .52 + .1 + .2 + .60 + .61
+        PLEASE .50 <- .1~#32768
+        DO .51 <- .2~#32768
+        DO .60 <- .1
+        DO .5 <- .50
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (4730) NEXT
+        DO (4731) NEXT
+(4730)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO (4410) NEXT
+        DO (4731) NEXT
+(4731)  DO FORGET #1
+        PLEASE .61 <- .60
+        DO .60 <- .2
+        DO .5 <- .51
+        DO .5 <- "?'.5$#1'"~#1
+        PLEASE (4732) NEXT
+        DO (4733) NEXT
+(4732)  DO (1990) NEXT
+        DO FORGET #1
+        PLEASE (4410) NEXT
+        DO (4733) NEXT
+(4733)  DO FORGET #1
+        DO .1 <- .61
+        PLEASE .2 <- .60
+        DO (1040) NEXT
+        DO .50 <- "?'.50$.51'"~#1
+        DO .52 <- .3~#32768
+        PLEASE .51 <- "?'.50$#1'"~#1
+        DO .52 <- "&'.52$.51'"~#1
+        DO .5 <- .52
+        DO (4734) NEXT
+        PLEASE (4735) NEXT
+(4734)  DO (1990) NEXT
+        DO FORGET #1
+        DO .60 <- .3
+        PLEASE .5 <- .50
+        DO .5 <- "?'.5$#1'"~#1
+        DO (4736) NEXT
         DO (4737) NEXT
-(4737)  DO FORGET #1
+(4736)  PLEASE (1990) NEXT
+        DO FORGET #1
+        DO (4410) NEXT
+        DO (4737) NEXT
+(4737)  PLEASE FORGET #1
         DO .3 <- .60
+        DO RETRIEVE .5 + .50 + .51 + .52 + .1 + .2 + .60 + .61
+        DO RESUME #1
+(4735)  PLEASE FORGET #1
+        DO PETITION #813
+        DO RETRIEVE .5 + .50 + .51 + .52 + .1 + .2 + .60 + .61
+        DO RESUME #1
         PLEASE RETRIEVE .5 + .50 + .51 + .52 + .1 + .2 + .60 + .61
         DO RESUME #1
-(4735)  DO FORGET #1
-        DO PETITION #813
 
-(4160)  PLEASE STASH ::1 + ::2 + ::3 + .60
+(4160)  DO STASH ::1 + ::2 + ::3 + .60
         DO .60 <- "?'.1$#32768'"~'#0$#65535'
-        DO ::1 <- .60
+        PLEASE ::1 <- .60
         DO .60 <- "?'.2$#32768'"~'#0$#65535'
-        PLEASE ::2 <- .60
+        DO ::2 <- .60
         DO (4070) NEXT
-        DO .60 <- ::3
+        PLEASE .60 <- ::3
         DO RETRIEVE ::1 + ::2 + ::3
-        PLEASE .3 <- .60
+        DO .3 <- .60
         DO RETRIEVE .60
-        DO RESUME #1
+        PLEASE RESUME #1
 
 (4420)  DO STASH :1 + :2 + :3
-        PLEASE :1 <- #0
+        DO :1 <- #0
         DO :2 <- :60
-        DO (1510) NEXT
+        PLEASE (1510) NEXT
         DO :60 <- :3
-        PLEASE RETRIEVE :1 + :2 + :3
+        DO RETRIEVE :1 + :2 + :3
         DO RESUME #1
 
-(4200)  DO STASH .5 + :4
+(4200)  PLEASE STASH .5 + :4
         DO (4209) NEXT
-        PLEASE .5 <- :4~#2
+        DO .5 <- :4~#2
         DO (4738) NEXT
-        DO (4739) NEXT
+        PLEASE (4739) NEXT
 (4738)  DO (1990) NEXT
-        PLEASE FORGET #1
+        DO FORGET #1
         DO RETRIEVE .5 + :4
-        DO RESUME #1
+        PLEASE RESUME #1
 (4739)  DO FORGET #1
-        PLEASE PETITION #813
+        DO PETITION #813
+        DO RETRIEVE .5 + :4
+        PLEASE RESUME #1
 
 (4209)  DO STASH .50 + .51 + .52
         DO (1509) NEXT
@@ -1153,31 +1169,35 @@ const extracalSources = {
         DO RESUME #1
 (4741)  DO FORGET #1
         PLEASE PETITION #813
+        DO RETRIEVE .5 + :4
+        DO RESUME #1
 
 (4219)  DO STASH .50 + .51 + .52
-        DO (1510) NEXT
+        PLEASE (1510) NEXT
         DO .50 <- :1~##2147483648
-        PLEASE .51 <- :2~##2147483648
+        DO .51 <- :2~##2147483648
         DO .52 <- :3~##2147483648
-        DO .51 <- "?'.50$.51'"~#1
+        PLEASE .51 <- "?'.50$.51'"~#1
         DO .52 <- "?'.50$.52'"~#1
-        PLEASE .50 <- "&'.51$.52'"~#1
+        DO .50 <- "&'.51$.52'"~#1
         DO .51 <- "?'.50$#1'"~#1
-        DO :4 <- '.50$.51'
+        PLEASE :4 <- '.50$.51'
         DO RETRIEVE .50 + .51 + .52
-        PLEASE RESUME #1
+        DO RESUME #1
 
 (4240)  DO STASH .5 + :4
-        DO (4249) NEXT
+        PLEASE (4249) NEXT
         DO .5 <- :4~#2
-        PLEASE (4742) NEXT
+        DO (4742) NEXT
         DO (4743) NEXT
-(4742)  DO (1990) NEXT
+(4742)  PLEASE (1990) NEXT
         DO FORGET #1
-        PLEASE RETRIEVE .5 + :4
+        DO RETRIEVE .5 + :4
         DO RESUME #1
-(4743)  DO FORGET #1
+(4743)  PLEASE FORGET #1
         DO PETITION #813
+        DO RETRIEVE .5 + :4
+        DO RESUME #1
 
 (4249)  PLEASE STASH .5 + .50 + .51 + .52 + .53 + .54 + :1 + :2 + :60 + :61 + :62
         DO (1549) NEXT
@@ -1274,6 +1294,10 @@ const extracalSources = {
         DO RESUME #1
 (4753)  PLEASE FORGET #1
         DO PETITION #813
+        DO RETRIEVE .5 + .50 + .51 + .52 + :1 + :2 + :60 + :61
+        DO RESUME #1
+        PLEASE RETRIEVE .5 + .50 + .51 + .52 + :1 + :2 + :60 + :61
+        DO RESUME #1
 
 (4260)  DO STASH ::1 + ::2 + ::3 + .60 + :60
         DO .60 <- #0
@@ -1308,32 +1332,36 @@ const extracalSources = {
         DO RESUME #1
 (4757)  DO FORGET #1
         PLEASE PETITION #813
-
-(4309)  DO STASH .50 + .51 + .52
-        DO (4009) NEXT
-        DO .50 <- ::1~####9223372036854775808
-        PLEASE .51 <- ::2~####9223372036854775808
-        DO .52 <- ::3~####9223372036854775808
-        DO .51 <- "?'.50$.51'"~#1
-        DO .51 <- "?'.51$#1'"~#1
-        PLEASE .52 <- "?'.50$.52'"~#1
-        DO .50 <- "&'.51$.52'"~#1
-        DO .51 <- "?'.50$#1'"~#1
-        DO ::4 <- '.50$.51'
-        PLEASE RETRIEVE .50 + .51 + .52
-        DO RESUME #1
-
-(4310)  DO STASH .5 + ::4
-        DO (4319) NEXT
-        PLEASE .5 <- ::4~#2
-        DO (4758) NEXT
-        DO (4759) NEXT
-(4758)  DO (1990) NEXT
-        PLEASE FORGET #1
         DO RETRIEVE .5 + ::4
         DO RESUME #1
+
+(4309)  DO STASH .50 + .51 + .52
+        PLEASE (4009) NEXT
+        DO .50 <- ::1~####9223372036854775808
+        DO .51 <- ::2~####9223372036854775808
+        DO .52 <- ::3~####9223372036854775808
+        PLEASE .51 <- "?'.50$.51'"~#1
+        DO .51 <- "?'.51$#1'"~#1
+        DO .52 <- "?'.50$.52'"~#1
+        DO .50 <- "&'.51$.52'"~#1
+        PLEASE .51 <- "?'.50$#1'"~#1
+        DO ::4 <- '.50$.51'
+        DO RETRIEVE .50 + .51 + .52
+        DO RESUME #1
+
+(4310)  PLEASE STASH .5 + ::4
+        DO (4319) NEXT
+        DO .5 <- ::4~#2
+        DO (4758) NEXT
+        PLEASE (4759) NEXT
+(4758)  DO (1990) NEXT
+        DO FORGET #1
+        DO RETRIEVE .5 + ::4
+        PLEASE RESUME #1
 (4759)  DO FORGET #1
-        PLEASE PETITION #813
+        DO PETITION #813
+        DO RETRIEVE .5 + ::4
+        PLEASE RESUME #1
 
 (4319)  DO STASH .50 + .51 + .52
         DO (4010) NEXT
@@ -1359,132 +1387,140 @@ const extracalSources = {
         DO RESUME #1
 (4761)  DO FORGET #1
         DO PETITION #813
-
-(4349)  PLEASE STASH .5 + .50 + .51 + .52 + .53 + .54 + ::1 + ::2 + ::60 + ::61 + ::62
-        DO (4049) NEXT
-        DO ::62 <- ::3
-        DO .50 <- ::1~####9223372036854775808
-        PLEASE .51 <- ::2~####9223372036854775808
-        DO ::60 <- ::1
-        DO .5 <- .50
-        DO .5 <- "?'.5$#1'"~#1
-        PLEASE (4762) NEXT
-        DO (4763) NEXT
-(4762)  DO (1990) NEXT
-        DO FORGET #1
-        PLEASE (4430) NEXT
-        DO (4763) NEXT
-(4763)  DO FORGET #1
-        DO ::61 <- ::60
-        PLEASE ::60 <- ::2
-        DO .5 <- .51
-        DO .5 <- "?'.5$#1'"~#1
-        DO (4764) NEXT
-        PLEASE (4765) NEXT
-(4764)  DO (1990) NEXT
-        DO FORGET #1
-        DO (4430) NEXT
-        PLEASE (4765) NEXT
-(4765)  DO FORGET #1
-        DO ::1 <- ::61
-        DO ::2 <- ::60
-        PLEASE (4049) NEXT
-        DO .52 <- ::4~#2
-        DO .50 <- "?'.50$.51'"~#1
-        DO .51 <- ::3~####9223372036854775808
-        PLEASE ::60 <- ::3~####9223372036854775807
-        DO .53 <- '::60~::60'~#1
-        DO .54 <- "?'.50$#1'"~#1
-        DO .54 <- "V'.54$.53'"~#1
-        PLEASE .54 <- "&'.54$.51'"~#1
-        DO .52 <- "V'.52$.54'"~#1
-        DO .53 <- "?'.52$#1'"~#1
-        DO ::3 <- ::62
-        PLEASE ::4 <- '.52$.53'
-        DO RETRIEVE .5 + .50 + .51 + .52 + .53 + .54 + ::1 + ::2 + ::60 + ::61 + ::62
+        PLEASE RETRIEVE .5 + ::4
         DO RESUME #1
 
-(4350)  DO STASH .5 + .50 + .51 + .52 + ::1 + ::2 + ::60 + ::61
-        PLEASE .50 <- ::1~####9223372036854775808
+(4349)  DO STASH .5 + .50 + .51 + .52 + .53 + .54 + ::1 + ::2 + ::60 + ::61 + ::62
+        DO (4049) NEXT
+        PLEASE ::62 <- ::3
+        DO .50 <- ::1~####9223372036854775808
         DO .51 <- ::2~####9223372036854775808
         DO ::60 <- ::1
-        DO .5 <- .50
-        PLEASE .5 <- "?'.5$#1'"~#1
-        DO (4766) NEXT
-        DO (4767) NEXT
-(4766)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO (4430) NEXT
-        DO (4767) NEXT
-(4767)  DO FORGET #1
-        PLEASE ::61 <- ::60
-        DO ::60 <- ::2
-        DO .5 <- .51
-        DO .5 <- "?'.5$#1'"~#1
-        PLEASE (4768) NEXT
-        DO (4769) NEXT
-(4768)  DO (1990) NEXT
-        DO FORGET #1
-        PLEASE (4430) NEXT
-        DO (4769) NEXT
-(4769)  DO FORGET #1
-        DO ::1 <- ::61
-        PLEASE ::2 <- ::60
-        DO (4050) NEXT
-        DO .50 <- "?'.50$.51'"~#1
-        DO .52 <- ::3~####9223372036854775808
-        PLEASE .51 <- "?'.50$#1'"~#1
-        DO .52 <- "&'.52$.51'"~#1
-        DO .5 <- .52
-        DO (4770) NEXT
-        PLEASE (4771) NEXT
-(4770)  DO (1990) NEXT
-        DO FORGET #1
-        DO ::60 <- ::3
         PLEASE .5 <- .50
         DO .5 <- "?'.5$#1'"~#1
-        DO (4772) NEXT
-        DO (4773) NEXT
-(4772)  PLEASE (1990) NEXT
+        DO (4762) NEXT
+        DO (4763) NEXT
+(4762)  PLEASE (1990) NEXT
         DO FORGET #1
         DO (4430) NEXT
+        DO (4763) NEXT
+(4763)  PLEASE FORGET #1
+        DO ::61 <- ::60
+        DO ::60 <- ::2
+        DO .5 <- .51
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (4764) NEXT
+        DO (4765) NEXT
+(4764)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO (4430) NEXT
+        DO (4765) NEXT
+(4765)  DO FORGET #1
+        PLEASE ::1 <- ::61
+        DO ::2 <- ::60
+        DO (4049) NEXT
+        DO .52 <- ::4~#2
+        PLEASE .50 <- "?'.50$.51'"~#1
+        DO .51 <- ::3~####9223372036854775808
+        DO ::60 <- ::3~####9223372036854775807
+        DO .53 <- '::60~::60'~#1
+        PLEASE .54 <- "?'.50$#1'"~#1
+        DO .54 <- "V'.54$.53'"~#1
+        DO .54 <- "&'.54$.51'"~#1
+        DO .52 <- "V'.52$.54'"~#1
+        PLEASE .53 <- "?'.52$#1'"~#1
+        DO ::3 <- ::62
+        DO ::4 <- '.52$.53'
+        DO RETRIEVE .5 + .50 + .51 + .52 + .53 + .54 + ::1 + ::2 + ::60 + ::61 + ::62
+        PLEASE RESUME #1
+
+(4350)  DO STASH .5 + .50 + .51 + .52 + ::1 + ::2 + ::60 + ::61
+        DO .50 <- ::1~####9223372036854775808
+        DO .51 <- ::2~####9223372036854775808
+        PLEASE ::60 <- ::1
+        DO .5 <- .50
+        DO .5 <- "?'.5$#1'"~#1
+        DO (4766) NEXT
+        PLEASE (4767) NEXT
+(4766)  DO (1990) NEXT
+        DO FORGET #1
+        DO (4430) NEXT
+        PLEASE (4767) NEXT
+(4767)  DO FORGET #1
+        DO ::61 <- ::60
+        DO ::60 <- ::2
+        PLEASE .5 <- .51
+        DO .5 <- "?'.5$#1'"~#1
+        DO (4768) NEXT
+        DO (4769) NEXT
+(4768)  PLEASE (1990) NEXT
+        DO FORGET #1
+        DO (4430) NEXT
+        DO (4769) NEXT
+(4769)  PLEASE FORGET #1
+        DO ::1 <- ::61
+        DO ::2 <- ::60
+        DO (4050) NEXT
+        PLEASE .50 <- "?'.50$.51'"~#1
+        DO .52 <- ::3~####9223372036854775808
+        DO .51 <- "?'.50$#1'"~#1
+        DO .52 <- "&'.52$.51'"~#1
+        PLEASE .5 <- .52
+        DO (4770) NEXT
+        DO (4771) NEXT
+(4770)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO ::60 <- ::3
+        DO .5 <- .50
+        DO .5 <- "?'.5$#1'"~#1
+        PLEASE (4772) NEXT
         DO (4773) NEXT
-(4773)  PLEASE FORGET #1
+(4772)  DO (1990) NEXT
+        DO FORGET #1
+        PLEASE (4430) NEXT
+        DO (4773) NEXT
+(4773)  DO FORGET #1
         DO ::3 <- ::60
+        PLEASE RETRIEVE .5 + .50 + .51 + .52 + ::1 + ::2 + ::60 + ::61
+        DO RESUME #1
+(4771)  DO FORGET #1
+        DO PETITION #813
+        PLEASE RETRIEVE .5 + .50 + .51 + .52 + ::1 + ::2 + ::60 + ::61
+        DO RESUME #1
         DO RETRIEVE .5 + .50 + .51 + .52 + ::1 + ::2 + ::60 + ::61
         DO RESUME #1
-(4771)  PLEASE FORGET #1
-        DO PETITION #813
 
-(4360)  DO STASH ::1 + ::2 + ::3 + :50 + :51 + ::60
+(4360)  PLEASE STASH ::1 + ::2 + ::3 + :50 + :51 + ::60
         DO :50 <- ::1~####12297829382473034410
-        PLEASE :50 <- "?':50$##2147483648'"~'##0$##4294967295'
-        DO :51 <- ::1~####6148914691236517205
-        DO ::60 <- :50$:51
-        DO ::1 <- ::60
-        PLEASE :50 <- ::2~####12297829382473034410
         DO :50 <- "?':50$##2147483648'"~'##0$##4294967295'
-        DO :51 <- ::2~####6148914691236517205
+        DO :51 <- ::1~####6148914691236517205
+        PLEASE ::60 <- :50$:51
+        DO ::1 <- ::60
+        DO :50 <- ::2~####12297829382473034410
+        DO :50 <- "?':50$##2147483648'"~'##0$##4294967295'
+        PLEASE :51 <- ::2~####6148914691236517205
         DO ::60 <- :50$:51
-        PLEASE ::2 <- ::60
+        DO ::2 <- ::60
         DO (4070) NEXT
-        DO ::60 <- ::3
+        PLEASE ::60 <- ::3
         DO RETRIEVE ::1 + ::2 + ::3
-        PLEASE ::3 <- ::60
+        DO ::3 <- ::60
         DO RETRIEVE :50 + :51 + ::60
-        DO RESUME #1
+        PLEASE RESUME #1
 
 (4500)  DO STASH .5 + :4
-        PLEASE (4509) NEXT
+        DO (4509) NEXT
         DO .5 <- :4~#2
-        DO (4774) NEXT
+        PLEASE (4774) NEXT
         DO (4775) NEXT
-(4774)  PLEASE (1990) NEXT
+(4774)  DO (1990) NEXT
         DO FORGET #1
-        DO RETRIEVE .5 + :4
+        PLEASE RETRIEVE .5 + :4
         DO RESUME #1
-(4775)  PLEASE FORGET #1
+(4775)  DO FORGET #1
         DO PETITION #813
+        PLEASE RETRIEVE .5 + :4
+        DO RESUME #1
 
 (4509)  DO STASH .5 + .50 + .51 + :1 + :2 + :60 + :61 + :62
         DO :60 <- :1
@@ -1607,110 +1643,112 @@ const extracalSources = {
         PLEASE RESUME #1
 (4790)  DO FORGET #1
         DO PETITION #813
-
-(4609)  DO STASH .5 + .50 + .51 + ::1 + ::2 + ::60 + ::61 + ::62
-        PLEASE ::60 <- ::1
-        DO ::61 <- ::2
-        DO ::62 <- #1
-        DO .50 <- #0
-        PLEASE (4791) NEXT
-(4791)  DO FORGET #1
-        DO .5 <- '::61~::61'~#1
-        DO .5 <- "?'.5$#1'"~#1
-        PLEASE (4792) NEXT
-        DO (4793) NEXT
-(4792)  DO (1990) NEXT
-        DO FORGET #1
-        PLEASE .5 <- ::61~#1
-        DO .5 <- "?'.5$#1'"~#1
-        DO (4794) NEXT
-        DO (4795) NEXT
-(4794)  PLEASE (1990) NEXT
-        DO FORGET #1
-        DO ::1 <- ::62
-        DO ::2 <- ::60
-        PLEASE (4049) NEXT
-        DO ::62 <- ::3
-        DO .51 <- ::4~#2
-        DO .50 <- "V'.50$.51'"~#1
-        PLEASE (4795) NEXT
-(4795)  DO FORGET #1
-        DO ::61 <- ::61~####18446744073709551614
-        DO .5 <- '::61~::61'~#1
-        PLEASE .5 <- "?'.5$#1'"~#1
-        DO (4796) NEXT
-        DO (4793) NEXT
-(4796)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO ::1 <- ::60
-        DO ::2 <- ::60
-        DO (4049) NEXT
-        PLEASE ::60 <- ::3
-        DO .51 <- ::4~#2
-        DO .50 <- "V'.50$.51'"~#1
-        DO (4791) NEXT
-(4793)  PLEASE FORGET #1
-        DO ::3 <- ::62
-        DO .51 <- "?'.50$#1'"~#1
-        DO ::4 <- '.50$.51'
-        PLEASE RETRIEVE .5 + .50 + .51 + ::1 + ::2 + ::60 + ::61 + ::62
-        DO RESUME #1
-
-(4610)  DO STASH .5 + :1 + :2 + :60 + :61 + :62 + ::1 + ::3 + ::60
-        DO ::60 <- ::1
-        PLEASE :61 <- #0
-        DO :62 <- ##2147483648
-        DO (4797) NEXT
-(4797)  DO FORGET #1
-        PLEASE :60 <- "V':61$:62'"~'##0$##4294967295'
-        DO :1 <- :60
-        DO :2 <- :60
-        DO (4030) NEXT
-        PLEASE ::2 <- ::1
-        DO ::1 <- ::60
-        DO (4070) NEXT
-        DO .5 <- ::3~#2
-        PLEASE .5 <- "?'.5$#1'"~#1
-        DO (4798) NEXT
-        DO (4799) NEXT
-(4798)  DO (1990) NEXT
-        PLEASE FORGET #1
-        DO :61 <- :60
-        DO (4799) NEXT
-(4799)  DO FORGET #1
-        PLEASE :62 <- :62~##4294967294
-        DO .5 <- ':62~:62'~#1
-        DO (4800) NEXT
-        DO (4797) NEXT
-(4800)  PLEASE (1990) NEXT
-        DO FORGET #1
-        DO ::2 <- :61
-        DO RETRIEVE .5 + :1 + :2 + :60 + :61 + :62 + ::1 + ::3 + ::60
+        DO RETRIEVE .5 + ::4
         PLEASE RESUME #1
 
-(4620)  DO STASH :56 + :57 + :58 + :59
-        DO (4440) NEXT
-        DO ::3 <- :58$:59
-        PLEASE RETRIEVE :56 + :57 + :58 + :59
+(4609)  DO STASH .5 + .50 + .51 + ::1 + ::2 + ::60 + ::61 + ::62
+        DO ::60 <- ::1
+        DO ::61 <- ::2
+        PLEASE ::62 <- #1
+        DO .50 <- #0
+        DO (4791) NEXT
+(4791)  DO FORGET #1
+        PLEASE .5 <- '::61~::61'~#1
+        DO .5 <- "?'.5$#1'"~#1
+        DO (4792) NEXT
+        DO (4793) NEXT
+(4792)  PLEASE (1990) NEXT
+        DO FORGET #1
+        DO .5 <- ::61~#1
+        DO .5 <- "?'.5$#1'"~#1
+        PLEASE (4794) NEXT
+        DO (4795) NEXT
+(4794)  DO (1990) NEXT
+        DO FORGET #1
+        PLEASE ::1 <- ::62
+        DO ::2 <- ::60
+        DO (4049) NEXT
+        DO ::62 <- ::3
+        PLEASE .51 <- ::4~#2
+        DO .50 <- "V'.50$.51'"~#1
+        DO (4795) NEXT
+(4795)  DO FORGET #1
+        PLEASE ::61 <- ::61~####18446744073709551614
+        DO .5 <- '::61~::61'~#1
+        DO .5 <- "?'.5$#1'"~#1
+        DO (4796) NEXT
+        PLEASE (4793) NEXT
+(4796)  DO (1990) NEXT
+        DO FORGET #1
+        DO ::1 <- ::60
+        PLEASE ::2 <- ::60
+        DO (4049) NEXT
+        DO ::60 <- ::3
+        DO .51 <- ::4~#2
+        PLEASE .50 <- "V'.50$.51'"~#1
+        DO (4791) NEXT
+(4793)  DO FORGET #1
+        DO ::3 <- ::62
+        PLEASE .51 <- "?'.50$#1'"~#1
+        DO ::4 <- '.50$.51'
+        DO RETRIEVE .5 + .50 + .51 + ::1 + ::2 + ::60 + ::61 + ::62
         DO RESUME #1
 
-(4630)  DO STASH .5 + ::1 + ::2
-        DO (4801) NEXT
-(4801)  PLEASE FORGET #1
-        DO .5 <- '::2~::2'~#1
+(4610)  PLEASE STASH .5 + :1 + :2 + :60 + :61 + :62 + ::1 + ::3 + ::60
+        DO ::60 <- ::1
+        DO :61 <- #0
+        DO :62 <- ##2147483648
+        PLEASE (4797) NEXT
+(4797)  DO FORGET #1
+        DO :60 <- "V':61$:62'"~'##0$##4294967295'
+        DO :1 <- :60
+        PLEASE :2 <- :60
+        DO (4030) NEXT
+        DO ::2 <- ::1
+        DO ::1 <- ::60
+        PLEASE (4070) NEXT
+        DO .5 <- ::3~#2
         DO .5 <- "?'.5$#1'"~#1
-        DO (4802) NEXT
-        PLEASE (4803) NEXT
-(4802)  DO (1990) NEXT
+        DO (4798) NEXT
+        PLEASE (4799) NEXT
+(4798)  DO (1990) NEXT
         DO FORGET #1
-        DO (4620) NEXT
-        PLEASE ::1 <- ::2
-        DO ::2 <- ::3
-        DO (4801) NEXT
-(4803)  DO FORGET #1
-        PLEASE ::3 <- ::1
-        DO RETRIEVE .5 + ::1 + ::2
+        DO :61 <- :60
+        PLEASE (4799) NEXT
+(4799)  DO FORGET #1
+        DO :62 <- :62~##4294967294
+        DO .5 <- ':62~:62'~#1
+        PLEASE (4800) NEXT
+        DO (4797) NEXT
+(4800)  DO (1990) NEXT
+        DO FORGET #1
+        PLEASE ::2 <- :61
+        DO RETRIEVE .5 + :1 + :2 + :60 + :61 + :62 + ::1 + ::3 + ::60
         DO RESUME #1
+
+(4620)  DO STASH :56 + :57 + :58 + :59
+        PLEASE (4440) NEXT
+        DO ::3 <- :58$:59
+        DO RETRIEVE :56 + :57 + :58 + :59
+        DO RESUME #1
+
+(4630)  PLEASE STASH .5 + ::1 + ::2
+        DO (4801) NEXT
+(4801)  DO FORGET #1
+        DO .5 <- '::2~::2'~#1
+        PLEASE .5 <- "?'.5$#1'"~#1
+        DO (4802) NEXT
+        DO (4803) NEXT
+(4802)  DO (1990) NEXT
+        PLEASE FORGET #1
+        DO (4620) NEXT
+        DO ::1 <- ::2
+        DO ::2 <- ::3
+        PLEASE (4801) NEXT
+(4803)  DO FORGET #1
+        DO ::3 <- ::1
+        DO RETRIEVE .5 + ::1 + ::2
+        PLEASE RESUME #1
 ''',
   'strings': r'''
 (3000)  PLEASE PETITION #3000

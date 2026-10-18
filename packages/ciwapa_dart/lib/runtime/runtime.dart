@@ -2,7 +2,6 @@
 // the conformance suite keeps the two byte-for-byte identical in behavior.
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' show sqrt;
 import 'dart:typed_data';
 
 class IckMessage {
@@ -2808,12 +2807,10 @@ void _mathLibrary(int label, List<int> scalars, int overflowNext) {
             (b >= BigInt.from(bits) || a.pow(b.toInt()) >= modulus);
         finish(a.modPow(b, modulus), overflow: overflow);
       case 10:
-        var root = BigInt.from(sqrt(a.toDouble()));
-        while (root * root > a) {
-          root -= BigInt.one;
-        }
-        while ((root + BigInt.one) * (root + BigInt.one) <= a) {
-          root += BigInt.one;
+        var root = BigInt.zero;
+        for (var bit = BigInt.one << 31; bit > BigInt.zero; bit >>= 1) {
+          final candidate = root | bit;
+          if (candidate * candidate <= a) root = candidate;
         }
         store(1, root);
       case 20:
