@@ -62,7 +62,10 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   ).parse();
   if (traditional) {
     for (final (i, s) in statements.indexed) {
-      if (s.body is ComeFrom) throw CompileError(111, i + 1);
+      final gerund = s.body.gerund;
+      if (gerund == Gerund.comingFrom || gerund == Gerund.nextingFrom) {
+        throw CompileError(111, i + 1);
+      }
     }
   }
   _checkPoliteness(statements);
@@ -149,6 +152,7 @@ Iterable<Expr> expressionsOf(Body body) => switch (body) {
   Calculate(:final target, :final value) => [target, value],
   Dimension(:final dimensions) => dimensions,
   Forget(:final count) || Resume(:final count) => [count],
+  ComputedComeFrom(:final label) => [label],
   IoBody(:final items) => items,
   _ => const [],
 };

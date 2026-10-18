@@ -21,13 +21,17 @@ class Parser {
     this.memoryLimit,
     bool wide = false,
     bool extensions = false,
-  }) : _tokens = Lexer(source, wide: wide, extensions: extensions).tokenize();
+  }) : _extensions = extensions,
+       _tokens = Lexer(source, wide: wide, extensions: extensions).tokenize();
 
   final Source source;
 
   /// Test-only: parsing more statements than this fails as if memory ran out (decision L7).
   final int? memoryLimit;
   final List<Token> _tokens;
+
+  /// Whether `ick`'s extensions parse (EXTRACAL, R3).
+  final bool _extensions;
   int _pos = 0;
   bool _chain = false;
 
@@ -197,14 +201,7 @@ class Parser {
         if (_tok.kind == TokenKind.label) {
           return AbstainBody(abstain: abstain, label: _tokens[_pos++].value);
         }
-        if (_tok.kind != TokenKind.gerund) _fail();
-        final gerunds = [_tokens[_pos++].gerund!];
-        while (_tok.kind == TokenKind.intersection) {
-          _pos++;
-          if (_tok.kind != TokenKind.gerund) _fail();
-          gerunds.add(_tokens[_pos++].gerund!);
-        }
-        return AbstainBody(abstain: abstain, gerunds: gerunds);
+        return AbstainBody(abstain: abstain, gerunds: _gerunds());
       case TokenKind.writeIn || TokenKind.readOut:
         _pos++;
         final input = kind == TokenKind.writeIn;
@@ -221,14 +218,31 @@ class Parser {
         return const GiveUp();
       case TokenKind.comeFrom || TokenKind.nextFrom:
         _pos++;
-        if (_tok.kind != TokenKind.label) _fail();
-        return ComeFrom(
-          _tokens[_pos++].value,
-          nexting: kind == TokenKind.nextFrom,
-        );
+        final nexting = kind == TokenKind.nextFrom;
+        if (_tok.kind == TokenKind.label) {
+          return ComeFrom(_tokens[_pos++].value, nexting: nexting);
+        }
+        // `ick`'s computed and gerund forms (R3, L18).
+        if (!_extensions) _fail();
+        if (_tok.kind == TokenKind.gerund) {
+          return GerundComeFrom(_gerunds(), nexting: nexting);
+        }
+        return ComputedComeFrom(_expr(), nexting: nexting);
       default:
         _fail();
     }
+  }
+
+  /// A `+` list of gerunds.
+  List<Gerund> _gerunds() {
+    if (_tok.kind != TokenKind.gerund) _fail();
+    final gerunds = [_tokens[_pos++].gerund!];
+    while (_tok.kind == TokenKind.intersection) {
+      _pos++;
+      if (_tok.kind != TokenKind.gerund) _fail();
+      gerunds.add(_tokens[_pos++].gerund!);
+    }
+    return gerunds;
   }
 
   /// A variable or array name with no unary operator, as in STASH lists and assignment targets.

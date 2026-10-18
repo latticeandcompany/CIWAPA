@@ -350,6 +350,31 @@ class IrComeFrom extends IrOp {
   String toString() => nexting ? 'NEXT FROM' : 'COME FROM';
 }
 
+/// `ick`'s computed COME FROM or NEXT FROM (R3): it takes control after a labelled statement whose
+/// label equals [label]'s value. Only the control engine runs it.
+class IrComputedComeFrom extends IrOp {
+  const IrComputedComeFrom(this.label, {this.nexting = false});
+
+  final IrExpr label;
+  final bool nexting;
+
+  @override
+  String toString() => '${nexting ? 'NEXT' : 'COME'} FROM $label';
+}
+
+/// `ick`'s COME FROM or NEXT FROM a gerund list (R3, L18): it takes control after any statement
+/// with one of [gerunds]. Only the control engine runs it.
+class IrGerundComeFrom extends IrOp {
+  const IrGerundComeFrom(this.gerunds, {this.nexting = false});
+
+  final Set<Gerund> gerunds;
+  final bool nexting;
+
+  @override
+  String toString() =>
+      '${nexting ? 'NEXT' : 'COME'} FROM ${[for (final g in gerunds) g.name].join('+')}';
+}
+
 /// An undecodable statement: E000 with [text] as the message (decision T10).
 class IrUndecodable extends IrOp {
   const IrUndecodable(this.text);
@@ -595,7 +620,9 @@ class _Lowering {
 
   /// The `ick` control extensions, which only the control engine runs (R3).
   static bool _needsEngine(IrOp op) => switch (op) {
-    IrComeFrom(nexting: true) => true,
+    IrComeFrom(nexting: true) ||
+    IrComputedComeFrom() ||
+    IrGerundComeFrom() => true,
     _ => false,
   };
 
@@ -632,6 +659,14 @@ class _Lowering {
       ], signed: signed),
       GiveUp() => const IrGiveUp(),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
+      ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
+        _expr(label),
+        nexting: nexting,
+      ),
+      GerundComeFrom(:final gerunds, :final nexting) => IrGerundComeFrom(
+        gerunds.toSet(),
+        nexting: nexting,
+      ),
       Undecodable() => IrUndecodable(_text(s)),
     };
   }

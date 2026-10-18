@@ -12,6 +12,10 @@ enum EngineKind {
   comeFrom,
   nextFrom,
   undecodable,
+  computedComeFrom,
+  computedNextFrom,
+  gerundComeFrom,
+  gerundNextFrom,
 }
 
 /// The fields of one statement's row, in order.
@@ -54,7 +58,20 @@ class EngineTable {
         IrAbstain(:final targets) => (EngineKind.reinstate, targets),
         IrComeFrom(nexting: true) => (EngineKind.nextFrom, const <int>[]),
         IrComeFrom() => (EngineKind.comeFrom, const <int>[]),
-        IrUndecodable(:final text) => (EngineKind.undecodable, const <int>[]),
+        IrUndecodable() => (EngineKind.undecodable, const <int>[]),
+        IrComputedComeFrom(nexting: true) => (
+          EngineKind.computedNextFrom,
+          const <int>[],
+        ),
+        IrComputedComeFrom() => (EngineKind.computedComeFrom, const <int>[]),
+        IrGerundComeFrom(nexting: true, :final gerunds) => (
+          EngineKind.gerundNextFrom,
+          [for (final g in gerunds) g.index + 1],
+        ),
+        IrGerundComeFrom(:final gerunds) => (
+          EngineKind.gerundComeFrom,
+          [for (final g in gerunds) g.index + 1],
+        ),
         _ => (EngineKind.plain, const <int>[]),
       };
       set(EngineField.kind, kind.index);

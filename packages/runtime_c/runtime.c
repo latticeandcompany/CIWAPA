@@ -1170,14 +1170,22 @@ enum {
 
 enum {
   X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
-  X_NEXT_FROM, X_UNDECODABLE
+  X_NEXT_FROM, X_UNDECODABLE, X_COMPUTED_COME_FROM, X_COMPUTED_NEXT_FROM, X_GERUND_COME_FROM,
+  X_GERUND_NEXT_FROM
 };
+
+static int x_comes_from(int32_t kind) { return kind == X_COME_FROM || kind >= X_COMPUTED_COME_FROM; }
+
+static int x_nexting(int32_t kind) {
+  return kind == X_NEXT_FROM || kind == X_COMPUTED_NEXT_FROM || kind == X_GERUND_NEXT_FROM;
+}
 
 enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2 };
 enum { X_NO_ONCE_AGAIN, X_ABSTAIN_AFTER, X_REINSTATE_AFTER };
 
-/* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. */
-enum { X_START, X_TAIL, X_END, X_LANDING };
+/* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. Position
+ * X_CHAIN_END is the end of the computed COME FROM checks. */
+enum { X_START, X_TAIL, X_END, X_LANDING, X_CHECK, X_MATCHED, X_LANDED, X_CHAIN_END };
 
 typedef struct {
   const int32_t *table;
@@ -1194,13 +1202,19 @@ typedef struct {
 /* One thread's registers. Its variables, stashes and NEXT stack are the runtime's own while it
  * runs. candidates and chosen are `ick_ccfc` and `ick_cjb`; finishing is `truelineno`. */
 typedef struct {
-  uint32_t position, candidates, chosen, finishing;
+  uint32_t position, candidates, chosen, finishing, finishing_label;
   int64_t resume_to;
 } ick_x_thread;
 
 static ick_x_program x;
 static int32_t *x_abstained;
-static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, -1};
+static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1};
+
+/* The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
+ * a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
+ * one (`compucomesused`, `gerucomesused`). x_chain_next maps each to the position after it. */
+static uint32_t *x_chain, x_chain_length, *x_chain_next;
+static int x_gerund_chain;
 
 static int32_t x_get(uint32_t ordinal, int field) { return x.table[ordinal * X_STRIDE + field]; }
 
@@ -1254,7 +1268,7 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
   if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, next);
   int32_t kind = x_get(ordinal, X_KIND);
   t->position = ordinal * 8 + X_TAIL;
-  if (kind == X_COME_FROM || kind == X_NEXT_FROM) return;
+  if (x_comes_from(kind)) return;
   int32_t abstained =
       kind == X_NEXT_KIND || kind == X_UNDECODABLE ? x_once_again(ordinal) : x_abstained[ordinal];
   if (!x_runs(ordinal, abstained)) return;
@@ -1324,15 +1338,42 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
     if (fault && !(x_get(from, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(from, X_NEXT));
     x_candidate(t, from * 8 + X_LANDING);
   }
-  t->position = t->candidates     ? t->chosen
-                : t->resume_to >= 0 ? (uint32_t)t->resume_to
-                                    : ordinal * 8 + X_END;
+  uint32_t otherwise = t->resume_to >= 0 ? (uint32_t)t->resume_to : ordinal * 8 + X_END;
   t->resume_to = -1;
+  uint32_t label = (uint32_t)x_get(ordinal, X_LABEL);
+  if (x_chain_length && (label || x_gerund_chain)) {
+    t->finishing_label = label;
+    if (!t->candidates) t->chosen = otherwise;
+    t->position = x_chain[0] * 8 + X_CHECK;
+    return;
+  }
+  t->position = t->candidates ? t->chosen : otherwise;
+}
+
+/* Checks whether computed or gerund COME FROM [ordinal] takes control from the statement being
+ * finished: a computed one when its value is that statement's label, a gerund one when that
+ * statement is of one of its kinds. The expression is only evaluated for a labelled statement. */
+static void x_check(ick_x_thread *t, uint32_t ordinal) {
+  int matches = 0;
+  if (x_get(ordinal, X_KIND) < X_GERUND_COME_FROM) {
+    matches = t->finishing_label && x.expr(ordinal) == t->finishing_label;
+  } else {
+    int32_t gerund = x_get(t->finishing, X_GERUND);
+    int32_t start = x_get(ordinal, X_LIST_START), length = x_get(ordinal, X_LIST_LENGTH);
+    for (int32_t i = 0; i < length; i++) matches |= gerund && x.lists[start + i] == gerund;
+  }
+  if (matches && x_runs(ordinal, x_abstained[ordinal])) {
+    int32_t fault = x_get(ordinal, X_FAULT);
+    if (fault && !(x_get(ordinal, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(ordinal, X_NEXT));
+    t->position = ordinal * 8 + X_MATCHED;
+  } else {
+    t->position = x_chain_next[ordinal];
+  }
 }
 
 static void x_landing(ick_x_thread *t, uint32_t ordinal) {
   if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, (uint32_t)x_get(ordinal, X_NEXT));
-  if (x_get(ordinal, X_KIND) == X_NEXT_FROM) x_next_push(t->finishing, ordinal);
+  if (x_nexting(x_get(ordinal, X_KIND))) x_next_push(t->finishing, ordinal);
   t->position = ordinal * 8 + X_TAIL;
 }
 
@@ -1343,18 +1384,38 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
   x = (ick_x_program){table, lists, texts, text_lengths, count, user_statements, body, expr, native};
   x_abstained = calloc(count + 1, sizeof(int32_t));
   if (!x_abstained) ick_fatal(778, 1);
+  x_chain = calloc(count + 1, sizeof(uint32_t));
+  x_chain_next = calloc(count + 1, sizeof(uint32_t));
+  if (!x_chain || !x_chain_next) ick_fatal(778, 1);
   for (uint32_t s = 1; s <= count; s++) {
     if (x_get(s, X_FLAGS) & X_INITIALLY_ABSTAINED) x_abstained[s] = 1;
+    if (x_get(s, X_KIND) >= X_COMPUTED_COME_FROM) {
+      x_chain[x_chain_length++] = s;
+      x_gerund_chain |= x_get(s, X_KIND) >= X_GERUND_COME_FROM;
+    }
+  }
+  for (uint32_t i = 0; i < x_chain_length; i++) {
+    x_chain_next[x_chain[i]] = i + 1 < x_chain_length ? x_chain[i + 1] * 8 + X_CHECK : X_CHAIN_END;
   }
   ick_x_thread *t = &x_thread;
   for (;;) {
+    if (t->position == X_CHAIN_END) {
+      t->position = t->chosen;
+      continue;
+    }
     uint32_t ordinal = t->position >> 3;
     if (ordinal > count || ordinal == 0) ick_fatal(633, count + 1);
     switch (t->position & 7) {
     case X_START: x_start(t, ordinal); break;
     case X_TAIL: x_tail(t, ordinal); break;
     case X_END: t->position = x_fall_through(ordinal); break;
-    case X_LANDING: x_landing(t, ordinal); break;
+    case X_LANDING:
+    case X_LANDED: x_landing(t, ordinal); break;
+    case X_CHECK: x_check(t, ordinal); break;
+    case X_MATCHED:
+      x_candidate(t, ordinal * 8 + X_LANDED);
+      t->position = x_chain_next[ordinal];
+      break;
     }
   }
 }

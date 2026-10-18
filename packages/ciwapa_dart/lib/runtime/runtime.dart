@@ -1331,7 +1331,19 @@ const xPlain = 0,
     xReinstate = 6,
     xComeFromKind = 7,
     xNextFromKind = 8,
-    xUndecodable = 9;
+    xUndecodable = 9,
+    xComputedComeFrom = 10,
+    xComputedNextFrom = 11,
+    xGerundComeFrom = 12,
+    xGerundNextFrom = 13;
+
+bool _xComesFrom(int kind) =>
+    kind == xComeFromKind || kind >= xComputedComeFrom;
+
+bool _xNexting(int kind) =>
+    kind == xNextFromKind ||
+    kind == xComputedNextFrom ||
+    kind == xGerundNextFrom;
 
 /// [xFlags] bits.
 const xInitiallyAbstained = 1, xBug = 2;
@@ -1369,8 +1381,16 @@ class XProgram {
   final bool Function(int ordinal) native;
 }
 
-// Positions within a statement, as in `ick`'s generated code. A position is ordinal * 8 + phase.
-const _start = 0, _tail = 1, _end = 2, _landing = 3;
+// Positions within a statement, as in `ick`'s generated code. A position is ordinal * 8 + phase;
+// position [_chainEnd] is the end of the computed COME FROM checks.
+const _start = 0,
+    _tail = 1,
+    _end = 2,
+    _landing = 3,
+    _check = 4,
+    _matched = 5,
+    _landed = 6,
+    _chainEnd = 7;
 
 /// One thread's registers. Its variables, stashes and NEXT stack are the runtime's own while it
 /// runs.
@@ -1386,10 +1406,19 @@ class _XThread {
 
   /// Where an executed RESUME goes once its tail has found no COME FROM, or -1.
   int resumeTo = -1;
+
+  /// The label of the statement being finished, for computed COME FROMs (`ick_skipto`).
+  int finishingLabel = 0;
 }
 
 late XProgram _x;
 late Int32List _xAbstained;
+
+/// The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
+/// a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
+/// one (`compucomesused`, `gerucomesused`).
+var _xChain = <int>[];
+var _xGerundChain = false;
 final _xThread = _XThread();
 
 int _xGet(int ordinal, int field) => _x.table[ordinal * xStride + field];
@@ -1402,9 +1431,18 @@ Never ickXRun(XProgram program) {
   for (var s = 1; s <= count; s++) {
     if (_xGet(s, xFlags) & xInitiallyAbstained != 0) _xAbstained[s] = 1;
   }
+  _xChain = [
+    for (var s = 1; s <= count; s++)
+      if (_xGet(s, xKind) >= xComputedComeFrom) s,
+  ];
+  _xGerundChain = _xChain.any((s) => _xGet(s, xKind) >= xGerundComeFrom);
   final t = _xThread;
   while (true) {
     final ordinal = t.position >> 3;
+    if (t.position == _chainEnd) {
+      t.position = t.chosen;
+      continue;
+    }
     if (ordinal > count || ordinal == 0) ickFatal(633, count + 1);
     switch (t.position & 7) {
       case _start:
@@ -1413,8 +1451,13 @@ Never ickXRun(XProgram program) {
         _xTail(t, ordinal);
       case _end:
         t.position = _xFallThrough(ordinal);
-      case _landing:
+      case _landing || _landed:
         _xLanding(t, ordinal);
+      case _check:
+        _xCheck(t, ordinal);
+      case _matched:
+        _xCandidate(t, ordinal * 8 + _landed);
+        t.position = _xNextCheck(ordinal);
     }
   }
 }
@@ -1448,7 +1491,7 @@ void _xStart(_XThread t, int ordinal) {
   final next = _xGet(ordinal, xNext);
   if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
   final kind = _xGet(ordinal, xKind);
-  if (kind == xComeFromKind || kind == xNextFromKind) {
+  if (_xComesFrom(kind)) {
     t.position = ordinal * 8 + _tail;
     return;
   }
@@ -1531,12 +1574,45 @@ void _xTail(_XThread t, int ordinal) {
     }
     _xCandidate(t, from * 8 + _landing);
   }
-  t.position = t.candidates > 0
-      ? t.chosen
-      : t.resumeTo >= 0
-      ? t.resumeTo
-      : ordinal * 8 + _end;
+  final otherwise = t.resumeTo >= 0 ? t.resumeTo : ordinal * 8 + _end;
   t.resumeTo = -1;
+  final label = _xGet(ordinal, xLabel);
+  if (_xChain.isNotEmpty && (label != 0 || _xGerundChain)) {
+    t.finishingLabel = label;
+    if (t.candidates == 0) t.chosen = otherwise;
+    t.position = _xChain.first * 8 + _check;
+    return;
+  }
+  t.position = t.candidates > 0 ? t.chosen : otherwise;
+}
+
+/// Checks whether computed or gerund COME FROM [ordinal] takes control from the statement being
+/// finished: a computed one when its value is that statement's label, a gerund one when that
+/// statement is of one of its kinds. The expression is only evaluated for a labelled statement.
+void _xCheck(_XThread t, int ordinal) {
+  final bool matches;
+  if (_xGet(ordinal, xKind) < xGerundComeFrom) {
+    matches = t.finishingLabel != 0 && _x.expr(ordinal) == t.finishingLabel;
+  } else {
+    final gerund = _xGet(t.finishing, xGerund);
+    var found = false;
+    _xEachTarget(ordinal, (g) => found |= g == gerund);
+    matches = gerund != 0 && found;
+  }
+  if (matches && _xRuns(ordinal, _xAbstained[ordinal])) {
+    final fault = _xGet(ordinal, xFault);
+    if (fault != 0 && _xGet(ordinal, xFlags) & xBug == 0) {
+      ickFatal(fault, _xGet(ordinal, xNext));
+    }
+    t.position = ordinal * 8 + _matched;
+  } else {
+    t.position = _xNextCheck(ordinal);
+  }
+}
+
+int _xNextCheck(int ordinal) {
+  final i = _xChain.indexOf(ordinal);
+  return i + 1 < _xChain.length ? _xChain[i + 1] * 8 + _check : _chainEnd;
 }
 
 /// One more COME FROM wants control. A second one would start a thread.
@@ -1547,9 +1623,7 @@ void _xCandidate(_XThread t, int landing) {
 
 void _xLanding(_XThread t, int ordinal) {
   if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, _xGet(ordinal, xNext));
-  if (_xGet(ordinal, xKind) == xNextFromKind) {
-    ickNextPush(t.finishing, ordinal);
-  }
+  if (_xNexting(_xGet(ordinal, xKind))) ickNextPush(t.finishing, ordinal);
   t.position = ordinal * 8 + _tail;
 }
 

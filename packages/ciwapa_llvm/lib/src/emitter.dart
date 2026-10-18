@@ -246,7 +246,10 @@ declare void @ick_read_out_signed(i64, i32)
     _engineFunction('i64 @x_expr(i32 %ordinal)', 'ret i64 0', () {
       final counts = [
         for (final s in program.statements)
-          if (s.op case IrForget(:final count) || IrResume(:final count))
+          if (s.op
+              case IrForget(:final count) ||
+                  IrResume(:final count) ||
+                  IrComputedComeFrom(label: final count))
             (s, count),
       ];
       _line(

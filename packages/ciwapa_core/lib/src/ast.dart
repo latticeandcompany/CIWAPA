@@ -248,6 +248,30 @@ class ComeFrom extends Body {
   Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
 }
 
+/// `ick`'s computed COME FROM and NEXT FROM: control comes here after any labelled statement whose
+/// label equals [label]'s value (R3).
+class ComputedComeFrom extends Body {
+  const ComputedComeFrom(this.label, {this.nexting = false});
+
+  final Expr label;
+  final bool nexting;
+
+  @override
+  Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
+}
+
+/// `ick`'s COME FROM and NEXT FROM a gerund list: control comes here after any statement of those
+/// kinds (R3, L18).
+class GerundComeFrom extends Body {
+  const GerundComeFrom(this.gerunds, {this.nexting = false});
+
+  final List<Gerund> gerunds;
+  final bool nexting;
+
+  @override
+  Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
+}
+
 /// A statement the compiler can't decode (§4.5). It raises E000 if it executes.
 class Undecodable extends Body {
   const Undecodable();
