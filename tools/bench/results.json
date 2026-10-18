@@ -483,120 +483,132 @@
     "programs": {
       "empty": {
         "ciwapa-dart": {
-          "run_us": 4112,
+          "run_us": 4107,
           "stdout": "e3b0c44298fc1c14",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 2655,
+          "run_us": 2644,
           "stdout": "e3b0c44298fc1c14",
           "exit": 0
         }
       },
       "tpk": {
         "ciwapa-dart": {
-          "run_us": 6607,
+          "run_us": 6791,
           "stdout": "fd9eefced384c163",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 3388,
+          "run_us": 3365,
           "stdout": "fd9eefced384c163",
           "exit": 0
         }
       },
       "unlambda": {
         "ciwapa-dart": {
-          "run_us": 4549,
+          "run_us": 4607,
           "stdout": "1894a19c85ba153a",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 3072,
+          "run_us": 2877,
           "stdout": "1894a19c85ba153a",
           "exit": 0
         }
       },
       "beer": {
         "ciwapa-dart": {
-          "run_us": 5468,
+          "run_us": 5669,
           "stdout": "4d51d4671e6d0e82",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 3299,
+          "run_us": 3268,
           "stdout": "4d51d4671e6d0e82",
           "exit": 0
         }
       },
       "hail_mary": {
         "ciwapa-dart": {
-          "run_us": 2425729,
+          "run_us": 2439012,
           "stdout": "3c681c91b09946a5",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 1123527,
+          "run_us": 1128643,
           "stdout": "3c681c91b09946a5",
           "exit": 0
         }
       },
       "next-resume": {
         "ciwapa-dart": {
-          "run_us": 33123,
+          "run_us": 33344,
           "stdout": "a12b7cb43c9d9134",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 11027,
+          "run_us": 10982,
           "stdout": "a12b7cb43c9d9134",
           "exit": 0
         }
       },
       "abstain": {
         "ciwapa-dart": {
-          "run_us": 15681,
+          "run_us": 15773,
           "stdout": "a12b7cb43c9d9134",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 19172,
+          "run_us": 19193,
           "stdout": "a12b7cb43c9d9134",
           "exit": 0
         }
       },
       "primes": {
         "ciwapa-dart": {
-          "run_us": 5758571,
+          "run_us": 4372696,
           "stdout": "dc47eb64e8a5d2ab",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 1435752,
+          "run_us": 1434846,
           "stdout": "dc47eb64e8a5d2ab",
           "exit": 0
         }
       },
       "pi": {
         "ciwapa-dart": {
-          "run_us": 6190,
+          "run_us": 5943,
           "stdout": "a51b64a542d0f9a4",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 3391,
+          "run_us": 3342,
           "stdout": "a51b64a542d0f9a4",
+          "exit": 0
+        }
+      },
+      "fft": {
+        "ciwapa-dart": {
+          "run_us": 131340,
+          "stdout": "ca8968046b464947",
+          "exit": 0
+        },
+        "ciwapa-llvm": {
+          "run_us": 32319,
+          "stdout": "ca8968046b464947",
           "exit": 0
         }
       },
       "life": {
         "ciwapa-dart": {
-          "run_us": 5593,
+          "run_us": 5372,
           "stdout": "c7cc88b3cb924b6f",
           "exit": 0
         },
         "ciwapa-llvm": {
-          "run_us": 3160,
+          "run_us": 3222,
           "stdout": "c7cc88b3cb924b6f",
           "exit": 0
         }
