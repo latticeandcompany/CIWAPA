@@ -503,7 +503,7 @@ class DartEmitter {
   String _element(Slot array, List<IrExpr> subscripts, int next) {
     final values = [
       for (final s in subscripts)
-        s.width == 64 ? 'ickSubscript64(${_expr(s, next)})' : _expr(s, next),
+        s.valueWidth == 64 ? 'ickSubscript64(${_expr(s, next)})' : _expr(s, next),
     ];
     if (array.wide) {
       return 'ickElement64(${array.index}, [${values.join(', ')}], $next)';

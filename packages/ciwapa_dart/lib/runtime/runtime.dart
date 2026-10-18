@@ -484,7 +484,7 @@ int ickElement(int index, List<int> subscripts, int next) {
   var offset = 0;
   for (var i = 0; i < subscripts.length; i++) {
     final s = subscripts[i];
-    if (s == 0 || s > a.dims[i]) ickFatal(241, next);
+    if (s <= 0 || s > a.dims[i]) ickFatal(241, next);
     offset = offset * a.dims[i] + s - 1;
   }
   return offset;
@@ -494,7 +494,7 @@ int ickElement(int index, List<int> subscripts, int next) {
 @pragma('vm:never-inline')
 int ickElement1(int index, int s, int next) {
   final a = _arrays[index].shape;
-  if (a.rank != 1 || s == 0 || s > a.dims[0]) ickFatal(241, next);
+  if (a.rank != 1 || s <= 0 || s > a.dims[0]) ickFatal(241, next);
   return s - 1;
 }
 
@@ -502,7 +502,7 @@ int ickElement1(int index, int s, int next) {
 @pragma('vm:never-inline')
 int ickElement2(int index, int s0, int s1, int next) {
   final a = _arrays[index].shape;
-  if (a.rank != 2 || s0 == 0 || s0 > a.dims[0] || s1 == 0 || s1 > a.dims[1]) {
+  if (a.rank != 2 || s0 <= 0 || s0 > a.dims[0] || s1 <= 0 || s1 > a.dims[1]) {
     ickFatal(241, next);
   }
   return (s0 - 1) * a.dims[1] + s1 - 1;
@@ -1055,7 +1055,7 @@ int ickElement64(int index, List<int> subscripts, int next) {
   var offset = 0;
   for (var i = 0; i < subscripts.length; i++) {
     final s = subscripts[i];
-    if (s == 0 || s > a.dims[i]) ickFatal(241, next);
+    if (s <= 0 || s > a.dims[i]) ickFatal(241, next);
     offset = offset * a.dims[i] + s - 1;
   }
   return offset;

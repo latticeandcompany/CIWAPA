@@ -1251,5 +1251,5 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Text:** `AN EPHEMERAL 128-BIT VALUE HAS BEEN USED FOR SOMETHING OTHER THAN A SELECT.`
 - **Joke:** `IT WAS ONLY EVER MEANT TO BE A PHASE.`
 - **Source:** R5. A mingle of operands over 32 bits makes a 128-bit value that only a select may consume. Storing it, printing it, using it as a subscript or count, giving it to a unary operator or mingling it again is E534 when the statement executes. A select whose result doesn't fit in 64 bits is another such value (L16's lean).
-- **Tests:** `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
+- **Tests:** `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-subscript.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-count.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
 - **Date:** 2026-10-18
