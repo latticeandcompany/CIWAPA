@@ -63,7 +63,10 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   if (traditional) {
     for (final (i, s) in statements.indexed) {
       final gerund = s.body.gerund;
-      if (gerund == Gerund.comingFrom || gerund == Gerund.nextingFrom) {
+      final body = s.body;
+      if (gerund == Gerund.comingFrom ||
+          gerund == Gerund.nextingFrom ||
+          (body is AbstainBody && body.count != null)) {
         throw CompileError(111, i + 1);
       }
     }

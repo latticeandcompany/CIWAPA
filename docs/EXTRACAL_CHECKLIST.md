@@ -45,7 +45,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 3. Computed ABSTAIN
 
-- [x] R3.3 — `ABSTAIN expr FROM (n)` and `ABSTAIN expr FROM gerunds` add to the abstention count; each REINSTATE removes one. A count that would pass 2⁶³−1 saturates. Tests: `packages/conformance/tests/extracal/computed-abstain/counts.xc`, `packages/conformance/tests/extracal/computed-abstain/gerunds.xc`, `packages/conformance/tests/extracal/computed-abstain/huge-count.xc`, `packages/conformance/tests/extracal/computed-abstain/give-up.xc`, `packages/conformance/tests/extracal/computed-abstain/e139.xc`
+- [x] R3.3 — `ABSTAIN expr FROM (n)` and `ABSTAIN expr FROM gerunds` add to the abstention count; each REINSTATE removes one. A count that would pass 2⁶³−1 saturates. Tests: `packages/conformance/tests/extracal/computed-abstain/counts.xc`, `packages/conformance/tests/extracal/computed-abstain/gerunds.xc`, `packages/conformance/tests/extracal/computed-abstain/huge-count.xc`, `packages/conformance/tests/extracal/computed-abstain/give-up.xc`, `packages/conformance/tests/extracal/computed-abstain/e139.xc`, `packages/conformance/tests/extracal/computed-abstain/traditional.xc` (L20 for saturation)
 - [x] R3.3 — plain ABSTAIN and REINSTATE keep Mode 1's on/off behavior. Tests: `packages/conformance/tests/extracal/computed-abstain/plain-is-boolean.xc`
 
 ### 4. ONCE and AGAIN
