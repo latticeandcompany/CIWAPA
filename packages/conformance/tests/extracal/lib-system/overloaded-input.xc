@@ -1,0 +1,5 @@
+	DO .5 <- #3
+	DO .9 <- .1/.5
+	PLEASE READ OUT .1
+	DO (8030) NEXT
+	DO READ OUT #9

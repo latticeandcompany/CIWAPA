@@ -1,0 +1,46 @@
+	DO ,1 <- #43
+	DO ,1 SUB #1 <- #20
+	PLEASE ,1 SUB #2 <- #1
+	DO ,1 SUB #3 <- #19
+	DO ,1 SUB #4 <- #19
+	PLEASE ,1 SUB #5 <- #24
+	DO ,1 SUB #6 <- #27
+	DO ,1 SUB #7 <- #12
+	PLEASE ,1 SUB #8 <- #4
+	DO ,1 SUB #9 <- #31
+	DO ,1 SUB #10 <- #18
+	PLEASE ,1 SUB #11 <- #31
+	DO ,1 SUB #12 <- #24
+	DO ,1 SUB #13 <- #10
+	PLEASE ,1 SUB #14 <- #19
+	DO ,1 SUB #15 <- #9
+	DO ,1 SUB #16 <- #27
+	PLEASE ,1 SUB #17 <- #13
+	DO ,1 SUB #18 <- #4
+	DO ,1 SUB #19 <- #23
+	PLEASE ,1 SUB #20 <- #27
+	DO ,1 SUB #21 <- #3
+	DO ,1 SUB #22 <- #31
+	PLEASE ,1 SUB #23 <- #27
+	DO ,1 SUB #24 <- #19
+	DO ,1 SUB #25 <- #27
+	PLEASE ,1 SUB #26 <- #7
+	DO ,1 SUB #27 <- #31
+	DO ,1 SUB #28 <- #27
+	PLEASE ,1 SUB #29 <- #1
+	DO ,1 SUB #30 <- #4
+	DO ,1 SUB #31 <- #15
+	PLEASE ,1 SUB #32 <- #31
+	DO ,1 SUB #33 <- #31
+	DO ,1 SUB #34 <- #21
+	PLEASE ,1 SUB #35 <- #1
+	DO ,1 SUB #36 <- #5
+	DO ,1 SUB #37 <- #27
+	PLEASE ,1 SUB #38 <- #18
+	DO ,1 SUB #39 <- #4
+	DO ,1 SUB #40 <- #9
+	PLEASE ,1 SUB #41 <- #31
+	DO ,1 SUB #42 <- #31
+	DO ,1 SUB #43 <- #29
+	PLEASE READ OUT BAUDOT ,1
+	DO GIVE UP

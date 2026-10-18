@@ -44,7 +44,12 @@ enum EngineField {
   signature,
 }
 
-const engineInitiallyAbstained = 1, engineBug = 2, engineMaybe = 4;
+const engineInitiallyAbstained = 1,
+    engineBug = 2,
+    engineMaybe = 4,
+    enginePreproc = 8,
+    engineWeaveOn = 16,
+    engineWeaveOff = 32;
 
 /// What EXTRACAL's control engine needs to know about a program (R3): a row of [EngineField]s per
 /// statement (row 0 is unused, so a row's index is its ordinal), the lists the rows point into,
@@ -95,13 +100,19 @@ class EngineTable {
       };
       set(EngineField.kind, kind.index);
       final label = s.label;
-      set(EngineField.label, label != null && label >= 1 ? label : 0);
+      set(
+        EngineField.label,
+        label != null && label >= 1 && !s.preproc ? label : 0,
+      );
       set(EngineField.gerund, s.gerund == null ? 0 : s.gerund!.index + 1);
       set(
         EngineField.flags,
         (s.initiallyAbstained ? engineInitiallyAbstained : 0) |
             (s.bug ? engineBug : 0) |
-            (s.maybe ? engineMaybe : 0),
+            (s.maybe ? engineMaybe : 0) |
+            (s.preproc ? enginePreproc : 0) |
+            (s.weave > 0 ? engineWeaveOn : 0) |
+            (s.weave < 0 ? engineWeaveOff : 0),
       );
       set(EngineField.percent, s.percent ?? 100);
       // What reaching the statement does to its abstention, after `ick`'s swap of ONCE and AGAIN

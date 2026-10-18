@@ -1,0 +1,9 @@
+	DO ,1 <- #2
+	DO ,1 SUB #1 <- #88
+	DO ,1 SUB #2 <- #89
+	PLEASE (8020) NEXT
+	DO READ OUT .1 + ,2 SUB #1 + ,2 SUB #2 + ,2 SUB #3
+	DO ,1 SUB #2 <- #90
+	DO (8020) NEXT
+	DO READ OUT .1
+	PLEASE GIVE UP

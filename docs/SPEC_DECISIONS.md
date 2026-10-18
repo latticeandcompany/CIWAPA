@@ -1229,6 +1229,33 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
 - **Decision:** First make INTERCAL-64 and CLC-INTERCAL run `tpk`, `primes`, `pi` and `life` correctly, by investigating input files, command-line flags and each baseline's own system library. Only configuration and harness changes are allowed, never patches to the baselines' source. If a program still can't run correctly on a baseline, remove that baseline from that program in `programs.txt` with the reason recorded next to it. The guardrail then compares only against baselines that produce the correct output. Wrong-output runs are never timed. **Code change needed:** the investigation, plus `programs.txt` and the bench's handling.
 - **Date:** 2026-10-16
 
+### L14: CLC-style binary I/O
+- **Options:** (a) a compiler flag like `ick -x` / (b) new syntax / (c) drop item 11
+- **Decision:** (b), Ryan's choice. `WRITE IN BAUDOT` and `READ OUT BAUDOT` (and `SCRIBERE IN BAUDOT`, `LEGERE EX BAUDOT`) do CLC-INTERCAL's Baudot text I/O on any array in the list; everything else in the list, and plain array I/O, keep their usual meaning (Turing Text, T31). The keyword is only one together with its verb, so a `BAUDOT` elsewhere, say in a comment, stays letters and a `DO` inside it still starts a statement, as in Mode 1.
+  - **WRITE IN BAUDOT** reads one line of Latin-1 as WRITE IN reads lines (without its line feed or a carriage return before it, L6; a tab is a space), encodes it in CLC-INTERCAL's extended Baudot, one code per element with no padding bits, and zeroes the rest of the array. A character Baudot has no code for is code 0, which takes an element and prints as nothing. Codes that don't fit are E241, after the line is read; the end of input reads as an empty line. An IGNOREd array keeps its codes, but the line is still read.
+  - **READ OUT BAUDOT** prints the array's codes as a line of Latin-1. Only an element's low 5 bits are its code, and code 0 is skipped (CLC-INTERCAL ignores NULs); a code with no character in the current shift prints as 0x1A, as in `ick`.
+  - **Shifts:** both start in letters shift, EXTRACAL's own choice, since neither manual names a first shift. Code 31 goes from letters or lower case to lower case, and from figures or symbols to letters; code 27 goes from letters or lower case to figures, and from figures or symbols to symbols. The encoder puts in the fewest a character needs (never more than two).
+  - **An array of rank other than 1** is E241, as for Turing Text. `--traditional` rejects BAUDOT with E111.
+  - **Not `ick` 0.35 exactly:** its Baudot I/O, used only under `-x`, pads every stored code with random high bits, so what it reads in can't be printed back, and its decoder picks a first shift from the wrong table entry, so even clean codes print wrongly (checked against the 0.35 oracle). It also begins every encoded line with a worst-case pair of shift codes, where EXTRACAL starts in letters, and it prints any element above 32 as code 1 or 0x1A, where EXTRACAL reads its low 5 bits. EXTRACAL follows CLC-INTERCAL's documented behavior where there is some, and chooses plainly where there isn't. CLC-INTERCAL's other mechanism, generalised binary I/O on hybrid arrays, isn't included: `ick` 0.35 never implemented it, and the manual's description of it can't be read back unambiguously.
+- **Date:** 2026-10-18
+
+### L15: EXTRACAL's words in a Mode 1 program's comments
+- **Options:** (a) follow `ick`: the words work anywhere / (b) only at the start of a line / (c) drop MAYBE and the Latin statement identifiers
+- **Decision:** (a), Ryan's choice, as the compiler already did. A Mode 1 program whose comments contain EXTRACAL's words (MAYBE, FAC, PLACET, a trailing ONCE or AGAIN, WHILE and the rest) can behave differently as `.xc`; that is a deliberate Mode 1 vs. EXTRACAL difference, like the E533 mingle case, and `docs/EXTRACAL.md` warns about it, as `ick`'s manual does.
+- **Date:** 2026-10-18
+
+### L33: Floats
+- **Options:** for each of normal form, rounding, range, division by zero and ln's domain, the logarithm, integers, and decimal strings out and in: the leans in `QUESTIONS.md`, or the alternatives listed there
+- **Decision:** Ryan chose every recommended option.
+  - **Normal form:** every result has a mantissa magnitude from 2^14 to 2^15 − 1, and zero is #0. Inputs may be unnormalized.
+  - **Rounding:** to nearest, ties to even.
+  - **Range:** a characteristic above 32767 is E814; one below −32768 gives #0. Division by zero is E815, and ln of a value ≤ 0 is E816.
+  - **Logarithm:** shift-and-add over tables of ln(1 + 2^−k) and −ln(1 − 2^−k) in fixed point, rounded once, within one unit in the last place. Both runtimes reproduce it exactly.
+  - **Integers:** to and from `:1` read as signed 32-bit. An integer becomes a float rounded to nearest; a float becomes an integer truncated toward zero, and out of range is E814.
+  - **Decimal strings out:** scientific, with 5 significant digits, correctly rounded, like `-1.2346E+5`.
+  - **Decimal strings in:** an optional sign, digits, an optional fraction and an optional `E` exponent, rounded to nearest, with a status for malformed input.
+- **Date:** 2026-10-18
+
 ## EXTRACAL error codes
 
 New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 0.15 nor 0.35 uses (R11, Q90). Each has official text written for CIWAPA and a joke line, like every other code. Conditions that are the same as Mode 1's keep Mode 1's code: a constant above its sigil's range is E017, 32 bits into a 16-bit variable is E275 (R4), and WRITE IN of more than 32 bits into a 16- or 32-bit variable is E533.
@@ -1266,6 +1293,111 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Joke:** `THE ROAD NOT TAKEN WAS NEVER BUILT.`
 - **Source:** R3 item 7, with `ick` 0.35 semantics. This is `ick`'s own code for `ick`'s own condition, so it keeps the number; the text is CIWAPA's. GO BACK or GO AHEAD with no choicepoint left raises it, reported at the statement after.
 - **Tests:** `packages/conformance/tests/extracal/backtracking/e404.xc`, `packages/conformance/tests/extracal/backtracking/go-ahead.xc`
+- **Date:** 2026-10-18
+
+### E801: a PETITION to an unknown service
+- **Text:** `A PETITION HAS BEEN MADE TO A SERVICE THAT DOES NOT EXIST.`
+- **Joke:** `THE OPERATING SYSTEM HAS NO RECORD OF THIS DEPARTMENT.`
+- **Source:** R10, R11 and L29. A new condition, so a new code that neither `ick` 0.15 nor 0.35 uses. `PETITION #n` with a number that names no host service is a fault of its statement, raised when it executes.
+- **Tests:** `packages/conformance/tests/extracal/lib-system/e801.xc`
+- **Date:** 2026-10-18
+
+### E802: an exit status out of range
+- **Text:** `AN EXIT STATUS OUTSIDE 0 TO 255 HAS BEEN REQUESTED.`
+- **Joke:** `THE PROGRAM TRIED TO LEAVE WITH MORE THAN IT CAME WITH.`
+- **Source:** R10, R11. A new code. The System block's exit routine (8030) takes a status from 0 to 255, the range every platform keeps; anything larger is a programming error (Q139).
+- **Tests:** `packages/conformance/tests/extracal/lib-system/e802.xc`, `packages/conformance/tests/extracal/lib-system/e802-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E803: a string array with more than one dimension
+- **Text:** `A STRING HAS BEEN GIVEN AS AN ARRAY OF MORE THAN ONE DIMENSION.`
+- **Joke:** `WORDS COME IN LINES, NOT IN BLOCKS.`
+- **Source:** R8, R10, R11. A new code. A library routine that takes a string needs a tail array with one dimension, or none for the empty string (L30); more is a programming error (Q139).
+- **Tests:** `packages/conformance/tests/extracal/lib-system/e803.xc`, `packages/conformance/tests/extracal/lib-system/e803-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E804: a handle not open that way
+- **Text:** `A FILE HANDLE THAT IS NOT OPEN THAT WAY HAS BEEN USED.`
+- **Joke:** `YOU CANNOT READ FROM A LETTERBOX OR POST INTO A NEWSPAPER.`
+- **Source:** R10, R11, Q139. A new code. Reading from a handle that isn't open for reading, writing to one that isn't open for writing, or closing one that isn't an open file, is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e804.xc`, `packages/conformance/tests/extracal/lib-io/e804-no-opt.xc`, `packages/conformance/tests/extracal/lib-network/e804-listener.xc`
+- **Date:** 2026-10-18
+
+### E805: a byte above 255
+- **Text:** `A BYTE ABOVE 255 HAS BEEN WRITTEN.`
+- **Joke:** `IT DID NOT FIT THROUGH THE SLOT.`
+- **Source:** R10, R11, Q139. A new code. The I/O block writes bytes; a larger value, such as a string element that hasn't been through UTF-8 encoding, is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e805.xc`, `packages/conformance/tests/extracal/lib-io/e805-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E806: an open mode that doesn't exist
+- **Text:** `A FILE HAS BEEN OPENED IN A MODE THAT DOES NOT EXIST.`
+- **Joke:** `NEITHER READING, WRITING NOR APPENDING. PERHAPS JUST LOOKING.`
+- **Source:** R10, R11, Q139. A new code. OPEN (2020) takes mode #1, #2 or #3.
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e806.xc`, `packages/conformance/tests/extracal/lib-io/e806-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E807: a slice outside its string
+- **Text:** `A SLICE HAS BEEN TAKEN FROM OUTSIDE A STRING.`
+- **Joke:** `YOU CANNOT CUT A PIECE FROM THE END OF NOTHING.`
+- **Source:** R8, R10, R11, Q139. A new code. SLICE (3020) takes a start from #1 to one past the end and a count that stays within the string; anything else is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-strings/e807.xc`, `packages/conformance/tests/extracal/lib-strings/e807-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E808: decoding a non-byte as UTF-8
+- **Text:** `AN ELEMENT ABOVE 255 HAS BEEN DECODED AS A BYTE.`
+- **Joke:** `THAT WAS NOT UTF-8. THAT WAS NOT EVEN A BYTE.`
+- **Source:** R8, R10, R11, Q139. A new code. UTF-8 DECODE (3080) reads bytes; an element above 255, when the decoder reaches it, is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-strings/e808.xc`, `packages/conformance/tests/extracal/lib-strings/e808-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E809: a list with more than one dimension
+- **Text:** `A LIST HAS BEEN GIVEN AS AN ARRAY OF MORE THAN ONE DIMENSION.`
+- **Joke:** `A SHOPPING LIST DOES NOT HAVE COLUMNS.`
+- **Source:** R10, R11, Q139. A new code, the Arrays block's version of E803. FILL, COPY, SORT and FIND (6020)–(6050) and (6120)–(6150) work on lists: arrays with one dimension, or none for the empty list. Anything else is a programming error. 810 and 811 are `ick`'s own (its debugger), so the block's codes skip them.
+- **Tests:** `packages/conformance/tests/extracal/lib-arrays/e809.xc`, `packages/conformance/tests/extracal/lib-arrays/e809-no-opt.xc`, `packages/conformance/tests/extracal/lib-arrays/e809-hybrid.xc`, `packages/conformance/tests/extracal/lib-arrays/e809-hybrid-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E812: asking about a dimension the array doesn't have
+- **Text:** `A DIMENSION THAT THE ARRAY DOES NOT HAVE HAS BEEN ASKED ABOUT.`
+- **Joke:** `THE FOURTH DIMENSION IS NOT AVAILABLE AT THIS TIME.`
+- **Source:** R10, R11, Q139. A new code. DIMENSION (6010)/(6110) takes a dimension number from #1 to the array's rank; #0, or one past the rank (any dimension at all of an undimensioned array), is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-arrays/e812.xc`, `packages/conformance/tests/extracal/lib-arrays/e812-hybrid.xc`, `packages/conformance/tests/extracal/lib-arrays/e812-zero.xc` and their `-no-opt` twins
+- **Date:** 2026-10-18
+
+### E813: an arithmetic result too big for its variable
+- **Text:** `AN ARITHMETIC RESULT HAS BEEN TOO BIG FOR ITS VARIABLE.`
+- **Joke:** `THE ANSWER WAS CORRECT. IT JUST DID NOT FIT.`
+- **Source:** R6, R10, R11, Q139, L32's lean. A new code. The Math block's error variants raise it when the true result doesn't fit its width: unsigned for (4000)–(4099) and the (4500)/(4600) powers, two's complement for the signed routines, including the most negative value divided by −1. The flag variants store the wrapped result and #2 instead. Syslib keeps its own E000 for its own routines. With its PETITION abstained, an error variant returns as if nothing had overflowed (`packages/conformance/tests/extracal/lib-math/abstained-e813.xc`).
+- **Tests:** `packages/conformance/tests/extracal/lib-math/e813-add64.xc`, `packages/conformance/tests/extracal/lib-math/e813-div32.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul16.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow32.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv64.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul32.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub16.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sub64.xc`, each with a `-no-opt` twin
+- **Date:** 2026-10-18
+
+### E814: a float out of range
+- **Text:** `A FLOATING-POINT RESULT HAS BEEN TOO BIG TO REPRESENT.`
+- **Joke:** `THE POINT FLOATED AWAY.`
+- **Source:** R9, R11, L33. A new code. A Floats result whose characteristic would pass 32767 after rounding, a float too big for a signed 32-bit integer in (7070), and decimal text too big for a float in (7090). Results below the smallest float are #0 instead.
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e814-add.xc`, `packages/conformance/tests/extracal/lib-floats/e814-multiply.xc`, `packages/conformance/tests/extracal/lib-floats/e814-divide.xc`, `packages/conformance/tests/extracal/lib-floats/e814-integer.xc`, `packages/conformance/tests/extracal/lib-floats/e814-string.xc`, `packages/conformance/tests/extracal/lib-floats/e814-string-wide.xc`, each with a `-no-opt` twin, and `packages/conformance/tests/extracal/lib-floats/e814-string-round.xc`
+- **Date:** 2026-10-18
+
+### E815: a float divided by zero
+- **Text:** `A FLOATING-POINT NUMBER HAS BEEN DIVIDED BY ZERO.`
+- **Joke:** `NOTHING GOES INTO NOTHING, OR INTO ANYTHING, THAT MANY TIMES.`
+- **Source:** R9, R11, L33. A new code, for (7030) with a zero divisor, whatever its characteristic.
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e815.xc`, `packages/conformance/tests/extracal/lib-floats/e815-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E816: the logarithm of a number that isn't positive
+- **Text:** `THE LOGARITHM OF A NUMBER THAT IS NOT POSITIVE HAS BEEN TAKEN.`
+- **Joke:** `IT HAS NO NATURAL LOG. IT IS NOT EVEN A NATURAL NUMBER.`
+- **Source:** R9, R11, L33. A new code, for (7050) of zero or a negative float.
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e816-zero.xc`, `packages/conformance/tests/extracal/lib-floats/e816-negative.xc`, each with a `-no-opt` twin
+- **Date:** 2026-10-18
+
+### E817: a URL that isn't plain HTTP
+- **Text:** `AN ADDRESS THAT IS NOT A PLAIN HTTP URL HAS BEEN REQUESTED.`
+- **Joke:** `THERE IS NO S IN THIS PROTOCOL, AND NO SECURITY IN THIS PROGRAM.`
+- **Source:** R10, R11, Q110, Q139, L34's lean. A new code. The Network block's GET (9100) and POST (9110) take `http://host[:port][/path]`; any other scheme (there is no TLS), an empty host, or a port that is empty, not decimal or above 65535 is a programming error. A refused connection is not: it gives `.3 = #2`.
+- **Tests:** `packages/conformance/tests/extracal/lib-network/e817.xc`, `packages/conformance/tests/extracal/lib-network/e817-port.xc`, each with a `-no-opt` twin
 - **Date:** 2026-10-18
 
 ### E993: a statement after TRY AGAIN

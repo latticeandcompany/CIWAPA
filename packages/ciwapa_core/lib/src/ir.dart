@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'ast.dart';
 import 'errors.dart';
+import 'extracal/blocks.dart';
 import 'frontend.dart';
 import 'lexer.dart';
 
@@ -360,27 +361,35 @@ class IrAbstain extends IrOp {
 }
 
 class IrWriteIn extends IrOp {
-  const IrWriteIn(this.items, {this.signed = false});
+  const IrWriteIn(this.items, {this.signed = false, this.baudot = false});
 
   final List<IrExpr> items;
 
   /// `WRITE IN SIGNED` (R6, Q124): numbers may start with MINUS and are stored in two's complement.
   final bool signed;
 
+  /// `WRITE IN BAUDOT` (R3 item 11, L14): each array reads a line as Baudot codes.
+  final bool baudot;
+
   @override
-  String toString() => 'WRITE IN ${signed ? 'SIGNED ' : ''}${items.join('+')}';
+  String toString() =>
+      'WRITE IN ${signed ? 'SIGNED ' : ''}${baudot ? 'BAUDOT ' : ''}${items.join('+')}';
 }
 
 class IrReadOut extends IrOp {
-  const IrReadOut(this.items, {this.signed = false});
+  const IrReadOut(this.items, {this.signed = false, this.baudot = false});
 
   final List<IrExpr> items;
 
   /// `READ OUT SIGNED` (R6, Q124): each number is read as two's complement at its width.
   final bool signed;
 
+  /// `READ OUT BAUDOT` (R3 item 11, L14): each array prints as a line of Baudot codes.
+  final bool baudot;
+
   @override
-  String toString() => 'READ OUT ${signed ? 'SIGNED ' : ''}${items.join('+')}';
+  String toString() =>
+      'READ OUT ${signed ? 'SIGNED ' : ''}${baudot ? 'BAUDOT ' : ''}${items.join('+')}';
 }
 
 /// `ick`'s TRY AGAIN (R3). Only the control engine runs it.
@@ -389,6 +398,27 @@ class IrTryAgain extends IrOp {
 
   @override
   String toString() => 'TRY AGAIN';
+}
+
+/// `PETITION #n` (R10, L29): host service [service], on the variables [petitionServices] lists
+/// for it, as [scalars] and [arrays].
+class IrPetition extends IrOp {
+  const IrPetition(this.service, this.scalars, this.arrays);
+
+  final int service;
+  final List<Slot> scalars;
+  final List<Slot> arrays;
+
+  @override
+  String toString() => 'PETITION #$service';
+}
+
+/// A statement of `ick`'s WHILE expansion that does nothing (R3).
+class IrNothing extends IrOp {
+  const IrNothing();
+
+  @override
+  String toString() => 'NOTHING';
 }
 
 /// `ick`'s GO BACK and GO AHEAD (R3). Only the control engine runs them.
@@ -500,6 +530,8 @@ class IrStatement {
     required this.faults,
     this.onceAgain = OnceAgain.none,
     this.maybe = false,
+    this.preproc = false,
+    this.weave = 0,
   });
 
   final int ordinal;
@@ -523,6 +555,10 @@ class IrStatement {
 
   /// `ick`'s MAYBE (R3). Only the control engine runs it.
   final bool maybe;
+
+  /// A statement of `ick`'s WHILE expansion, and what it does to weaving (R3).
+  final bool preproc;
+  final int weave;
 
   /// The ordinal printed on line 3 of an error raised here (decision T33).
   late int next;
@@ -676,7 +712,7 @@ class _Lowering {
     final statements = program.statements;
     for (final (i, s) in statements.indexed) {
       final label = s.label;
-      if (label != null && isValidLabel(label)) {
+      if (label != null && (isValidLabel(label) || s.preproc)) {
         _labels.putIfAbsent(label, () => i + 1);
       }
     }
@@ -684,7 +720,7 @@ class _Lowering {
     final ir = <IrStatement>[];
     for (final (i, s) in statements.indexed) {
       _faults = [];
-      if (s.label != null && !isValidLabel(s.label!)) {
+      if (s.label != null && !isValidLabel(s.label!) && !s.preproc) {
         _faults.add(const Fault(197));
       }
       final percent = s.percent;
@@ -696,13 +732,15 @@ class _Lowering {
           ordinal: i + 1,
           label: s.label,
           op: op,
-          gerund: s.body.gerund,
+          gerund: s.preproc ? null : s.body.gerund,
           initiallyAbstained: s.not,
           percent: percent != null && percent <= 100 ? percent : null,
           faults: _faults,
           // An unknown statement whose operands would fault is a comment, ONCE and all (L22).
           onceAgain: op is IrUndecodable ? OnceAgain.none : s.onceAgain,
           maybe: s.maybe,
+          preproc: s.preproc,
+          weave: s.weave,
         ),
       );
     }
@@ -759,7 +797,9 @@ class _Lowering {
                 (s) =>
                     _needsEngine(s.op) ||
                     s.onceAgain != OnceAgain.none ||
-                    s.maybe,
+                    s.maybe ||
+                    s.preproc ||
+                    s.comeFroms.length > 1,
               )),
     );
   }
@@ -801,16 +841,24 @@ class _Lowering {
         ],
       ),
       AbstainBody() => _abstain(body),
-      IoBody(input: true, :final items, :final signed) => IrWriteIn([
-        for (final i in items) _expr(i),
-      ], signed: signed),
-      IoBody(input: false, :final items, :final signed) => IrReadOut([
-        for (final i in items) _expr(i),
-      ], signed: signed),
+      IoBody(input: true, :final items, :final signed, :final baudot) =>
+        IrWriteIn(
+          [for (final i in items) _expr(i)],
+          signed: signed,
+          baudot: baudot,
+        ),
+      IoBody(input: false, :final items, :final signed, :final baudot) =>
+        IrReadOut(
+          [for (final i in items) _expr(i)],
+          signed: signed,
+          baudot: baudot,
+        ),
       GiveUp() => const IrGiveUp(),
       TryAgain() => const IrTryAgain(),
       GoBack() => const IrGoBack(),
       GoAhead() => const IrGoAhead(),
+      Nothing() => const IrNothing(),
+      Petition(:final service) => _petition(service),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),
@@ -832,6 +880,26 @@ class _Lowering {
         target: target == null ? null : _expr(target),
       ),
     };
+  }
+
+  /// An unknown service is a fault of its statement, E801.
+  IrOp _petition(int service) {
+    final registers = petitionServices[service];
+    if (registers == null) {
+      _faults.add(const Fault(801));
+      return IrPetition(service, const [], const []);
+    }
+    VarRef ref(String name) {
+      final sigil = name.replaceAll(RegExp('[0-9]'), '');
+      final kind = VarKind.values.firstWhere((k) => k.sigil == sigil);
+      return VarRef(kind, int.parse(name.substring(sigil.length)));
+    }
+
+    return IrPetition(
+      service,
+      [for (final r in registers.scalars) _scalar(ref(r))],
+      [for (final r in registers.arrays) _array(ref(r))],
+    );
   }
 
   int _signature(String signature) =>
@@ -875,8 +943,12 @@ class _Lowering {
     ]);
   }
 
+  /// [label]'s ordinal. Only WHILE's own statements can reach its internal labels.
+  int? _target(int label) =>
+      isValidLabel(label) || _statement.preproc ? _labels[label] : null;
+
   IrOp _next(int label) {
-    final target = _labels[label];
+    final target = _target(label);
     if (target == null) {
       _faults.add(const Fault(129));
       return const IrNext(0);
@@ -888,7 +960,7 @@ class _Lowering {
     final count = body.count == null ? null : _expr(body.count!);
     final label = body.label;
     if (label != null) {
-      final target = _labels[label];
+      final target = _target(label);
       if (target == null) {
         _faults.add(const Fault(139));
         return IrAbstain(
@@ -910,7 +982,7 @@ class _Lowering {
       abstain: body.abstain,
       targets: [
         for (final (i, s) in program.statements.indexed)
-          if (gerunds.contains(s.body.gerund)) i + 1,
+          if (!s.preproc && gerunds.contains(s.body.gerund)) i + 1,
       ],
       gerunds: gerunds.whereType<Gerund>().toSet(),
       count: count,

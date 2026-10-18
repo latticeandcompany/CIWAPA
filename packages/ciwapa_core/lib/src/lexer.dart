@@ -45,8 +45,12 @@ enum TokenKind {
   createLabel,
   goBack,
   goAhead,
+  whileKeyword,
+  petition,
   gerund,
   signed,
+  readOutBaudot,
+  writeInBaudot,
   once,
   again,
   intersection,
@@ -88,6 +92,8 @@ enum Gerund {
   commenting,
   goingBack,
   goingAhead,
+  whiling,
+  petitioning,
 }
 
 class Token {
@@ -463,6 +469,19 @@ class Lexer {
     ('GOING BACK', _gerund(Gerund.goingBack)),
     ('REDENDUM', _gerund(Gerund.goingBack)),
     ('GOING AHEAD', _gerund(Gerund.goingAhead)),
+    // Threading (R3 item 6).
+    ('WHILE', _kind(TokenKind.whileKeyword)),
+    ('WHILING', _gerund(Gerund.whiling)),
+    ('LOOPING', _gerund(Gerund.whiling)),
+    // CLC-INTERCAL's Baudot text I/O (R3 item 11, L14), whole, so a BAUDOT elsewhere stays
+    // letters and a DO inside it still starts a statement.
+    ('READ OUT BAUDOT', _kind(TokenKind.readOutBaudot)),
+    ('WRITE IN BAUDOT', _kind(TokenKind.writeInBaudot)),
+    ('LEGERE EX BAUDOT', _kind(TokenKind.readOutBaudot)),
+    ('SCRIBERE IN BAUDOT', _kind(TokenKind.writeInBaudot)),
+    // The library's way to the operating system (R10, L29).
+    ('PETITION', _kind(TokenKind.petition)),
+    ('PETITIONING', _gerund(Gerund.petitioning)),
   ];
 
   static final _widePatterns = <(String, Token Function(int, int))>[

@@ -1,0 +1,11 @@
+	DO ;;1 <- #1
+	DO ;;1 SUB #1 <- ####9223372036854775811
+	PLEASE READ OUT BAUDOT ;;1
+	DO ,1 <- #5
+	DO ,1 SUB #1 <- #27
+	PLEASE ,1 SUB #2 <- #27
+	DO ,1 SUB #3 <- #22
+	DO ,1 SUB #4 <- #26
+	PLEASE ,1 SUB #5 <- #30
+	DO READ OUT BAUDOT ,1
+	DO GIVE UP

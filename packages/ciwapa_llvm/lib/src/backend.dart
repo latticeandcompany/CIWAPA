@@ -129,6 +129,8 @@ class LlvmBackend implements Backend {
       '-w',
       'main.ll',
       prebuiltRuntime ?? 'runtime.c',
+      // Winsock, for the Network block's sockets.
+      if (toolchain.triple.contains('windows')) '-lws2_32',
       '-o',
       File(output).absolute.path,
     ], workingDirectory: dir.path);

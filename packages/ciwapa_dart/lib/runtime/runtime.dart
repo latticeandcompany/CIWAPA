@@ -1,7 +1,10 @@
 // The runtime that ciwapa-dart copies next to every generated program. runtime.c is its twin;
 // the conformance suite keeps the two byte-for-byte identical in behavior.
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 class IckMessage {
@@ -88,8 +91,10 @@ void ickInit(
   Uint8List? wideIgnored,
   int wideArrayCount = 0,
   bool latin = false,
+  bool extracal = false,
 }) {
   _latin = latin;
+  _monotonic.start();
   _messages = messages;
   _values = values;
   _ignored = ignored;
@@ -122,7 +127,7 @@ void ickInit(
   _clockface = clockface;
   _arrays = List.generate(arrayCount, (_) => _Array());
   _rngState = ickClock();
-  _parseOptions(args);
+  _parseOptions(args, extracal: extracal);
 }
 
 // ---- Errors (§9) -----------------------------------------------------------------------------
@@ -168,6 +173,7 @@ int Function() ickReadByte = () {
 
 Never _error(int code, String? text, int next) {
   _flush();
+  _closeConnections();
   final message = _messages[code];
   stderr.add(
     utf8.encode(
@@ -191,6 +197,7 @@ Never ickUnknownOperator(int left, int right, String text, int next) =>
 
 Never ickGiveUp() {
   _flush();
+  _closeConnections();
   exit(0);
 }
 
@@ -1038,12 +1045,22 @@ int? _parseSeed(String text) {
   return value;
 }
 
-void _parseOptions(List<String> args) {
+void _parseOptions(List<String> args, {required bool extracal}) {
   var help = false;
   String? unknown;
+  _programArgs = const [];
   for (var i = 0; i < args.length; i++) {
     final arg = args[i];
-    if (!arg.startsWith('+') && !arg.startsWith('-')) break;
+    // In EXTRACAL, `--` ends the runtime options, so a program's own arguments can start with a
+    // sign (R10).
+    if (extracal && arg == '--') {
+      _programArgs = args.sublist(i + 1);
+      break;
+    }
+    if (!arg.startsWith('+') && !arg.startsWith('-')) {
+      _programArgs = args.sublist(i);
+      break;
+    }
     final name = arg.substring(1);
     final seed = arg.startsWith('+') && name == 'seed' && i + 1 < args.length
         ? _parseSeed(args[i + 1])
@@ -1253,6 +1270,153 @@ void ickTuringOut64(int index, int next) {
   }
 }
 
+// ---- CLC-INTERCAL's Baudot text I/O (R3 item 11, L14) -------------------------------------------
+// WRITE IN BAUDOT reads one line of Latin-1 into an array as Baudot codes, one per element, and
+// READ OUT BAUDOT prints an array of codes as a line. Both start in letters shift. Shift code 31
+// goes from letters or lower case to lower case and from figures or symbols to letters; 27 goes
+// from letters or lower case to figures and from figures or symbols to symbols. The encoder puts
+// in the fewest a character needs. Only the low 5 bits of an element are its code, and code 0 is
+// skipped. runtime.c has the same.
+
+/// The Latin-1 character for each code in letters, lower case, figures and symbols; 0 for none.
+const _baudot = <List<int>>[
+  [0, 0, 0, 0],
+  [69, 101, 51, 162],
+  [10, 10, 10, 10],
+  [65, 97, 45, 43],
+  [32, 32, 32, 32],
+  [83, 115, 7, 92],
+  [73, 105, 56, 35],
+  [85, 117, 55, 61],
+  [13, 13, 13, 13],
+  [68, 100, 36, 42],
+  [82, 114, 52, 123],
+  [74, 106, 39, 126],
+  [78, 110, 44, 165],
+  [70, 102, 33, 124],
+  [67, 99, 58, 94],
+  [75, 107, 40, 60],
+  [84, 116, 53, 91],
+  [90, 122, 34, 125],
+  [87, 119, 41, 62],
+  [76, 108, 50, 93],
+  [72, 104, 0, 8],
+  [89, 121, 54, 64],
+  [80, 112, 48, 0],
+  [81, 113, 49, 163],
+  [79, 111, 57, 172],
+  [66, 98, 63, 127],
+  [71, 103, 38, 0],
+  [0, 0, 0, 0],
+  [77, 109, 46, 37],
+  [88, 120, 47, 95],
+  [86, 118, 59, 0],
+  [0, 0, 0, 0],
+];
+
+int _baudotShift(int state, int code) =>
+    code == 31 ? (state < 2 ? 1 : 0) : (state < 2 ? 2 : 3);
+
+/// The codes for a line of Latin-1: a character with no code is 0, and a tab is a space.
+List<int> _baudotEncode(List<int> line) {
+  final codes = <int>[];
+  var state = 0;
+  for (final byte in line) {
+    final c = byte == 9 ? 32 : byte;
+    var code = 0, target = state;
+    for (var k = 1; k < 32 && c != 0; k++) {
+      for (var s = 0; s < 4; s++) {
+        if (_baudot[k][s] == c && (code == 0 || s == state)) {
+          code = k;
+          target = s;
+        }
+      }
+    }
+    if (target != state) {
+      final direct = [31, 27].where((s) => _baudotShift(state, s) == target);
+      if (direct.isNotEmpty) {
+        codes.add(direct.first);
+      } else {
+        for (final first in [31, 27]) {
+          final via = _baudotShift(state, first);
+          final second = [31, 27].where((s) => _baudotShift(via, s) == target);
+          if (second.isNotEmpty) {
+            codes.addAll([first, second.first]);
+            break;
+          }
+        }
+      }
+      state = target;
+    }
+    codes.add(code);
+  }
+  return codes;
+}
+
+/// The Latin-1 a run of codes prints as: 0x1A for a code with no character in its shift.
+List<int> _baudotDecode(Iterable<int> values) {
+  final text = <int>[];
+  var state = 0;
+  for (final value in values) {
+    final code = value & 31;
+    if (code == 0) continue;
+    if (code == 27 || code == 31) {
+      state = _baudotShift(state, code);
+      continue;
+    }
+    final c = _baudot[code][state];
+    text.add(c == 0 ? 0x1A : c);
+  }
+  return text;
+}
+
+/// A line of input as Baudot codes, for an array of [length] elements; E241 if they don't fit.
+List<int> _baudotLine(int length, int next) {
+  final codes = _baudotEncode(_readLine() ?? const []);
+  if (codes.length > length) ickFatal(241, next);
+  return codes;
+}
+
+void _baudotPrint(Iterable<int> values) {
+  _baudotDecode(values).forEach(_writeByte);
+  _writeByte(10);
+  _flush();
+}
+
+@pragma('vm:never-inline')
+void ickBaudotIn(int index, int next) {
+  final length = _turingArray(index, next);
+  final codes = _baudotLine(length, next);
+  final a = _arrays[index];
+  if (a.ignored) return;
+  for (var i = 0; i < length; i++) {
+    a.shape.data[i] = i < codes.length ? codes[i] : 0;
+  }
+}
+
+@pragma('vm:never-inline')
+void ickBaudotOut(int index, int next) {
+  _baudotPrint(_arrays[index].shape.data.take(_turingArray(index, next)));
+}
+
+@pragma('vm:never-inline')
+void ickBaudotIn64(int index, int next) {
+  final shape = _wideArrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  final codes = _baudotLine(shape.dims[0], next);
+  if (_wideArrays[index].ignored) return;
+  for (var i = 0; i < shape.dims[0]; i++) {
+    shape.data[i] = i < codes.length ? codes[i] : 0;
+  }
+}
+
+@pragma('vm:never-inline')
+void ickBaudotOut64(int index, int next) {
+  final shape = _wideArrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  _baudotPrint(shape.data);
+}
+
 // ---- EXTRACAL's mingle widening (R5, Q122) ------------------------------------------------------
 // A mingle's width depends on its operands' values, so its result is held as (width, high, low):
 // width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can use.
@@ -1400,7 +1564,12 @@ bool _xNexting(int kind) =>
     kind == xGerundNextFrom;
 
 /// [xFlags] bits.
-const xInitiallyAbstained = 1, xBug = 2, xMaybe = 4;
+const xInitiallyAbstained = 1,
+    xBug = 2,
+    xMaybe = 4,
+    xPreproc = 8,
+    xWeaveOn = 16,
+    xWeaveOff = 32;
 
 /// [xOnceAgain]: what a statement does to its own abstention when it is reached, after `ick`'s swap
 /// for initially abstained statements: abstain itself, or reinstate itself.
@@ -1484,6 +1653,9 @@ class _XThread {
   bool maybeBack = false;
   int tailIndex = 0, oldAbstain = 0;
 
+  /// Whether the thread has had its turn at the end of the statement it is finishing.
+  bool yielded = false;
+
   List<int> save() => [
     position,
     candidates,
@@ -1493,6 +1665,7 @@ class _XThread {
     finishingLabel,
     tailIndex,
     oldAbstain,
+    yielded ? 1 : 0,
   ];
 
   void restore(List<int> r) {
@@ -1504,14 +1677,16 @@ class _XThread {
     finishingLabel = r[5];
     tailIndex = r[6];
     oldAbstain = r[7];
+    yielded = r[8] != 0;
   }
 }
 
-/// Everything a choicepoint holds of its own (R3): variables, arrays, stashes, the NEXT stack and
-/// the overloading. As in `ick`, abstentions, CREATEs, input and output aren't restored when a
-/// program goes back.
-class _XMachine {
-  _XMachine.capture()
+/// A thread's data (R3): variables, arrays, stashes and overloading. Threads woven by WHILE share
+/// one. As in `ick`, abstentions, CREATEs, input and output are shared by every thread, and aren't
+/// restored when a program goes back.
+class _XData {
+  /// A deep copy of the running data, for a new thread or a choicepoint.
+  _XData.copy()
     : values = Uint32List.fromList(_values),
       ignored = Uint8List.fromList(_ignored),
       wideValues = Uint64List.fromList(_wideValues),
@@ -1547,29 +1722,38 @@ class _XMachine {
         for (final st in _wideArrayStashes)
           [for (final sh in st) _copyWideShape(sh)],
       ],
-      nextStack = Int64List.fromList(_nextStack),
-      nextCount = _nextCount,
       overloadOf = Int32List.fromList(_overloadOf),
-      overloadStashes = [for (final st in _overloadStashes) List.of(st)],
-      stashed = _stashed;
+      overloadStashes = [for (final st in _overloadStashes) List.of(st)];
+
+  /// The running data itself, to hold while another thread runs.
+  _XData.live()
+    : values = Uint32List(_values.length),
+      ignored = Uint8List(_ignored.length),
+      wideValues = Uint64List(_wideValues.length),
+      wideIgnored = Uint8List(_wideIgnored.length),
+      arrays = _arrays,
+      wideArrays = _wideArrays,
+      scalarStashes = _scalarStashes,
+      wideStashes = _wideStashes,
+      arrayStashes = _arrayStashes,
+      wideArrayStashes = _wideArrayStashes,
+      overloadOf = _overloadOf,
+      overloadStashes = _overloadStashes {
+    store();
+  }
 
   final Uint32List values;
   final Uint8List ignored;
   final Uint64List wideValues;
   final Uint8List wideIgnored;
-  final List<_Array> arrays;
-  final List<_WideArray> wideArrays;
-  final List<_ScalarStash> scalarStashes;
-  final List<_WideStash> wideStashes;
-  final List<List<_Shape>> arrayStashes;
-  final List<List<_WideShape>> wideArrayStashes;
-  final Int64List nextStack;
-  final int nextCount;
-  final Int32List overloadOf;
-  final List<List<int>> overloadStashes;
-
-  /// The test-only count of stashed values (decision L7).
-  final int stashed;
+  List<_Array> arrays;
+  List<_WideArray> wideArrays;
+  List<_ScalarStash> scalarStashes;
+  List<_WideStash> wideStashes;
+  List<List<_Shape>> arrayStashes;
+  List<List<_WideShape>> wideArrayStashes;
+  Int32List overloadOf;
+  List<List<int>> overloadStashes;
 
   static _Shape _copyShape(_Shape s) =>
       _Shape(Uint32List.fromList(s.dims), Uint32List.fromList(s.data));
@@ -1577,9 +1761,25 @@ class _XMachine {
   static _WideShape _copyWideShape(_WideShape s) =>
       _WideShape(Uint32List.fromList(s.dims), Uint64List.fromList(s.data));
 
-  /// Makes this the running state. The program's own variable tables are shared with the compiled
-  /// code, so their contents are copied back; everything else is handed over.
-  void restore() {
+  /// Takes in the running data.
+  void store() {
+    values.setAll(0, _values);
+    ignored.setAll(0, _ignored);
+    wideValues.setAll(0, _wideValues);
+    wideIgnored.setAll(0, _wideIgnored);
+    arrays = _arrays;
+    wideArrays = _wideArrays;
+    scalarStashes = _scalarStashes;
+    wideStashes = _wideStashes;
+    arrayStashes = _arrayStashes;
+    wideArrayStashes = _wideArrayStashes;
+    overloadOf = _overloadOf;
+    overloadStashes = _overloadStashes;
+  }
+
+  /// Makes this the running data. The program's own variable tables are shared with the compiled
+  /// code, so their contents are copied in; everything else is handed over.
+  void load() {
     _values.setAll(0, values);
     _ignored.setAll(0, ignored);
     _wideValues.setAll(0, wideValues);
@@ -1590,33 +1790,49 @@ class _XMachine {
     _wideStashes = wideStashes;
     _arrayStashes = arrayStashes;
     _wideArrayStashes = wideArrayStashes;
-    _nextStack = nextStack;
-    _nextCount = nextCount;
     _overloadOf = overloadOf;
     _overloadStashes = overloadStashes;
-    _stashed = stashed;
   }
 }
 
-/// A choicepoint: the state, the thread's registers with the position of the MAYBE guard that
-/// made it, and the created operator level it was made at. A stale one, left where a program
-/// went back to, has no state: going back to it just discards it.
+/// A choicepoint (R3): a copy of the thread's data and NEXT stack, its registers with the position
+/// of the MAYBE guard that made it, and the created operator level it was made at. A stale one,
+/// left where a program went back to, has no data: going back to it just discards it.
+/// Choicepoints form a stack per thread; after a thread splits, both share the ones below the
+/// split, counted in [refcount], as in `ick`.
 class _XChoice {
-  _XChoice(this.machine, this.registers, this.level)
-    : serial = _xSerials[level];
+  _XChoice(
+    this.data,
+    this.nextStack,
+    this.nextCount,
+    this.registers,
+    this.level,
+    this.next,
+  ) : serial = _xSerials[level],
+      stashed = _stashed;
 
-  _XChoice.stale()
-    : machine = null,
+  _XChoice.stale(this.next)
+    : data = null,
+      nextStack = Int64List(0),
+      nextCount = 0,
       registers = const [],
       level = 0,
-      serial = 0;
+      serial = 0,
+      stashed = 0;
 
-  final _XMachine? machine;
+  final _XData? data;
+  final Int64List nextStack;
+  final int nextCount;
   final List<int> registers;
   final int level;
+  final _XChoice? next;
+  int refcount = 1;
 
   /// Which call of a created operator [level] belonged to.
   final int serial;
+
+  /// The test-only count of stashed values (decision L7).
+  final int stashed;
 }
 
 /// The serial number of the created operator call running at each level, so that a choicepoint
@@ -1624,7 +1840,8 @@ class _XChoice {
 final _xSerials = <int>[0];
 var _xSerialCount = 0;
 
-final _xChoices = <_XChoice>[];
+/// The running thread's newest choicepoint.
+_XChoice? _xTop;
 
 /// A guard, `ick`'s way, for a statement that may have a MAYBE: the first time through, it makes
 /// a choicepoint that returns to [site]; going back there, it leaves a stale one and is reversed.
@@ -1632,33 +1849,144 @@ bool _xGuard(_XThread t, int ordinal, int abstained, int site) {
   if (_xGet(ordinal, xFlags) & xMaybe == 0) return _xRuns(ordinal, abstained);
   if (t.maybeBack) {
     t.maybeBack = false;
-    _xChoices.add(_XChoice.stale());
+    _xTop = _XChoice.stale(_xTop);
     return !_xRuns(ordinal, abstained);
   }
   t.oldAbstain = abstained;
   final position = t.position;
   t.position = site;
-  _xChoices.add(_XChoice(_XMachine.capture(), t.save(), _xLevel));
+  _xTop = _XChoice(
+    _XData.copy(),
+    Int64List.fromList(_nextStack),
+    _nextCount,
+    t.save(),
+    _xLevel,
+    _xTop,
+  );
   t.position = position;
   return _xRuns(ordinal, abstained);
 }
 
-/// GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; any
-/// other replaces the running state. One made inside a created operator that has since finished
-/// is discarded like a stale one.
+/// GO AHEAD: discards the newest choicepoint, for this thread only when others share it.
+void _xGoAhead(int next) {
+  final top = _xTop ?? ickFatal(404, next);
+  top.refcount--;
+  _xTop = top.next;
+}
+
+/// GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; one
+/// another thread shares ends this thread, as in `ick`; any other replaces the running state. One
+/// made inside a created operator that has since finished is discarded like a stale one.
 void _xGoBack(_XThread t, int next) {
-  if (_xChoices.isEmpty) ickFatal(404, next);
-  final choice = _xChoices.removeLast();
-  final machine = choice.machine;
-  if (machine == null ||
-      choice.level > _xLevel ||
-      _xSerials[choice.level] != choice.serial) {
-    return;
+  final top = _xTop ?? ickFatal(404, next);
+  final data = top.data;
+  if (data == null ||
+      top.level > _xLevel ||
+      _xSerials[top.level] != top.serial) {
+    return _xGoAhead(next);
   }
-  machine.restore();
-  t.restore(choice.registers);
+  if (top.refcount > 1) _xKill(t);
+  _xTop = top.next;
+  // Threads woven with this one keep the data it leaves.
+  final strand = _xRing[_xCurrent];
+  strand.data?.store();
+  strand.data = data;
+  data.load();
+  _nextStack = top.nextStack;
+  _nextCount = top.nextCount;
+  _stashed = top.stashed;
+  t.restore(top.registers);
   t.maybeBack = true;
-  _xUnwindTo(choice.level);
+  _xUnwindTo(top.level);
+}
+
+/// A thread that isn't running (R3): its registers, its data, its NEXT stack and its choicepoints.
+class _XStrand {
+  _XStrand(this.registers, this.data, this.nextStack, this.nextCount, this.top);
+
+  List<int> registers;
+  _XData? data;
+  Int64List nextStack;
+  int nextCount;
+  _XChoice? top;
+}
+
+/// The threads in `ick`'s order, which take turns one statement at a time; the running one is
+/// [_xCurrent], whose strand is only brought up to date when it stops running.
+final _xRing = <_XStrand>[];
+var _xCurrent = 0;
+
+/// Whether a split shares the data instead of copying it (`ick`'s `weaving`, set by WHILE).
+var _xWeaving = false;
+
+void _xSave(_XThread t) {
+  final strand = _xRing[_xCurrent];
+  strand.registers = t.save();
+  if (strand.data case final data?) {
+    data.store();
+  } else {
+    strand.data = _XData.live();
+  }
+  strand
+    ..nextStack = _nextStack
+    ..nextCount = _nextCount
+    ..top = _xTop;
+}
+
+void _xLoad(_XThread t, _XStrand strand) {
+  t.restore(strand.registers);
+  strand.data!.load();
+  _nextStack = strand.nextStack;
+  _nextCount = strand.nextCount;
+  _xTop = strand.top;
+}
+
+/// The end of a turn: the next thread runs. A created operator's code runs as a single turn.
+void _xYield(_XThread t) {
+  if (_xRing.length == 1 || _xLevel > 0) return;
+  _xSave(t);
+  _xCurrent = (_xCurrent + 1) % _xRing.length;
+  _xLoad(t, _xRing[_xCurrent]);
+}
+
+/// Several COME FROMs want control (`ick`'s `multicome1`): a new thread, placed just before this
+/// one, follows the one found earlier, at [position], with a copy of this thread's data, or the
+/// same data while weaving, and its own copy of the NEXT stack. Both share the choicepoints.
+void _xFork(_XThread t, int position) {
+  final registers = t.save();
+  registers[0] = position;
+  registers[4] = -1;
+  registers[8] = 0;
+  final current = _xRing[_xCurrent];
+  final data = _xWeaving ? (current.data ??= _XData.live()) : _XData.copy();
+  for (var c = _xTop; c != null; c = c.next) {
+    c.refcount++;
+  }
+  _xRing.insert(
+    _xCurrent,
+    _XStrand(
+      registers,
+      data,
+      Int64List.fromList(_nextStack),
+      _nextCount,
+      _xTop,
+    ),
+  );
+  _xCurrent++;
+}
+
+/// GIVE UP ends the running thread, and the program with the last one. Threads woven with it keep
+/// its data; a created operator it was running is abandoned.
+Never _xKill(_XThread t) {
+  while (_xTop != null) {
+    _xGoAhead(0);
+  }
+  if (_xRing.length == 1) ickGiveUp();
+  _xRing[_xCurrent].data?.store();
+  _xRing.removeAt(_xCurrent);
+  _xCurrent %= _xRing.length;
+  _xLoad(t, _xRing[_xCurrent]);
+  throw _XUnwind(0);
 }
 
 late XProgram _x;
@@ -1708,6 +2036,10 @@ Never ickXRun(XProgram program) {
     final label = _xGet(s, xLabel);
     if (label != 0) _xLabels.putIfAbsent(label, () => s);
   }
+  _xRing
+    ..clear()
+    ..add(_XStrand(const [], null, _nextStack, 0, null));
+  _xCurrent = 0;
   _xAbstained = Int64List(count + 1);
   for (var s = 1; s <= count; s++) {
     if (_xGet(s, xFlags) & xInitiallyAbstained != 0) _xAbstained[s] = 1;
@@ -1747,8 +2079,19 @@ void _xLoop(int level) {
           case _tail:
             _xTail(t, ordinal);
           case _end:
+            // Each statement ends a turn, before control runs on to the next.
+            if (!t.yielded && _xRing.length > 1 && _xLevel == 0) {
+              t.yielded = true;
+              _xYield(t);
+              continue;
+            }
+            t.yielded = false;
             t.position = _xFallThrough(ordinal);
-          case _landing || _landed:
+          case _landing:
+            _xLanding(t, ordinal);
+            // So does arriving at a COME FROM, before its own tail.
+            _xYield(t);
+          case _landed:
             _xLanding(t, ordinal);
           case _check:
             _xCheck(t, ordinal);
@@ -1884,7 +2227,10 @@ bool _xUpdatesFirst(int kind) =>
 void _xStart(_XThread t, int ordinal) {
   final next = _xGet(ordinal, xNext);
   final back = t.maybeBack;
-  if (!back && _xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
+  final flags = _xGet(ordinal, xFlags);
+  if (!back && flags & xWeaveOn != 0) _xWeaving = true;
+  if (!back && flags & xWeaveOff != 0) _xWeaving = false;
+  if (!back && flags & xBug != 0) ickFatal(774, next);
   final kind = _xGet(ordinal, xKind);
   if (_xComesFrom(kind)) {
     t.position = ordinal * 8 + _tail;
@@ -1898,7 +2244,7 @@ void _xStart(_XThread t, int ordinal) {
   t.position = ordinal * 8 + _tail;
   if (!_xGuard(t, ordinal, abstained, ordinal * 8 + _start)) {
     // A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything.
-    if (kind == xTryAgain) ickGiveUp();
+    if (kind == xTryAgain) _xKill(t);
     return;
   }
   final fault = _xGet(ordinal, xFault);
@@ -1931,7 +2277,7 @@ void _xStart(_XThread t, int ordinal) {
         if (abandoned > 0) _xUnwindTo(abandoned - 1);
       }
     case xGiveUp:
-      ickGiveUp();
+      _xKill(t);
     case xTryAgain:
       // `ick` jumps straight back to the start, past this statement's tail.
       t.position = 1 * 8 + _start;
@@ -1961,8 +2307,7 @@ void _xStart(_XThread t, int ordinal) {
     case xGoBack:
       _xGoBack(t, next);
     case xGoAhead:
-      if (_xChoices.isEmpty) ickFatal(404, next);
-      _xChoices.removeLast();
+      _xGoAhead(next);
     case xUnknown:
       final label = _xCreations[_xGet(ordinal, xSignature)];
       if (label == 0) ickUndecodable(_x.texts[ordinal]!, next);
@@ -2037,7 +2382,11 @@ void _xTail(_XThread t, int ordinal) {
     _xUnwindTo(_xLevel - 1);
   }
   final label = _xGet(ordinal, xLabel);
-  if (!resuming && _xChain.isNotEmpty && (label != 0 || _xGerundChain)) {
+  // `ick` never checks WHILE's own statements against computed or gerund COME FROMs.
+  if (!resuming &&
+      _xChain.isNotEmpty &&
+      (label != 0 || _xGerundChain) &&
+      _xGet(ordinal, xFlags) & xPreproc == 0) {
     t.finishingLabel = label;
     if (t.candidates == 0) t.chosen = otherwise;
     t.position = _xChain.first * 8 + _check;
@@ -2068,6 +2417,8 @@ void _xCheck(_XThread t, int ordinal) {
       ickFatal(fault, _xGet(ordinal, xNext));
     }
     t.position = ordinal * 8 + _matched;
+    // `ick` ends the turn as soon as a computed COME FROM matches.
+    _xYield(t);
   } else {
     t.position = _xNextCheck(ordinal);
   }
@@ -2077,7 +2428,11 @@ int _xNextCheck(int ordinal) => _xChainNext[ordinal]!;
 
 /// One more COME FROM wants control. A second one would start a thread.
 void _xCandidate(_XThread t, int landing) {
-  if (++t.candidates > 1) ickFatal(555, landing >> 3);
+  if (++t.candidates > 1) {
+    // A created operator's code runs as one turn, so it can't split.
+    if (_xLevel > 0) ickFatal(555, landing >> 3);
+    _xFork(t, t.chosen);
+  }
   t.chosen = landing;
 }
 
@@ -2205,4 +2560,1230 @@ int ickReverseUnary(int op, int n, int width, int next) {
   }
   if (forward(candidate) != n) ickFatal(277, next);
   return candidate;
+}
+
+// ---- EXTRACAL's library services (R10, L29) -------------------------------------------------
+// PETITION #n asks for service n, on the variables the compiler passes in: scalars by key (64-bit
+// ones numbered after the others) and arrays by number. A service stores as WRITE IN does,
+// leaving an IGNOREd variable alone and bypassing overloading. Strings are tail arrays of UTF-16
+// code units, and the empty string is an array with no dimensions (Q108, Q136, L30).
+
+/// The program's arguments: those after the runtime options.
+var _programArgs = const <String>[];
+final _monotonic = Stopwatch();
+
+int _scalarAt(int key) =>
+    key < _values.length ? _values[key] : _wideValues[key - _values.length];
+
+void _setScalar(int key, int value) {
+  if (key < _values.length) {
+    if (_ignored[key] == 0) _values[key] = value;
+  } else {
+    final wide = key - _values.length;
+    if (_wideIgnored[wide] == 0) _wideValues[wide] = value;
+  }
+}
+
+/// A string argument: E803 unless the array is undimensioned (empty) or has one dimension.
+String _stringAt(int array, int next) {
+  final shape = _arrays[array].shape;
+  if (shape.rank > 1) ickFatal(803, next);
+  return String.fromCharCodes(shape.data);
+}
+
+/// A list argument: E809 unless the array is undimensioned (empty) or has one dimension.
+Uint32List _listAt(int array, int next) {
+  final shape = _arrays[array].shape;
+  if (shape.rank > 1) ickFatal(809, next);
+  return shape.data;
+}
+
+void _setString(int array, String value) {
+  final a = _arrays[array];
+  if (a.ignored) return;
+  final units = value.codeUnits;
+  a.shape = units.isEmpty
+      ? _Shape(Uint32List(0), Uint32List(0))
+      : _Shape(Uint32List.fromList([units.length]), Uint32List.fromList(units));
+}
+
+void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
+  switch (service) {
+    case 8000:
+      _setScalar(scalars[0], _programArgs.length);
+    case 8010:
+      final n = _scalarAt(scalars[0]);
+      if (n >= 1 && n <= _programArgs.length) {
+        _setString(arrays[0], _programArgs[n - 1]);
+        _setScalar(scalars[1], 1);
+      } else {
+        _setScalar(scalars[1], 2);
+      }
+    case 8020:
+      final value = Platform.environment[_stringAt(arrays[0], next)];
+      if (value != null) _setString(arrays[1], value);
+      _setScalar(scalars[0], value != null ? 1 : 2);
+    case 8030:
+      final status = _scalarAt(scalars[0]);
+      if (status > 255) ickFatal(802, next);
+      _flush();
+      _closeConnections();
+      exit(status);
+    case 8040:
+      _setScalar(scalars[0], DateTime.now().millisecondsSinceEpoch);
+    case 8050:
+      // Its zero is a second before the program started.
+      final ticks = _monotonic.elapsedTicks, frequency = _monotonic.frequency;
+      _setScalar(
+        scalars[0],
+        1000000000 +
+            ticks ~/ frequency * 1000000000 +
+            ticks % frequency * 1000000000 ~/ frequency,
+      );
+    case 8060:
+      _rngState = _scalarAt(scalars[0]);
+    case 2000:
+      final byte = _readByteFrom(_scalarAt(scalars[0]), next);
+      if (byte >= 0) _setScalar(scalars[1], byte);
+      _setScalar(scalars[2], byte >= 0 ? 1 : 2);
+    case 2010:
+      final written = _writeByteTo(
+        _scalarAt(scalars[0]),
+        _scalarAt(scalars[1]),
+        next,
+      );
+      _setScalar(scalars[2], written ? 1 : 2);
+    case 2020:
+      final handle = _openFile(
+        _stringAt(arrays[0], next),
+        _scalarAt(scalars[0]),
+        next,
+      );
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 2030:
+      _setScalar(scalars[1], _closeFile(_scalarAt(scalars[0]), next) ? 1 : 2);
+    case 9000:
+      final handle = _connectTo(
+        _stringAt(arrays[0], next),
+        _scalarAt(scalars[0]),
+      );
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 9010:
+      final handle = _listenOn(_scalarAt(scalars[0]));
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 9020:
+      final handle = _acceptOn(_scalarAt(scalars[0]), next);
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 9030:
+      _setScalar(scalars[1], _portOf(_scalarAt(scalars[0]), next));
+    case 3000:
+      _setScalar(scalars[0], _stringAt(arrays[0], next).length);
+    case 3001:
+      _setString(arrays[0], '');
+    case 3002:
+      _setScalar(scalars[0], _stringAt(arrays[0], next).length);
+    case 6000 || 6100:
+      _setScalar(scalars[0], _arrays[arrays[0]].shape.rank);
+    case 6010 || 6110:
+      final dims = _arrays[arrays[0]].shape.dims;
+      final n = _scalarAt(scalars[0]);
+      if (n == 0 || n > dims.length) ickFatal(812, next);
+      _setScalar(scalars[0], dims[n - 1]);
+    case 6003 || 6103:
+      _setString(arrays[0], '');
+    case 9203:
+      _setString(arrays[0], '');
+    case 807 || 808 || 809 || 813 || 814 || 815 || 816 || 817:
+      ickFatal(service, next);
+    default:
+      ickFatal(801, next);
+  }
+}
+
+// ---- EXTRACAL's I/O block (R10) ----------------------------------------------------------------
+// Handles: 0 is stdin, 1 stdout and 2 stderr; OPEN gives the lowest free one from 3 up. Bytes for
+// stdout share READ OUT's buffer; anything for stderr flushes stdout first, so the two keep their
+// order on a terminal.
+
+/// A handle: a file open one way, a network connection, or a listening socket.
+sealed class _Handle {}
+
+class _File extends _Handle {
+  _File(this.file, {required this.reading});
+
+  final RandomAccessFile file;
+  final bool reading;
+}
+
+class _Connection extends _Handle {
+  _Connection(this.socket, {this.proxied = false});
+
+  final RawSynchronousSocket socket;
+
+  /// Whether this is an accepted connection, reached through the helper isolate's proxy.
+  final bool proxied;
+}
+
+/// A listening socket, which the helper isolate holds under [id].
+class _Listener extends _Handle {
+  _Listener(this.id, this.port);
+
+  final int id;
+  final int port;
+}
+
+final _handles = <int, _Handle>{};
+
+int _newHandle(_Handle h) {
+  var handle = 3;
+  while (_handles.containsKey(handle)) {
+    handle++;
+  }
+  _handles[handle] = h;
+  return handle;
+}
+
+/// A byte from [handle], or -1 at the end of input. A handle that isn't open for reading is E804.
+int _readByteFrom(int handle, int next) {
+  if (handle == 0) {
+    _flush();
+    return ickReadByte();
+  }
+  switch (_handles[handle]) {
+    case _File(:final file, reading: true):
+      try {
+        return file.readByteSync();
+      } on FileSystemException {
+        return -1;
+      }
+    case _Connection(:final socket):
+      _flush();
+      try {
+        final bytes = socket.readSync(1);
+        return bytes == null || bytes.isEmpty ? -1 : bytes[0];
+      } on SocketException {
+        return -1;
+      }
+    default:
+      ickFatal(804, next);
+  }
+}
+
+/// Writes [byte] to [handle]: true if it was written. A handle that isn't open for writing is
+/// E804, and a byte over 255 is E805.
+bool _writeByteTo(int handle, int byte, int next) {
+  final h = _handles[handle];
+  if (handle == 0 ||
+      (handle > 2 && h is! _Connection && !(h is _File && !h.reading))) {
+    ickFatal(804, next);
+  }
+  if (byte > 255) ickFatal(805, next);
+  if (handle == 1) {
+    _writeByte(byte);
+    if (byte == 10) _flush();
+    return true;
+  }
+  try {
+    switch (h) {
+      case _File(:final file):
+        file.writeByteSync(byte);
+      case _Connection(:final socket):
+        socket.writeFromSync([byte]);
+      default:
+        _flush();
+        stderr.add([byte]);
+    }
+    return true;
+  } on IOException {
+    return false;
+  }
+}
+
+int _openFile(String path, int mode, int next) {
+  final fileMode = switch (mode) {
+    1 => FileMode.read,
+    2 => FileMode.writeOnly,
+    3 => FileMode.writeOnlyAppend,
+    _ => ickFatal(806, next),
+  };
+  if (path.contains('\u0000')) return -1;
+  final RandomAccessFile file;
+  try {
+    file = File(path).openSync(mode: fileMode);
+  } on FileSystemException {
+    return -1;
+  }
+  return _newHandle(_File(file, reading: mode == 1));
+}
+
+/// Closes a file, connection or listener: true if that went cleanly.
+bool _closeFile(int handle, int next) {
+  final h = _handles.remove(handle) ?? ickFatal(804, next);
+  try {
+    switch (h) {
+      case _File(:final file):
+        file.closeSync();
+      case _Connection():
+        _closeConnection(h);
+      case _Listener(:final id):
+        _askHelper('C $id');
+    }
+    return true;
+  } on IOException {
+    return false;
+  }
+}
+
+// ---- EXTRACAL's Network block (R10, L34) -------------------------------------------------------
+// Connections and listeners are I/O-block handles: (2000) and (2010) read and write connections a
+// byte at a time, and CLOSE closes either. Every call blocks. dart:io has no synchronous server
+// socket, so a helper isolate holds the listeners. The program asks it for things over a loopback
+// control connection, and reaches each accepted connection through a loopback connection to the
+// helper's proxy, which copies bytes both ways. Both loopback ports want a secret token first, so no
+// other process can talk to the helper. runtime.c has the same, on the platform's sockets, and
+// also turns Nagle's delay off, which RawSynchronousSocket can't.
+
+/// A connection to [host] on [port], or -1 if none can be made.
+int _connectTo(String host, int port) {
+  if (port == 0 || port > 65535 || host.isEmpty || host.contains('\u0000')) {
+    return -1;
+  }
+  try {
+    return _newHandle(
+      _Connection(RawSynchronousSocket.connectSync(host, port)),
+    );
+  } on SocketException {
+    return -1;
+  }
+}
+
+/// Closes [connection]. An accepted one ends its output, then reads until the helper has passed
+/// everything on to the peer and closed its end, so nothing written is lost if the program ends
+/// straight after.
+void _closeConnection(_Connection connection) {
+  final socket = connection.socket;
+  if (connection.proxied) {
+    try {
+      socket.shutdown(SocketDirection.send);
+      while ((socket.readSync(4096) ?? const []).isNotEmpty) {}
+    } on SocketException {
+      // The helper has gone already; there is nothing left to wait for.
+    }
+  }
+  socket.closeSync();
+}
+
+/// Closes every accepted connection still open, before the program ends.
+void _closeConnections() {
+  for (final h in _handles.values) {
+    if (h is _Connection && h.proxied) {
+      try {
+        _closeConnection(h);
+      } on IOException {
+        // Already closed; the program is ending anyway.
+      }
+    }
+  }
+}
+
+RawSynchronousSocket? _helper;
+var _proxyPort = 0;
+var _token = '';
+
+/// Starts the helper isolate, if it isn't running: false if it doesn't start within 30 seconds.
+bool _startHelper() {
+  if (_helper != null) return true;
+  final dir = Directory.systemTemp.createTempSync('ciwapa-net');
+  final ports = File('${dir.path}${Platform.pathSeparator}ports');
+  final random = Random.secure();
+  _token = List.generate(
+    16,
+    (_) => random.nextInt(256).toRadixString(16),
+  ).join();
+  Isolate.spawn(_helperMain, (ports.path, _token));
+  // On Windows a virus scanner can hold the file a moment after it appears, so reading is retried.
+  final waited = Stopwatch()..start();
+  String? announced;
+  while (announced == null) {
+    if (waited.elapsed > const Duration(seconds: 30)) return false;
+    try {
+      if (ports.existsSync()) announced = ports.readAsStringSync();
+    } on FileSystemException {
+      announced = null;
+    }
+    if (announced == null) sleep(const Duration(milliseconds: 1));
+  }
+  final [control, proxy] = announced.split(' ');
+  try {
+    dir.deleteSync(recursive: true);
+  } on FileSystemException {
+    // A virus scanner may hold the file a moment; the temporary directory can stay.
+  }
+  _helper = RawSynchronousSocket.connectSync(
+    InternetAddress.loopbackIPv4,
+    int.parse(control),
+  )..writeFromSync(ascii.encode('$_token\n'));
+  _proxyPort = int.parse(proxy);
+  return true;
+}
+
+/// Sends the helper one command and returns its one-line answer.
+String _askHelper(String command) {
+  _helper!.writeFromSync(ascii.encode('$command\n'));
+  final answer = <int>[];
+  while (true) {
+    final byte = _helper!.readSync(1);
+    if (byte == null || byte.isEmpty || byte[0] == 10) break;
+    answer.add(byte[0]);
+  }
+  return ascii.decode(answer);
+}
+
+/// A listener on [port] (0 for any free one) on every address, or -1 if it can't.
+int _listenOn(int port) {
+  if (port > 65535 || !_startHelper()) return -1;
+  final answer = _askHelper('L $port');
+  if (answer == '-') return -1;
+  final [id, actual] = answer.split(' ');
+  return _newHandle(_Listener(int.parse(id), int.parse(actual)));
+}
+
+/// The next connection to [listener], or -1 if accepting failed. Not a listener is E804.
+int _acceptOn(int listener, int next) {
+  final h = _handles[listener];
+  if (h is! _Listener) ickFatal(804, next);
+  _flush();
+  final answer = _askHelper('A ${h.id}');
+  if (answer == '-') return -1;
+  try {
+    final socket = RawSynchronousSocket.connectSync(
+      InternetAddress.loopbackIPv4,
+      _proxyPort,
+    );
+    socket.writeFromSync(ascii.encode('$_token $answer\n'));
+    return _newHandle(_Connection(socket, proxied: true));
+  } on SocketException {
+    return -1;
+  }
+}
+
+/// The port [listener] listens on. Not a listener is E804.
+int _portOf(int listener, int next) {
+  final h = _handles[listener];
+  if (h is! _Listener) ickFatal(804, next);
+  return h.port;
+}
+
+/// The helper isolate. It writes its control and proxy ports to a file, then serves the first
+/// control connection that gives the token: `L port` listens, `A id` waits for a connection to
+/// listener `id`, and `C id` closes it. An accepted connection waits under its number until a
+/// proxy connection names it after the token; the two then copy bytes both ways. When the program
+/// ends its side, the helper passes the end on to the peer, and only then closes the program's
+/// side. No error reaches the isolate's top, so it lives as long as the program.
+void _helperMain((String, String) setup) {
+  final (portsFile, token) = setup;
+  runZonedGuarded(() => _helperServe(portsFile, token), (_, _) {});
+}
+
+Future<void> _helperServe(String portsFile, String token) async {
+  final listeners = <int, (ServerSocket, StreamIterator<Socket>)>{};
+  final waiting = <int, Socket>{};
+  var count = 0;
+
+  /// Calls [use] with the rest of the first line [socket] sends, if it starts with the token, and
+  /// with everything it sends after that line; drops the connection otherwise. A socket can be
+  /// listened to only once, so this listener carries every byte that follows.
+  void greet(Socket socket, void Function(String, Stream<List<int>>) use) {
+    final line = <int>[];
+    StreamController<List<int>>? rest;
+    socket.listen(
+      (data) {
+        if (rest != null) return rest!.add(data);
+        final end = data.indexOf(10);
+        line.addAll(end < 0 ? data : data.sublist(0, end));
+        if (end < 0) {
+          if (line.length > 200) socket.destroy();
+          return;
+        }
+        final text = ascii.decode(line, allowInvalid: true);
+        if (!text.startsWith(token)) return socket.destroy();
+        final more = rest = StreamController();
+        if (end + 1 < data.length) more.add(data.sublist(end + 1));
+        use(text.substring(token.length).trim(), more.stream);
+      },
+      onDone: () => rest?.close(),
+      onError: (Object error) {
+        rest?.addError(error);
+        rest?.close();
+        socket.destroy();
+      },
+      cancelOnError: true,
+    );
+  }
+
+  final proxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  proxy.listen((inside) {
+    greet(inside, (name, input) {
+      final outside = waiting.remove(int.tryParse(name));
+      if (outside == null) {
+        inside.destroy();
+        return;
+      }
+      _join(inside, input, outside);
+    });
+  });
+
+  final control = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final temporary = File('$portsFile.tmp')
+    ..writeAsStringSync('${control.port} ${proxy.port}');
+  temporary.renameSync(portsFile);
+  final program = Completer<(Socket, Stream<List<int>>)>();
+  control.listen((socket) {
+    if (program.isCompleted) return socket.destroy();
+    greet(socket, (_, input) {
+      if (!program.isCompleted) program.complete((socket, input));
+    });
+  });
+  final (socket, input) = await program.future;
+  final lines = input.transform(ascii.decoder).transform(const LineSplitter());
+  await for (final line in lines) {
+    final [command, argument] = line.split(' ');
+    final n = int.parse(argument);
+    switch (command) {
+      case 'L':
+        try {
+          final server = await _bindEverywhere(n);
+          listeners[++count] = (server, StreamIterator(server));
+          socket.add(ascii.encode('$count ${server.port}\n'));
+        } on SocketException {
+          socket.add(ascii.encode('-\n'));
+        }
+      case 'A':
+        final listener = listeners[n];
+        if (listener != null && await listener.$2.moveNext()) {
+          waiting[++count] = listener.$2.current;
+          socket.add(ascii.encode('$count\n'));
+        } else {
+          socket.add(ascii.encode('-\n'));
+        }
+      case 'C':
+        final listener = listeners.remove(n);
+        await listener?.$1.close();
+        await listener?.$2.cancel();
+        socket.add(ascii.encode('ok\n'));
+    }
+  }
+}
+
+/// Copies bytes both ways between the program's proxy connection, [inside] (whose bytes come from
+/// [input]), and [outside], the accepted one. When the program ends its output, the end goes to
+/// the peer once everything before it has; then the program's side closes, and the peer's input is
+/// read and dropped for a second, so the peer sees an orderly close rather than a reset.
+void _join(Socket inside, Stream<List<int>> input, Socket outside) {
+  var open = true;
+  outside.listen(
+    (data) {
+      if (open) inside.add(data);
+    },
+    onDone: () {
+      if (open) inside.close();
+    },
+    onError: (_) {
+      outside.destroy();
+      inside.destroy();
+    },
+  );
+  input.listen(
+    outside.add,
+    onDone: () async {
+      try {
+        await outside.flush();
+        await outside.close();
+      } on Object {
+        // The peer has gone; there is nothing more to deliver.
+      }
+      open = false;
+      inside.destroy();
+      Timer(const Duration(seconds: 1), outside.destroy);
+    },
+    onError: (_) {
+      inside.destroy();
+      outside.destroy();
+    },
+  );
+}
+
+/// IPv6 and IPv4 where the host has both, else IPv4 alone, as runtime.c binds.
+Future<ServerSocket> _bindEverywhere(int port) async {
+  try {
+    return await ServerSocket.bind(InternetAddress.anyIPv6, port);
+  } on SocketException {
+    return ServerSocket.bind(InternetAddress.anyIPv4, port);
+  }
+}
+
+/// The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
+/// in, the routine's documented ones: scalars by key and arrays by number. [nexts] lists, in
+/// program order, each PETITION the INTERCAL version uses as a service and where its errors are
+/// reported.
+void ickLibrary(
+  int label,
+  List<int> scalars,
+  List<int> arrays,
+  List<int> nexts,
+) {
+  int nextOf(int service, [int nth = 0]) {
+    for (var i = 0; i < nexts.length; i += 2) {
+      if (nexts[i] == service && nth-- == 0) return nexts[i + 1];
+    }
+    return 1;
+  }
+
+  switch (label) {
+    case 2100:
+      final handle = _scalarAt(scalars[0]);
+      final next = nextOf(2000);
+      var byte = _readByteFrom(handle, next);
+      while (byte == 32 || byte == 9 || byte == 10 || byte == 13) {
+        byte = _readByteFrom(handle, next);
+      }
+      if (byte < 48 || byte > 57) {
+        _setScalar(scalars[2], 2);
+        return;
+      }
+      var value = byte - 48, overflow = false;
+      while (true) {
+        byte = _readByteFrom(handle, next);
+        if (byte < 48 || byte > 57) break;
+        value = value * 10 + byte - 48;
+        overflow |= value > 0xFFFFFFFF;
+        value &= 0xFFFFFFFF;
+      }
+      _setScalar(scalars[1], value);
+      _setScalar(scalars[2], overflow ? 2 : 1);
+    case 2110:
+      final handle = _scalarAt(scalars[0]);
+      var ok = true;
+      for (final c in _scalarAt(scalars[1]).toString().codeUnits) {
+        ok = _writeByteTo(handle, c, nextOf(2010));
+      }
+      _setScalar(scalars[2], ok ? 1 : 2);
+    case 2200:
+      final handle = _scalarAt(scalars[0]);
+      final line = <int>[];
+      var byte = _readByteFrom(handle, nextOf(2000));
+      if (byte < 0) {
+        _setScalar(scalars[1], 2);
+        return;
+      }
+      while (byte >= 0 && byte != 10) {
+        line.add(byte);
+        byte = _readByteFrom(handle, nextOf(2000));
+      }
+      _setString(arrays[0], String.fromCharCodes(line));
+      _setScalar(scalars[1], 1);
+    case 2300 || 2310:
+      final handle = _scalarAt(scalars[0]);
+      final text = _stringAt(arrays[0], nextOf(3000));
+      var ok = true;
+      for (final c in text.codeUnits) {
+        ok = _writeByteTo(handle, c, nextOf(2010));
+        if (!ok) break;
+      }
+      if (ok && label == 2310) ok = _writeByteTo(handle, 10, nextOf(2010, 1));
+      _setScalar(scalars[1], ok ? 1 : 2);
+
+    case 3010:
+      final first = _stringAt(arrays[0], nextOf(3000));
+      final second = _stringAt(arrays[1], nextOf(3002));
+      _setString(arrays[0], first + second);
+    case 3020:
+      final text = _stringAt(arrays[0], nextOf(3000));
+      final start = _scalarAt(scalars[0]), count = _scalarAt(scalars[1]);
+      final end = text.length + 1;
+      if (start == 0 || start > end || count > end || start + count > end) {
+        ickFatal(807, nextOf(807));
+      }
+      _setString(arrays[0], text.substring(start - 1, start - 1 + count));
+    case 3030:
+      final first = _stringAt(arrays[0], nextOf(3000));
+      final second = _stringAt(arrays[1], nextOf(3002));
+      final order = _compareUnits(first.codeUnits, second.codeUnits);
+      _setScalar(scalars[0], order < 0 ? 1 : (order == 0 ? 2 : 3));
+    case 3040:
+      final haystack = _stringAt(arrays[0], nextOf(3000));
+      final needle = _stringAt(arrays[1], nextOf(3002));
+      final at = haystack.indexOf(needle);
+      if (at >= 0) _setScalar(scalars[0], at + 1);
+      _setScalar(scalars[1], at >= 0 ? 1 : 2);
+    case 3050:
+      _setString(arrays[0], _scalarAt(scalars[0]).toString());
+    case 3060:
+      final units = _stringAt(arrays[0], nextOf(3000)).codeUnits;
+      var value = 0;
+      var ok = units.isNotEmpty;
+      for (final u in units) {
+        if (!ok) break;
+        ok = u >= 48 && u <= 57;
+        value = value * 10 + u - 48;
+        ok &= value <= 0xFFFFFFFF;
+      }
+      if (ok) _setScalar(scalars[0], value);
+      _setScalar(scalars[1], ok ? 1 : 2);
+    case 3070:
+      final units = _stringAt(arrays[0], nextOf(3000)).codeUnits;
+      _setString(arrays[0], String.fromCharCodes(_utf8Encode(units)));
+    case 3080:
+      final bytes = _stringAt(arrays[0], nextOf(3000)).codeUnits;
+      _setString(
+        arrays[0],
+        String.fromCharCodes(_utf8Decode(bytes, nextOf(808))),
+      );
+    case >= 7000 && < 8000:
+      _floatLibrary(label, scalars, arrays, nextOf);
+    case >= 4000 && < 5000:
+      _mathLibrary(label, scalars, nextOf(813));
+    case 6020 || 6120:
+      final list = _listAt(arrays[0], nextOf(809));
+      list.fillRange(0, list.length, _scalarAt(scalars[0]));
+    case 6030 || 6130:
+      final list = _listAt(arrays[0], nextOf(809));
+      _arrays[arrays[1]].shape = _Shape(
+        Uint32List.fromList(list.isEmpty ? const [] : [list.length]),
+        Uint32List.fromList(list),
+      );
+    case 6040 || 6140:
+      _listAt(arrays[0], nextOf(809)).sort();
+    case 6050 || 6150:
+      final at = _listAt(arrays[0], nextOf(809)).indexOf(_scalarAt(scalars[0]));
+      if (at >= 0) _setScalar(scalars[1], at + 1);
+      _setScalar(scalars[2], at >= 0 ? 1 : 2);
+  }
+}
+
+// ---- EXTRACAL's Math block (R6, R10) -----------------------------------------------------------
+// A routine's width and operation come from its number: (4000)-(4099) are unsigned 64-bit,
+// (4100), (4200) and (4300) signed 16, 32 and 64-bit, and (4500) and (4600) power, square root,
+// modulo and gcd at 32 and 64 bits. Results are stored as their width's bit patterns.
+
+void _mathLibrary(int label, List<int> scalars, int overflowNext) {
+  final group = label ~/ 100, op = label % 100;
+  final bits = switch (group) {
+    41 => 16,
+    42 || 45 => 32,
+    _ => 64,
+  };
+  final signed = group >= 41 && group <= 43;
+  final modulus = BigInt.one << bits;
+  BigInt arg(int i) {
+    final v = BigInt.from(_scalarAt(scalars[i]));
+    return signed ? v.toSigned(bits) : v.toUnsigned(bits);
+  }
+
+  void store(int i, BigInt v) =>
+      _setScalar(scalars[i], v.toUnsigned(bits).toSigned(64).toInt());
+  bool fits(BigInt v) =>
+      signed ? v.toSigned(bits) == v : v.toUnsigned(bits) == v;
+  void finish(BigInt exact, {bool overflow = false}) {
+    overflow |= !fits(exact);
+    if (op % 10 == 9) {
+      store(2, exact);
+      _setScalar(scalars[3], overflow ? 2 : 1);
+    } else {
+      if (overflow) ickFatal(813, overflowNext);
+      store(2, exact);
+    }
+  }
+
+  BigInt order(BigInt a, BigInt b) => BigInt.from(a < b ? 1 : (a == b ? 2 : 3));
+
+  if (label == 4020 || label == 4030) {
+    final a = BigInt.from(_scalarAt(scalars[0]));
+    final b = BigInt.from(_scalarAt(scalars[1]));
+    store(2, label == 4020 ? a << 32 | b : a * b);
+    return;
+  }
+  final a = arg(0), b = arg(1);
+  if (group == 45 || group == 46) {
+    switch (op) {
+      case 0 || 9:
+        final overflow =
+            a > BigInt.one &&
+            (b >= BigInt.from(bits) || a.pow(b.toInt()) >= modulus);
+        finish(a.modPow(b, modulus), overflow: overflow);
+      case 10:
+        var root = BigInt.zero;
+        for (var bit = BigInt.one << 31; bit > BigInt.zero; bit >>= 1) {
+          final candidate = root | bit;
+          if (candidate * candidate <= a) root = candidate;
+        }
+        store(1, root);
+      case 20:
+        store(2, b == BigInt.zero ? a : a % b);
+      case 30:
+        store(2, a.gcd(b));
+    }
+    return;
+  }
+  switch (op) {
+    case 0 || 9:
+      finish(a + b);
+    case 10 when !signed:
+      store(2, a - b);
+    case 10 || 19:
+      finish(a - b);
+    case 40 || 49:
+      finish(a * b);
+    case 50:
+      finish(b == BigInt.zero ? BigInt.zero : a ~/ b);
+    case 60 || 70:
+      store(2, order(a, b));
+  }
+}
+
+// ---- EXTRACAL's Floats block (R9, L33) -----------------------------------------------------------
+// A float is a 32-bit value: the upper 16 bits are the mantissa and the lower 16 the characteristic,
+// both two's complement, worth mantissa × 2^characteristic. Every result but ln's is the exact
+// value rounded to nearest, ties to even, to a mantissa of 2^14 to 2^15 - 1; ln follows the
+// INTERCAL's fixed-point algorithm step for step.
+
+/// ln(1 + 2^-j) and -ln(1 - 2^-j) for j = 1 to 62, in Q62.
+const _lnUp = <int>[
+  1869877770022570995,
+  1029067995697975510,
+  543178378744478074,
+  279581720803300556,
+  141909228037287941,
+  71500440275001118,
+  35888788270063140,
+  17979305495762817,
+  8998414598213862,
+  4501402034722952,
+  2251250236762820,
+  1125762490254678,
+  562915596478891,
+  281466387125573,
+  140735340915370,
+  70368207312213,
+  35184237871787,
+  17592152490069,
+  8796084633611,
+  4398044413953,
+  2199022731264,
+  1099511496704,
+  549755781120,
+  274877898752,
+  137438951424,
+  68719476224,
+  34359738240,
+  17179869152,
+  8589934584,
+  4294967294,
+  2147483648,
+  1073741824,
+  536870912,
+  268435456,
+  134217728,
+  67108864,
+  33554432,
+  16777216,
+  8388608,
+  4194304,
+  2097152,
+  1048576,
+  524288,
+  262144,
+  131072,
+  65536,
+  32768,
+  16384,
+  8192,
+  4096,
+  2048,
+  1024,
+  512,
+  256,
+  128,
+  64,
+  32,
+  16,
+  8,
+  4,
+  2,
+  1,
+];
+const _lnDown = <int>[
+  3196577161300663915,
+  1326699391278092920,
+  615804856387649007,
+  297631395580117410,
+  146415028120619150,
+  72626477643170933,
+  36170271837057929,
+  18049674776816854,
+  9016006817812796,
+  4505800083331209,
+  2252349748521668,
+  1126037368169814,
+  562984315956139,
+  281483566994789,
+  140739635882668,
+  70369281054037,
+  35184506307243,
+  17592219598933,
+  8796101410827,
+  4398048608257,
+  2199023779840,
+  1099511758848,
+  549755846656,
+  274877915136,
+  137438955520,
+  68719477248,
+  34359738496,
+  17179869216,
+  8589934600,
+  4294967298,
+  2147483649,
+  1073741824,
+  536870912,
+  268435456,
+  134217728,
+  67108864,
+  33554432,
+  16777216,
+  8388608,
+  4194304,
+  2097152,
+  1048576,
+  524288,
+  262144,
+  131072,
+  65536,
+  32768,
+  16384,
+  8192,
+  4096,
+  2048,
+  1024,
+  512,
+  256,
+  128,
+  64,
+  32,
+  16,
+  8,
+  4,
+  2,
+  1,
+];
+
+/// A float's exact value: mantissa × 2^exponent.
+typedef _Dyadic = (BigInt, int);
+
+_Dyadic _floatValue(int x) =>
+    (BigInt.from((x >> 16 & 0xFFFF).toSigned(16)), (x & 0xFFFF).toSigned(16));
+
+_Dyadic _dyadicSum(_Dyadic a, _Dyadic b) {
+  final e = a.$2 < b.$2 ? a.$2 : b.$2;
+  return ((a.$1 << (a.$2 - e)) + (b.$1 << (b.$2 - e)), e);
+}
+
+/// The float nearest [n] / [d] × 2^[e], negated if [negative]: E814 above the range, reported at
+/// [overflowNext]; #0 below it.
+int _floatNearest(bool negative, BigInt n, BigInt d, int e, int overflowNext) {
+  if (n == BigInt.zero) return 0;
+  final low = BigInt.from(1 << 14), high = BigInt.from(1 << 15);
+  BigInt scaledN(int s) => s >= 0 ? n << s : n;
+  BigInt scaledD(int s) => s >= 0 ? d : d << -s;
+  var s = 14 - (n.bitLength - d.bitLength);
+  while (scaledN(s) ~/ scaledD(s) >= high) {
+    s--;
+  }
+  while (scaledN(s) ~/ scaledD(s) < low) {
+    s++;
+  }
+  var q = scaledN(s) ~/ scaledD(s);
+  final twice = (scaledN(s) - q * scaledD(s)) * BigInt.two;
+  if (twice > scaledD(s) || (twice == scaledD(s) && q.isOdd)) q += BigInt.one;
+  var exponent = e - s;
+  if (q == high) {
+    q = low;
+    exponent++;
+  }
+  if (exponent > 32767) ickFatal(814, overflowNext);
+  if (exponent < -32768) return 0;
+  final m = negative ? -q.toInt() : q.toInt();
+  return (m & 0xFFFF) << 16 | exponent & 0xFFFF;
+}
+
+int _floatOf(_Dyadic v, int overflowNext) => v.$2 >= 0
+    ? _floatNearest(
+        v.$1.isNegative,
+        v.$1.abs() << v.$2,
+        BigInt.one,
+        0,
+        overflowNext,
+      )
+    : _floatNearest(
+        v.$1.isNegative,
+        v.$1.abs(),
+        BigInt.one,
+        v.$2,
+        overflowNext,
+      );
+
+/// The INTERCAL's logarithm of the positive float [m] × 2^[c]: shift-and-add in Q62 over
+/// [_lnUp] or [_lnDown], then k ln 2 in Q32 unless k is 0, rounded once.
+int _floatLn(int m, int c, int overflowNext) {
+  const one = 1 << 62;
+  while (m < 1 << 14) {
+    m <<= 1;
+    c--;
+  }
+  var k = c + 14, f = m << 48;
+  if (m >= 24576) {
+    f = m << 47;
+    k++;
+  }
+  var acc = 0;
+  final negative = f < one;
+  for (var j = 1; j <= 62; j++) {
+    final t = negative ? f + (f >> j) : f - (f >> j);
+    if (negative ? t <= one : t >= one) {
+      f = t;
+      acc += (negative ? _lnUp : _lnDown)[j - 1];
+    }
+  }
+  acc += negative ? one - f : f - one;
+  if (k == 0) {
+    return _floatNearest(
+      negative,
+      BigInt.from(acc),
+      BigInt.one,
+      -62,
+      overflowNext,
+    );
+  }
+  final term = (acc + (1 << 29)) >> 30;
+  final y = k * 2977044472 + (negative ? -term : term);
+  return _floatNearest(
+    y < 0,
+    BigInt.from(y.abs()),
+    BigInt.one,
+    -32,
+    overflowNext,
+  );
+}
+
+/// Five significant digits, correctly rounded, ties to even: like -1.2346E+5.
+String _floatToString(int x) {
+  final (m, c) = _floatValue(x);
+  if (m == BigInt.zero) return '0.0000E+0';
+  final places = c < 0 ? -c : 0;
+  final n = c < 0 ? m.abs() * BigInt.from(5).pow(-c) : m.abs() << c;
+  final digits = n.toString().padRight(6, '0');
+  var exponent = n.toString().length - 1 - places;
+  var first = int.parse(digits.substring(0, 5));
+  final sixth = digits.codeUnitAt(5) - 48;
+  final rest = digits.substring(6).replaceAll('0', '').isNotEmpty;
+  if (sixth > 5 || (sixth == 5 && (rest || first.isOdd))) first++;
+  if (first == 100000) {
+    first = 10000;
+    exponent++;
+  }
+  final text = '$first';
+  return '${m.isNegative ? '-' : ''}${text[0]}.${text.substring(1)}'
+      'E${exponent < 0 ? '-' : '+'}${exponent.abs()}';
+}
+
+/// The float [text] spells, as the INTERCAL reads it, or null if it is malformed. E814 from the
+/// INTERCAL's early range check is reported at [earlyNext]; from rounding, at [roundNext].
+int? _floatFromString(String text, int earlyNext, int roundNext) {
+  final match = RegExp(
+    r'^([+-]?)([0-9]*)(?:\.([0-9]*))?(?:[eE]([+-]?)([0-9]+))?$',
+  ).firstMatch(text);
+  if (match == null) return null;
+  final whole = match[2]!, fraction = match[3] ?? '';
+  if (whole.isEmpty && fraction.isEmpty) return null;
+  var exponent = 0;
+  for (final unit in (match[5] ?? '').codeUnits) {
+    exponent = exponent * 10 + unit - 48;
+    if (exponent > 100000) exponent = 100000;
+  }
+  if (match[4] == '-') exponent = -exponent;
+  final digits = (whole + fraction).replaceFirst(RegExp('^0+'), '');
+  if (digits.isEmpty) return 0;
+  final e = exponent - fraction.length;
+  if (digits.length + e > 9869) ickFatal(814, earlyNext);
+  if (digits.length + e < -9859) return 0;
+  final d = BigInt.parse(digits), ten = BigInt.from(10);
+  return _floatNearest(
+    match[1] == '-',
+    e >= 0 ? d * ten.pow(e) : d,
+    e >= 0 ? BigInt.one : ten.pow(-e),
+    0,
+    roundNext,
+  );
+}
+
+void _floatLibrary(
+  int label,
+  List<int> scalars,
+  List<int> arrays,
+  int Function(int, [int]) nextOf,
+) {
+  final x = _scalarAt(scalars[0]);
+  final a = _floatValue(x);
+  switch (label) {
+    case 7000 || 7010 || 7020 || 7030 || 7040:
+      final b = _floatValue(_scalarAt(scalars[1]));
+      final overflow = nextOf(814);
+      _setScalar(scalars[2], switch (label) {
+        7000 => _floatOf(_dyadicSum(a, b), overflow),
+        7010 => _floatOf(_dyadicSum(a, (-b.$1, b.$2)), overflow),
+        7020 => _floatOf((a.$1 * b.$1, a.$2 + b.$2), overflow),
+        7030 =>
+          b.$1 == BigInt.zero
+              ? ickFatal(815, nextOf(815))
+              : _floatNearest(
+                  a.$1.isNegative != b.$1.isNegative,
+                  a.$1.abs(),
+                  b.$1.abs(),
+                  a.$2 - b.$2,
+                  overflow,
+                ),
+        _ => _dyadicSum(a, (-b.$1, b.$2)).$1.sign + 2,
+      });
+    case 7050:
+      if (a.$1 <= BigInt.zero) ickFatal(816, nextOf(816));
+      _setScalar(scalars[1], _floatLn(a.$1.toInt(), a.$2, nextOf(814)));
+    case 7060:
+      _setScalar(
+        scalars[1],
+        _floatOf((BigInt.from(x.toSigned(32)), 0), nextOf(814)),
+      );
+    case 7070:
+      final magnitude = a.$2 >= 0 ? a.$1.abs() << a.$2 : a.$1.abs() >> -a.$2;
+      final truncated = a.$1.isNegative ? -magnitude : magnitude;
+      if (truncated < -BigInt.from(1 << 31) ||
+          truncated >= BigInt.from(1 << 31)) {
+        ickFatal(814, nextOf(814));
+      }
+      _setScalar(scalars[1], truncated.toInt() & 0xFFFFFFFF);
+    case 7080:
+      _setString(arrays[0], _floatToString(x));
+    case 7090:
+      final parsed = _floatFromString(
+        _stringAt(arrays[0], nextOf(3000)),
+        nextOf(814, 1),
+        nextOf(814),
+      );
+      if (parsed != null) _setScalar(scalars[0], parsed);
+      _setScalar(scalars[1], parsed != null ? 1 : 2);
+  }
+}
+
+// ---- EXTRACAL's Strings block (R8, R10) -----------------------------------------------------
+
+/// -1, 0 or 1 as [a] sorts before, with or after [b], element by element.
+int _compareUnits(List<int> a, List<int> b) {
+  for (var i = 0; i < a.length && i < b.length; i++) {
+    if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+  }
+  return a.length.compareTo(b.length);
+}
+
+/// UTF-8 bytes for UTF-16 code units, as the Strings block's (3070) makes them: a lone surrogate
+/// becomes U+FFFD.
+List<int> _utf8Encode(List<int> units) {
+  final bytes = <int>[];
+  for (var i = 0; i < units.length; i++) {
+    var c = units[i];
+    if (c < 0x80) {
+      bytes.add(c);
+      continue;
+    }
+    if (c < 0x800) {
+      bytes
+        ..add(0xC0 | c >> 6)
+        ..add(0x80 | c & 0x3F);
+      continue;
+    }
+    if (c >= 0xD800 && c <= 0xDFFF) {
+      final paired =
+          c <= 0xDBFF &&
+          i + 1 < units.length &&
+          units[i + 1] >= 0xDC00 &&
+          units[i + 1] <= 0xDFFF;
+      if (!paired) {
+        bytes.addAll(const [0xEF, 0xBF, 0xBD]);
+        continue;
+      }
+      c = 0x10000 + ((c & 0x3FF) << 10) + (units[++i] & 0x3FF);
+      bytes
+        ..add(0xF0 | c >> 18)
+        ..add(0x80 | c >> 12 & 0x3F)
+        ..add(0x80 | c >> 6 & 0x3F)
+        ..add(0x80 | c & 0x3F);
+      continue;
+    }
+    bytes
+      ..add(0xE0 | c >> 12)
+      ..add(0x80 | c >> 6 & 0x3F)
+      ..add(0x80 | c & 0x3F);
+  }
+  return bytes;
+}
+
+/// UTF-16 code units for UTF-8 [bytes], as the Strings block's (3080) reads them. A lead byte
+/// that starts no sequence, or one whose continuation bytes run out, becomes U+FFFD and uses up
+/// only itself; a sequence that is overlong, a surrogate or above U+10FFFF becomes U+FFFD and
+/// uses up all its bytes. An element above 255 is E808 when it is reached.
+List<int> _utf8Decode(List<int> bytes, int next) {
+  int byteAt(int i) => bytes[i] > 255 ? ickFatal(808, next) : bytes[i];
+  final units = <int>[];
+  var i = 0;
+  while (i < bytes.length) {
+    final lead = byteAt(i);
+    if (lead < 0x80) {
+      units.add(lead);
+      i++;
+      continue;
+    }
+    final (need, minimum, bits) = lead >> 5 == 6
+        ? (1, 0x80, lead & 0x1F)
+        : lead >> 4 == 14
+        ? (2, 0x800, lead & 0x0F)
+        : lead >> 3 == 30
+        ? (3, 0x10000, lead & 0x07)
+        : (0, 0, 0);
+    var value = bits, got = 0;
+    while (got < need) {
+      if (i + got + 1 >= bytes.length) break;
+      final b = byteAt(i + got + 1);
+      if (b >> 6 != 2) break;
+      value = value << 6 | b & 0x3F;
+      got++;
+    }
+    if (need == 0 || got < need) {
+      units.add(0xFFFD);
+      i++;
+      continue;
+    }
+    i += need + 1;
+    if (value < minimum || value > 0x10FFFF || value >> 11 == 27) {
+      units.add(0xFFFD);
+    } else if (value >= 0x10000) {
+      units
+        ..add(0xD800 | (value - 0x10000) >> 10)
+        ..add(0xDC00 | (value - 0x10000) & 0x3FF);
+    } else {
+      units.add(value);
+    }
+  }
+  return units;
 }

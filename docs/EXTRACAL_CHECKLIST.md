@@ -14,7 +14,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 - [x] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead; one whose Mode 1 run doesn't end in an error also needs a `.xc.reason` citing what allows it (such as L15, `come-from/dead-next-from.i`). Tests: `packages/conformance/bin/conformance.dart`
 - [x] R1, R5 — a Mode 1 program that ends in E533 by mingling a value over 65535 gets a 64-bit result as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/calculate/e533-mingle-operand.xc.err`, `packages/conformance/tests/ignore/statement-still-executes.xc.err`
-- [ ] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.out`
+- [x] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.exit`
 
 ## Mode selection (R2)
 
@@ -60,14 +60,14 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 6. Threading
 
-- [ ] R3.6 — several COME FROMs or NEXT FROMs aimed at one label split the thread; each thread has its own variables, stashes and NEXT stack and shares abstentions. Tests: `packages/conformance/tests/extracal/threads/split.xc`
-- [ ] R3.6 — threads take turns one statement at a time, as in `ick`. Tests: `packages/conformance/tests/extracal/threads/round-robin.xc`
-- [ ] R3.6 — GIVE UP ends only the current thread while others remain. Tests: `packages/conformance/tests/extracal/threads/give-up.xc`
-- [ ] R3.6 — `a WHILE b` runs b in a woven thread for as long as a is running. Tests: `packages/conformance/tests/extracal/threads/while.xc`
+- [x] R3.6 — several COME FROMs or NEXT FROMs aimed at one label split the thread; each thread has its own variables, stashes and NEXT stack and shares abstentions. Tests: `packages/conformance/tests/extracal/threads/split.xc`, `packages/conformance/tests/extracal/threads/own-variables.xc`, `packages/conformance/tests/extracal/threads/shared-abstentions.xc`, `packages/conformance/tests/extracal/threads/next-from.xc`, `packages/conformance/tests/extracal/threads/computed.xc`, `packages/conformance/tests/extracal/threads/choicepoints.xc`
+- [x] R3.6 — threads take turns one statement at a time, as in `ick`. Tests: `packages/conformance/tests/extracal/threads/round-robin.xc`, `packages/conformance/tests/extracal/threads/split.xc`
+- [x] R3.6 — GIVE UP ends only the current thread while others remain. Tests: `packages/conformance/tests/extracal/threads/give-up.xc`
+- [x] R3.6 — `a WHILE b` runs b in a woven thread for as long as a is running. Tests: `packages/conformance/tests/extracal/threads/while.xc`, `packages/conformance/tests/extracal/threads/while-shares.xc`, `packages/conformance/tests/extracal/threads/traditional.xc`
 
 ### 7. Backtracking
 
-- [ ] R3.7 — MAYBE creates a choicepoint; GO BACK returns to it with the statement's abstention reversed; GO AHEAD discards it. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/backtracking/maybe.xc`, `packages/conformance/tests/extracal/backtracking/maybe-not.xc`, `packages/conformance/tests/extracal/backtracking/come-from.xc`, `packages/conformance/tests/extracal/backtracking/computed-come-from.xc`, `packages/conformance/tests/extracal/backtracking/stash.xc`, `packages/conformance/tests/extracal/backtracking/arrays.xc`, `packages/conformance/tests/extracal/backtracking/ignore.xc`, `packages/conformance/tests/extracal/backtracking/overloading.xc`, `packages/conformance/tests/extracal/backtracking/operator-unwind.xc`, `packages/conformance/tests/extracal/backtracking/finished-operator.xc`, `packages/conformance/tests/extracal/backtracking/element-operator.xc`, `packages/conformance/tests/extracal/backtracking/next-stack.xc`, `packages/conformance/tests/extracal/backtracking/abstentions-stay.xc`, `packages/conformance/tests/extracal/backtracking/once.xc`, `packages/conformance/tests/extracal/backtracking/gerund.xc`, `packages/conformance/tests/extracal/backtracking/latin.xc`, `packages/conformance/tests/extracal/backtracking/traditional.xc`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] R3.7 — MAYBE creates a choicepoint; GO BACK returns to it with the statement's abstention reversed; GO AHEAD discards it. Tests: `packages/conformance/tests/extracal/backtracking/maybe.xc`, `packages/conformance/tests/extracal/backtracking/maybe-not.xc`, `packages/conformance/tests/extracal/backtracking/come-from.xc`, `packages/conformance/tests/extracal/backtracking/computed-come-from.xc`, `packages/conformance/tests/extracal/backtracking/stash.xc`, `packages/conformance/tests/extracal/backtracking/arrays.xc`, `packages/conformance/tests/extracal/backtracking/ignore.xc`, `packages/conformance/tests/extracal/backtracking/overloading.xc`, `packages/conformance/tests/extracal/backtracking/operator-unwind.xc`, `packages/conformance/tests/extracal/backtracking/finished-operator.xc`, `packages/conformance/tests/extracal/backtracking/element-operator.xc`, `packages/conformance/tests/extracal/backtracking/next-stack.xc`, `packages/conformance/tests/extracal/backtracking/abstentions-stay.xc`, `packages/conformance/tests/extracal/backtracking/once.xc`, `packages/conformance/tests/extracal/backtracking/gerund.xc`, `packages/conformance/tests/extracal/backtracking/latin.xc`, `packages/conformance/tests/extracal/backtracking/traditional.xc`, `packages/ciwapa_core/test/parser_test.dart`
 - [x] R3.7 — GO BACK and GO AHEAD with no choicepoint are E404. Tests: `packages/conformance/tests/extracal/backtracking/e404.xc`, `packages/conformance/tests/extracal/backtracking/go-ahead.xc`
 
 ### 8. Operand overloading
@@ -83,11 +83,11 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 11. CLC-style binary I/O
 
-- [ ] R3.11 — CLC-INTERCAL style binary I/O. **BLOCKED** (L14)
+- [x] R3.11, L14 — CLC-INTERCAL's Baudot text I/O: `WRITE IN BAUDOT` reads a line into an array as Baudot codes, `READ OUT BAUDOT` prints one, on tail, hybrid and 64-bit arrays; a line that doesn't fit and an array of rank other than 1 are E241, and `--traditional` rejects both with E111. Tests: `packages/conformance/tests/extracal/clc-io/out.xc`, `packages/conformance/tests/extracal/clc-io/encode.xc`, `packages/conformance/tests/extracal/clc-io/round-trip.xc`, `packages/conformance/tests/extracal/clc-io/lines-crlf.xc`, `packages/conformance/tests/extracal/clc-io/codes.xc`, `packages/conformance/tests/extracal/clc-io/wide-and-symbols.xc`, `packages/conformance/tests/extracal/clc-io/base3.3xc`, `packages/conformance/tests/extracal/clc-io/e241-too-long.xc`, `packages/conformance/tests/extracal/clc-io/e241-one-over.xc`, `packages/conformance/tests/extracal/clc-io/e241-rank.xc`, `packages/conformance/tests/extracal/clc-io/e241-rank-in.xc`, `packages/conformance/tests/extracal/clc-io/traditional.xc`, `packages/conformance/tests/syntax/baudot-in-comment.i`, `packages/ciwapa_core/test/parser_test.dart`
 
 ### 12. Latin keywords
 
-- [ ] R3.12 — `PLACET`, `FAC` and `PLACET FACERE` are statement identifiers, recognized anywhere as `ick` does. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/latin/identifiers.xc`
+- [x] R3.12 — `PLACET`, `FAC` and `PLACET FACERE` are statement identifiers, recognized anywhere as `ick` does. Tests: `packages/conformance/tests/extracal/latin/identifiers.xc`
 - [x] R3.12 — the Latin statements, `NON`, `QUONDAM`/`ITERUM`, `MULTIPLICATUS A` and gerunds. Tests: `packages/conformance/tests/extracal/latin/statements.xc`, `packages/conformance/tests/extracal/latin/come-from.xc`, `packages/conformance/tests/extracal/latin/try-again.xc`
 - [x] R3.12 — Latin number words in WRITE IN, in EXTRACAL only (Mode 1's E579 stays, T29). Tests: `packages/conformance/tests/extracal/latin/write-in.xc`, `packages/conformance/tests/io/e579-latin.xc.out`
 
@@ -128,45 +128,45 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### System (8000)–(8999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-system`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-system`, `packages/ciwapa_core/test/extracal_library_test.dart`
 
 ### I/O (2000)–(2999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-io`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-io`
 
 ### Strings (3000)–(3999)
 
-- [ ] R8, R10 — reference, native paths, auto-inclusion and agreement tests, including astral characters as surrogate pairs. Tests: `packages/conformance/tests/extracal/lib-strings`
+- [x] R8, R10 — reference, native paths, auto-inclusion and agreement tests, including astral characters as surrogate pairs. Tests: `packages/conformance/tests/extracal/lib-strings`
 
 ### Arrays (6000)–(6999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-arrays`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-arrays`
 
 ### Math (4000)–(4999)
 
-- [ ] R6, R10 — reference, native paths, auto-inclusion and agreement tests, including signed arithmetic at all three widths. Tests: `packages/conformance/tests/extracal/lib-math`
+- [x] R6, R10 — reference, native paths, auto-inclusion and agreement tests, including signed arithmetic at all three widths. Tests: `packages/conformance/tests/extracal/lib-math`
 
 ### Floats (7000)–(7999)
 
-- [ ] R9, R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-floats`
+- [x] R9, R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-floats`
 
 ### Network (9000)–(9999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-network`
-- [ ] R10 — a TCP echo round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/tcp-echo.xc`
-- [ ] R10 — an HTTP/1.1 client/server round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/http-round-trip.xc`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-network`
+- [x] R10 — a TCP echo round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/tcp-echo.xc`
+- [x] R10 — an HTTP/1.1 client/server round trip passes in both flavors on every CI platform. Tests: `packages/conformance/tests/extracal/lib-network/http-round-trip.xc`, `packages/conformance/tests/extracal/lib-network/http-post.xc`
 
 ### Auto-inclusion
 
-- [ ] R10 — a program that defines any label in a block doesn't get that block (T36). Tests: `packages/ciwapa_core/test/extracal_library_test.dart`
+- [x] R10 — a program that defines any label in a block doesn't get that block (T36). Tests: `packages/ciwapa_core/test/extracal_library_test.dart`
 
 ## Error codes (R11)
 
 Each new code is listed under "EXTRACAL error codes" in [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) and has a test here.
 
-- [ ] R11 — every new error code has official text and a joke line, an entry in `SPEC_DECISIONS.md`, and a test. Tests: `packages/ciwapa_core/test/errors_test.dart`
+- [x] R11 — every new error code has official text and a joke line, an entry in `SPEC_DECISIONS.md`, and a test. Tests: `packages/ciwapa_core/test/errors_test.dart`
 
 ## Mode 1 is unchanged (Q111)
 
-- [ ] Q111 — the Mode 1 conformance suite passes unchanged in both flavors. Tests: `packages/conformance/bin/conformance.dart`
-- [ ] Q111 — Mode 1 benchmark timings show no regression against goal 1's. Tests: `tools/goal/no-regression.json`
+- [x] Q111 — the Mode 1 conformance suite passes unchanged in both flavors. Tests: `packages/conformance/bin/conformance.dart`
+- [x] Q111 — Mode 1 benchmark timings show no regression against goal 1's. Tests: `tools/goal/no-regression.json`

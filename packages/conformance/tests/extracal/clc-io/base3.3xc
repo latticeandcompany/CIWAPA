@@ -1,0 +1,5 @@
+	DO ,1 <- #2
+	DO ,1 SUB #1 <- #20
+	PLEASE ,1 SUB #2 <- #1
+	DO READ OUT BAUDOT ,1
+	DO GIVE UP

@@ -16,6 +16,7 @@ void main() {
       '-O2',
       '-w',
       'test/runtime_test.c',
+      if (Platform.isWindows) '-lws2_32',
       '-o',
       exe,
     ]);

@@ -1,0 +1,459 @@
+	DO :1 <- #0
+	DO :2 <- #0
+	DO (4209) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- #0
+	DO :2 <- #0
+	DO (4219) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #0
+	PLEASE :2 <- #0
+	DO (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #0
+	DO :2 <- #0
+	PLEASE (4250) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #0
+	PLEASE :2 <- #0
+	DO (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- #1
+	DO :2 <- ##4294967295
+	DO (4209) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #1
+	PLEASE :2 <- ##4294967295
+	DO (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #1
+	DO :2 <- ##4294967295
+	PLEASE (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- #1
+	DO :2 <- ##4294967295
+	DO (4250) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #1
+	DO :2 <- ##4294967295
+	PLEASE (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483647
+	PLEASE :2 <- #1
+	DO (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- #1
+	PLEASE (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- #1
+	DO (4249) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483647
+	DO :2 <- #1
+	DO (4250) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- #1
+	DO (4260) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- ##4294967295
+	PLEASE (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- ##4294967295
+	DO (4219) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483648
+	DO :2 <- ##4294967295
+	DO (4249) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	PLEASE :2 <- ##4294967295
+	DO (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483648
+	DO :2 <- ##2147483648
+	DO (4209) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	PLEASE :2 <- ##2147483648
+	DO (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- ##2147483648
+	PLEASE (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- ##2147483648
+	DO (4250) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- ##2147483648
+	PLEASE (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483647
+	PLEASE :2 <- ##2147483647
+	DO (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- ##2147483647
+	PLEASE (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- ##2147483647
+	DO (4249) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483647
+	DO :2 <- ##2147483647
+	DO (4250) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- ##2147483647
+	DO (4260) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967289
+	DO :2 <- #2
+	PLEASE (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##4294967289
+	DO :2 <- #2
+	DO (4219) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##4294967289
+	DO :2 <- #2
+	DO (4249) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##4294967289
+	PLEASE :2 <- #2
+	DO (4250) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- ##4294967289
+	DO :2 <- #2
+	DO (4260) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- #7
+	DO :2 <- ##4294967294
+	DO (4209) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- #7
+	DO :2 <- ##4294967294
+	DO (4219) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #7
+	PLEASE :2 <- ##4294967294
+	DO (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #7
+	DO :2 <- ##4294967294
+	PLEASE (4250) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #7
+	PLEASE :2 <- ##4294967294
+	DO (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- ##4294967289
+	DO :2 <- ##4294967294
+	DO (4209) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##4294967289
+	PLEASE :2 <- ##4294967294
+	DO (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##4294967289
+	DO :2 <- ##4294967294
+	PLEASE (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##4294967289
+	DO :2 <- ##4294967294
+	DO (4250) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967289
+	DO :2 <- ##4294967294
+	PLEASE (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	PLEASE :2 <- #1
+	DO (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- #1
+	PLEASE (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- #1
+	DO (4249) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483648
+	DO :2 <- #1
+	DO (4250) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483648
+	DO :2 <- #1
+	DO (4260) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- ##4294967295
+	PLEASE (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483647
+	DO :2 <- ##4294967295
+	DO (4219) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483647
+	DO :2 <- ##4294967295
+	DO (4249) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483647
+	PLEASE :2 <- ##4294967295
+	DO (4250) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483647
+	DO :2 <- ##4294967295
+	DO (4260) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- ##2147483649
+	DO :2 <- ##4294967295
+	DO (4209) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##2147483649
+	DO :2 <- ##4294967295
+	DO (4219) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483649
+	PLEASE :2 <- ##4294967295
+	DO (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##2147483649
+	DO :2 <- ##4294967295
+	PLEASE (4250) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483649
+	PLEASE :2 <- ##4294967295
+	DO (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- #12
+	DO :2 <- #0
+	DO (4209) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #12
+	PLEASE :2 <- #0
+	DO (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #12
+	DO :2 <- #0
+	PLEASE (4249) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- #12
+	DO :2 <- #0
+	DO (4250) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #12
+	DO :2 <- #0
+	PLEASE (4260) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967293
+	PLEASE :2 <- #5
+	DO (4209) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##4294967293
+	DO :2 <- #5
+	PLEASE (4219) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- ##4294967293
+	DO :2 <- #5
+	DO (4249) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- ##4294967293
+	DO :2 <- #5
+	DO (4250) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- ##4294967293
+	DO :2 <- #5
+	DO (4260) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967291
+	DO :2 <- #3
+	PLEASE (4200) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967291
+	PLEASE :2 <- #3
+	DO (4210) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- ##4294967291
+	DO :2 <- #3
+	DO (4240) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO GIVE UP
+(20)	DO STASH .1 + .2 + .3
+	DO .1 <- #1
+	PLEASE (2110) NEXT
+	DO .2 <- #10
+	DO (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3
+	PLEASE RESUME #1
+(22)	DO STASH :1
+	DO :1 <- ::9~####18446744069414584320
+	DO (20) NEXT
+	PLEASE :1 <- ::9~##4294967295
+	DO (20) NEXT
+	DO RETRIEVE :1
+	DO RESUME #1

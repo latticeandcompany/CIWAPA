@@ -1,0 +1,33 @@
+	DO ,1 <- #18
+	DO ,1 SUB #1 <- #104
+	DO ,1 SUB #2 <- #116
+	PLEASE ,1 SUB #3 <- #116
+	DO ,1 SUB #4 <- #112
+	DO ,1 SUB #5 <- #115
+	DO ,1 SUB #6 <- #58
+	PLEASE ,1 SUB #7 <- #47
+	DO ,1 SUB #8 <- #47
+	DO ,1 SUB #9 <- #108
+	DO ,1 SUB #10 <- #111
+	PLEASE ,1 SUB #11 <- #99
+	DO ,1 SUB #12 <- #97
+	DO ,1 SUB #13 <- #108
+	DO ,1 SUB #14 <- #104
+	PLEASE ,1 SUB #15 <- #111
+	DO ,1 SUB #16 <- #115
+	DO ,1 SUB #17 <- #116
+	DO ,1 SUB #18 <- #47
+	PLEASE (9100) NEXT
+	DO GIVE UP
+(10)	DO STASH .1 + .3
+	DO .1 <- #1
+	PLEASE (2310) NEXT
+	DO RETRIEVE .1 + .3
+	DO RESUME #1
+(20)	DO STASH .1 + .2 + .3 + :1
+	PLEASE .1 <- #1
+	DO (2110) NEXT
+	DO .2 <- #10
+	DO (2010) NEXT
+	PLEASE RETRIEVE .1 + .2 + .3 + :1
+	DO RESUME #1

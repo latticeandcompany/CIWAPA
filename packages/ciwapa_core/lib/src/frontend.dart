@@ -3,6 +3,7 @@ import 'errors.dart';
 import 'lexer.dart';
 import 'parser.dart';
 import 'source.dart';
+import 'extracal/blocks.dart';
 import 'syslib/syslib.g.dart';
 
 /// A whole-program error, reported at compile time (decision Q80).
@@ -72,11 +73,15 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           body is Create ||
           body is GoBack ||
           body is GoAhead ||
-          s.maybe) {
+          s.maybe ||
+          s.whileBody != null ||
+          body is Petition ||
+          (body is IoBody && body.baudot)) {
         throw CompileError(111, i + 1);
       }
     }
   }
+  _expandWhiles(statements);
   _checkPoliteness(statements);
   // `ick` allows nothing after a TRY AGAIN, not even a comment.
   final tryAgain = statements.indexWhere((s) => s.body is TryAgain);
@@ -84,10 +89,13 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
     throw CompileError(993, tryAgain + 2);
   }
   final userStatements = statements.length;
-  if (_needsLibrary(statements, base)) {
-    statements.addAll(Parser(Source('syslib.i', syslibSource)).parse());
-  }
-  _checkLabels(statements);
+  // `--traditional` has none of EXTRACAL's library, which is built on PETITION.
+  _includeLibraries(
+    statements,
+    base,
+    extracal: dialect.extracal && !traditional,
+  );
+  _checkLabels(statements, extracal: dialect.extracal);
   _checkOperators(statements, base);
   _demoteUnreadable(statements, base);
   return Program(
@@ -99,18 +107,146 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   );
 }
 
-/// §7.3 and decision T36: the library is included when a NEXT targets a label from 1000 to 1999
-/// and the program defines no label in that range. It is binary, so only base 2 programs get it
-/// (decision L9).
-bool _needsLibrary(List<Statement> statements, int base) {
-  bool inRange(int? label) => label != null && label >= 1000 && label <= 1999;
-  if (base != 2 || statements.any((s) => inRange(s.label))) return false;
-  return statements.any(
-    (s) => switch (s.body) {
-      Next(:final label) => inRange(label),
-      _ => false,
-    },
-  );
+/// `ick`'s `(x) DO a WHILE b` (R3), expanded the way `ick`'s preprocessor does it, into 11
+/// statements with internal labels l0 to l3:
+///
+///     (l0) DO REINSTATE (l3)              weaving on
+///     (l1) DO COME FROM (l2) AGAIN
+///          DO b
+///          DO COME FROM (l0)
+///          DO NOTHING
+///          DO NOTHING
+///     (l2) DO NOTHING
+///          DO GIVE UP
+///          DO COME FROM (l0)
+///      (x) DO a                           with the statement's own qualifiers
+///     (l3) DON'T ABSTAIN FROM (l1) AGAIN  weaving off
+///
+/// The two COME FROMs on l0 split the thread: the new one runs b over and over, sharing the
+/// variables, until a finishes and abstains l1. Three of the added statements count as polite, as
+/// in `ick`.
+void _expandWhiles(List<Statement> statements) {
+  var next = 65536;
+  for (var i = statements.length - 1; i >= 0; i--) {
+    final a = statements[i];
+    final b = a.whileBody;
+    if (b == null) continue;
+    final l0 = next, l1 = next + 1, l2 = next + 2, l3 = next + 3;
+    next += 4;
+    Statement added(
+      Body body, {
+      int? label,
+      bool polite = false,
+      bool not = false,
+      OnceAgain onceAgain = OnceAgain.none,
+      int weave = 0,
+    }) => Statement(
+      source: a.source,
+      start: a.start,
+      end: a.end,
+      label: label,
+      polite: polite,
+      not: not,
+      percent: null,
+      body: body,
+      onceAgain: onceAgain,
+      preproc: true,
+      weave: weave,
+    );
+    statements.replaceRange(i, i + 1, [
+      added(
+        AbstainBody(abstain: false, label: l3),
+        label: l0,
+        polite: true,
+        weave: 1,
+      ),
+      added(ComeFrom(l2), label: l1, polite: true, onceAgain: OnceAgain.again),
+      Statement(
+        source: a.source,
+        start: a.start,
+        end: a.end,
+        label: null,
+        polite: false,
+        not: false,
+        percent: null,
+        body: b,
+      ),
+      added(ComeFrom(l0)),
+      added(const Nothing()),
+      added(const Nothing()),
+      added(const Nothing(), label: l2),
+      added(const GiveUp()),
+      added(ComeFrom(l0)),
+      Statement(
+        source: a.source,
+        start: a.start,
+        end: a.end,
+        label: a.label,
+        polite: a.polite,
+        not: a.not,
+        percent: a.percent,
+        body: a.body,
+        chain: a.chain,
+        onceAgain: a.onceAgain,
+        maybe: a.maybe,
+      ),
+      added(
+        AbstainBody(abstain: true, label: l1),
+        label: l3,
+        polite: true,
+        not: true,
+        onceAgain: OnceAgain.again,
+        weave: -1,
+      ),
+    ]);
+  }
+}
+
+/// §7.3 and decision T36: the system library is included when a NEXT targets a label from 1000
+/// to 1999 and the program defines no label in that range. EXTRACAL's library blocks follow the
+/// same rule for their own ranges (R10), and a block's NEXTs can bring in the system library or
+/// another block. All of them are binary, so only base 2 programs get them (decisions L9, L17).
+void _includeLibraries(
+  List<Statement> statements,
+  int base, {
+  required bool extracal,
+}) {
+  if (base != 2) return;
+  final user = statements.length;
+  final blocks = [
+    (name: 'syslib.i', first: 1000, last: 1999, source: syslibSource),
+    if (extracal)
+      for (final b in libraryBlocks)
+        (name: '${b.name}.xc', first: b.first, last: b.last, source: b.source),
+  ];
+  final included = <String>{};
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final block in blocks) {
+      if (included.contains(block.name)) continue;
+      bool inRange(int? label) =>
+          label != null && label >= block.first && label <= block.last;
+      if (statements.take(user).any((s) => inRange(s.label))) continue;
+      final wanted = statements.any(
+        (s) => switch (s.body) {
+          Next(:final label) => inRange(label),
+          _ => false,
+        },
+      );
+      if (!wanted) continue;
+      final extensions = block.name.endsWith('.xc');
+      statements.addAll(
+        Parser(
+          Source(block.name, block.source),
+          wide: extensions,
+          extensions: extensions,
+        ).parse(),
+      );
+      included.add(block.name);
+      changed = true;
+    }
+  }
 }
 
 /// §10.4 and decision T35: fewer than 1/5 polite statements is E079, more than 1/3 is E099, using
@@ -123,12 +259,12 @@ void _checkPoliteness(List<Statement> statements) {
   if (3 * polite > total) throw CompileError(99, 1);
 }
 
-void _checkLabels(List<Statement> statements) {
+void _checkLabels(List<Statement> statements, {required bool extracal}) {
   final firstWithLabel = <int, int>{};
   final duplicated = <int>{};
   for (final (i, s) in statements.indexed) {
     final label = s.label;
-    if (label == null || !isValidLabel(label)) continue;
+    if (label == null || !(isValidLabel(label) || s.preproc)) continue;
     if (firstWithLabel.containsKey(label)) duplicated.add(label);
     firstWithLabel.putIfAbsent(label, () => i);
   }
@@ -143,8 +279,13 @@ void _checkLabels(List<Statement> statements) {
   for (final (i, s) in statements.indexed) {
     final body = s.body;
     if (body is! ComeFrom) continue;
-    if (!firstWithLabel.containsKey(body.label)) throw CompileError(444, i + 1);
-    if (!targeted.add(body.label)) throw CompileError(555, i + 1);
+    // Only WHILE's own statements can reach its internal labels.
+    final reachable = isValidLabel(body.label) || s.preproc;
+    if (!reachable || !firstWithLabel.containsKey(body.label)) {
+      throw CompileError(444, i + 1);
+    }
+    // In EXTRACAL, several COME FROMs on one label start threads (R3).
+    if (!targeted.add(body.label) && !extracal) throw CompileError(555, i + 1);
   }
 }
 

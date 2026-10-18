@@ -1,0 +1,14 @@
+	DO .1 <- #0
+	DO (2000) NEXT
+	DO .1 <- #1
+	PLEASE (2010) NEXT
+	DO .1 <- #0
+	DO (2000) NEXT
+	DO .1 <- #1
+	DO (2010) NEXT
+	DO .1 <- #0
+	PLEASE (2000) NEXT
+	DO .1 <- #1
+	DO :1 <- .3
+	DO (2110) NEXT
+	PLEASE GIVE UP

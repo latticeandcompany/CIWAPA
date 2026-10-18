@@ -29,6 +29,26 @@ static int ick_getchar(void) {
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <wchar.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+typedef SOCKET ick_socket;
+#define ICK_NO_SOCKET INVALID_SOCKET
+#define close_socket closesocket
+#else
+#include <netdb.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <unistd.h>
+typedef int ick_socket;
+#define ICK_NO_SOCKET (-1)
+#define close_socket close
 #endif
 
 typedef struct {
@@ -68,6 +88,7 @@ typedef struct {
   uint8_t *ignored;
   const ick_message *messages;
   uint32_t message_count;
+  uint32_t extracal;
 } ick_program;
 
 static const ick_program *program;
@@ -888,12 +909,23 @@ static const char wimp_message[] =
     "WIMP MODE ENGAGED. Numbers will be read and written in plain decimal, like a spreadsheet.\n"
     "Your INTERCAL license has been suspended, and your next of kin have been notified.\n";
 
+/* The program's arguments: those after the runtime options. */
+static int program_argc;
+static char **program_argv;
+
 static void parse_options(int argc, char **argv) {
   int help = 0;
   const char *unknown = NULL;
   for (int i = 1; i < argc; i++) {
     const char *arg = argv[i];
-    if (arg[0] != '+' && arg[0] != '-') break;
+    /* In EXTRACAL, `--` ends the runtime options, so a program's own arguments can start with a
+     * sign (R10). */
+    int ends = program->extracal && strcmp(arg, "--") == 0;
+    if (ends || (arg[0] != '+' && arg[0] != '-')) {
+      program_argc = argc - i - ends;
+      program_argv = argv + i + ends;
+      break;
+    }
     const char *name = arg + 1;
     if (strcmp(name, "help") == 0) {
       help = 1;
@@ -1101,6 +1133,154 @@ void ick_turing_out64(uint32_t index, uint32_t next) {
   }
 }
 
+/* ---- CLC-INTERCAL's Baudot text I/O (R3 item 11, L14) ------------------------------------ */
+/* WRITE IN BAUDOT reads one line of Latin-1 into an array as Baudot codes, one per element, and
+ * READ OUT BAUDOT prints an array of codes as a line, starting in letters shift with the fewest
+ * shift codes a character needs; only an element's low 5 bits are its code, and code 0 is
+ * skipped. runtime.dart has the same, with the shift rules. */
+
+/* The Latin-1 character for each code in letters, lower case, figures and symbols; 0 for none. */
+static const unsigned char baudot[32][4] = {
+    {0, 0, 0, 0},
+    {69, 101, 51, 162},
+    {10, 10, 10, 10},
+    {65, 97, 45, 43},
+    {32, 32, 32, 32},
+    {83, 115, 7, 92},
+    {73, 105, 56, 35},
+    {85, 117, 55, 61},
+    {13, 13, 13, 13},
+    {68, 100, 36, 42},
+    {82, 114, 52, 123},
+    {74, 106, 39, 126},
+    {78, 110, 44, 165},
+    {70, 102, 33, 124},
+    {67, 99, 58, 94},
+    {75, 107, 40, 60},
+    {84, 116, 53, 91},
+    {90, 122, 34, 125},
+    {87, 119, 41, 62},
+    {76, 108, 50, 93},
+    {72, 104, 0, 8},
+    {89, 121, 54, 64},
+    {80, 112, 48, 0},
+    {81, 113, 49, 163},
+    {79, 111, 57, 172},
+    {66, 98, 63, 127},
+    {71, 103, 38, 0},
+    {0, 0, 0, 0},
+    {77, 109, 46, 37},
+    {88, 120, 47, 95},
+    {86, 118, 59, 0},
+    {0, 0, 0, 0}
+};
+
+static int baudot_shift(int state, int code) {
+  return code == 31 ? (state < 2 ? 1 : 0) : (state < 2 ? 2 : 3);
+}
+
+/* Baudot codes for a line of input, into codes (room for 3 per byte); returns the count. */
+static size_t baudot_encode(const unsigned char *line, size_t length, uint32_t *codes) {
+  static const int shifts[2] = {31, 27};
+  size_t n = 0;
+  int state = 0;
+  for (size_t i = 0; i < length; i++) {
+    int c = line[i] == 9 ? 32 : line[i], code = 0, target = state;
+    for (int k = 1; k < 32 && c; k++) {
+      for (int s = 0; s < 4; s++) {
+        if (baudot[k][s] == c && (code == 0 || s == state)) {
+          code = k;
+          target = s;
+        }
+      }
+    }
+    if (target != state) {
+      int done = 0;
+      for (int a = 0; a < 2 && !done; a++) {
+        if (baudot_shift(state, shifts[a]) == target) {
+          codes[n++] = (uint32_t)shifts[a];
+          done = 1;
+        }
+      }
+      for (int a = 0; a < 2 && !done; a++) {
+        for (int b = 0; b < 2 && !done; b++) {
+          if (baudot_shift(baudot_shift(state, shifts[a]), shifts[b]) == target) {
+            codes[n++] = (uint32_t)shifts[a];
+            codes[n++] = (uint32_t)shifts[b];
+            done = 1;
+          }
+        }
+      }
+      state = target;
+    }
+    codes[n++] = (uint32_t)code;
+  }
+  return n;
+}
+
+/* A line of input as Baudot codes for an array of length elements; E241 if they don't fit. The
+ * codes are malloc'd. */
+static uint32_t *baudot_line(size_t length, size_t *count, uint32_t next) {
+  size_t size = 0;
+  if (!read_line(&size, next)) size = 0;
+  uint32_t *codes = malloc((3 * size + 1) * sizeof(uint32_t));
+  if (!codes) ick_fatal(778, 1);
+  *count = baudot_encode((const unsigned char *)line_buffer, size, codes);
+  if (*count > length) ick_fatal(241, next);
+  return codes;
+}
+
+static void baudot_print(uint64_t value, int *state) {
+  int code = (int)(value & 31);
+  if (code == 0) return;
+  if (code == 27 || code == 31) {
+    *state = baudot_shift(*state, code);
+    return;
+  }
+  int c = baudot[code][*state];
+  putchar(c ? c : 0x1A);
+}
+
+void ick_baudot_in(uint32_t index, uint32_t next) {
+  ick_shape *a = &arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  size_t count;
+  uint32_t *codes = baudot_line(a->dims[0], &count, next);
+  if (!arrays[index].ignored) {
+    for (size_t i = 0; i < a->dims[0]; i++) a->data[i] = i < count ? codes[i] : 0;
+  }
+  free(codes);
+}
+
+void ick_baudot_out(uint32_t index, uint32_t next) {
+  ick_shape *a = &arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  int state = 0;
+  for (size_t i = 0; i < a->dims[0]; i++) baudot_print(a->data[i], &state);
+  putchar('\n');
+  ICK_FLUSH();
+}
+
+void ick_baudot_in64(uint32_t index, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  size_t count;
+  uint32_t *codes = baudot_line(a->dims[0], &count, next);
+  if (!wide_arrays[index].ignored) {
+    for (size_t i = 0; i < a->dims[0]; i++) a->data[i] = i < count ? codes[i] : 0;
+  }
+  free(codes);
+}
+
+void ick_baudot_out64(uint32_t index, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  int state = 0;
+  for (size_t i = 0; i < a->dims[0]; i++) baudot_print(a->data[i], &state);
+  putchar('\n');
+  ICK_FLUSH();
+}
+
 /* ---- EXTRACAL's mingle widening (R5, Q122) ---------------------------------------------- */
 /* A mingle's width depends on its operands' values, so its result is held as (width, high, low):
  * width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can
@@ -1206,7 +1386,14 @@ static int x_nexting(int32_t kind) {
   return kind == X_NEXT_FROM || kind == X_COMPUTED_NEXT_FROM || kind == X_GERUND_NEXT_FROM;
 }
 
-enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2, X_MAYBE = 4 };
+enum {
+  X_INITIALLY_ABSTAINED = 1,
+  X_BUG = 2,
+  X_MAYBE = 4,
+  X_PREPROC = 8,
+  X_WEAVE_ON = 16,
+  X_WEAVE_OFF = 32
+};
 enum { X_NO_ONCE_AGAIN, X_ABSTAIN_AFTER, X_REINSTATE_AFTER };
 
 /* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. Position
@@ -1241,6 +1428,8 @@ typedef struct {
   int maybe_back;
   int32_t tail_index;
   int64_t old_abstain;
+  /* Whether the thread has had its turn at the end of the statement it is finishing. */
+  int yielded;
 } ick_x_thread;
 
 static ick_x_program x;
@@ -1255,7 +1444,7 @@ void ick_ov_retrieve(uint32_t key);
 /* Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more than
  * 1, and it saturates instead of overflowing. */
 static int64_t *x_abstained;
-static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1, 0, 0, 0};
+static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1, 0, 0, 0, 0};
 
 /* The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
  * a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
@@ -1367,9 +1556,9 @@ static uint32_t x_level_in(uint32_t from, uint32_t to) {
   return 0;
 }
 
-/* Everything a choicepoint holds of its own (R3): variables, arrays, stashes, the NEXT stack and
- * the overloading. As in `ick`, abstentions, CREATEs, input and output aren't restored when a
- * program goes back. runtime.dart's _XMachine is its twin. */
+/* A thread's data (R3): variables, arrays, stashes and overloading. Threads woven by WHILE share
+ * one, counted in refs. As in `ick`, abstentions, CREATEs, input and output are shared by every
+ * thread, and aren't restored when a program goes back. runtime.dart's _XData is its twin. */
 typedef struct {
   uint32_t *values;
   uint8_t *ignored;
@@ -1381,13 +1570,10 @@ typedef struct {
   ick_wide_stash *wide_stashes;
   ick_array_stash *array_stashes;
   ick_wide_array_stash *wide_array_stashes;
-  uint32_t next_stack[NEXT_DEPTH];
-  uint32_t next_depth;
   int32_t *overload_of;
   ick_overload_stash *overload_stashes;
-  /* The test-only count of stashed values (decision L7). */
-  uint64_t stashed;
-} ick_x_machine;
+  uint32_t refs;
+} ick_x_data;
 
 static void *x_copy(const void *from, size_t size) {
   void *to = malloc(size ? size : 1);
@@ -1414,159 +1600,191 @@ static ick_wide_shape x_copy_wide_shape(ick_wide_shape s) {
   return c;
 }
 
-static ick_x_machine *x_capture(void) {
-  ick_x_machine *m = malloc(sizeof *m);
-  if (!m) ick_fatal(778, 1);
+/* A deep copy of the running data, for a new thread or a choicepoint. */
+static ick_x_data *x_data_copy(void) {
+  ick_x_data *d = malloc(sizeof *d);
+  if (!d) ick_fatal(778, 1);
   uint32_t scalars = program->scalar_count, count = program->array_count;
-  m->values = x_copy(program->values, scalars * sizeof(uint32_t));
-  m->ignored = x_copy(program->ignored, scalars);
-  m->wide_values = x_copy(wide_values, wide_count * sizeof(uint64_t));
-  m->wide_ignored = x_copy(wide_ignored, wide_count);
-  m->arrays = x_copy(arrays, count * sizeof(ick_array));
-  m->array_stashes = x_copy(array_stashes, count * sizeof(ick_array_stash));
+  d->refs = 1;
+  d->values = x_copy(program->values, scalars * sizeof(uint32_t));
+  d->ignored = x_copy(program->ignored, scalars);
+  d->wide_values = x_copy(wide_values, wide_count * sizeof(uint64_t));
+  d->wide_ignored = x_copy(wide_ignored, wide_count);
+  d->arrays = x_copy(arrays, count * sizeof(ick_array));
+  d->array_stashes = x_copy(array_stashes, count * sizeof(ick_array_stash));
   for (uint32_t i = 0; i < count; i++) {
-    m->arrays[i].shape = x_copy_shape(arrays[i].shape);
-    ick_array_stash *st = &m->array_stashes[i];
+    d->arrays[i].shape = x_copy_shape(arrays[i].shape);
+    ick_array_stash *st = &d->array_stashes[i];
     st->items = x_copy(st->items, st->capacity * sizeof(ick_shape));
     for (size_t j = 0; j < st->count; j++) st->items[j] = x_copy_shape(st->items[j]);
   }
-  m->wide_arrays = x_copy(wide_arrays, wide_array_count * sizeof(ick_wide_array));
-  m->wide_array_stashes = x_copy(wide_array_stashes, wide_array_count * sizeof(ick_wide_array_stash));
+  d->wide_arrays = x_copy(wide_arrays, wide_array_count * sizeof(ick_wide_array));
+  d->wide_array_stashes = x_copy(wide_array_stashes, wide_array_count * sizeof(ick_wide_array_stash));
   for (uint32_t i = 0; i < wide_array_count; i++) {
-    m->wide_arrays[i].shape = x_copy_wide_shape(wide_arrays[i].shape);
-    ick_wide_array_stash *st = &m->wide_array_stashes[i];
+    d->wide_arrays[i].shape = x_copy_wide_shape(wide_arrays[i].shape);
+    ick_wide_array_stash *st = &d->wide_array_stashes[i];
     st->items = x_copy(st->items, st->capacity * sizeof(ick_wide_shape));
     for (size_t j = 0; j < st->count; j++) st->items[j] = x_copy_wide_shape(st->items[j]);
   }
-  m->scalar_stashes = x_copy(scalar_stashes, scalars * sizeof(ick_value_stash));
+  d->scalar_stashes = x_copy(scalar_stashes, scalars * sizeof(ick_value_stash));
   for (uint32_t i = 0; i < scalars; i++) {
-    ick_value_stash *st = &m->scalar_stashes[i];
+    ick_value_stash *st = &d->scalar_stashes[i];
     st->items = x_copy(st->items, st->capacity * sizeof(uint32_t));
   }
-  m->wide_stashes = x_copy(wide_stashes, wide_count * sizeof(ick_wide_stash));
+  d->wide_stashes = x_copy(wide_stashes, wide_count * sizeof(ick_wide_stash));
   for (uint32_t i = 0; i < wide_count; i++) {
-    ick_wide_stash *st = &m->wide_stashes[i];
+    ick_wide_stash *st = &d->wide_stashes[i];
     st->items = x_copy(st->items, st->capacity * sizeof(uint64_t));
   }
-  memcpy(m->next_stack, ick_next_stack, sizeof m->next_stack);
-  m->next_depth = ick_next_depth;
-  m->stashed = stashed;
-  m->overload_of = NULL;
-  m->overload_stashes = NULL;
+  d->overload_of = NULL;
+  d->overload_stashes = NULL;
   if (overload_of) {
-    m->overload_of = x_copy(overload_of, overload_keys * sizeof(int32_t));
-    m->overload_stashes = x_copy(overload_stashes, overload_keys * sizeof(ick_overload_stash));
+    d->overload_of = x_copy(overload_of, overload_keys * sizeof(int32_t));
+    d->overload_stashes = x_copy(overload_stashes, overload_keys * sizeof(ick_overload_stash));
     for (uint32_t i = 0; i < overload_keys; i++) {
-      ick_overload_stash *st = &m->overload_stashes[i];
+      ick_overload_stash *st = &d->overload_stashes[i];
       st->items = x_copy(st->items, st->capacity * sizeof(int32_t));
     }
   }
-  return m;
+  return d;
 }
 
-static void x_free_arrays(ick_array *a, ick_array_stash *as, ick_wide_array *w,
-                          ick_wide_array_stash *ws) {
+/* Takes in the running data. */
+static void x_data_store(ick_x_data *d) {
+  memcpy(d->values, program->values, program->scalar_count * sizeof(uint32_t));
+  memcpy(d->ignored, program->ignored, program->scalar_count);
+  memcpy(d->wide_values, wide_values, wide_count * sizeof(uint64_t));
+  memcpy(d->wide_ignored, wide_ignored, wide_count);
+  d->arrays = arrays;
+  d->array_stashes = array_stashes;
+  d->wide_arrays = wide_arrays;
+  d->wide_array_stashes = wide_array_stashes;
+  d->scalar_stashes = scalar_stashes;
+  d->wide_stashes = wide_stashes;
+  d->overload_of = overload_of;
+  d->overload_stashes = overload_stashes;
+}
+
+/* The running data itself, to hold while another thread runs. */
+static ick_x_data *x_data_live(void) {
+  ick_x_data *d = malloc(sizeof *d);
+  if (!d) ick_fatal(778, 1);
+  d->refs = 1;
+  d->values = x_copy(program->values, program->scalar_count * sizeof(uint32_t));
+  d->ignored = x_copy(program->ignored, program->scalar_count);
+  d->wide_values = x_copy(wide_values, wide_count * sizeof(uint64_t));
+  d->wide_ignored = x_copy(wide_ignored, wide_count);
+  x_data_store(d);
+  return d;
+}
+
+/* Makes [d] the running data. The program's own variable tables are shared with the compiled
+ * code, so their contents are copied in; everything else is handed over. */
+static void x_data_load(ick_x_data *d) {
+  memcpy(program->values, d->values, program->scalar_count * sizeof(uint32_t));
+  memcpy(program->ignored, d->ignored, program->scalar_count);
+  memcpy(wide_values, d->wide_values, wide_count * sizeof(uint64_t));
+  memcpy(wide_ignored, d->wide_ignored, wide_count);
+  arrays = d->arrays;
+  array_stashes = d->array_stashes;
+  wide_arrays = d->wide_arrays;
+  wide_array_stashes = d->wide_array_stashes;
+  scalar_stashes = d->scalar_stashes;
+  wide_stashes = d->wide_stashes;
+  if (overload_of) {
+    overload_of = d->overload_of;
+    overload_stashes = d->overload_stashes;
+  }
+}
+
+/* Frees the arrays, stashes and overloading [d] points at, and [d] itself. */
+static void x_data_free(ick_x_data *d) {
   for (uint32_t i = 0; i < program->array_count; i++) {
-    free(a[i].shape.dims);
-    free(a[i].shape.data);
-    for (size_t j = 0; j < as[i].count; j++) {
-      free(as[i].items[j].dims);
-      free(as[i].items[j].data);
+    free(d->arrays[i].shape.dims);
+    free(d->arrays[i].shape.data);
+    for (size_t j = 0; j < d->array_stashes[i].count; j++) {
+      free(d->array_stashes[i].items[j].dims);
+      free(d->array_stashes[i].items[j].data);
     }
-    free(as[i].items);
+    free(d->array_stashes[i].items);
   }
   for (uint32_t i = 0; i < wide_array_count; i++) {
-    free(w[i].shape.dims);
-    free(w[i].shape.data);
-    for (size_t j = 0; j < ws[i].count; j++) {
-      free(ws[i].items[j].dims);
-      free(ws[i].items[j].data);
+    free(d->wide_arrays[i].shape.dims);
+    free(d->wide_arrays[i].shape.data);
+    for (size_t j = 0; j < d->wide_array_stashes[i].count; j++) {
+      free(d->wide_array_stashes[i].items[j].dims);
+      free(d->wide_array_stashes[i].items[j].data);
     }
-    free(ws[i].items);
+    free(d->wide_array_stashes[i].items);
   }
-  free(a);
-  free(as);
-  free(w);
-  free(ws);
-}
-
-static void x_free_stashes(ick_value_stash *s, ick_wide_stash *ws, ick_overload_stash *os) {
-  for (uint32_t i = 0; i < program->scalar_count; i++) free(s[i].items);
-  for (uint32_t i = 0; i < wide_count; i++) free(ws[i].items);
-  if (os) {
-    for (uint32_t i = 0; i < overload_keys; i++) free(os[i].items);
+  for (uint32_t i = 0; i < program->scalar_count; i++) free(d->scalar_stashes[i].items);
+  for (uint32_t i = 0; i < wide_count; i++) free(d->wide_stashes[i].items);
+  if (d->overload_stashes) {
+    for (uint32_t i = 0; i < overload_keys; i++) free(d->overload_stashes[i].items);
   }
-  free(s);
-  free(ws);
-  free(os);
+  free(d->arrays);
+  free(d->array_stashes);
+  free(d->wide_arrays);
+  free(d->wide_array_stashes);
+  free(d->scalar_stashes);
+  free(d->wide_stashes);
+  free(d->overload_of);
+  free(d->overload_stashes);
+  free(d->values);
+  free(d->ignored);
+  free(d->wide_values);
+  free(d->wide_ignored);
+  free(d);
 }
 
-static void x_free_machine(ick_x_machine *m) {
-  x_free_arrays(m->arrays, m->array_stashes, m->wide_arrays, m->wide_array_stashes);
-  x_free_stashes(m->scalar_stashes, m->wide_stashes, m->overload_stashes);
-  free(m->values);
-  free(m->ignored);
-  free(m->wide_values);
-  free(m->wide_ignored);
-  free(m->overload_of);
-  free(m);
-}
-
-/* Makes [m] the running state and frees what it replaces. The program's own variable tables are
- * shared with the compiled code, so their contents are copied back; everything else is handed
- * over. */
-static void x_restore(ick_x_machine *m) {
-  memcpy(program->values, m->values, program->scalar_count * sizeof(uint32_t));
-  memcpy(program->ignored, m->ignored, program->scalar_count);
-  memcpy(wide_values, m->wide_values, wide_count * sizeof(uint64_t));
-  memcpy(wide_ignored, m->wide_ignored, wide_count);
-  x_free_arrays(arrays, array_stashes, wide_arrays, wide_array_stashes);
-  x_free_stashes(scalar_stashes, wide_stashes, overload_stashes);
-  arrays = m->arrays;
-  array_stashes = m->array_stashes;
-  wide_arrays = m->wide_arrays;
-  wide_array_stashes = m->wide_array_stashes;
-  scalar_stashes = m->scalar_stashes;
-  wide_stashes = m->wide_stashes;
-  memcpy(ick_next_stack, m->next_stack, sizeof m->next_stack);
-  ick_next_depth = m->next_depth;
-  stashed = m->stashed;
-  if (overload_of) {
-    free(overload_of);
-    overload_of = m->overload_of;
-    overload_stashes = m->overload_stashes;
+/* The running thread lets go of its data [d] (NULL when it never needed a copy): threads woven
+ * with it keep it, brought up to date; otherwise it is freed. */
+static void x_data_release(ick_x_data *d) {
+  if (d && d->refs > 1) {
+    x_data_store(d);
+    d->refs--;
+    return;
   }
-  free(m->values);
-  free(m->ignored);
-  free(m->wide_values);
-  free(m->wide_ignored);
-  free(m);
+  if (!d) d = x_data_live();
+  x_data_free(d);
 }
 
-/* A choicepoint: the state, the thread's registers with the position of the MAYBE guard that made
- * it, and the created operator level it was made at. A stale one, left where a program went back
- * to, has no state: going back to it just discards it. */
-typedef struct {
-  ick_x_machine *machine;
+/* A choicepoint (R3): a copy of the thread's data and NEXT stack, its registers with the position
+ * of the MAYBE guard that made it, and the created operator level it was made at. A stale one,
+ * left where a program went back to, has no data: going back to it just discards it.
+ * Choicepoints form a stack per thread; after a thread splits, both share the ones below the
+ * split, counted in refcount, as in `ick`. */
+typedef struct ick_x_choice {
+  ick_x_data *data;
+  uint32_t next_stack[NEXT_DEPTH];
+  uint32_t next_depth;
   ick_x_thread registers;
   uint32_t level;
-  /* Which call of a created operator level belonged to. */
-  uint64_t serial;
+  struct ick_x_choice *next;
+  uint32_t refcount;
+  /* Which call of a created operator level belonged to, and the test-only count of stashed
+   * values (decision L7). */
+  uint64_t serial, stashed;
 } ick_x_choice;
 
-static ick_x_choice *x_choices;
-static size_t x_choice_count, x_choice_capacity;
+/* The running thread's newest choicepoint. */
+static ick_x_choice *x_top;
 
-static void x_push_choice(ick_x_machine *m, const ick_x_thread *registers) {
-  if (x_choice_count == x_choice_capacity) {
-    x_choice_capacity = x_choice_capacity ? 2 * x_choice_capacity : 16;
-    x_choices = realloc(x_choices, x_choice_capacity * sizeof(ick_x_choice));
-    if (!x_choices) ick_fatal(778, 1);
+static void x_push_choice(ick_x_data *d, const ick_x_thread *registers) {
+  ick_x_choice *c = calloc(1, sizeof *c);
+  if (!c) ick_fatal(778, 1);
+  c->data = d;
+  if (d) {
+    memcpy(c->next_stack, ick_next_stack, sizeof c->next_stack);
+    c->next_depth = ick_next_depth;
+    c->registers = *registers;
   }
-  x_choices[x_choice_count].machine = m;
-  if (registers) x_choices[x_choice_count].registers = *registers;
-  x_choices[x_choice_count].serial = x_serials[x_level];
-  x_choices[x_choice_count++].level = x_level;
+  c->level = x_level;
+  c->serial = x_serials[x_level];
+  c->stashed = stashed;
+  c->next = x_top;
+  c->refcount = 1;
+  x_top = c;
 }
 
 /* The kinds whose ONCE or AGAIN takes effect before they run, as in `ick`. */
@@ -1586,25 +1804,139 @@ static int x_guard(ick_x_thread *t, uint32_t ordinal, int64_t abstained, uint32_
   t->old_abstain = abstained;
   ick_x_thread registers = *t;
   registers.position = site;
-  x_push_choice(x_capture(), &registers);
+  x_push_choice(x_data_copy(), &registers);
   return x_runs(ordinal, abstained);
 }
 
-/* GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; any
- * other replaces the running state. One made inside a created operator that has since finished
- * is discarded like a stale one. */
+/* GO AHEAD: discards the newest choicepoint, for this thread only when others share it. */
+static void x_go_ahead(uint32_t next) {
+  ick_x_choice *top = x_top;
+  if (!top) ick_fatal(404, next);
+  x_top = top->next;
+  if (--top->refcount) return;
+  if (top->data) x_data_free(top->data);
+  free(top);
+}
+
+/* A thread that isn't running (R3): its registers, its data, its NEXT stack and its
+ * choicepoints. */
+typedef struct {
+  ick_x_thread registers;
+  ick_x_data *data;
+  uint32_t next_stack[NEXT_DEPTH];
+  uint32_t next_depth;
+  ick_x_choice *top;
+} ick_x_strand;
+
+/* The threads in `ick`'s order, which take turns one statement at a time; the running one is
+ * x_current, whose strand is only brought up to date when it stops running. */
+static ick_x_strand **x_ring;
+static uint32_t x_ring_count, x_ring_capacity, x_current;
+
+/* Whether a split shares the data instead of copying it (`ick`'s `weaving`, set by WHILE). */
+static int x_weaving;
+
+static void x_save(ick_x_thread *t) {
+  ick_x_strand *s = x_ring[x_current];
+  s->registers = *t;
+  if (s->data) x_data_store(s->data);
+  else s->data = x_data_live();
+  memcpy(s->next_stack, ick_next_stack, sizeof s->next_stack);
+  s->next_depth = ick_next_depth;
+  s->top = x_top;
+}
+
+static void x_load(ick_x_thread *t, ick_x_strand *s) {
+  *t = s->registers;
+  x_data_load(s->data);
+  memcpy(ick_next_stack, s->next_stack, sizeof s->next_stack);
+  ick_next_depth = s->next_depth;
+  x_top = s->top;
+}
+
+/* The end of a turn: the next thread runs. A created operator's code runs as a single turn. */
+static void x_yield(ick_x_thread *t) {
+  if (x_ring_count == 1 || x_level > 0) return;
+  x_save(t);
+  x_current = (x_current + 1) % x_ring_count;
+  x_load(t, x_ring[x_current]);
+}
+
+/* Several COME FROMs want control (`ick`'s `multicome1`): a new thread, placed just before this
+ * one, follows the one found earlier, at [position], with a copy of this thread's data, or the
+ * same data while weaving, and its own copy of the NEXT stack. Both share the choicepoints. */
+static void x_fork(ick_x_thread *t, uint32_t position) {
+  ick_x_strand *s = malloc(sizeof *s);
+  if (!s) ick_fatal(778, 1);
+  s->registers = *t;
+  s->registers.position = position;
+  s->registers.resume_to = X_NO_RESUME;
+  s->registers.yielded = 0;
+  if (x_weaving) {
+    ick_x_strand *current = x_ring[x_current];
+    if (!current->data) current->data = x_data_live();
+    s->data = current->data;
+    s->data->refs++;
+  } else {
+    s->data = x_data_copy();
+  }
+  memcpy(s->next_stack, ick_next_stack, sizeof s->next_stack);
+  s->next_depth = ick_next_depth;
+  s->top = x_top;
+  for (ick_x_choice *c = x_top; c; c = c->next) c->refcount++;
+  if (x_ring_count == x_ring_capacity) {
+    x_ring_capacity *= 2;
+    x_ring = realloc(x_ring, x_ring_capacity * sizeof *x_ring);
+    if (!x_ring) ick_fatal(778, 1);
+  }
+  memmove(&x_ring[x_current + 1], &x_ring[x_current], (x_ring_count - x_current) * sizeof *x_ring);
+  x_ring[x_current] = s;
+  x_ring_count++;
+  x_current++;
+}
+
+/* GIVE UP ends the running thread, and the program with the last one. Threads woven with it keep
+ * its data; a created operator it was running is abandoned. */
+static void x_kill(ick_x_thread *t) {
+  while (x_top) x_go_ahead(0);
+  if (x_ring_count == 1) ick_give_up();
+  ick_x_strand *s = x_ring[x_current];
+  x_data_release(s->data);
+  free(s);
+  memmove(&x_ring[x_current], &x_ring[x_current + 1], (x_ring_count - x_current - 1) * sizeof *x_ring);
+  x_ring_count--;
+  x_current %= x_ring_count;
+  x_load(t, x_ring[x_current]);
+  x_unwind_to(0);
+}
+
+/* GO BACK: E404 without a choicepoint; a stale one is discarded and the program goes on; one
+ * another thread shares ends this thread, as in `ick`; any other replaces the running state. One
+ * made inside a created operator that has since finished is discarded like a stale one. */
 static void x_go_back(ick_x_thread *t, uint32_t next) {
-  if (!x_choice_count) ick_fatal(404, next);
-  ick_x_choice choice = x_choices[--x_choice_count];
-  if (!choice.machine) return;
-  if (choice.level > x_level || x_serials[choice.level] != choice.serial) {
-    x_free_machine(choice.machine);
+  ick_x_choice *top = x_top;
+  if (!top) ick_fatal(404, next);
+  uint32_t level = top->level;
+  if (!top->data || level > x_level || x_serials[level] != top->serial) {
+    x_go_ahead(next);
     return;
   }
-  x_restore(choice.machine);
-  *t = choice.registers;
+  if (top->refcount > 1) {
+    x_kill(t);
+    return;
+  }
+  x_top = top->next;
+  ick_x_strand *s = x_ring[x_current];
+  x_data_release(s->data);
+  s->data = top->data;
+  x_data_load(top->data);
+  memcpy(ick_next_stack, top->next_stack, sizeof top->next_stack);
+  ick_next_depth = top->next_depth;
+  stashed = top->stashed;
+  *t = top->registers;
   t->maybe_back = 1;
-  x_unwind_to(choice.level);
+  free(top);
+  x_unwind_to(level);
 }
 
 /* Pushes [id] for a NEXT to created label [label], and returns the label's ordinal: E123 first, as
@@ -1619,7 +1951,10 @@ static uint32_t x_created_next(uint32_t id, uint64_t label, uint32_t next) {
 static void x_start(ick_x_thread *t, uint32_t ordinal) {
   uint32_t next = (uint32_t)x_get(ordinal, X_NEXT);
   int back = t->maybe_back;
-  if (!back && (x_get(ordinal, X_FLAGS) & X_BUG)) ick_fatal(774, next);
+  int32_t flags = x_get(ordinal, X_FLAGS);
+  if (!back && (flags & X_WEAVE_ON)) x_weaving = 1;
+  if (!back && (flags & X_WEAVE_OFF)) x_weaving = 0;
+  if (!back && (flags & X_BUG)) ick_fatal(774, next);
   int32_t kind = x_get(ordinal, X_KIND);
   t->position = ordinal * 8 + X_TAIL;
   if (x_comes_from(kind)) return;
@@ -1628,7 +1963,7 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
                                              : x_once_again(ordinal);
   if (!x_guard(t, ordinal, abstained, ordinal * 8 + X_START)) {
     /* A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything. */
-    if (kind == X_TRY_AGAIN) ick_give_up();
+    if (kind == X_TRY_AGAIN) x_kill(t);
     return;
   }
   int32_t fault = x_get(ordinal, X_FAULT);
@@ -1666,7 +2001,7 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     }
     break;
   }
-  case X_GIVE_UP: ick_give_up();
+  case X_GIVE_UP: x_kill(t); break;
   case X_TRY_AGAIN:
     /* `ick` jumps straight back to the start, past this statement's tail. */
     t->position = 1 * 8 + X_START;
@@ -1698,10 +2033,7 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     break;
   case X_COMPUTED_CREATE: x_creations[x_get(ordinal, X_SIGNATURE)] = x.expr(ordinal); break;
   case X_GO_BACK: x_go_back(t, next); break;
-  case X_GO_AHEAD:
-    if (!x_choice_count) ick_fatal(404, next);
-    if (x_choices[--x_choice_count].machine) x_free_machine(x_choices[x_choice_count].machine);
-    break;
+  case X_GO_AHEAD: x_go_ahead(next); break;
   case X_UNKNOWN: {
     uint64_t label = x_creations[x_get(ordinal, X_SIGNATURE)];
     if (!label) ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
@@ -1714,7 +2046,11 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
 
 /* One more COME FROM wants control. A second one would start a thread. */
 static void x_candidate(ick_x_thread *t, uint32_t landing) {
-  if (++t->candidates > 1) ick_fatal(555, landing >> 3);
+  if (++t->candidates > 1) {
+    /* A created operator's code runs as one turn, so it can't split. */
+    if (x_level > 0) ick_fatal(555, landing >> 3);
+    x_fork(t, t->chosen);
+  }
   t->chosen = landing;
 }
 
@@ -1761,7 +2097,9 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
     x_unwind_to(x_level - 1);
   }
   uint32_t label = (uint32_t)x_get(ordinal, X_LABEL);
-  if (!resuming && x_chain_length && (label || x_gerund_chain)) {
+  /* `ick` never checks WHILE's own statements against computed or gerund COME FROMs. */
+  if (!resuming && x_chain_length && (label || x_gerund_chain) &&
+      !(x_get(ordinal, X_FLAGS) & X_PREPROC)) {
     t->finishing_label = label;
     if (!t->candidates) t->chosen = otherwise;
     t->position = x_chain[0] * 8 + X_CHECK;
@@ -1788,6 +2126,8 @@ static void x_check(ick_x_thread *t, uint32_t ordinal) {
     int32_t fault = x_get(ordinal, X_FAULT);
     if (fault && !(x_get(ordinal, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(ordinal, X_NEXT));
     t->position = ordinal * 8 + X_MATCHED;
+    /* `ick` ends the turn as soon as a computed COME FROM matches. */
+    x_yield(t);
   } else {
     t->position = x_chain_next[ordinal];
   }
@@ -1825,6 +2165,12 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
     int32_t label = x_get(s, X_LABEL);
     if (label) x_labels[label] = s;
   }
+  x_ring_capacity = 4;
+  x_ring = malloc(x_ring_capacity * sizeof *x_ring);
+  ick_x_strand *first = calloc(1, sizeof *first);
+  if (!x_ring || !first) ick_fatal(778, 1);
+  x_ring[0] = first;
+  x_ring_count = 1;
   x_loop(0);
   ick_fatal(778, 1);
 }
@@ -1848,8 +2194,21 @@ static void x_loop(uint32_t level) {
     switch (t->position & 7) {
     case X_START: x_start(t, ordinal); break;
     case X_TAIL: x_tail(t, ordinal); break;
-    case X_END: t->position = x_fall_through(ordinal); break;
+    case X_END:
+      /* Each statement ends a turn, before control runs on to the next. */
+      if (!t->yielded && x_ring_count > 1 && x_level == 0) {
+        t->yielded = 1;
+        x_yield(t);
+        break;
+      }
+      t->yielded = 0;
+      t->position = x_fall_through(ordinal);
+      break;
     case X_LANDING:
+      x_landing(t, ordinal);
+      /* So does arriving at a COME FROM, before its own tail. */
+      x_yield(t);
+      break;
     case X_LANDED: x_landing(t, ordinal); break;
     case X_CHECK: x_check(t, ordinal); break;
     case X_MATCHED:
@@ -2011,4 +2370,1505 @@ uint64_t ick_reverse_unary(uint32_t op, uint64_t n, uint32_t width, uint32_t nex
   }
   if (unary_at(op, candidate, width) != n) ick_fatal(277, next);
   return candidate;
+}
+
+/* ---- EXTRACAL's library services (R10, L29) ---------------------------------------------- */
+/* PETITION #n asks for service n, on the variables the compiler passes in: scalars by key (64-bit
+ * ones numbered after the others) and arrays by number, with UINT32_MAX for none. A service stores
+ * as WRITE IN does, leaving an IGNOREd variable alone and bypassing overloading. Strings are tail
+ * arrays of UTF-16 code units, and the empty string is an array with no dimensions (Q108, Q136,
+ * L30). runtime.dart has the same. */
+
+static uint64_t scalar_at(uint32_t key) {
+  uint32_t narrow = program->scalar_count;
+  return key < narrow ? program->values[key] : wide_values[key - narrow];
+}
+
+static void set_scalar(uint32_t key, uint64_t value) {
+  uint32_t narrow = program->scalar_count;
+  if (key < narrow) {
+    if (!program->ignored[key]) program->values[key] = (uint32_t)value;
+  } else if (!wide_ignored[key - narrow]) {
+    wide_values[key - narrow] = value;
+  }
+}
+
+/* A string's code units: E803 unless the array is undimensioned (empty) or has one dimension. */
+static const uint32_t *string_at(uint32_t array, size_t *length, uint32_t next) {
+  ick_shape *shape = &arrays[array].shape;
+  if (shape->rank > 1) ick_fatal(803, next);
+  *length = shape->rank ? shape->size : 0;
+  return shape->data;
+}
+
+/* A list argument: E809 unless the array is undimensioned (empty) or has one dimension. */
+static uint32_t *list_at(uint32_t array, size_t *length, uint32_t next) {
+  ick_shape *shape = &arrays[array].shape;
+  if (shape->rank > 1) ick_fatal(809, next);
+  *length = shape->rank ? shape->size : 0;
+  return shape->data;
+}
+
+/* Makes [array] a list of [length] elements, undimensioned for none, and returns them to be
+ * filled in; NULL if it is IGNOREd or empty. */
+static uint32_t *resize_list(uint32_t array, size_t length) {
+  ick_array *a = &arrays[array];
+  if (a->ignored) return NULL;
+  free(a->shape.dims);
+  free(a->shape.data);
+  a->shape = (ick_shape){0, NULL, NULL, 0};
+  if (!length) return NULL;
+  a->shape.rank = 1;
+  a->shape.size = length;
+  a->shape.dims = malloc(sizeof(uint32_t));
+  a->shape.data = malloc(length * sizeof(uint32_t));
+  if (!a->shape.dims || !a->shape.data) ick_fatal(778, 1);
+  a->shape.dims[0] = (uint32_t)length;
+  return a->shape.data;
+}
+
+static void set_string(uint32_t array, const uint16_t *units, size_t length) {
+  uint32_t *data = resize_list(array, length);
+  if (!data) return;
+  for (size_t i = 0; i < length; i++) data[i] = units[i];
+}
+
+static int compare_elements(const void *a, const void *b) {
+  uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
+  return (x > y) - (x < y);
+}
+
+/* UTF-8 to UTF-16, with U+FFFD for anything malformed. As in Dart, an encoded surrogate stays a
+ * (lone) surrogate. The result is malloc'd. */
+static uint16_t *utf16_from_utf8(const char *text, size_t *length) {
+  size_t n = strlen(text), out = 0;
+  uint16_t *units = malloc((n + 1) * sizeof(uint16_t));
+  if (!units) ick_fatal(778, 1);
+  const unsigned char *p = (const unsigned char *)text, *end = p + n;
+  while (p < end) {
+    uint32_t c = *p++, need = 0, min = 0;
+    if (c >= 0xF0 && c <= 0xF4) need = 3, min = 0x10000, c &= 0x07;
+    else if (c >= 0xE0 && c <= 0xEF) need = 2, min = 0x800, c &= 0x0F;
+    else if (c >= 0xC2 && c <= 0xDF) need = 1, min = 0x80, c &= 0x1F;
+    else if (c >= 0x80) c = 0xFFFD;
+    uint32_t got = 0;
+    while (got < need && p < end && (*p & 0xC0) == 0x80) c = (c << 6) | (*p++ & 0x3F), got++;
+    if (got < need || c < min || c > 0x10FFFF) c = need ? 0xFFFD : c;
+    if (c >= 0x10000) {
+      c -= 0x10000;
+      units[out++] = (uint16_t)(0xD800 + (c >> 10));
+      units[out++] = (uint16_t)(0xDC00 + (c & 0x3FF));
+    } else {
+      units[out++] = (uint16_t)c;
+    }
+  }
+  *length = out;
+  return units;
+}
+
+/* UTF-16 code units (one per element) to NUL-terminated UTF-8, with U+FFFD for a lone surrogate.
+ * The result is malloc'd. */
+static char *utf8_from_units(const uint32_t *units, size_t length) {
+  char *text = malloc(length * 3 + 1);
+  if (!text) ick_fatal(778, 1);
+  size_t out = 0;
+  for (size_t i = 0; i < length; i++) {
+    uint32_t c = units[i];
+    if (c >= 0xD800 && c <= 0xDBFF && i + 1 < length && units[i + 1] >= 0xDC00 &&
+        units[i + 1] <= 0xDFFF) {
+      c = 0x10000 + ((c - 0xD800) << 10) + (units[++i] - 0xDC00);
+    } else if (c >= 0xD800 && c <= 0xDFFF) {
+      c = 0xFFFD;
+    }
+    if (c < 0x80) {
+      text[out++] = (char)c;
+    } else if (c < 0x800) {
+      text[out++] = (char)(0xC0 | (c >> 6));
+      text[out++] = (char)(0x80 | (c & 0x3F));
+    } else if (c < 0x10000) {
+      text[out++] = (char)(0xE0 | (c >> 12));
+      text[out++] = (char)(0x80 | ((c >> 6) & 0x3F));
+      text[out++] = (char)(0x80 | (c & 0x3F));
+    } else {
+      text[out++] = (char)(0xF0 | (c >> 18));
+      text[out++] = (char)(0x80 | ((c >> 12) & 0x3F));
+      text[out++] = (char)(0x80 | ((c >> 6) & 0x3F));
+      text[out++] = (char)(0x80 | (c & 0x3F));
+    }
+  }
+  text[out] = 0;
+  return text;
+}
+
+/* Whether [text] is UTF-8, encoded surrogates allowed, as Dart reads the environment: Dart
+ * leaves out a variable whose value isn't. */
+static int is_utf8(const char *text) {
+  const unsigned char *p = (const unsigned char *)text;
+  while (*p) {
+    uint32_t c = *p++, need = 0, min = 0;
+    if (c < 0x80) continue;
+    if (c >= 0xC2 && c <= 0xDF) need = 1, min = 0x80, c &= 0x1F;
+    else if (c >= 0xE0 && c <= 0xEF) need = 2, min = 0x800, c &= 0x0F;
+    else if (c >= 0xF0 && c <= 0xF4) need = 3, min = 0x10000, c &= 0x07;
+    else return 0;
+    for (uint32_t i = 0; i < need; i++, p++) {
+      if ((*p & 0xC0) != 0x80) return 0;
+      c = (c << 6) | (*p & 0x3F);
+    }
+    if (c < min || c > 0x10FFFF) return 0;
+  }
+  return 1;
+}
+
+#ifdef _WIN32
+/* The command line's arguments, in UTF-16, split by the C runtime's rules: whitespace separates
+ * them, quotes group, 2n backslashes before a quote are n backslashes and the quote counts,
+ * 2n + 1 are n and a literal quote, and "" inside quotes is a literal quote. The program name
+ * ends at the first whitespace, or the closing quote, with no escapes. */
+static wchar_t **wide_arguments(int *count) {
+  const wchar_t *p = GetCommandLineW();
+  size_t n = wcslen(p);
+  wchar_t **args = malloc((n + 2) * sizeof *args);
+  wchar_t *buffer = malloc((2 * n + 2) * sizeof(wchar_t));
+  if (!args || !buffer) ick_fatal(778, 1);
+  int c = 0;
+  wchar_t *out = buffer;
+  args[c++] = out;
+  if (*p == L'"') {
+    for (p++; *p && *p != L'"'; p++) *out++ = *p;
+    if (*p) p++;
+  } else {
+    while (*p && *p != L' ' && *p != L'\t') *out++ = *p++;
+  }
+  *out++ = 0;
+  for (;;) {
+    while (*p == L' ' || *p == L'\t') p++;
+    if (!*p) break;
+    args[c++] = out;
+    int quoted = 0;
+    while (*p && (quoted || (*p != L' ' && *p != L'\t'))) {
+      size_t slashes = 0;
+      while (*p == L'\\') slashes++, p++;
+      if (*p == L'"') {
+        for (size_t i = 0; i < slashes / 2; i++) *out++ = L'\\';
+        if (slashes % 2) {
+          *out++ = L'"';
+          p++;
+        } else if (quoted && p[1] == L'"') {
+          *out++ = L'"';
+          p += 2;
+        } else {
+          quoted = !quoted;
+          p++;
+        }
+      } else {
+        for (size_t i = 0; i < slashes; i++) *out++ = L'\\';
+        if (*p && (quoted || (*p != L' ' && *p != L'\t'))) *out++ = *p++;
+      }
+    }
+    *out++ = 0;
+  }
+  *count = c;
+  return args;
+}
+
+static void set_string_wide(uint32_t array, const wchar_t *text) {
+  size_t length = wcslen(text);
+  uint16_t *units = malloc((length + 1) * sizeof(uint16_t));
+  if (!units) ick_fatal(778, 1);
+  for (size_t i = 0; i < length; i++) units[i] = (uint16_t)text[i];
+  set_string(array, units, length);
+  free(units);
+}
+#endif
+
+static void set_string_utf8(uint32_t array, const char *text) {
+  size_t length;
+  uint16_t *units = utf16_from_utf8(text, &length);
+  set_string(array, units, length);
+  free(units);
+}
+
+static uint64_t wall_clock_ms(void) {
+#ifdef _WIN32
+  FILETIME ft;
+  GetSystemTimeAsFileTime(&ft);
+  uint64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+  return (ticks - 116444736000000000ull) / 10000;
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
+#endif
+}
+
+static uint64_t monotonic_ns(void) {
+#ifdef _WIN32
+  LARGE_INTEGER count, frequency;
+  QueryPerformanceCounter(&count);
+  QueryPerformanceFrequency(&frequency);
+  uint64_t ticks = (uint64_t)count.QuadPart, rate = (uint64_t)frequency.QuadPart;
+  return ticks / rate * 1000000000ull + ticks % rate * 1000000000ull / rate;
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+#endif
+}
+
+/* ---- EXTRACAL's I/O block (R10) -------------------------------------------------------- */
+/* Handles: 0 is stdin, 1 stdout and 2 stderr; OPEN gives the lowest free one from 3 up. Bytes for
+ * stdout go the way READ OUT's do; anything for stderr flushes stdout first, so the two keep their
+ * order on a terminal. runtime.dart has the same. */
+
+/* A handle is a file open one way, a network connection, or a listening socket. */
+enum { HANDLE_FREE, HANDLE_READ, HANDLE_WRITE, HANDLE_CONNECTION, HANDLE_LISTENER };
+
+typedef struct {
+  int kind;
+  FILE *file;
+  ick_socket socket;
+} ick_handle;
+
+static ick_handle *handles;
+static uint32_t handle_count;
+
+static ick_handle *handle_at(uint64_t handle) {
+  return handle >= 3 && handle < handle_count && handles[handle].kind != HANDLE_FREE
+             ? &handles[handle]
+             : NULL;
+}
+
+/* The lowest free handle from 3 up, made [kind]. */
+static uint32_t new_handle(int kind, FILE *file, ick_socket socket) {
+  uint32_t handle = 3;
+  while (handle < handle_count && handles[handle].kind != HANDLE_FREE) handle++;
+  if (handle >= handle_count) {
+    uint32_t count = handle_count ? handle_count * 2 : 8;
+    handles = realloc(handles, count * sizeof(ick_handle));
+    if (!handles) ick_fatal(778, 1);
+    memset(handles + handle_count, 0, (count - handle_count) * sizeof(ick_handle));
+    handle_count = count;
+  }
+  handles[handle] = (ick_handle){kind, file, socket};
+  return handle;
+}
+
+/* A byte from [handle], or -1 at the end of input. A handle that isn't open for reading is
+ * E804. */
+static int read_byte_from(uint64_t handle, uint32_t next) {
+  if (handle == 0) {
+    ICK_FLUSH();
+    int c = ICK_GETCHAR();
+    return c == EOF ? -1 : c;
+  }
+  ick_handle *h = handle_at(handle);
+  if (!h || (h->kind != HANDLE_READ && h->kind != HANDLE_CONNECTION)) ick_fatal(804, next);
+  if (h->kind == HANDLE_CONNECTION) {
+    ICK_FLUSH();
+    unsigned char byte;
+    return recv(h->socket, (char *)&byte, 1, 0) == 1 ? byte : -1;
+  }
+  int c = fgetc(h->file);
+  if (c == EOF) clearerr(h->file);
+  return c == EOF ? -1 : c;
+}
+
+/* Writes [byte] to [handle]: 1 if it was written. A handle that isn't open for writing is E804,
+ * and a byte over 255 is E805. */
+static int write_byte_to(uint64_t handle, uint64_t byte, uint32_t next) {
+  ick_handle *h = handle_at(handle);
+  if (handle == 0 || (handle > 2 && (!h || (h->kind != HANDLE_WRITE && h->kind != HANDLE_CONNECTION)))) {
+    ick_fatal(804, next);
+  }
+  if (byte > 255) ick_fatal(805, next);
+  if (handle == 1) {
+    putchar((int)byte);
+    if (byte == '\n') ICK_FLUSH();
+    return 1;
+  }
+  if (handle == 2) {
+    ICK_FLUSH();
+    fputc((int)byte, stderr);
+    return 1;
+  }
+  if (h->kind == HANDLE_CONNECTION) {
+    char c = (char)byte;
+    return send(h->socket, &c, 1, 0) == 1;
+  }
+  return fputc((int)byte, h->file) != EOF;
+}
+
+/* Opens [path] (UTF-16 code units): 1 to read, 2 to write from empty, 3 to append, anything else
+ * E806. Returns the handle, or 0 if it couldn't be opened. Files are unbuffered, as in Dart, so a
+ * byte written is there for any other handle to read, and a failed write fails at once. */
+static uint32_t open_file(const uint32_t *units, size_t length, uint64_t mode, uint32_t next) {
+  if (mode < 1 || mode > 3) ick_fatal(806, next);
+  for (size_t i = 0; i < length; i++) {
+    if (!units[i]) return 0;
+  }
+#ifdef _WIN32
+  wchar_t *path = malloc((length + 1) * sizeof(wchar_t));
+  if (!path) ick_fatal(778, 1);
+  for (size_t i = 0; i < length; i++) path[i] = (wchar_t)units[i];
+  path[length] = 0;
+  FILE *file = _wfopen(path, mode == 1 ? L"rb" : mode == 2 ? L"wb" : L"ab");
+#else
+  char *path = utf8_from_units(units, length);
+  FILE *file = fopen(path, mode == 1 ? "rb" : mode == 2 ? "wb" : "ab");
+#endif
+  free(path);
+  if (!file) return 0;
+#ifndef _WIN32
+  struct stat info;
+  if (fstat(fileno(file), &info) == 0 && S_ISDIR(info.st_mode)) {
+    fclose(file);
+    return 0;
+  }
+#endif
+  setvbuf(file, NULL, _IONBF, 0);
+  return new_handle(mode == 1 ? HANDLE_READ : HANDLE_WRITE, file, ICK_NO_SOCKET);
+}
+
+/* Ends a connection without losing what the peer has still to read. A close with unread input
+ * resets the connection, and a reset can throw away data the peer has received but not read, so
+ * the end of output goes first, then input is read and dropped until the peer closes or a tenth
+ * of a second passes without any, for at most a second. */
+static int close_connection(ick_socket s) {
+#ifdef _WIN32
+  shutdown(s, SD_SEND);
+  DWORD wait = 100;
+#else
+  shutdown(s, SHUT_WR);
+  struct timeval wait = {0, 100000};
+#endif
+  setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&wait, sizeof wait);
+  char sink[4096];
+  for (int i = 0; i < 10 && recv(s, sink, sizeof sink, 0) > 0; i++) {
+  }
+  return close_socket(s) == 0;
+}
+
+/* Closes a file, connection or listener: 1 if that went cleanly. */
+static int close_file(uint64_t handle, uint32_t next) {
+  ick_handle *h = handle_at(handle);
+  if (!h) ick_fatal(804, next);
+  int ok = h->file                         ? fclose(h->file) == 0
+           : h->kind == HANDLE_CONNECTION ? close_connection(h->socket)
+                                          : close_socket(h->socket) == 0;
+  *h = (ick_handle){HANDLE_FREE, NULL, ICK_NO_SOCKET};
+  return ok;
+}
+
+/* ---- EXTRACAL's Network block (R10, L34) ------------------------------------------------ */
+/* Connections and listeners are I/O-block handles: (2000) and (2010) read and write connections a
+ * byte at a time, and CLOSE closes either. Every call blocks; Nagle's delay is off, since the
+ * bytes go one at a time. runtime.dart has the same, apart from Nagle. */
+
+static void network_start(void) {
+  static int started;
+  if (started) return;
+  started = 1;
+#ifdef _WIN32
+  WSADATA data;
+  WSAStartup(MAKEWORD(2, 2), &data);
+#else
+  signal(SIGPIPE, SIG_IGN);
+#endif
+}
+
+/* A connection to [host] (UTF-16 code units) on [port], trying each address the name has, or 0 if
+ * none answers. */
+static uint32_t connect_to(const uint32_t *units, size_t length, uint64_t port) {
+  network_start();
+  if (port == 0 || port > 65535 || length == 0) return 0;
+  for (size_t i = 0; i < length; i++) {
+    if (!units[i]) return 0;
+  }
+#ifdef _WIN32
+  wchar_t *host = malloc((length + 1) * sizeof(wchar_t)), service[8];
+  if (!host) ick_fatal(778, 1);
+  for (size_t i = 0; i < length; i++) host[i] = (wchar_t)units[i];
+  host[length] = 0;
+  swprintf(service, 8, L"%u", (unsigned)port);
+  ADDRINFOW hints = {0}, *found, *a;
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  int failed = GetAddrInfoW(host, service, &hints, &found);
+#else
+  char *host = utf8_from_units(units, length), service[8];
+  snprintf(service, sizeof service, "%u", (unsigned)port);
+  struct addrinfo hints = {0}, *found, *a;
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  int failed = getaddrinfo(host, service, &hints, &found);
+#endif
+  free(host);
+  if (failed) return 0;
+  ick_socket s = ICK_NO_SOCKET;
+  for (a = found; a; a = a->ai_next) {
+    s = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+    if (s == ICK_NO_SOCKET) continue;
+    if (connect(s, a->ai_addr, (int)a->ai_addrlen) == 0) break;
+    close_socket(s);
+    s = ICK_NO_SOCKET;
+  }
+#ifdef _WIN32
+  FreeAddrInfoW(found);
+#else
+  freeaddrinfo(found);
+#endif
+  if (s == ICK_NO_SOCKET) return 0;
+  int on = 1;
+  setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof on);
+  return new_handle(HANDLE_CONNECTION, NULL, s);
+}
+
+/* A socket listening on [port] (0 for any free one) on every address, IPv6 and IPv4 where the host
+ * has both, or 0 if it can't. */
+static uint32_t listen_on(uint64_t port) {
+  network_start();
+  if (port > 65535) return 0;
+  for (int family = 0; family < 2; family++) {
+    struct sockaddr_storage address;
+    memset(&address, 0, sizeof address);
+    int size;
+    ick_socket s;
+    if (family == 0) {
+      struct sockaddr_in6 *a = (struct sockaddr_in6 *)&address;
+      a->sin6_family = AF_INET6;
+      a->sin6_port = htons((uint16_t)port);
+      a->sin6_addr = in6addr_any;
+      size = sizeof *a;
+      s = socket(AF_INET6, SOCK_STREAM, 0);
+      int off = 0;
+      if (s != ICK_NO_SOCKET) {
+        setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&off, sizeof off);
+      }
+    } else {
+      struct sockaddr_in *a = (struct sockaddr_in *)&address;
+      a->sin_family = AF_INET;
+      a->sin_port = htons((uint16_t)port);
+      a->sin_addr.s_addr = htonl(INADDR_ANY);
+      size = sizeof *a;
+      s = socket(AF_INET, SOCK_STREAM, 0);
+    }
+    if (s == ICK_NO_SOCKET) continue;
+#ifndef _WIN32
+    int on = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+#endif
+    if (bind(s, (struct sockaddr *)&address, size) == 0 && listen(s, 16) == 0) {
+      return new_handle(HANDLE_LISTENER, NULL, s);
+    }
+    close_socket(s);
+  }
+  return 0;
+}
+
+/* The next connection to [listener], or 0 if accepting failed. Not a listener is E804. */
+static uint32_t accept_on(uint64_t listener, uint32_t next) {
+  ick_handle *h = handle_at(listener);
+  if (!h || h->kind != HANDLE_LISTENER) ick_fatal(804, next);
+  ICK_FLUSH();
+  ick_socket s = accept(h->socket, NULL, NULL);
+  if (s == ICK_NO_SOCKET) return 0;
+  int on = 1;
+  setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof on);
+  return new_handle(HANDLE_CONNECTION, NULL, s);
+}
+
+/* The port [listener] listens on. Not a listener is E804. */
+static uint32_t port_of(uint64_t listener, uint32_t next) {
+  ick_handle *h = handle_at(listener);
+  if (!h || h->kind != HANDLE_LISTENER) ick_fatal(804, next);
+  struct sockaddr_storage address;
+  socklen_t size = sizeof address;
+  if (getsockname(h->socket, (struct sockaddr *)&address, &size) != 0) return 0;
+  return ntohs(address.ss_family == AF_INET6 ? ((struct sockaddr_in6 *)&address)->sin6_port
+                                             : ((struct sockaddr_in *)&address)->sin_port);
+}
+
+void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3,
+                  uint32_t a0, uint32_t a1, uint32_t a2, uint32_t next) {
+  (void)s3;
+  (void)a1;
+  (void)a2;
+  switch (service) {
+  case 8000: set_scalar(s0, (uint64_t)program_argc); break;
+  case 8010: {
+    uint64_t n = scalar_at(s0);
+    if (n >= 1 && n <= (uint64_t)program_argc) {
+#ifdef _WIN32
+      /* Windows hands narrow arguments over in the ANSI code page, so they come from the wide
+       * command line instead, at the same place. */
+      int count;
+      wchar_t **wide = wide_arguments(&count);
+      int at = count - program_argc + (int)n - 1;
+      set_string_wide(a0, at >= 0 && at < count ? wide[at] : L"");
+      free(wide[0]);
+      free(wide);
+#else
+      set_string_utf8(a0, program_argv[n - 1]);
+#endif
+      set_scalar(s1, 1);
+    } else {
+      set_scalar(s1, 2);
+    }
+    break;
+  }
+  case 8020: {
+    size_t length;
+    const uint32_t *units = string_at(a0, &length, next);
+    /* No variable's name holds NUL or =, so such a name finds nothing, as in Dart. */
+    int found = 0;
+    int plain = length > 0;
+    for (size_t i = 0; i < length; i++) plain &= units[i] != 0 && units[i] != '=';
+#ifdef _WIN32
+    wchar_t *name = malloc((length + 1) * sizeof(wchar_t));
+    if (!name) ick_fatal(778, 1);
+    for (size_t i = 0; i < length; i++) name[i] = (wchar_t)units[i];
+    name[length] = 0;
+    const wchar_t *value = plain ? _wgetenv(name) : NULL;
+    free(name);
+    if (value) {
+      set_string_wide(a1, value);
+      found = 1;
+    }
+#else
+    char *name = utf8_from_units(units, length);
+    const char *value = plain ? getenv(name) : NULL;
+    free(name);
+    if (value && is_utf8(value)) {
+      set_string_utf8(a1, value);
+      found = 1;
+    }
+#endif
+    set_scalar(s0, found ? 1 : 2);
+    break;
+  }
+  case 8030: {
+    uint64_t status = scalar_at(s0);
+    if (status > 255) ick_fatal(802, next);
+    ICK_FLUSH();
+    exit((int)status);
+  }
+  case 8040: set_scalar(s0, wall_clock_ms()); break;
+  case 8050: set_scalar(s0, monotonic_ns()); break;
+  case 8060: rng_state = scalar_at(s0); break;
+  case 2000: {
+    int byte = read_byte_from(scalar_at(s0), next);
+    if (byte >= 0) set_scalar(s1, (uint64_t)byte);
+    set_scalar(s2, byte >= 0 ? 1 : 2);
+    break;
+  }
+  case 2010: set_scalar(s2, write_byte_to(scalar_at(s0), scalar_at(s1), next) ? 1 : 2); break;
+  case 2020: {
+    size_t length;
+    const uint32_t *units = string_at(a0, &length, next);
+    uint32_t handle = open_file(units, length, scalar_at(s0), next);
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 2030: set_scalar(s1, close_file(scalar_at(s0), next) ? 1 : 2); break;
+  case 9000: {
+    size_t length;
+    const uint32_t *host = string_at(a0, &length, next);
+    uint32_t handle = connect_to(host, length, scalar_at(s0));
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 9010: {
+    uint32_t handle = listen_on(scalar_at(s0));
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 9020: {
+    uint32_t handle = accept_on(scalar_at(s0), next);
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 9030: set_scalar(s1, port_of(scalar_at(s0), next)); break;
+  case 3000: {
+    size_t length;
+    string_at(a0, &length, next);
+    set_scalar(s0, length);
+    break;
+  }
+  case 3001: set_string(a0, NULL, 0); break;
+  case 3002: {
+    size_t length;
+    string_at(a0, &length, next);
+    set_scalar(s0, length);
+    break;
+  }
+  case 6000:
+  case 6100: set_scalar(s0, arrays[a0].shape.rank); break;
+  case 6010:
+  case 6110: {
+    ick_shape *shape = &arrays[a0].shape;
+    uint64_t n = scalar_at(s0);
+    if (n == 0 || n > shape->rank) ick_fatal(812, next);
+    set_scalar(s0, shape->dims[n - 1]);
+    break;
+  }
+  case 6003:
+  case 6103: set_string(a0, NULL, 0); break;
+  case 9203: set_string(a0, NULL, 0); break;
+  case 807:
+  case 808:
+  case 809:
+  case 813:
+  case 814:
+  case 815:
+  case 816:
+  case 817: ick_fatal(service, next); break;
+  default: ick_fatal(801, next);
+  }
+}
+
+/* ---- EXTRACAL's Strings block (R8, R10) ------------------------------------------------ */
+
+/* UTF-8 bytes for UTF-16 code units, as the Strings block's (3070) makes them: a lone surrogate
+ * becomes U+FFFD. [out] has room for 3 bytes per unit; returns the count. */
+static size_t utf8_encode(const uint32_t *units, size_t length, uint16_t *out) {
+  size_t n = 0;
+  for (size_t i = 0; i < length; i++) {
+    uint32_t c = units[i];
+    if (c < 0x80) {
+      out[n++] = (uint16_t)c;
+    } else if (c < 0x800) {
+      out[n++] = (uint16_t)(0xC0 | c >> 6);
+      out[n++] = (uint16_t)(0x80 | (c & 0x3F));
+    } else if (c >= 0xD800 && c <= 0xDFFF) {
+      int paired = c <= 0xDBFF && i + 1 < length && units[i + 1] >= 0xDC00 && units[i + 1] <= 0xDFFF;
+      if (!paired) {
+        out[n++] = 0xEF;
+        out[n++] = 0xBF;
+        out[n++] = 0xBD;
+        continue;
+      }
+      c = 0x10000 + ((c & 0x3FF) << 10) + (units[++i] & 0x3FF);
+      out[n++] = (uint16_t)(0xF0 | c >> 18);
+      out[n++] = (uint16_t)(0x80 | ((c >> 12) & 0x3F));
+      out[n++] = (uint16_t)(0x80 | ((c >> 6) & 0x3F));
+      out[n++] = (uint16_t)(0x80 | (c & 0x3F));
+    } else {
+      out[n++] = (uint16_t)(0xE0 | c >> 12);
+      out[n++] = (uint16_t)(0x80 | ((c >> 6) & 0x3F));
+      out[n++] = (uint16_t)(0x80 | (c & 0x3F));
+    }
+  }
+  return n;
+}
+
+/* UTF-16 code units for UTF-8 [bytes], as the Strings block's (3080) reads them; see
+ * runtime.dart's _utf8Decode for the rules. An element above 255 is E808 when it is reached.
+ * [out] has room for one unit per byte; returns the count. */
+static size_t utf8_decode(const uint32_t *bytes, size_t length, uint16_t *out, uint32_t next) {
+  size_t n = 0, i = 0;
+  while (i < length) {
+    if (bytes[i] > 255) ick_fatal(808, next);
+    uint32_t lead = bytes[i];
+    if (lead < 0x80) {
+      out[n++] = (uint16_t)lead;
+      i++;
+      continue;
+    }
+    uint32_t need = 0, minimum = 0, value = 0;
+    if (lead >> 5 == 6) need = 1, minimum = 0x80, value = lead & 0x1F;
+    else if (lead >> 4 == 14) need = 2, minimum = 0x800, value = lead & 0x0F;
+    else if (lead >> 3 == 30) need = 3, minimum = 0x10000, value = lead & 0x07;
+    uint32_t got = 0;
+    while (got < need) {
+      if (i + got + 1 >= length) break;
+      if (bytes[i + got + 1] > 255) ick_fatal(808, next);
+      uint32_t b = bytes[i + got + 1];
+      if (b >> 6 != 2) break;
+      value = value << 6 | (b & 0x3F);
+      got++;
+    }
+    if (need == 0 || got < need) {
+      out[n++] = 0xFFFD;
+      i++;
+      continue;
+    }
+    i += need + 1;
+    if (value < minimum || value > 0x10FFFF || value >> 11 == 27) {
+      out[n++] = 0xFFFD;
+    } else if (value >= 0x10000) {
+      out[n++] = (uint16_t)(0xD800 | ((value - 0x10000) >> 10));
+      out[n++] = (uint16_t)(0xDC00 | ((value - 0x10000) & 0x3FF));
+    } else {
+      out[n++] = (uint16_t)value;
+    }
+  }
+  return n;
+}
+
+/* ---- EXTRACAL's Math block (R6, R10) ---------------------------------------------------- */
+/* A routine's width and operation come from its number: (4000)-(4099) are unsigned 64-bit,
+ * (4100), (4200) and (4300) signed 16, 32 and 64-bit, and (4500) and (4600) power, square root,
+ * modulo and gcd at 32 and 64 bits. Results are stored as their width's bit patterns.
+ * runtime.dart has the same. */
+
+static int64_t sign_extend(uint64_t value, int bits) {
+  return bits == 64 ? (int64_t)value : (int64_t)(value << (64 - bits)) >> (64 - bits);
+}
+
+static int signed_fits(int64_t value, int bits) {
+  return bits == 64 || (value >= -(INT64_C(1) << (bits - 1)) && value < INT64_C(1) << (bits - 1));
+}
+
+static uint64_t multiply_within(uint64_t x, uint64_t y, uint64_t mask, int *overflow) {
+  uint64_t product;
+  if (__builtin_mul_overflow(x, y, &product) || product > mask) *overflow = 1;
+  return product & mask;
+}
+
+static void math_library(uint32_t label, const uint32_t *scalars, uint32_t overflow_next) {
+  uint32_t group = label / 100, op = label % 100;
+  int bits = group == 41 ? 16 : group == 42 || group == 45 ? 32 : 64;
+  int is_signed = group >= 41 && group <= 43;
+  uint64_t mask = bits == 64 ? UINT64_MAX : (UINT64_C(1) << bits) - 1;
+  if (label == 4020 || label == 4030) {
+    uint64_t a = scalar_at(scalars[0]), b = scalar_at(scalars[1]);
+    set_scalar(scalars[2], label == 4020 ? a << 32 | b : a * b);
+    return;
+  }
+  uint64_t a = scalar_at(scalars[0]) & mask, b = scalar_at(scalars[1]) & mask;
+  int64_t sa = sign_extend(a, bits), sb = sign_extend(b, bits);
+  uint64_t result = 0;
+  int overflow = 0;
+  if (group == 45 || group == 46) {
+    switch (op) {
+    case 0:
+    case 9: {
+      uint64_t base = a, exponent = b;
+      result = 1;
+      while (exponent) {
+        if (exponent & 1) result = multiply_within(result, base, mask, &overflow);
+        exponent >>= 1;
+        if (exponent) base = multiply_within(base, base, mask, &overflow);
+      }
+      break;
+    }
+    case 10: {
+      uint64_t root = 0;
+      for (uint64_t bit = UINT64_C(1) << 31; bit; bit >>= 1) {
+        uint64_t candidate = root | bit;
+        if (candidate * candidate <= a) root = candidate;
+      }
+      set_scalar(scalars[1], root);
+      return;
+    }
+    case 20: set_scalar(scalars[2], b ? a % b : a); return;
+    case 30:
+      while (b) {
+        uint64_t rest = a % b;
+        a = b;
+        b = rest;
+      }
+      set_scalar(scalars[2], a);
+      return;
+    }
+  } else if (op == 60 || op == 70) {
+    int less = is_signed ? sa < sb : a < b, equal = a == b;
+    set_scalar(scalars[2], less ? 1 : equal ? 2 : 3);
+    return;
+  } else if (!is_signed) {
+    switch (op) {
+    case 0:
+    case 9: overflow = __builtin_add_overflow(a, b, &result); break;
+    case 10: result = a - b; break;
+    case 40:
+    case 49: overflow = __builtin_mul_overflow(a, b, &result); break;
+    case 50: result = b ? a / b : 0; break;
+    }
+  } else {
+    int64_t exact = 0;
+    switch (op) {
+    case 0:
+    case 9: overflow = __builtin_add_overflow(sa, sb, &exact); break;
+    case 10:
+    case 19: overflow = __builtin_sub_overflow(sa, sb, &exact); break;
+    case 40:
+    case 49: overflow = __builtin_mul_overflow(sa, sb, &exact); break;
+    case 50:
+      if (sb == -1 && sa == sign_extend(UINT64_C(1) << (bits - 1), bits)) {
+        overflow = 1;
+        exact = (int64_t)((uint64_t)sa & mask);
+      } else {
+        exact = sb ? sa / sb : 0;
+      }
+      break;
+    }
+    overflow |= !signed_fits(exact, bits);
+    result = (uint64_t)exact;
+  }
+  result &= mask;
+  if (op % 10 == 9) {
+    set_scalar(scalars[2], result);
+    set_scalar(scalars[3], overflow ? 2 : 1);
+  } else {
+    if (overflow) ick_fatal(813, overflow_next);
+    set_scalar(scalars[2], result);
+  }
+}
+
+/* ---- EXTRACAL's Floats block (R9, L33) ------------------------------------------------- */
+/* A float is a 32-bit value: the upper 16 bits are the mantissa and the lower 16 the
+ * characteristic, both two's complement, worth mantissa x 2^characteristic. Every result but ln's
+ * is the exact value rounded to nearest, ties to even, to a mantissa of 2^14 to 2^15 - 1. These
+ * follow the INTERCAL's algorithms; runtime.dart gets the same results by exact arithmetic. */
+
+static uint32_t next_of(const uint32_t *nexts, uint32_t count, uint32_t service, uint32_t nth);
+
+/* ln(1 + 2^-j) and -ln(1 - 2^-j) for j = 1 to 62, in Q62. */
+static const uint64_t ln_up[62] = {
+    UINT64_C(1869877770022570995), UINT64_C(1029067995697975510), UINT64_C(543178378744478074),
+    UINT64_C(279581720803300556), UINT64_C(141909228037287941), UINT64_C(71500440275001118),
+    UINT64_C(35888788270063140), UINT64_C(17979305495762817), UINT64_C(8998414598213862),
+    UINT64_C(4501402034722952), UINT64_C(2251250236762820), UINT64_C(1125762490254678),
+    UINT64_C(562915596478891), UINT64_C(281466387125573), UINT64_C(140735340915370),
+    UINT64_C(70368207312213), UINT64_C(35184237871787), UINT64_C(17592152490069),
+    UINT64_C(8796084633611), UINT64_C(4398044413953), UINT64_C(2199022731264),
+    UINT64_C(1099511496704), UINT64_C(549755781120), UINT64_C(274877898752),
+    UINT64_C(137438951424), UINT64_C(68719476224), UINT64_C(34359738240),
+    UINT64_C(17179869152), UINT64_C(8589934584), UINT64_C(4294967294),
+    UINT64_C(2147483648), UINT64_C(1073741824), UINT64_C(536870912),
+    UINT64_C(268435456), UINT64_C(134217728), UINT64_C(67108864),
+    UINT64_C(33554432), UINT64_C(16777216), UINT64_C(8388608),
+    UINT64_C(4194304), UINT64_C(2097152), UINT64_C(1048576),
+    UINT64_C(524288), UINT64_C(262144), UINT64_C(131072),
+    UINT64_C(65536), UINT64_C(32768), UINT64_C(16384),
+    UINT64_C(8192), UINT64_C(4096), UINT64_C(2048),
+    UINT64_C(1024), UINT64_C(512), UINT64_C(256),
+    UINT64_C(128), UINT64_C(64), UINT64_C(32),
+    UINT64_C(16), UINT64_C(8), UINT64_C(4),
+    UINT64_C(2), UINT64_C(1),
+};
+static const uint64_t ln_down[62] = {
+    UINT64_C(3196577161300663915), UINT64_C(1326699391278092920), UINT64_C(615804856387649007),
+    UINT64_C(297631395580117410), UINT64_C(146415028120619150), UINT64_C(72626477643170933),
+    UINT64_C(36170271837057929), UINT64_C(18049674776816854), UINT64_C(9016006817812796),
+    UINT64_C(4505800083331209), UINT64_C(2252349748521668), UINT64_C(1126037368169814),
+    UINT64_C(562984315956139), UINT64_C(281483566994789), UINT64_C(140739635882668),
+    UINT64_C(70369281054037), UINT64_C(35184506307243), UINT64_C(17592219598933),
+    UINT64_C(8796101410827), UINT64_C(4398048608257), UINT64_C(2199023779840),
+    UINT64_C(1099511758848), UINT64_C(549755846656), UINT64_C(274877915136),
+    UINT64_C(137438955520), UINT64_C(68719477248), UINT64_C(34359738496),
+    UINT64_C(17179869216), UINT64_C(8589934600), UINT64_C(4294967298),
+    UINT64_C(2147483649), UINT64_C(1073741824), UINT64_C(536870912),
+    UINT64_C(268435456), UINT64_C(134217728), UINT64_C(67108864),
+    UINT64_C(33554432), UINT64_C(16777216), UINT64_C(8388608),
+    UINT64_C(4194304), UINT64_C(2097152), UINT64_C(1048576),
+    UINT64_C(524288), UINT64_C(262144), UINT64_C(131072),
+    UINT64_C(65536), UINT64_C(32768), UINT64_C(16384),
+    UINT64_C(8192), UINT64_C(4096), UINT64_C(2048),
+    UINT64_C(1024), UINT64_C(512), UINT64_C(256),
+    UINT64_C(128), UINT64_C(64), UINT64_C(32),
+    UINT64_C(16), UINT64_C(8), UINT64_C(4),
+    UINT64_C(2), UINT64_C(1),
+};
+
+static int bit_length(uint64_t v) {
+  int n = 0;
+  for (; v; v >>= 1) n++;
+  return n;
+}
+
+/* The float nearest +-magnitude x 2^exponent, ties to even: E814 above the range, #0 below. */
+static uint32_t float_round(int negative, uint64_t magnitude, int64_t exponent, uint32_t overflow_next) {
+  if (!magnitude) return 0;
+  int bits = bit_length(magnitude);
+  uint64_t q = magnitude;
+  if (bits > 15) {
+    int shift = bits - 15;
+    uint64_t half = UINT64_C(1) << (shift - 1), rest = magnitude & ((half << 1) - 1);
+    q = magnitude >> shift;
+    exponent += shift;
+    if (rest > half || (rest == half && (q & 1))) q++;
+    if (q == 1u << 15) {
+      q = 1u << 14;
+      exponent++;
+    }
+  } else {
+    q <<= 15 - bits;
+    exponent -= 15 - bits;
+  }
+  if (exponent > 32767) ick_fatal(814, overflow_next);
+  if (exponent < -32768) return 0;
+  uint32_t m = (uint32_t)(negative ? (0x10000 - q) & 0xFFFF : q);
+  return m << 16 | ((uint32_t)exponent & 0xFFFF);
+}
+
+typedef struct {
+  int negative;
+  uint64_t magnitude;
+  int64_t characteristic;
+} ick_float;
+
+static ick_float float_parts(uint64_t x) {
+  int m = (int16_t)(uint16_t)(x >> 16), c = (int16_t)(uint16_t)(x & 0xFFFF);
+  return (ick_float){m < 0, (uint64_t)(m < 0 ? -m : m), c};
+}
+
+/* a + b, through a doubled sum that keeps one sticky bit for whatever of b is shifted away. */
+static uint32_t float_add(ick_float a, ick_float b, uint32_t next) {
+  if (!a.magnitude) return float_round(b.negative, b.magnitude, b.characteristic, next);
+  if (!b.magnitude) return float_round(a.negative, a.magnitude, a.characteristic, next);
+  if (a.characteristic < b.characteristic) {
+    ick_float t = a;
+    a = b;
+    b = t;
+  }
+  int64_t d = a.characteristic - b.characteristic, k = d < 33 ? d : 33, r = d - k;
+  uint64_t big = a.magnitude << k, small = 0;
+  int sticky = 1;
+  if (r < 17) {
+    small = b.magnitude >> r;
+    sticky = (b.magnitude & ((UINT64_C(1) << r) - 1)) != 0;
+  }
+  int64_t e = a.characteristic - k - 1;
+  if (a.negative == b.negative) return float_round(a.negative, 2 * (big + small) + sticky, e, next);
+  if (big > small) return float_round(a.negative, 2 * (big - small) - sticky, e, next);
+  if (small > big) return float_round(b.negative, 2 * (small - big), e, next);
+  return 0;
+}
+
+/* #1, #2 or #3 as a is less than, equal to or greater than b. */
+static uint32_t float_compare(ick_float a, ick_float b) {
+  int ka = !a.magnitude ? 1 : a.negative ? 0 : 2, kb = !b.magnitude ? 1 : b.negative ? 0 : 2;
+  if (ka != kb) return ka < kb ? 1 : 3;
+  if (ka == 1) return 2;
+  int64_t ta = a.characteristic + bit_length(a.magnitude), tb = b.characteristic + bit_length(b.magnitude);
+  uint32_t order;
+  if (ta != tb) {
+    order = ta < tb ? 1 : 3;
+  } else {
+    uint64_t ma = a.magnitude << (16 - bit_length(a.magnitude)), mb = b.magnitude << (16 - bit_length(b.magnitude));
+    order = ma < mb ? 1 : ma == mb ? 2 : 3;
+  }
+  return a.negative ? 4 - order : order;
+}
+
+/* The INTERCAL's logarithm of a positive float: shift-and-add in Q62, then k ln 2 in Q32 unless
+ * k is 0, rounded once. */
+static uint32_t float_ln(ick_float x, uint32_t next) {
+  const uint64_t one = UINT64_C(1) << 62;
+  uint64_t m = x.magnitude;
+  int64_t c = x.characteristic;
+  while (m < 1u << 14) {
+    m <<= 1;
+    c--;
+  }
+  int64_t k = c + 14;
+  uint64_t f = m << 48;
+  if (m >= 24576) {
+    f = m << 47;
+    k++;
+  }
+  uint64_t acc = 0;
+  int negative = f < one;
+  for (int j = 1; j <= 62; j++) {
+    uint64_t t = negative ? f + (f >> j) : f - (f >> j);
+    if (negative ? t <= one : t >= one) {
+      f = t;
+      acc += (negative ? ln_up : ln_down)[j - 1];
+    }
+  }
+  acc += negative ? one - f : f - one;
+  if (k == 0) return float_round(negative, acc, -62, next);
+  int64_t term = (int64_t)((acc + (UINT64_C(1) << 29)) >> 30);
+  int64_t y = k * INT64_C(2977044472) + (negative ? -term : term);
+  return float_round(y < 0, (uint64_t)(y < 0 ? -y : y), -32, next);
+}
+
+/* Big numbers for the decimal strings: base-10^9 limbs, least significant first. */
+typedef struct {
+  uint32_t *limbs;
+  size_t count;
+} ick_big;
+
+static void big_multiply(ick_big *n, uint64_t by) {
+  uint64_t carry = 0;
+  for (size_t i = 0; i < n->count; i++) {
+    uint64_t t = n->limbs[i] * by + carry;
+    n->limbs[i] = (uint32_t)(t % 1000000000u);
+    carry = t / 1000000000u;
+  }
+  while (carry) {
+    n->limbs[n->count++] = (uint32_t)(carry % 1000000000u);
+    carry /= 1000000000u;
+  }
+}
+
+/* n / by, with *sticky set if anything is left over. */
+static void big_divide(ick_big *n, uint32_t by, int *sticky) {
+  uint64_t rest = 0;
+  for (size_t i = n->count; i-- > 0;) {
+    uint64_t t = rest * 1000000000u + n->limbs[i];
+    n->limbs[i] = (uint32_t)(t / by);
+    rest = t % by;
+  }
+  if (rest) *sticky = 1;
+  while (n->count > 1 && !n->limbs[n->count - 1]) n->count--;
+}
+
+static ick_big big_new(size_t capacity, uint32_t value) {
+  ick_big n = {calloc(capacity, sizeof(uint32_t)), 1};
+  if (!n.limbs) ick_fatal(778, 1);
+  n.limbs[0] = value;
+  return n;
+}
+
+/* Five significant digits, correctly rounded, ties to even: like -1.2346E+5. */
+static void float_to_string(ick_float x, uint32_t array) {
+  if (!x.magnitude) {
+    static const uint16_t zero[] = {'0', '.', '0', '0', '0', '0', 'E', '+', '0'};
+    set_string(array, zero, 9);
+    return;
+  }
+  /* m x 5^32768 has at most 22911 digits, 2546 limbs */
+  ick_big n = big_new(3000, (uint32_t)x.magnitude);
+  int64_t places = 0;
+  if (x.characteristic < 0) {
+    places = -x.characteristic;
+    int64_t k = places;
+    for (; k >= 13; k -= 13) big_multiply(&n, UINT64_C(1220703125));
+    uint64_t power = 1;
+    for (; k > 0; k--) power *= 5;
+    big_multiply(&n, power);
+  } else {
+    int64_t k = x.characteristic;
+    for (; k >= 30; k -= 30) big_multiply(&n, UINT64_C(1) << 30);
+    big_multiply(&n, UINT64_C(1) << k);
+  }
+  /* the first six digits, and whether anything after them is non-zero */
+  char top[16];
+  int top_length = snprintf(top, sizeof top, "%u", n.limbs[n.count - 1]);
+  char digits[32];
+  int have = snprintf(digits, sizeof digits, "%s", top);
+  for (size_t i = n.count - 1; i-- > 0 && have < 24;) {
+    have += snprintf(digits + have, sizeof digits - have, "%09u", n.limbs[i]);
+  }
+  while (have < 6) digits[have++] = '0';
+  int rest = 0;
+  for (int i = 6; i < have; i++) rest |= digits[i] != '0';
+  for (size_t i = 0; i + 2 < n.count; i++) rest |= n.limbs[i] != 0;
+  int64_t exponent = top_length + 9 * (int64_t)(n.count - 1) - 1 - places;
+  uint32_t first = 0;
+  for (int i = 0; i < 5; i++) first = first * 10 + (uint32_t)(digits[i] - '0');
+  int sixth = digits[5] - '0';
+  if (sixth > 5 || (sixth == 5 && (rest || (first & 1)))) first++;
+  if (first == 100000) {
+    first = 10000;
+    exponent++;
+  }
+  free(n.limbs);
+  char text[40];
+  int length = snprintf(text, sizeof text, "%s%u.%04uE%c%lld", x.negative ? "-" : "", first / 10000,
+                        first % 10000, exponent < 0 ? '-' : '+',
+                        (long long)(exponent < 0 ? -exponent : exponent));
+  uint16_t units[40];
+  for (int i = 0; i < length; i++) units[i] = (uint16_t)text[i];
+  set_string(array, units, (size_t)length);
+}
+
+/* The float the decimal text spells, as the INTERCAL reads it: 1 with *result, or 0 if it is
+ * malformed. E814 from the early range check is reported at early_next; from rounding, at
+ * round_next. */
+static int float_from_string(const uint32_t *text, size_t length, uint32_t *result,
+                             uint32_t early_next, uint32_t round_next) {
+  size_t i = 0;
+  int negative = 0;
+  if (i < length && (text[i] == '+' || text[i] == '-')) negative = text[i++] == '-';
+  size_t whole = i;
+  while (i < length && text[i] >= '0' && text[i] <= '9') i++;
+  size_t whole_count = i - whole, fraction = i, fraction_count = 0;
+  if (i < length && text[i] == '.') {
+    fraction = ++i;
+    while (i < length && text[i] >= '0' && text[i] <= '9') i++;
+    fraction_count = i - fraction;
+  }
+  if (!whole_count && !fraction_count) return 0;
+  int64_t exponent = 0;
+  if (i < length && (text[i] == 'e' || text[i] == 'E')) {
+    i++;
+    int minus = 0;
+    if (i < length && (text[i] == '+' || text[i] == '-')) minus = text[i++] == '-';
+    size_t start = i;
+    while (i < length && text[i] >= '0' && text[i] <= '9') {
+      exponent = exponent * 10 + (text[i++] - '0');
+      if (exponent > 100000) exponent = 100000;
+    }
+    if (i == start) return 0;
+    if (minus) exponent = -exponent;
+  }
+  if (i != length) return 0;
+  /* the digits, without leading zeros, into a big number */
+  /* The range checks below keep the scaling to at most about 1100 limbs more than the digits. */
+  ick_big n = big_new(whole_count / 9 + fraction_count / 9 + 3000, 0);
+  int64_t digits = 0;
+  uint64_t limb = 0, weight = 1;
+  n.count = 0;
+  for (size_t j = whole_count + fraction_count; j-- > 0;) {
+    uint32_t unit = j < whole_count ? text[whole + j] : text[fraction + j - whole_count];
+    limb += (unit - '0') * weight;
+    weight *= 10;
+    if (weight == 1000000000u) {
+      n.limbs[n.count++] = (uint32_t)limb;
+      limb = 0;
+      weight = 1;
+    }
+  }
+  n.limbs[n.count++] = (uint32_t)limb;
+  while (n.count > 1 && !n.limbs[n.count - 1]) n.count--;
+  if (!n.limbs[n.count - 1]) {
+    free(n.limbs);
+    *result = 0;
+    return 1;
+  }
+  char top[16];
+  digits = snprintf(top, sizeof top, "%u", n.limbs[n.count - 1]) + 9 * (int64_t)(n.count - 1);
+  int64_t e = exponent - (int64_t)fraction_count;
+  if (digits + e > 9869) ick_fatal(814, early_next);
+  if (digits + e < -9859) {
+    free(n.limbs);
+    *result = 0;
+    return 1;
+  }
+  /* enough powers of two to keep 16 bits through dropping digits */
+  int64_t s = 0, u = -e - digits + 6;
+  if (e < 0 && u > 0) s = u * INT64_C(3321928095) / INT64_C(1000000000) + 2;
+  int64_t k = s;
+  for (; k >= 30; k -= 30) big_multiply(&n, UINT64_C(1) << 30);
+  big_multiply(&n, UINT64_C(1) << k);
+  int sticky = 0;
+  if (e >= 0) {
+    int64_t k10 = e;
+    for (; k10 >= 9; k10 -= 9) big_multiply(&n, 1000000000u);
+    uint64_t power = 1;
+    for (; k10 > 0; k10--) power *= 10;
+    big_multiply(&n, power);
+  } else {
+    int64_t k10 = -e;
+    for (; k10 >= 9; k10 -= 9) big_divide(&n, 1000000000u, &sticky);
+    uint32_t power = 1;
+    for (; k10 > 0; k10--) power *= 10;
+    big_divide(&n, power, &sticky);
+  }
+  int64_t halvings = 0;
+  while (n.count > 1 || n.limbs[0] >= 65536) {
+    big_divide(&n, 2, &sticky);
+    halvings++;
+  }
+  uint64_t x = n.limbs[0];
+  free(n.limbs);
+  *result = float_round(negative, 2 * x + (uint64_t)sticky, halvings - s - 1, round_next);
+  return 1;
+}
+
+static void float_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays,
+                          const uint32_t *nexts, uint32_t next_count) {
+  uint32_t overflow = next_of(nexts, next_count, 814, 0);
+  ick_float a = float_parts(scalar_at(scalars[0]));
+  if (label <= 7040) {
+    ick_float b = float_parts(scalar_at(scalars[1]));
+    uint32_t result = 0;
+    switch (label) {
+    case 7000: result = float_add(a, b, overflow); break;
+    case 7010:
+      b.negative = !b.negative;
+      result = float_add(a, b, overflow);
+      break;
+    case 7020:
+      if (a.magnitude && b.magnitude) {
+        result = float_round(a.negative != b.negative, a.magnitude * b.magnitude,
+                             a.characteristic + b.characteristic, overflow);
+      }
+      break;
+    case 7030:
+      if (!b.magnitude) ick_fatal(815, next_of(nexts, next_count, 815, 0));
+      if (a.magnitude) {
+        uint64_t n = a.magnitude << 31, q = n / b.magnitude;
+        result = float_round(a.negative != b.negative, 2 * q + (n % b.magnitude != 0),
+                             a.characteristic - b.characteristic - 32, overflow);
+      }
+      break;
+    default: result = float_compare(a, b);
+    }
+    set_scalar(scalars[2], result);
+    return;
+  }
+  switch (label) {
+  case 7050:
+    if (!a.magnitude || a.negative) ick_fatal(816, next_of(nexts, next_count, 816, 0));
+    set_scalar(scalars[1], float_ln(a, overflow));
+    return;
+  case 7060: {
+    int32_t v = (int32_t)(uint32_t)scalar_at(scalars[0]);
+    set_scalar(scalars[1], float_round(v < 0, v < 0 ? (uint64_t)(-(int64_t)v) : (uint64_t)v, 0, overflow));
+    return;
+  }
+  case 7070: {
+    uint64_t magnitude = 0;
+    if (a.magnitude) {
+      if (a.characteristic < 0) {
+        magnitude = -a.characteristic >= 16 ? 0 : a.magnitude >> -a.characteristic;
+      } else {
+        if (a.characteristic >= 32) ick_fatal(814, overflow);
+        magnitude = a.magnitude << a.characteristic;
+      }
+    }
+    if (magnitude > (UINT64_C(1) << 31) || (magnitude == UINT64_C(1) << 31 && !a.negative)) {
+      ick_fatal(814, overflow);
+    }
+    set_scalar(scalars[1], (uint32_t)(a.negative ? 0 - magnitude : magnitude));
+    return;
+  }
+  case 7080: float_to_string(a, arrays[0]); return;
+  case 7090: {
+    size_t length;
+    const uint32_t *text = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint32_t result;
+    int ok = float_from_string(text, length, &result, next_of(nexts, next_count, 814, 1), overflow);
+    if (ok) set_scalar(scalars[0], result);
+    set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+  }
+}
+
+/* The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
+ * in, the routine's documented ones: [scalars] by key and [arrays] by number. [nexts] lists, in
+ * program order, each PETITION the INTERCAL version uses as a service and where its errors are
+ * reported. runtime.dart has the same. */
+static uint32_t next_of(const uint32_t *nexts, uint32_t count, uint32_t service, uint32_t nth) {
+  for (uint32_t i = 0; i < count; i++) {
+    if (nexts[2 * i] == service && nth-- == 0) return nexts[2 * i + 1];
+  }
+  return 1;
+}
+
+void ick_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays,
+                 const uint32_t *nexts, uint32_t next_count) {
+  if (label >= 4000 && label < 5000) {
+    math_library(label, scalars, next_of(nexts, next_count, 813, 0));
+    return;
+  }
+  if (label >= 7000 && label < 8000) {
+    float_library(label, scalars, arrays, nexts, next_count);
+    return;
+  }
+  switch (label) {
+  case 2100: {
+    uint64_t handle = scalar_at(scalars[0]);
+    uint32_t next = next_of(nexts, next_count, 2000, 0);
+    int byte = read_byte_from(handle, next);
+    while (byte == ' ' || byte == '\t' || byte == '\n' || byte == '\r') {
+      byte = read_byte_from(handle, next);
+    }
+    if (byte < '0' || byte > '9') {
+      set_scalar(scalars[2], 2);
+      return;
+    }
+    uint64_t value = (uint64_t)(byte - '0');
+    int overflow = 0;
+    for (;;) {
+      byte = read_byte_from(handle, next);
+      if (byte < '0' || byte > '9') break;
+      value = value * 10 + (uint64_t)(byte - '0');
+      overflow |= value > 0xFFFFFFFFu;
+      value &= 0xFFFFFFFFu;
+    }
+    set_scalar(scalars[1], value);
+    set_scalar(scalars[2], overflow ? 2 : 1);
+    return;
+  }
+  case 2110: {
+    uint64_t handle = scalar_at(scalars[0]);
+    char digits[24];
+    snprintf(digits, sizeof digits, "%llu", (unsigned long long)scalar_at(scalars[1]));
+    int ok = 1;
+    for (char *d = digits; *d; d++) ok = write_byte_to(handle, (uint64_t)*d, next_of(nexts, next_count, 2010, 0));
+    set_scalar(scalars[2], ok ? 1 : 2);
+    return;
+  }
+  case 2200: {
+    uint64_t handle = scalar_at(scalars[0]);
+    uint32_t next = next_of(nexts, next_count, 2000, 0);
+    int byte = read_byte_from(handle, next);
+    if (byte < 0) {
+      set_scalar(scalars[1], 2);
+      return;
+    }
+    size_t length = 0, capacity = 64;
+    uint16_t *line = malloc(capacity * sizeof(uint16_t));
+    if (!line) ick_fatal(778, 1);
+    while (byte >= 0 && byte != '\n') {
+      if (length == capacity) {
+        line = realloc(line, (capacity *= 2) * sizeof(uint16_t));
+        if (!line) ick_fatal(778, 1);
+      }
+      line[length++] = (uint16_t)byte;
+      byte = read_byte_from(handle, next);
+    }
+    set_string(arrays[0], line, length);
+    free(line);
+    set_scalar(scalars[1], 1);
+    return;
+  }
+  case 2300:
+  case 2310: {
+    uint64_t handle = scalar_at(scalars[0]);
+    size_t length;
+    const uint32_t *units = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    int ok = 1;
+    for (size_t i = 0; i < length && ok; i++) {
+      ok = write_byte_to(handle, units[i], next_of(nexts, next_count, 2010, 0));
+    }
+    if (ok && label == 2310) ok = write_byte_to(handle, '\n', next_of(nexts, next_count, 2010, 1));
+    set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+
+  case 3010: {
+    size_t n1, n2;
+    const uint32_t *first = string_at(arrays[0], &n1, next_of(nexts, next_count, 3000, 0));
+    const uint32_t *second = string_at(arrays[1], &n2, next_of(nexts, next_count, 3002, 0));
+    uint16_t *both = malloc((n1 + n2 + 1) * sizeof(uint16_t));
+    if (!both) ick_fatal(778, 1);
+    for (size_t i = 0; i < n1; i++) both[i] = (uint16_t)first[i];
+    for (size_t i = 0; i < n2; i++) both[n1 + i] = (uint16_t)second[i];
+    set_string(arrays[0], both, n1 + n2);
+    free(both);
+    return;
+  }
+  case 3020: {
+    size_t length;
+    const uint32_t *text = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint64_t start = scalar_at(scalars[0]), count = scalar_at(scalars[1]), end = length + 1;
+    if (start == 0 || start > end || count > end || start + count > end) {
+      ick_fatal(807, next_of(nexts, next_count, 807, 0));
+    }
+    uint16_t *part = malloc((count + 1) * sizeof(uint16_t));
+    if (!part) ick_fatal(778, 1);
+    for (uint64_t i = 0; i < count; i++) part[i] = (uint16_t)text[start - 1 + i];
+    set_string(arrays[0], part, (size_t)count);
+    free(part);
+    return;
+  }
+  case 3030: {
+    size_t n1, n2;
+    const uint32_t *first = string_at(arrays[0], &n1, next_of(nexts, next_count, 3000, 0));
+    const uint32_t *second = string_at(arrays[1], &n2, next_of(nexts, next_count, 3002, 0));
+    int order = 0;
+    for (size_t i = 0; !order && i < n1 && i < n2; i++) {
+      order = first[i] < second[i] ? -1 : first[i] > second[i] ? 1 : 0;
+    }
+    if (!order) order = n1 < n2 ? -1 : n1 > n2 ? 1 : 0;
+    set_scalar(scalars[0], order < 0 ? 1 : order == 0 ? 2 : 3);
+    return;
+  }
+  case 3040: {
+    size_t n1, n2;
+    const uint32_t *haystack = string_at(arrays[0], &n1, next_of(nexts, next_count, 3000, 0));
+    const uint32_t *needle = string_at(arrays[1], &n2, next_of(nexts, next_count, 3002, 0));
+    for (size_t at = 0; n2 <= n1 && at <= n1 - n2; at++) {
+      size_t k = 0;
+      while (k < n2 && haystack[at + k] == needle[k]) k++;
+      if (k == n2) {
+        set_scalar(scalars[0], at + 1);
+        set_scalar(scalars[1], 1);
+        return;
+      }
+    }
+    set_scalar(scalars[1], 2);
+    return;
+  }
+  case 3050: {
+    char digits[24];
+    uint16_t units[24];
+    int n = snprintf(digits, sizeof digits, "%llu", (unsigned long long)scalar_at(scalars[0]));
+    for (int i = 0; i < n; i++) units[i] = (uint16_t)digits[i];
+    set_string(arrays[0], units, (size_t)n);
+    return;
+  }
+  case 3060: {
+    size_t length;
+    const uint32_t *units = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint64_t value = 0;
+    int ok = length > 0;
+    for (size_t i = 0; ok && i < length; i++) {
+      ok = units[i] >= '0' && units[i] <= '9';
+      value = value * 10 + units[i] - '0';
+      ok = ok && value <= 0xFFFFFFFFu;
+    }
+    if (ok) set_scalar(scalars[0], value);
+    set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+  case 3070: {
+    size_t length;
+    const uint32_t *units = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint16_t *bytes = malloc((3 * length + 1) * sizeof(uint16_t));
+    if (!bytes) ick_fatal(778, 1);
+    set_string(arrays[0], bytes, utf8_encode(units, length, bytes));
+    free(bytes);
+    return;
+  }
+  case 3080: {
+    size_t length;
+    const uint32_t *bytes = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint16_t *units = malloc((length + 1) * sizeof(uint16_t));
+    if (!units) ick_fatal(778, 1);
+    set_string(arrays[0], units, utf8_decode(bytes, length, units, next_of(nexts, next_count, 808, 0)));
+    free(units);
+    return;
+  }
+  case 6020:
+  case 6120: {
+    size_t length;
+    uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    uint32_t value = (uint32_t)scalar_at(scalars[0]);
+    for (size_t i = 0; i < length; i++) list[i] = value;
+    return;
+  }
+  case 6030:
+  case 6130: {
+    size_t length;
+    const uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    uint32_t *copy = resize_list(arrays[1], length);
+    if (copy) memcpy(copy, list, length * sizeof(uint32_t));
+    return;
+  }
+  case 6040:
+  case 6140: {
+    size_t length;
+    uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    if (length) qsort(list, length, sizeof(uint32_t), compare_elements);
+    return;
+  }
+  case 6050:
+  case 6150: {
+    size_t length;
+    const uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    uint32_t value = (uint32_t)scalar_at(scalars[0]);
+    for (size_t i = 0; i < length; i++) {
+      if (list[i] == value) {
+        set_scalar(scalars[1], i + 1);
+        set_scalar(scalars[2], 1);
+        return;
+      }
+    }
+    set_scalar(scalars[2], 2);
+    return;
+  }
+  }
 }

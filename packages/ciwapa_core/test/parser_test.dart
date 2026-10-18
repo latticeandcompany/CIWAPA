@@ -505,4 +505,27 @@ void main() {
       expect(parse('MAYBE DO .1 <- #1').any((s) => s.maybe), isFalse);
     });
   });
+
+  group('Baudot I/O (R3 item 11, L14)', () {
+    List<Statement> xc(String text) =>
+        Parser(Source('t.xc', text), wide: true, extensions: true).parse();
+
+    test('READ OUT BAUDOT and WRITE IN BAUDOT are I/O with baudot set', () {
+      final [out, into] = xc('DO READ OUT BAUDOT ,1 DO WRITE IN BAUDOT ;1');
+      expect((out.body as IoBody).baudot, isTrue);
+      expect((into.body as IoBody).input, isTrue);
+      expect((into.body as IoBody).baudot, isTrue);
+    });
+
+    test(
+      'BAUDOT anywhere else is letters, so a DO inside it starts a statement',
+      () {
+        expect(xc('PLEASE NOTE BAUDOT CODES'), hasLength(2));
+      },
+    );
+
+    test('SIGNED and BAUDOT do not combine', () {
+      expect(xc('DO READ OUT SIGNED BAUDOT ,1').first.body, isA<Undecodable>());
+    });
+  });
 }

@@ -1,0 +1,459 @@
+	DO .1 <- #0
+	DO .2 <- #0
+	DO (4109) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #0
+	DO .2 <- #0
+	DO (4119) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #0
+	PLEASE .2 <- #0
+	DO (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #0
+	DO .2 <- #0
+	PLEASE (4150) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #0
+	PLEASE .2 <- #0
+	DO (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #1
+	DO .2 <- #65535
+	DO (4109) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #1
+	PLEASE .2 <- #65535
+	DO (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #1
+	DO .2 <- #65535
+	PLEASE (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #1
+	DO .2 <- #65535
+	DO (4150) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #1
+	DO .2 <- #65535
+	PLEASE (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32767
+	PLEASE .2 <- #1
+	DO (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #1
+	PLEASE (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #1
+	DO (4149) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #32767
+	DO .2 <- #1
+	DO (4150) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #1
+	DO (4160) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #65535
+	PLEASE (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #65535
+	DO (4119) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #32768
+	DO .2 <- #65535
+	DO (4149) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32768
+	PLEASE .2 <- #65535
+	DO (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #32768
+	DO .2 <- #32768
+	DO (4109) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32768
+	PLEASE .2 <- #32768
+	DO (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #32768
+	PLEASE (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #32768
+	DO (4150) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #32768
+	PLEASE (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32767
+	PLEASE .2 <- #32767
+	DO (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #32767
+	PLEASE (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #32767
+	DO (4149) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #32767
+	DO .2 <- #32767
+	DO (4150) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #32767
+	DO (4160) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #65529
+	DO .2 <- #2
+	PLEASE (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #65529
+	DO .2 <- #2
+	DO (4119) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #65529
+	DO .2 <- #2
+	DO (4149) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #65529
+	PLEASE .2 <- #2
+	DO (4150) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #65529
+	DO .2 <- #2
+	DO (4160) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO .1 <- #7
+	DO .2 <- #65534
+	DO (4109) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #7
+	DO .2 <- #65534
+	DO (4119) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #7
+	PLEASE .2 <- #65534
+	DO (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #7
+	DO .2 <- #65534
+	PLEASE (4150) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #7
+	PLEASE .2 <- #65534
+	DO (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #65529
+	DO .2 <- #65534
+	DO (4109) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #65529
+	PLEASE .2 <- #65534
+	DO (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #65529
+	DO .2 <- #65534
+	PLEASE (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #65529
+	DO .2 <- #65534
+	DO (4150) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #65529
+	DO .2 <- #65534
+	PLEASE (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32768
+	PLEASE .2 <- #1
+	DO (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #1
+	PLEASE (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #1
+	DO (4149) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #32768
+	DO .2 <- #1
+	DO (4150) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO .1 <- #32768
+	DO .2 <- #1
+	DO (4160) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #65535
+	PLEASE (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #32767
+	DO .2 <- #65535
+	DO (4119) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #32767
+	DO .2 <- #65535
+	DO (4149) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32767
+	PLEASE .2 <- #65535
+	DO (4150) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #32767
+	DO .2 <- #65535
+	DO (4160) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO .1 <- #32769
+	DO .2 <- #65535
+	DO (4109) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #32769
+	DO .2 <- #65535
+	DO (4119) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32769
+	PLEASE .2 <- #65535
+	DO (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #32769
+	DO .2 <- #65535
+	PLEASE (4150) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #32769
+	PLEASE .2 <- #65535
+	DO (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #12
+	DO .2 <- #0
+	DO (4109) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #12
+	PLEASE .2 <- #0
+	DO (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #12
+	DO .2 <- #0
+	PLEASE (4149) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #12
+	DO .2 <- #0
+	DO (4150) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #12
+	DO .2 <- #0
+	PLEASE (4160) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #65533
+	PLEASE .2 <- #5
+	DO (4109) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE :1 <- .4
+	DO (20) NEXT
+	DO .1 <- #65533
+	DO .2 <- #5
+	PLEASE (4119) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	PLEASE (20) NEXT
+	DO .1 <- #65533
+	DO .2 <- #5
+	DO (4149) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO :1 <- .4
+	DO (20) NEXT
+	PLEASE .1 <- #65533
+	DO .2 <- #5
+	DO (4150) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO .1 <- #65533
+	DO .2 <- #5
+	DO (4160) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #65531
+	DO .2 <- #3
+	PLEASE (4100) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO .1 <- #65531
+	PLEASE .2 <- #3
+	DO (4110) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE .1 <- #65531
+	DO .2 <- #3
+	DO (4140) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO GIVE UP
+(20)	DO STASH .1 + .2 + .3
+	DO .1 <- #1
+	PLEASE (2110) NEXT
+	DO .2 <- #10
+	DO (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3
+	PLEASE RESUME #1
+(22)	DO STASH :1
+	DO :1 <- ::9~####18446744069414584320
+	DO (20) NEXT
+	PLEASE :1 <- ::9~##4294967295
+	DO (20) NEXT
+	DO RETRIEVE :1
+	DO RESUME #1

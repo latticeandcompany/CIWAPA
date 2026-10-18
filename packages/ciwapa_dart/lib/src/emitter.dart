@@ -19,6 +19,9 @@ class DartEmitter {
   final EmitOptions options;
   var _out = StringBuffer();
   var _chunk = 0;
+  late final _library = options.optimize
+      ? findNativeLibraryCalls(program)
+      : const <int, NativeLibraryCall>{};
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
@@ -98,7 +101,7 @@ class DartEmitter {
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
         'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages'
-        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}, latin: true' : ''});',
+        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}, latin: true, extracal: true' : ''});',
       );
     if (program.engine) {
       _emitEngine();
@@ -331,6 +334,14 @@ class DartEmitter {
       ..writeln('  final v = _v, ig = _ig;')
       ..writeln('  switch (ordinal) {');
     for (final s in program.statements) {
+      if (s.op case IrNext(:final target) when _library.containsKey(target)) {
+        final native = _library[target]!;
+        _out.writeln('    case ${s.ordinal}:');
+        _line('if (${_libraryGuard(native, (o) => 'ickXClear($o)')}) {');
+        _line('  ${_libraryCall(native)}');
+        _line('  return true;');
+        _line('}');
+      }
       if (s.op case IrNext(:final target) when _natives.containsKey(target)) {
         final call = _natives[target]!;
         final guard = [
@@ -513,7 +524,8 @@ class DartEmitter {
     IrDimension() ||
     IrVarList() ||
     IrWriteIn() ||
-    IrReadOut() => true,
+    IrReadOut() ||
+    IrPetition() => true,
     _ => false,
   };
 
@@ -635,8 +647,16 @@ class DartEmitter {
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
+        if (_library[target] case final native?) {
+          _line('if (${_libraryGuard(native, _clear)}) {');
+          _line('  ${_libraryCall(native)}');
+          _line('  ${_jump(after(s.ordinal))}');
+          _line('}');
+        }
         _line('ickNextPush(${after(s.ordinal)}, $target);');
         _line(_jump(entry(target)));
+      case final IrPetition petition:
+        _line(_petition(petition, next));
       case IrForget(:final count):
         _line('ickForget(${_count(count, next)});');
       case IrResume(:final count):
@@ -686,15 +706,16 @@ class DartEmitter {
             _line('abT[$t] = ++_clock;');
           }
         }
-      case IrWriteIn(:final items, :final signed):
+      case IrWriteIn(:final items, :final signed, :final baudot):
         for (final item in items) {
-          _writeIn(item, next, signed: signed);
+          _writeIn(item, next, signed: signed, baudot: baudot);
         }
-      case IrReadOut(:final items, :final signed):
+      case IrReadOut(:final items, :final signed, :final baudot):
         for (final item in items) {
           if (item is IrArrayItem) {
+            final kind = baudot ? 'Baudot' : 'Turing';
             _line(
-              'ickTuringOut${_suffix(item.array)}(${item.array.index}, $next);',
+              'ick${kind}Out${_suffix(item.array)}(${item.array.index}, $next);',
             );
           } else if (signed) {
             _line('ickReadOutSigned(${_expr(item, next)}, ${item.width});');
@@ -711,6 +732,31 @@ class DartEmitter {
       case final op:
         throw ToolchainException('${op.runtimeType} is not implemented yet');
     }
+  }
+
+  /// A host service (R10, L29), given its variables' keys (64-bit scalars after the others) and
+  /// array numbers.
+  String _petition(IrPetition p, Object next) =>
+      'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
+      '[${p.arrays.map((a) => a.index).join(', ')}], $next);';
+
+  /// When a native library routine can stand in for its INTERCAL: [clear] tests that a statement
+  /// isn't abstained.
+  String _libraryGuard(NativeLibraryCall c, String Function(int) clear) => [
+    'ickNextFree() >= ${c.depth}',
+    for (final w in c.watched) '${w.wide ? '_igw' : '_ig'}[${w.index}] == 0',
+    for (final a in c.watchedArrays) '!ickArrayIgnored(${a.index})',
+    for (final o in c.abstainable) clear(o),
+  ].join(' && ');
+
+  /// A native library routine: a PETITION alone, or the runtime's own version of a routine.
+  String _libraryCall(NativeLibraryCall c) {
+    if (c.petition case final petition?) {
+      return _petition(petition, c.nexts.first.$2);
+    }
+    return 'ickLibrary(${c.label}, [${c.scalars.map(_key).join(', ')}], '
+        '[${c.arrays.map((a) => a.index).join(', ')}], '
+        '[${c.nexts.map((n) => '${n.$1}, ${n.$2}').join(', ')}]);';
   }
 
   /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
@@ -737,7 +783,12 @@ class DartEmitter {
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is
   /// read, then E275 (even when the target is IGNOREd, decision T24), then the store.
-  void _writeIn(IrExpr target, Object next, {bool signed = false}) {
+  void _writeIn(
+    IrExpr target,
+    Object next, {
+    bool signed = false,
+    bool baudot = false,
+  }) {
     switch (target) {
       case IrScalar() || IrElement():
         _line('{');
@@ -750,7 +801,8 @@ class DartEmitter {
         );
         _line('}');
       case IrArrayItem(:final array):
-        _line('ickTuringIn${_suffix(array)}(${array.index}, $next);');
+        final kind = baudot ? 'Baudot' : 'Turing';
+        _line('ick${kind}In${_suffix(array)}(${array.index}, $next);');
       default:
         throw StateError('cannot WRITE IN $target');
     }

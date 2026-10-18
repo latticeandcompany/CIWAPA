@@ -1,9 +1,0 @@
-# TEMPORARY (goal 2's cleanup removes it): pit programs that pit's Makefile runs with particular
-# input. name (with its .i) | program | input: a file in pit/, or text:<line>.
-pi.i | pi.i | text:FIVE
-rot13.i | rot13.i | text:Hello, World! It's INTERCAL.
-rot13b.i | rot13b.i | text:Hello, World! It's INTERCAL.
-icat.i | icat.i | text:Hello, World! It's INTERCAL.
-fft-delta.i | fft.i | fft-delta.tst
-fft-tophat.i | fft.i | fft-tophat.tst
-life.i | life.i | glider

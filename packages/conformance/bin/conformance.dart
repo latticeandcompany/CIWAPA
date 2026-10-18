@@ -15,6 +15,10 @@
 //   .timeout  seconds the program must still be running after; it is then killed and its
 //             output so far is compared. Only for programs that loop forever by design and print
 //             nothing, since how much a looping program prints in N seconds varies.
+//   .server   a second program, built with the same flags, that the test talks to over the
+//             network. It starts first, listens on a port of its choice, and prints that port
+//             as its first line; the test then runs with CIWAPA_TEST_PORT set to it. The server
+//             must then exit 0, and the rest of its stdout must match .server.out.
 // Any other program that runs longer than a minute fails as timed out.
 //
 // Every Mode 1 test also runs a second time as EXTRACAL, copied to <name>.xc (or .2xc–.7xc), and
@@ -24,9 +28,11 @@
 // error, unless a .xc.reason file says which decision or open question allows it.
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:args/args.dart';
 
@@ -165,32 +171,158 @@ Future<String?> _check(
       const [],
       environment: environment,
     );
-    final timeoutFile = File('$stem.timeout');
-    final mustLoop = timeoutFile.existsSync();
-    final timeout = mustLoop
-        ? Duration(seconds: int.parse(timeoutFile.readAsStringSync().trim()))
-        : _defaultTimeout;
-    final outcome = build.exitCode != 0
-        ? build
-        : await _run(
-            exe,
-            _lines(File('$stem.args')),
-            File('$stem.in').existsSync()
-                ? File('$stem.in').readAsBytesSync()
-                : const [],
-            timeout: timeout,
-            environment: environment,
-          );
-    if (build.exitCode == 0 && mustLoop && !outcome.timedOut) {
-      return 'expected the program to still be running after ${timeout.inSeconds}s, '
-          'but it exited with ${outcome.exitCode}';
+    Server? server;
+    if (build.exitCode == 0 && File('$stem.server').existsSync()) {
+      final started = await Server.start(
+        compiler,
+        File('$stem.server'),
+        temp,
+        _lines(File('$stem.flags')),
+        environment,
+      );
+      if (started is String) return started;
+      server = started as Server;
+      environment['CIWAPA_TEST_PORT'] = '${server.port}';
     }
-    if (build.exitCode == 0 && !mustLoop && outcome.timedOut) {
-      return 'timed out after ${timeout.inSeconds}s';
+    try {
+      final timeoutFile = File('$stem.timeout');
+      final mustLoop = timeoutFile.existsSync();
+      final timeout = mustLoop
+          ? Duration(seconds: int.parse(timeoutFile.readAsStringSync().trim()))
+          : _defaultTimeout;
+      final outcome = build.exitCode != 0
+          ? build
+          : await _run(
+              exe,
+              _lines(File('$stem.args')),
+              File('$stem.in').existsSync()
+                  ? File('$stem.in').readAsBytesSync()
+                  : const [],
+              timeout: timeout,
+              environment: environment,
+              // A program that writes files writes them where the run cleans up after it.
+              workingDirectory: temp.path,
+            );
+      if (build.exitCode == 0 && mustLoop && !outcome.timedOut) {
+        return 'expected the program to still be running after ${timeout.inSeconds}s, '
+            'but it exited with ${outcome.exitCode}';
+      }
+      if (build.exitCode == 0 && !mustLoop && outcome.timedOut) {
+        return 'timed out after ${timeout.inSeconds}s';
+      }
+      final serverProblem = await server?.finish(stem);
+      server = null;
+      return [
+        _compare(stem, outcome, superset: superset),
+        serverProblem,
+      ].nonNulls.join('\n').nullIfEmpty;
+    } finally {
+      await server?.stop();
     }
-    return _compare(stem, outcome, superset: superset);
   } finally {
     await _deleteQuietly(temp);
+  }
+}
+
+extension on String {
+  String? get nullIfEmpty => isEmpty ? null : this;
+}
+
+/// A test's companion server (`.server`), running.
+class Server {
+  Server._(this.process, this.port, this.stdout, this.stderr);
+
+  final Process process;
+
+  /// The port it said it listens on.
+  final int port;
+
+  /// What it printed after the port, and to stderr.
+  final BytesBuilder stdout;
+  final BytesBuilder stderr;
+
+  /// Builds and starts [source] in [temp], and waits for the port it prints first: the server or
+  /// what went wrong.
+  static Future<Object> start(
+    String compiler,
+    File source,
+    Directory temp,
+    List<String> flags,
+    Map<String, String> environment,
+  ) async {
+    final sep = Platform.pathSeparator;
+    final copy = '${temp.path}${sep}server.xc';
+    source.copySync(copy);
+    final exe = '${temp.path}${sep}server${Platform.isWindows ? '.exe' : ''}';
+    final build = await _run(
+      compiler,
+      ['build', '--no-random-bug', ...flags, copy, '-o', exe],
+      const [],
+      environment: environment,
+    );
+    if (build.exitCode != 0) {
+      return 'the server did not build:\n${utf8.decode(build.stderr, allowMalformed: true)}';
+    }
+    final process = await Process.start(
+      exe,
+      const [],
+      environment: environment,
+      workingDirectory: temp.path,
+    );
+    final stdout = BytesBuilder(), stderr = BytesBuilder(), first = <int>[];
+    final ready = Completer<void>();
+    process.stdout.listen((data) {
+      if (ready.isCompleted) return stdout.add(data);
+      final end = data.indexOf(10);
+      first.addAll(end < 0 ? data : data.sublist(0, end));
+      if (end < 0) return;
+      stdout.add(data.sublist(end + 1));
+      ready.complete();
+    }, onDone: () => ready.isCompleted ? null : ready.complete());
+    process.stderr.listen(stderr.add);
+    try {
+      await ready.future.timeout(_defaultTimeout);
+    } on TimeoutException {
+      process.kill();
+      return 'the server printed nothing for ${_defaultTimeout.inSeconds}s';
+    }
+    final port = int.tryParse(utf8.decode(first, allowMalformed: true).trim());
+    if (port == null) {
+      process.kill();
+      await process.exitCode;
+      return 'the server printed no port first:\n'
+          '${utf8.decode(first, allowMalformed: true)}\n'
+          '${utf8.decode(stderr.takeBytes(), allowMalformed: true)}';
+    }
+    return Server._(process, port, stdout, stderr);
+  }
+
+  Future<void> stop() async {
+    process.kill();
+    await process.exitCode;
+  }
+
+  /// Waits for the server to end, and checks it ended cleanly with the stdout [stem].server.out
+  /// expects.
+  Future<String?> finish(String stem) async {
+    final int status;
+    try {
+      status = await process.exitCode.timeout(_defaultTimeout);
+    } on TimeoutException {
+      await stop();
+      return 'the server was still running ${_defaultTimeout.inSeconds}s after the test ended';
+    }
+    final expectedFile = File('$stem.server.out');
+    final expected = expectedFile.existsSync()
+        ? expectedFile.readAsBytesSync()
+        : const <int>[];
+    final actual = stdout.takeBytes();
+    return [
+      if (status != 0)
+        'the server exited with $status:\n'
+            '${utf8.decode(stderr.takeBytes(), allowMalformed: true)}',
+      if (!_same(expected, actual)) _diff('server stdout', expected, actual),
+    ].join('\n').nullIfEmpty;
   }
 }
 
@@ -264,8 +396,14 @@ Future<Outcome> _run(
   List<int> stdin, {
   Duration? timeout,
   Map<String, String> environment = const {},
+  String? workingDirectory,
 }) async {
-  final process = await Process.start(exe, args, environment: environment);
+  final process = await Process.start(
+    exe,
+    args,
+    environment: environment,
+    workingDirectory: workingDirectory,
+  );
   final out = process.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
   final err = process.stderr.fold<List<int>>([], (a, b) => a..addAll(b));
   process.stdin.add(stdin);

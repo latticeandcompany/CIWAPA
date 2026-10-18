@@ -62,8 +62,14 @@ class Parser {
       Body body;
       var onceAgain = OnceAgain.none;
       final bodyStart = _pos;
+      Body? whileBody;
       try {
         body = _body();
+        // `ick`'s `a WHILE b` (R3): b is another statement body.
+        if (_tok.kind == TokenKind.whileKeyword) {
+          _pos++;
+          whileBody = _body();
+        }
         // `ick`'s ONCE and AGAIN end a statement (R3).
         if (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again) {
           onceAgain = _tokens[_pos++].kind == TokenKind.once
@@ -71,6 +77,7 @@ class Parser {
               : OnceAgain.again;
         }
       } on _Fail catch (fail) {
+        whileBody = null;
         _pos = bodyStart;
         final unknown = _extensions ? _tryUnknown() : null;
         if (unknown == null) _pos = _resync(fail.at);
@@ -97,6 +104,7 @@ class Parser {
           chain: _chain,
           onceAgain: onceAgain,
           maybe: maybe,
+          whileBody: whileBody,
         ),
       );
     }
@@ -124,6 +132,7 @@ class Parser {
     } else {
       statements.last
         ..body = const Undecodable()
+        ..whileBody = null
         ..end = _tokens[_pos - 1].end;
     }
   }
@@ -352,17 +361,28 @@ class Parser {
           return AbstainBody(abstain: abstain, label: _tokens[_pos++].value);
         }
         return AbstainBody(abstain: abstain, gerunds: _gerunds());
-      case TokenKind.writeIn || TokenKind.readOut:
+      case TokenKind.writeIn ||
+          TokenKind.readOut ||
+          TokenKind.writeInBaudot ||
+          TokenKind.readOutBaudot:
         _pos++;
-        final input = kind == TokenKind.writeIn;
-        final signed = _tok.kind == TokenKind.signed;
+        final input =
+            kind == TokenKind.writeIn || kind == TokenKind.writeInBaudot;
+        final baudot =
+            kind == TokenKind.writeInBaudot || kind == TokenKind.readOutBaudot;
+        final signed = !baudot && _tok.kind == TokenKind.signed;
         if (signed) _pos++;
         final items = [_ioItem(input: input)];
         while (_tok.kind == TokenKind.intersection) {
           _pos++;
           items.add(_ioItem(input: input));
         }
-        return IoBody(input: input, items: items, signed: signed);
+        return IoBody(
+          input: input,
+          items: items,
+          signed: signed,
+          baudot: baudot,
+        );
       case TokenKind.giveUp:
         _pos++;
         return const GiveUp();
@@ -372,6 +392,10 @@ class Parser {
       case TokenKind.goBack:
         _pos++;
         return const GoBack();
+      case TokenKind.petition:
+        _pos++;
+        _expect(TokenKind.mesh);
+        return Petition(_number());
       case TokenKind.goAhead:
         _pos++;
         return const GoAhead();

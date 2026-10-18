@@ -1,0 +1,4 @@
+	DO .1 <- #32767
+	DO .2 <- #1
+	DO (4100) NEXT
+	PLEASE GIVE UP

@@ -1,0 +1,4 @@
+	DO :1 <- ##2147483647
+	DO :2 <- #1
+	DO (4200) NEXT
+	PLEASE GIVE UP
