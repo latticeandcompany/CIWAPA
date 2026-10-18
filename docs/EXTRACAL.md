@@ -1,7 +1,7 @@
 # EXTRACAL
 
-EXTRACAL is CIWAPA's extended language. It runs every INTERCAL program exactly as Mode 1 does and
-adds three things:
+EXTRACAL is CIWAPA's extended language. It runs INTERCAL programs as Mode 1 does (with the
+exceptions under [What changes from Mode 1](#what-changes-from-mode-1)) and adds three things:
 
 - the control extensions modern C-INTERCAL (`ick` 0.35) grew;
 - numbers wider and stranger than 32-bit unsigned;
@@ -30,18 +30,27 @@ ciwapa-llvm build hello.xc -o hello
 ciwapa-dart run hello.xc -- first-argument
 ```
 
-`--traditional` turns every EXTRACAL statement into an error (E111) and leaves out the library, so
-a program can check that it only uses Mode 1. The 64-bit sigils and the library need binary (L17).
+`--traditional` works like `ick -t`. It rejects COME FROM, NEXT FROM, bases other than 2 and
+`ick`'s control extensions (computed ABSTAIN, ONCE and AGAIN, TRY AGAIN, CREATE, MAYBE, GO BACK,
+GO AHEAD, WHILE and PETITION) with E111, and leaves out the library. The 64-bit types, signed I/O
+and mingle widening stay, so it doesn't check that a program is Mode 1.
+
+The 64-bit sigils, signed I/O, mingle widening and the library need binary (L17).
 
 ## What changes from Mode 1
 
-Nothing, except where Mode 1 would have stopped with an error:
+Mostly what Mode 1 would have stopped on with an error:
 
 - A mingle of operands over 65535 gives a 64-bit result instead of E533.
 - Several COME FROMs aimed at one label start threads instead of being E555.
-- Statements Mode 1 can't parse (EXTRACAL's keywords) mean something.
 
-The conformance suite runs every Mode 1 program again as `.xc` and checks the output is identical.
+One change reaches programs that never fail: statements Mode 1 can't parse are comments, and
+EXTRACAL can parse more of them. A comment written as a statement that happens to use EXTRACAL's
+words, like `PLEASE DON'T READ OUT #1 AGAIN`, is a real statement in `.xc`. Here it reads out #1
+once something reinstates READING OUT. `ick`'s manual warns about the same trap.
+
+The conformance suite runs every Mode 1 program again as `.xc` and checks that the output is
+identical, apart from a few recorded differences like these.
 
 ## Numbers
 
@@ -119,8 +128,10 @@ keep Mode 1's on/off behavior.
 
 ### ONCE and AGAIN
 
-A statement ending in `ONCE` abstains itself after it runs; `AGAIN` on an abstained statement
-reinstates itself. ABSTAIN and REINSTATE flip a statement's ONCE to AGAIN and back:
+ONCE and AGAIN go at the end of a statement. `DO … ONCE` abstains itself after it runs, and
+`DON'T … AGAIN` keeps itself abstained for good. The other two combinations reinstate themselves:
+`DO … AGAIN` stays reinstated, and `DON'T … ONCE` reinstates itself when control reaches it.
+ABSTAIN and REINSTATE also flip a statement's ONCE to AGAIN and back:
 
 ```
 (11) DO READ OUT #1 ONCE
@@ -149,10 +160,12 @@ statement at a time, and GIVE UP ends only the thread that runs it:
     DO GIVE UP
 ```
 
-`a WHILE b` runs statement b in a woven thread for as long as statement a is running:
+`a WHILE b` runs statement b in a woven thread for as long as statement a is running. The woven
+thread shares the program's variables:
 
 ```
-PLEASE READ OUT #1 WHILE READ OUT #2
+DO READ OUT #1 WHILE READ OUT #2
+PLEASE GIVE UP
 ```
 
 A WHILE counts as 11 statements in error messages (L31).
@@ -168,6 +181,8 @@ AHEAD` throws the most recent choicepoint away. Either one with no choicepoint i
     MAYBE DO READ OUT .1
     DO .1 <- #2
     PLEASE GO BACK
+    DO READ OUT .1
+    PLEASE GIVE UP
 ```
 
 ### Operand overloading
@@ -179,19 +194,32 @@ can't be worked backwards is E277.
 ### CREATE
 
 `CREATE (n) template` defines a new statement: any statement of that shape NEXTs to (n), with
-`:1601`, `:1602`, … standing for its operands.
+`:1601`, `:1602`, … standing for its operands, and RESUME #1 comes back.
 
 ```
-    DO CREATE (100) SWAP .5 AND .6
-    DO SWAP .1 AND .2
+        DO .1 <- #3
+        DO .2 <- #4
+        DO CREATE (100) SWAP .5 AND .6
+        DO SWAP .1 AND .2
+        PLEASE READ OUT .1 + .2
+        DO GIVE UP
+(100)   DO :1 <- :1601
+        DO :1601 <- :1602
+        PLEASE :1602 <- :1
+        DO RESUME #1
 ```
 
-`CREATE (n) x` makes `x` (a word, an unused punctuation mark or an overstrike) a binary operator:
-the routine at (n) gets the operands in `:1601` and `:1602` and leaves the result in `:1603`.
+`CREATE (n) x` makes the character `x` a binary operator. It can be any character but a capital
+letter, `_`, `\` or `|`, or an overstrike. The routine at (n) gets the operands in `:1601` and
+`:1602` and leaves the result in `:1603`:
 
 ```
-    DO CREATE (200) x
-    DO .1 <- #3 x #4
+        DO CREATE (200) x
+        DO .1 <- #3 x #4
+        DO READ OUT .1
+        PLEASE GIVE UP
+(200)   DO :1603 <- :1601 $ :1602
+        PLEASE RESUME #1
 ```
 
 ### Latin
@@ -213,14 +241,15 @@ So defining one label in a block's range replaces the whole block with your own.
 | Arrays | (6000)–(6999) | rank and dimensions, fill, copy, sort, find |
 | System | (8000)–(8999) | command-line arguments, environment variables, exit status, clocks, the random seed |
 
-Strings are tail arrays of UTF-16 code units, and routines that make strings put them in `,1`, so
-they chain:
+Strings are tail arrays of UTF-16 code units, and most routines that make strings put them in `,1`,
+so they chain:
 
 ```
     DO .1 <- #1
     DO (8010) NEXT
     DO (3070) NEXT
     PLEASE (2310) NEXT
+    DO GIVE UP
 ```
 
 prints the first command-line argument and a line feed: (8010) puts the argument in `,1`, (3070)
@@ -231,8 +260,8 @@ program can't tell the difference. `--no-opt` always runs the INTERCAL. The rout
 through `PETITION #n`, EXTRACAL's one new statement for the library; its services are listed in
 the library's README.
 
-Two blocks are still waiting on design questions: Floats (7000)–(7999) (L33) and Network
-(9000)–(9999) (L34), in [`QUESTIONS.md`](QUESTIONS.md).
+Floats, (7000)–(7999), are still waiting on a design question (L33 in
+[`QUESTIONS.md`](QUESTIONS.md)).
 
 ## Errors
 
