@@ -87,10 +87,13 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## 64-bit types (R4)
 
-- [ ] R4 — `::n` is a 64-bit scalar and `;;n` a 64-bit array. Tests: `packages/conformance/tests/extracal/wide/cateye.xc`, `packages/conformance/tests/extracal/wide/double-hybrid.xc`
-- [ ] R4 — `##n` is a 32-bit constant and `####n` a 64-bit constant; one above its range is E017. Tests: `packages/conformance/tests/extracal/wide/constants.xc`, `packages/conformance/tests/extracal/wide/e017-stockade.xc`
-- [ ] R4 — unary operators rotate at the operand's width: 16, 32 or 64 bits. Tests: `packages/conformance/tests/extracal/wide/unary-64.xc`
-- [ ] R4 — a value over 32 bits stored in a 16- or 32-bit variable is an error; 32 into 16 stays E275. Tests: `packages/conformance/tests/extracal/wide/narrowing.xc`, `packages/conformance/tests/extracal/wide/e275-stays.xc`
+- [x] R4 — `::n` is a 64-bit scalar and `;;n` a 64-bit array. Tests: `packages/conformance/tests/extracal/wide/cateye.xc`, `packages/conformance/tests/extracal/wide/double-hybrid.xc`
+- [x] R4 — `##n` is a 32-bit constant and `####n` a 64-bit constant; one above its range is E017. Tests: `packages/conformance/tests/extracal/wide/constants.xc`, `packages/conformance/tests/extracal/wide/e017-fence.xc`, `packages/conformance/tests/extracal/wide/e017-stockade.xc`
+- [x] R4 — unary operators rotate at the operand's width: 16, 32 or 64 bits, and select works at 64 bits. Tests: `packages/conformance/tests/extracal/wide/unary-64.xc`, `packages/conformance/tests/extracal/wide/select-64.xc`
+- [x] R4 — a value over 32 bits stored in a 16- or 32-bit variable is E276; 32 into 16 stays E275. Tests: `packages/conformance/tests/extracal/wide/narrowing-32.xc`, `packages/conformance/tests/extracal/wide/narrowing-16.xc`, `packages/conformance/tests/extracal/wide/e275-stays.xc`
+- [x] R4 — 64-bit values used as dimensions, subscripts and FORGET/RESUME counts: a dimension past 32 bits is E241 (after any E240), a subscript past 32 bits is E241, and a count past 32 bits acts like the largest 32-bit count. Tests: `packages/conformance/tests/extracal/wide/dimension-over-32.xc`, `packages/conformance/tests/extracal/wide/dimension-over-32-wide.xc`, `packages/conformance/tests/extracal/wide/subscript-64.xc`, `packages/conformance/tests/extracal/wide/counts-64.xc`
+- [x] R4 — 64-bit variables work with STASH, RETRIEVE, IGNORE, REMEMBER, Turing Text and wimp mode. Tests: `packages/conformance/tests/extracal/wide/cateye.xc`, `packages/conformance/tests/extracal/wide/double-hybrid.xc`, `packages/conformance/tests/extracal/wide/turing-64.xc`, `packages/conformance/tests/extracal/wide/wimp-64.xc`
+- [x] R4, L17 — bases 3–7 have no 64-bit sigils. Tests: `packages/conformance/tests/extracal/wide/base3-has-no-wide.3xc`, `packages/ciwapa_core/test/ir_test.dart`
 
 ## Mingle widening (R5)
 
@@ -108,9 +111,9 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## 64-bit numerals (R7)
 
-- [ ] R7 — READ OUT of a value of 10¹² or more prints the ×10¹² group with an extra overline row, three lines in all. Tests: `packages/conformance/tests/extracal/numerals/three-lines.xc`
-- [ ] R7 — the largest 64-bit value. Tests: `packages/conformance/tests/extracal/numerals/largest.xc`
-- [ ] R7 — WRITE IN into a 64-bit variable takes up to 20 digits; a value over 2⁶⁴−1 is an error. Tests: `packages/conformance/tests/extracal/numerals/write-in-20.xc`, `packages/conformance/tests/extracal/numerals/write-in-over.xc`
+- [x] R7 — READ OUT of a value of 10¹² or more prints the ×10¹² group with an extra overline row, three lines in all. Tests: `packages/conformance/tests/extracal/numerals/three-lines.xc`, `packages/conformance/tests/extracal/numerals/clockface.xc`
+- [x] R7 — the largest 64-bit value. Tests: `packages/conformance/tests/extracal/numerals/largest.xc`
+- [x] R7 — WRITE IN into a 64-bit variable takes up to 20 digits; a value over 2⁶⁴−1 is E535, and 20 digits into a 32-bit variable stays E533. Tests: `packages/conformance/tests/extracal/numerals/write-in-20.xc`, `packages/conformance/tests/extracal/numerals/write-in-over.xc`, `packages/conformance/tests/extracal/numerals/write-in-32-stays.xc`
 
 ## Standard library (R8–R10)
 

@@ -284,4 +284,53 @@ void main() {
       );
     }
   });
+
+  group('EXTRACAL 64-bit types (R4)', () {
+    IrExpr value(String text) =>
+        (build(text, path: 'test.xc').at(1).op as IrAssign).value;
+
+    test('the sigils and constants have their widths', () {
+      expect(value('DO ::1 <- ::2').width, 64);
+      expect(value('DO ::1 <- ;;2 SUB #1').width, 64);
+      expect(value('DO ::1 <- ##5').width, 32);
+      expect(value('DO ::1 <- ####5').width, 64);
+      expect(value('DO ::1 <- ::&2').width, 64);
+      expect(value('DO ::1 <- ::2~#255').width, 16);
+    });
+
+    test('64-bit scalars and arrays get slots of their own', () {
+      final ir = build(
+        'DO ::1 <- :1\nDO ;;1 <- #2\nPLEASE .1 <- #1',
+        path: 'test.xc',
+      );
+      expect([for (final s in ir.scalars) '${s.ref}'], [':1', '.1']);
+      expect([for (final s in ir.wideScalars) '${s.ref}'], ['::1']);
+      expect([for (final s in ir.wideArrays) '${s.ref}'], [';;1']);
+    });
+
+    test('a constant above its sigil\'s range is E017', () {
+      expect(
+        faults(build('DO ::1 <- ##4294967295', path: 't.xc').at(1)),
+        isEmpty,
+      );
+      expect(faults(build('DO ::1 <- ##4294967296', path: 't.xc').at(1)), [17]);
+      expect(
+        faults(build('DO ::1 <- ####18446744073709551615', path: 't.xc').at(1)),
+        isEmpty,
+      );
+      expect(
+        faults(build('DO ::1 <- ####18446744073709551616', path: 't.xc').at(1)),
+        [17],
+      );
+    });
+
+    test('Mode 1 and bases 3–7 have no 64-bit sigils (L17)', () {
+      for (final path in ['test.i', 'test.3xc']) {
+        expect(
+          build('DO ::1 <- #1', path: path).at(1).op,
+          isA<IrUndecodable>(),
+        );
+      }
+    });
+  });
 }

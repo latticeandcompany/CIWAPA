@@ -1,21 +1,24 @@
 import 'lexer.dart';
 import 'source.dart';
 
-/// The two scalar and two array kinds, with their sigils (§3.1, §3.3).
+/// The scalar and array kinds, with their sigils (§3.1, §3.3): Mode 1's two of each, plus
+/// EXTRACAL's 64-bit double cateye and double hybrid (R4, Q123).
 enum VarKind {
   spot('.', 16),
   twoSpot(':', 32),
   tail(',', 16),
-  hybrid(';', 32);
+  hybrid(';', 32),
+  doubleCateye('::', 64),
+  doubleHybrid(';;', 64);
 
   const VarKind(this.sigil, this.width);
 
   final String sigil;
 
-  /// 16 for the small types and 32 for the large ones, whatever the base.
+  /// 16 for the small types and 32 for the large ones, whatever the base, and 64 for EXTRACAL's.
   final int width;
 
-  bool get isArray => this == tail || this == hybrid;
+  bool get isArray => this == tail || this == hybrid || this == doubleHybrid;
 }
 
 /// A variable or array name as written. [number] may be 0 or above 65535: that is an E200 when
@@ -41,14 +44,28 @@ sealed class Expr {
   const Expr();
 }
 
-/// `#n`. [value] may exceed the base's small maximum: that is an E017 when its statement executes.
+/// `#n`, or EXTRACAL's `##n` (32 bits) and `####n` (64 bits) (R4, Q123). [value] may exceed the
+/// constant's range: that is an E017 when its statement executes.
 class Constant extends Expr {
-  const Constant(this.value);
+  const Constant(this.value, {this.width = 16, this.overflow = false});
 
+  /// For `#n`, the number saturated as [Lexer.numberCap] does. For the wide constants, its 64 bits
+  /// (negative from 2^63 up, as a Dart int).
   final int value;
 
+  /// 16 for `#`, 32 for `##` and 64 for `####`.
+  final int width;
+
+  /// The number is above 2^64 - 1, so [value] means nothing.
+  final bool overflow;
+
   @override
-  String toString() => '#$value';
+  String toString() =>
+      '${switch (width) {
+        16 => '#',
+        32 => '##',
+        _ => '####',
+      }}${overflow ? '∞' : BigInt.from(value).toUnsigned(64)}';
 }
 
 class Scalar extends Expr {
@@ -191,10 +208,13 @@ class AbstainBody extends Body {
 /// WRITE IN (items are [Scalar], [Element] or a whole-array [ArrayItem]) and READ OUT (which also
 /// accepts [Constant]).
 class IoBody extends Body {
-  const IoBody({required this.input, required this.items});
+  const IoBody({required this.input, required this.items, this.signed = false});
 
   final bool input;
   final List<Expr> items;
+
+  /// `WRITE IN SIGNED` or `READ OUT SIGNED` (R6, Q124).
+  final bool signed;
 
   @override
   Gerund get gerund => input ? Gerund.writingIn : Gerund.readingOut;

@@ -16,7 +16,8 @@ class _Fail implements Exception {
 /// runs up to the next `DO`, `PLEASE` or label token. Garbage before the first statement is a
 /// statement of its own, with no identifier.
 class Parser {
-  Parser(this.source, {this.memoryLimit}) : _tokens = Lexer(source).tokenize();
+  Parser(this.source, {this.memoryLimit, bool wide = false})
+    : _tokens = Lexer(source, wide: wide).tokenize();
 
   final Source source;
 
@@ -124,20 +125,27 @@ class Parser {
   static const _scalarKinds = {
     TokenKind.oneSpot: VarKind.spot,
     TokenKind.twoSpot: VarKind.twoSpot,
+    TokenKind.doubleCateye: VarKind.doubleCateye,
   };
   static const _arrayKinds = {
     TokenKind.tail: VarKind.tail,
     TokenKind.hybrid: VarKind.hybrid,
+    TokenKind.doubleHybrid: VarKind.doubleHybrid,
+  };
+  static const _constantWidths = {
+    TokenKind.mesh: 16,
+    TokenKind.fence: 32,
+    TokenKind.stockade: 64,
   };
 
   Body _body() {
     final kind = _tok.kind;
     switch (kind) {
-      case TokenKind.oneSpot || TokenKind.twoSpot:
+      case TokenKind.oneSpot || TokenKind.twoSpot || TokenKind.doubleCateye:
         final target = Scalar(_varRef());
         _expect(TokenKind.gets);
         return Calculate(target, _expr());
-      case TokenKind.tail || TokenKind.hybrid:
+      case TokenKind.tail || TokenKind.hybrid || TokenKind.doubleHybrid:
         final array = _varRef();
         if (_tok.kind == TokenKind.sub) {
           _pos++;
@@ -196,12 +204,14 @@ class Parser {
       case TokenKind.writeIn || TokenKind.readOut:
         _pos++;
         final input = kind == TokenKind.writeIn;
+        final signed = _tok.kind == TokenKind.signed;
+        if (signed) _pos++;
         final items = [_ioItem(input: input)];
         while (_tok.kind == TokenKind.intersection) {
           _pos++;
           items.add(_ioItem(input: input));
         }
-        return IoBody(input: input, items: items);
+        return IoBody(input: input, items: items, signed: signed);
       case TokenKind.giveUp:
         _pos++;
         return const GiveUp();
@@ -224,9 +234,9 @@ class Parser {
 
   /// I/O list items: scalars, array elements and whole arrays, plus constants for READ OUT.
   Expr _ioItem({required bool input}) {
-    if (!input && _tok.kind == TokenKind.mesh) {
-      _pos++;
-      return Constant(_number());
+    if (!input && _constantWidths.containsKey(_tok.kind)) {
+      final width = _constantWidths[_tokens[_pos++].kind]!;
+      return _constant(width);
     }
     final ref = _varRef();
     if (!ref.kind.isArray) return Scalar(ref);
@@ -261,18 +271,27 @@ class Parser {
 
   static Expr _apply(UnaryOp? op, Expr e) => op == null ? e : Unary(op, e);
 
+  /// The number after a mesh, fence or stockade.
+  Constant _constant(int width) {
+    if (_tok.kind != TokenKind.number) _fail();
+    final token = _tokens[_pos++];
+    if (width == 16) return Constant(token.value);
+    final bits = token.bits;
+    return Constant(bits ?? 0, width: width, overflow: bits == null);
+  }
+
   Expr _operand() {
     switch (_tok.kind) {
-      case TokenKind.mesh:
-        _pos++;
+      case TokenKind.mesh || TokenKind.fence || TokenKind.stockade:
+        final width = _constantWidths[_tokens[_pos++].kind]!;
         final op = _unary();
-        return _apply(op, Constant(_number()));
-      case TokenKind.oneSpot || TokenKind.twoSpot:
+        return _apply(op, _constant(width));
+      case TokenKind.oneSpot || TokenKind.twoSpot || TokenKind.doubleCateye:
         final kind = _scalarKinds[_tok.kind]!;
         _pos++;
         final op = _unary();
         return _apply(op, Scalar(VarRef(kind, _number())));
-      case TokenKind.tail || TokenKind.hybrid:
+      case TokenKind.tail || TokenKind.hybrid || TokenKind.doubleHybrid:
         // A unary operator on an array name applies to the element (decision T4).
         final kind = _arrayKinds[_tok.kind]!;
         _pos++;
@@ -306,7 +325,7 @@ class Parser {
           (kind == TokenKind.spark || kind == TokenKind.ears) &&
           subscripts.isEmpty;
       final startsOperand =
-          kind == TokenKind.mesh ||
+          _constantWidths.containsKey(kind) ||
           _scalarKinds.containsKey(kind) ||
           _arrayKinds.containsKey(kind);
       if (!opensGroup && !startsOperand) break;
