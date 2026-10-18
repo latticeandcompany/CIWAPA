@@ -60,17 +60,65 @@ const Map<int, _Routine> _routines = {
   1550: (args: [':1', ':2'], result: ':3', flag: null),
 };
 
+/// Whether no native routine can stand in for its INTERCAL: a computed or gerund COME FROM could
+/// take control from inside any routine, overloading could change what any variable in it means,
+/// and with threads, each of its statements is a turn.
+bool _noNatives(IrProgram program) =>
+    program.overloading ||
+    program.statements.any(
+      (s) =>
+          s.op is IrComputedComeFrom ||
+          s.op is IrGerundComeFrom ||
+          s.comeFroms.length > 1 ||
+          s.preproc,
+    );
+
+/// A NEXT into a library routine that is just `PETITION #n` and `RESUME #1` (R10), which the
+/// emitters may run as the PETITION alone. It falls back to the routine when the NEXT stack is
+/// full, or when one of the [abstainable] statements is abstained.
+class NativePetition {
+  const NativePetition(this.petition, this.abstainable, this.next);
+
+  final IrPetition petition;
+  final List<int> abstainable;
+
+  /// The PETITION statement's own next ordinal, where its errors are reported.
+  final int next;
+}
+
+/// The native petitions in [program], keyed by the ordinal of the library entry they replace.
+Map<int, NativePetition> findNativePetitions(IrProgram program) {
+  if (program.statements.length == program.userStatements) return const {};
+  if (_noNatives(program)) return const {};
+  final found = <int, NativePetition>{};
+  for (final entry in program.statements.skip(program.userStatements)) {
+    if (entry.ordinal == program.statements.length) continue;
+    final petition = entry.op;
+    final resume = program.at(entry.ordinal + 1);
+    if (petition is! IrPetition || entry.label == null) continue;
+    if (resume.op case IrResume(count: IrConst(value: 1))) {
+      final routine = [entry, resume];
+      final plain = routine.every(
+        (s) =>
+            !s.bug &&
+            s.comeFrom == null &&
+            s.faults.isEmpty &&
+            (s.percent == null || s.percent == 100),
+      );
+      if (!plain) continue;
+      found[entry.ordinal] = NativePetition(petition, [
+        for (final s in routine)
+          if (s.abstainable) s.ordinal,
+      ], entry.next);
+    }
+  }
+  return found;
+}
+
 /// The native calls in [program], keyed by the ordinal of the library entry they replace.
 Map<int, NativeCall> findNativeCalls(IrProgram program) {
   if (program.statements.length == program.userStatements) return const {};
-  // A computed or gerund COME FROM could take control from inside any routine, and overloading
-  // could change what any variable in it means.
-  if (program.overloading) return const {};
-  if (program.statements.any(
-    (s) => s.op is IrComputedComeFrom || s.op is IrGerundComeFrom,
-  )) {
-    return const {};
-  }
+  if (_noNatives(program)) return const {};
   final slots = {for (final s in program.scalars) s.ref: s};
 
   final calls = <int, NativeCall>{};

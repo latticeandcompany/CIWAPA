@@ -46,6 +46,7 @@ enum TokenKind {
   goBack,
   goAhead,
   whileKeyword,
+  petition,
   gerund,
   signed,
   once,
@@ -90,6 +91,7 @@ enum Gerund {
   goingBack,
   goingAhead,
   whiling,
+  petitioning,
 }
 
 class Token {
@@ -469,6 +471,9 @@ class Lexer {
     ('WHILE', _kind(TokenKind.whileKeyword)),
     ('WHILING', _gerund(Gerund.whiling)),
     ('LOOPING', _gerund(Gerund.whiling)),
+    // The library's way to the operating system (R10, L29).
+    ('PETITION', _kind(TokenKind.petition)),
+    ('PETITIONING', _gerund(Gerund.petitioning)),
   ];
 
   static final _widePatterns = <(String, Token Function(int, int))>[

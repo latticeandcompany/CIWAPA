@@ -182,6 +182,27 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items; `threads/computed.xc` pins (a).
 - **Raised:** 2026-10-18
 
+## L29: How do library routines reach the operating system?
+
+- **Context:** R10 wants every library block written in INTERCAL, with native fast paths on top. INTERCAL can't reach command-line arguments, the environment, the clock, files or sockets, and Q74 allows "a few new statements" for exactly this without saying what they look like.
+- **Options:**
+  - (a) One new EXTRACAL statement, `PETITION #n` (gerund `PETITIONING`), which asks the host for numbered service `n`. Each service reads and writes fixed variables documented in `packages/ciwapa_core/lib/extracal/README.md`. A routine in the System, I/O or Network block is INTERCAL around the smallest services that can do its job, for example reading or writing one byte. Everything that can be INTERCAL is: number formatting, string handling, HTTP.
+  - (b) One new statement per operation (`OPEN`, `CLOSE`, `CONNECT`, …).
+  - (c) Labels the compiler implements natively, with no INTERCAL statement behind them.
+- **Lean:** (a). It is one statement, it keeps the host interface small, and it leaves the INTERCAL version as the reference.
+- **Blocks:** no checklist items. The compiler does (a) until this is answered.
+- **Raised:** 2026-10-18
+
+## L30: How is the empty string stored?
+
+- **Context:** Strings are tail arrays of code points (Q108), but INTERCAL can't DIMENSION an array to zero elements (E240), and nothing says how a string of length zero looks.
+- **Options:**
+  - (a) The empty string is a tail array with no dimensions, as an array is before its first DIMENSION. Only the library makes one; a program tests for it through the library.
+  - (b) Strings carry their length in a separate variable, and the array always has at least one element.
+- **Lean:** (a). A string stays one array, and no routine needs an extra length argument. The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+
 ## L31: Do WHILE's added statements count in statement numbers?
 
 - **Context:** CIWAPA expands `a WHILE b` into the 11 statements `ick`'s preprocessor makes (R3). Error messages give statement ordinals (T33), so the ten added statements shift every later statement's number: an error after one WHILE is reported 10 higher than a reader counting the source would expect. `ick` prints source line numbers, so it doesn't have the question.

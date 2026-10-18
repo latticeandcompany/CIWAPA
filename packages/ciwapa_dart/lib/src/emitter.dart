@@ -19,6 +19,9 @@ class DartEmitter {
   final EmitOptions options;
   var _out = StringBuffer();
   var _chunk = 0;
+  late final _petitions = options.optimize
+      ? findNativePetitions(program)
+      : const <int, NativePetition>{};
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
@@ -331,6 +334,18 @@ class DartEmitter {
       ..writeln('  final v = _v, ig = _ig;')
       ..writeln('  switch (ordinal) {');
     for (final s in program.statements) {
+      if (s.op case IrNext(:final target) when _petitions.containsKey(target)) {
+        final native = _petitions[target]!;
+        final guard = [
+          'ickNextFree() >= 1',
+          for (final o in native.abstainable) 'ickXClear($o)',
+        ];
+        _out.writeln('    case ${s.ordinal}:');
+        _line('if (${guard.join(' && ')}) {');
+        _line('  ${_petition(native.petition, native.next)}');
+        _line('  return true;');
+        _line('}');
+      }
       if (s.op case IrNext(:final target) when _natives.containsKey(target)) {
         final call = _natives[target]!;
         final guard = [
@@ -513,7 +528,8 @@ class DartEmitter {
     IrDimension() ||
     IrVarList() ||
     IrWriteIn() ||
-    IrReadOut() => true,
+    IrReadOut() ||
+    IrPetition() => true,
     _ => false,
   };
 
@@ -635,8 +651,20 @@ class DartEmitter {
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
+        if (_petitions[target] case final native?) {
+          final guard = [
+            'ickNextFree() >= 1',
+            for (final o in native.abstainable) _clear(o),
+          ];
+          _line('if (${guard.join(' && ')}) {');
+          _line('  ${_petition(native.petition, native.next)}');
+          _line('  ${_jump(after(s.ordinal))}');
+          _line('}');
+        }
         _line('ickNextPush(${after(s.ordinal)}, $target);');
         _line(_jump(entry(target)));
+      case final IrPetition petition:
+        _line(_petition(petition, next));
       case IrForget(:final count):
         _line('ickForget(${_count(count, next)});');
       case IrResume(:final count):
@@ -712,6 +740,12 @@ class DartEmitter {
         throw ToolchainException('${op.runtimeType} is not implemented yet');
     }
   }
+
+  /// A host service (R10, L29), given its variables' keys (64-bit scalars after the others) and
+  /// array numbers.
+  String _petition(IrPetition p, Object next) =>
+      'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
+      '[${p.arrays.map((a) => a.index).join(', ')}], $next);';
 
   /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
   /// falls through to the NEXT otherwise.

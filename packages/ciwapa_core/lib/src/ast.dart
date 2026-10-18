@@ -294,6 +294,17 @@ class GoBack extends Body {
   Gerund get gerund => Gerund.goingBack;
 }
 
+/// `PETITION #n`: asks the host for service n, which reads and writes the variables
+/// [petitionServices] lists (R10, L29). The library blocks are built on it.
+class Petition extends Body {
+  const Petition(this.service);
+
+  final int service;
+
+  @override
+  Gerund get gerund => Gerund.petitioning;
+}
+
 /// A statement that does nothing, which only `ick`'s WHILE expansion makes (R3).
 class Nothing extends Body {
   const Nothing();

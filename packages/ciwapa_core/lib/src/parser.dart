@@ -381,6 +381,10 @@ class Parser {
       case TokenKind.goBack:
         _pos++;
         return const GoBack();
+      case TokenKind.petition:
+        _pos++;
+        _expect(TokenKind.mesh);
+        return Petition(_number());
       case TokenKind.goAhead:
         _pos++;
         return const GoAhead();

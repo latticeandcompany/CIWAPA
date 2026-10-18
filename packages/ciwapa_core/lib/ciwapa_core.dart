@@ -5,5 +5,11 @@ export 'src/frontend.dart';
 export 'src/lexer.dart' show Gerund, UnaryOp;
 export 'src/source.dart';
 export 'src/ir.dart';
-export 'src/syslib/native.dart' show NativeCall, findNativeCalls, reachable;
+export 'src/syslib/native.dart'
+    show
+        NativeCall,
+        NativePetition,
+        findNativeCalls,
+        findNativePetitions,
+        reachable;
 export 'src/cli.dart';

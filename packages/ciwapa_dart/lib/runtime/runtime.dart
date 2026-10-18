@@ -90,6 +90,7 @@ void ickInit(
   bool latin = false,
 }) {
   _latin = latin;
+  _monotonic.start();
   _messages = messages;
   _values = values;
   _ignored = ignored;
@@ -1041,9 +1042,13 @@ int? _parseSeed(String text) {
 void _parseOptions(List<String> args) {
   var help = false;
   String? unknown;
+  _programArgs = const [];
   for (var i = 0; i < args.length; i++) {
     final arg = args[i];
-    if (!arg.startsWith('+') && !arg.startsWith('-')) break;
+    if (!arg.startsWith('+') && !arg.startsWith('-')) {
+      _programArgs = args.sublist(i);
+      break;
+    }
     final name = arg.substring(1);
     final seed = arg.startsWith('+') && name == 'seed' && i + 1 < args.length
         ? _parseSeed(args[i + 1])
@@ -2396,4 +2401,81 @@ int ickReverseUnary(int op, int n, int width, int next) {
   }
   if (forward(candidate) != n) ickFatal(277, next);
   return candidate;
+}
+
+// ---- EXTRACAL's library services (R10, L29) -------------------------------------------------
+// PETITION #n asks for service n, on the variables the compiler passes in: scalars by key (64-bit
+// ones numbered after the others) and arrays by number. A service stores as WRITE IN does,
+// leaving an IGNOREd variable alone and bypassing overloading. Strings are tail arrays of UTF-16
+// code units, and the empty string is an array with no dimensions (Q108, Q136, L30).
+
+/// The program's arguments: those after the runtime options.
+var _programArgs = const <String>[];
+final _monotonic = Stopwatch();
+
+int _scalarAt(int key) =>
+    key < _values.length ? _values[key] : _wideValues[key - _values.length];
+
+void _setScalar(int key, int value) {
+  if (key < _values.length) {
+    if (_ignored[key] == 0) _values[key] = value;
+  } else {
+    final wide = key - _values.length;
+    if (_wideIgnored[wide] == 0) _wideValues[wide] = value;
+  }
+}
+
+/// A string argument: E803 unless the array is undimensioned (empty) or has one dimension.
+String _stringAt(int array, int next) {
+  final shape = _arrays[array].shape;
+  if (shape.rank > 1) ickFatal(803, next);
+  return String.fromCharCodes(shape.data);
+}
+
+void _setString(int array, String value) {
+  final a = _arrays[array];
+  if (a.ignored) return;
+  final units = value.codeUnits;
+  a.shape = units.isEmpty
+      ? _Shape(Uint32List(0), Uint32List(0))
+      : _Shape(Uint32List.fromList([units.length]), Uint32List.fromList(units));
+}
+
+void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
+  switch (service) {
+    case 8000:
+      _setScalar(scalars[0], _programArgs.length);
+    case 8010:
+      final n = _scalarAt(scalars[0]);
+      if (n >= 1 && n <= _programArgs.length) {
+        _setString(arrays[0], _programArgs[n - 1]);
+        _setScalar(scalars[1], 1);
+      } else {
+        _setScalar(scalars[1], 2);
+      }
+    case 8020:
+      final value = Platform.environment[_stringAt(arrays[0], next)];
+      if (value != null) _setString(arrays[1], value);
+      _setScalar(scalars[0], value != null ? 1 : 2);
+    case 8030:
+      final status = _scalarAt(scalars[0]);
+      if (status > 255) ickFatal(802, next);
+      _flush();
+      exit(status);
+    case 8040:
+      _setScalar(scalars[0], DateTime.now().millisecondsSinceEpoch);
+    case 8050:
+      // Its zero is a second before the program started.
+      final ticks = _monotonic.elapsedTicks, frequency = _monotonic.frequency;
+      _setScalar(
+        scalars[0],
+        1000000000 +
+            ticks ~/ frequency * 1000000000 +
+            ticks % frequency * 1000000000 ~/ frequency,
+      );
+    case 8060:
+      _rngState = _scalarAt(scalars[0]);
+    default:
+      ickFatal(801, next);
+  }
 }

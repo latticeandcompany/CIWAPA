@@ -29,6 +29,9 @@ static int ick_getchar(void) {
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 #endif
 
 typedef struct {
@@ -888,12 +891,20 @@ static const char wimp_message[] =
     "WIMP MODE ENGAGED. Numbers will be read and written in plain decimal, like a spreadsheet.\n"
     "Your INTERCAL license has been suspended, and your next of kin have been notified.\n";
 
+/* The program's arguments: those after the runtime options. */
+static int program_argc;
+static char **program_argv;
+
 static void parse_options(int argc, char **argv) {
   int help = 0;
   const char *unknown = NULL;
   for (int i = 1; i < argc; i++) {
     const char *arg = argv[i];
-    if (arg[0] != '+' && arg[0] != '-') break;
+    if (arg[0] != '+' && arg[0] != '-') {
+      program_argc = argc - i;
+      program_argv = argv + i;
+      break;
+    }
     const char *name = arg + 1;
     if (strcmp(name, "help") == 0) {
       help = 1;
@@ -2191,3 +2202,183 @@ uint64_t ick_reverse_unary(uint32_t op, uint64_t n, uint32_t width, uint32_t nex
   if (unary_at(op, candidate, width) != n) ick_fatal(277, next);
   return candidate;
 }
+
+/* ---- EXTRACAL's library services (R10, L29) ---------------------------------------------- */
+/* PETITION #n asks for service n, on the variables the compiler passes in: scalars by key (64-bit
+ * ones numbered after the others) and arrays by number, with UINT32_MAX for none. A service stores
+ * as WRITE IN does, leaving an IGNOREd variable alone and bypassing overloading. Strings are tail
+ * arrays of UTF-16 code units, and the empty string is an array with no dimensions (Q108, Q136,
+ * L30). runtime.dart has the same. */
+
+static uint64_t scalar_at(uint32_t key) {
+  uint32_t narrow = program->scalar_count;
+  return key < narrow ? program->values[key] : wide_values[key - narrow];
+}
+
+static void set_scalar(uint32_t key, uint64_t value) {
+  uint32_t narrow = program->scalar_count;
+  if (key < narrow) {
+    if (!program->ignored[key]) program->values[key] = (uint32_t)value;
+  } else if (!wide_ignored[key - narrow]) {
+    wide_values[key - narrow] = value;
+  }
+}
+
+/* A string's code units: E803 unless the array is undimensioned (empty) or has one dimension. */
+static const uint32_t *string_at(uint32_t array, size_t *length, uint32_t next) {
+  ick_shape *shape = &arrays[array].shape;
+  if (shape->rank > 1) ick_fatal(803, next);
+  *length = shape->rank ? shape->size : 0;
+  return shape->data;
+}
+
+static void set_string(uint32_t array, const uint16_t *units, size_t length) {
+  ick_array *a = &arrays[array];
+  if (a->ignored) return;
+  free(a->shape.dims);
+  free(a->shape.data);
+  a->shape = (ick_shape){0, NULL, NULL, 0};
+  if (!length) return;
+  a->shape.rank = 1;
+  a->shape.size = length;
+  a->shape.dims = malloc(sizeof(uint32_t));
+  a->shape.data = malloc(length * sizeof(uint32_t));
+  if (!a->shape.dims || !a->shape.data) ick_fatal(778, 1);
+  a->shape.dims[0] = (uint32_t)length;
+  for (size_t i = 0; i < length; i++) a->shape.data[i] = units[i];
+}
+
+/* UTF-8 to UTF-16, with U+FFFD for anything malformed. The result is malloc'd. */
+static uint16_t *utf16_from_utf8(const char *text, size_t *length) {
+  size_t n = strlen(text), out = 0;
+  uint16_t *units = malloc((n + 1) * sizeof(uint16_t));
+  if (!units) ick_fatal(778, 1);
+  const unsigned char *p = (const unsigned char *)text, *end = p + n;
+  while (p < end) {
+    uint32_t c = *p++, need = 0, min = 0;
+    if (c >= 0xF0 && c <= 0xF4) need = 3, min = 0x10000, c &= 0x07;
+    else if (c >= 0xE0 && c <= 0xEF) need = 2, min = 0x800, c &= 0x0F;
+    else if (c >= 0xC2 && c <= 0xDF) need = 1, min = 0x80, c &= 0x1F;
+    else if (c >= 0x80) c = 0xFFFD;
+    uint32_t got = 0;
+    while (got < need && p < end && (*p & 0xC0) == 0x80) c = (c << 6) | (*p++ & 0x3F), got++;
+    if (got < need || c < min || c > 0x10FFFF || (c >= 0xD800 && c <= 0xDFFF)) c = need ? 0xFFFD : c;
+    if (c >= 0x10000) {
+      c -= 0x10000;
+      units[out++] = (uint16_t)(0xD800 + (c >> 10));
+      units[out++] = (uint16_t)(0xDC00 + (c & 0x3FF));
+    } else {
+      units[out++] = (uint16_t)c;
+    }
+  }
+  *length = out;
+  return units;
+}
+
+/* UTF-16 code units (one per element) to NUL-terminated UTF-8, with U+FFFD for a lone surrogate.
+ * The result is malloc'd. */
+static char *utf8_from_units(const uint32_t *units, size_t length) {
+  char *text = malloc(length * 3 + 1);
+  if (!text) ick_fatal(778, 1);
+  size_t out = 0;
+  for (size_t i = 0; i < length; i++) {
+    uint32_t c = units[i];
+    if (c >= 0xD800 && c <= 0xDBFF && i + 1 < length && units[i + 1] >= 0xDC00 &&
+        units[i + 1] <= 0xDFFF) {
+      c = 0x10000 + ((c - 0xD800) << 10) + (units[++i] - 0xDC00);
+    } else if (c >= 0xD800 && c <= 0xDFFF) {
+      c = 0xFFFD;
+    }
+    if (c < 0x80) {
+      text[out++] = (char)c;
+    } else if (c < 0x800) {
+      text[out++] = (char)(0xC0 | (c >> 6));
+      text[out++] = (char)(0x80 | (c & 0x3F));
+    } else if (c < 0x10000) {
+      text[out++] = (char)(0xE0 | (c >> 12));
+      text[out++] = (char)(0x80 | ((c >> 6) & 0x3F));
+      text[out++] = (char)(0x80 | (c & 0x3F));
+    } else {
+      text[out++] = (char)(0xF0 | (c >> 18));
+      text[out++] = (char)(0x80 | ((c >> 12) & 0x3F));
+      text[out++] = (char)(0x80 | ((c >> 6) & 0x3F));
+      text[out++] = (char)(0x80 | (c & 0x3F));
+    }
+  }
+  text[out] = 0;
+  return text;
+}
+
+static void set_string_utf8(uint32_t array, const char *text) {
+  size_t length;
+  uint16_t *units = utf16_from_utf8(text, &length);
+  set_string(array, units, length);
+  free(units);
+}
+
+static uint64_t wall_clock_ms(void) {
+#ifdef _WIN32
+  FILETIME ft;
+  GetSystemTimeAsFileTime(&ft);
+  uint64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+  return (ticks - 116444736000000000ull) / 10000;
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
+#endif
+}
+
+static uint64_t monotonic_ns(void) {
+#ifdef _WIN32
+  LARGE_INTEGER count, frequency;
+  QueryPerformanceCounter(&count);
+  QueryPerformanceFrequency(&frequency);
+  return (uint64_t)((double)count.QuadPart * 1e9 / (double)frequency.QuadPart);
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+#endif
+}
+
+void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3,
+                  uint32_t a0, uint32_t a1, uint32_t a2, uint32_t next) {
+  (void)s2;
+  (void)s3;
+  (void)a2;
+  switch (service) {
+  case 8000: set_scalar(s0, (uint64_t)program_argc); break;
+  case 8010: {
+    uint64_t n = scalar_at(s0);
+    if (n >= 1 && n <= (uint64_t)program_argc) {
+      set_string_utf8(a0, program_argv[n - 1]);
+      set_scalar(s1, 1);
+    } else {
+      set_scalar(s1, 2);
+    }
+    break;
+  }
+  case 8020: {
+    size_t length;
+    const uint32_t *units = string_at(a0, &length, next);
+    char *name = utf8_from_units(units, length);
+    const char *value = getenv(name);
+    free(name);
+    if (value) set_string_utf8(a1, value);
+    set_scalar(s0, value ? 1 : 2);
+    break;
+  }
+  case 8030: {
+    uint64_t status = scalar_at(s0);
+    if (status > 255) ick_fatal(802, next);
+    ICK_FLUSH();
+    exit((int)status);
+  }
+  case 8040: set_scalar(s0, wall_clock_ms()); break;
+  case 8050: set_scalar(s0, monotonic_ns()); break;
+  case 8060: rng_state = scalar_at(s0); break;
+  default: ick_fatal(801, next);
+  }
+}
+

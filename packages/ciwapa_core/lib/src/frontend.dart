@@ -3,6 +3,7 @@ import 'errors.dart';
 import 'lexer.dart';
 import 'parser.dart';
 import 'source.dart';
+import 'extracal/blocks.dart';
 import 'syslib/syslib.g.dart';
 
 /// A whole-program error, reported at compile time (decision Q80).
@@ -73,7 +74,8 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           body is GoBack ||
           body is GoAhead ||
           s.maybe ||
-          s.whileBody != null) {
+          s.whileBody != null ||
+          body is Petition) {
         throw CompileError(111, i + 1);
       }
     }
@@ -86,9 +88,7 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
     throw CompileError(993, tryAgain + 2);
   }
   final userStatements = statements.length;
-  if (_needsLibrary(statements, base)) {
-    statements.addAll(Parser(Source('syslib.i', syslibSource)).parse());
-  }
+  _includeLibraries(statements, base, extracal: dialect.extracal);
   _checkLabels(statements, extracal: dialect.extracal);
   _checkOperators(statements, base);
   _demoteUnreadable(statements, base);
@@ -196,18 +196,51 @@ void _expandWhiles(List<Statement> statements) {
   }
 }
 
-/// §7.3 and decision T36: the library is included when a NEXT targets a label from 1000 to 1999
-/// and the program defines no label in that range. It is binary, so only base 2 programs get it
-/// (decision L9).
-bool _needsLibrary(List<Statement> statements, int base) {
-  bool inRange(int? label) => label != null && label >= 1000 && label <= 1999;
-  if (base != 2 || statements.any((s) => inRange(s.label))) return false;
-  return statements.any(
-    (s) => switch (s.body) {
-      Next(:final label) => inRange(label),
-      _ => false,
-    },
-  );
+/// §7.3 and decision T36: the system library is included when a NEXT targets a label from 1000
+/// to 1999 and the program defines no label in that range. EXTRACAL's library blocks follow the
+/// same rule for their own ranges (R10), and a block's NEXTs can bring in the system library or
+/// another block. All of them are binary, so only base 2 programs get them (decisions L9, L17).
+void _includeLibraries(
+  List<Statement> statements,
+  int base, {
+  required bool extracal,
+}) {
+  if (base != 2) return;
+  final user = statements.length;
+  final blocks = [
+    (name: 'syslib.i', first: 1000, last: 1999, source: syslibSource),
+    if (extracal)
+      for (final b in libraryBlocks)
+        (name: '${b.name}.xc', first: b.first, last: b.last, source: b.source),
+  ];
+  final included = <String>{};
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final block in blocks) {
+      if (included.contains(block.name)) continue;
+      bool inRange(int? label) =>
+          label != null && label >= block.first && label <= block.last;
+      if (statements.take(user).any((s) => inRange(s.label))) continue;
+      final wanted = statements.any(
+        (s) => switch (s.body) {
+          Next(:final label) => inRange(label),
+          _ => false,
+        },
+      );
+      if (!wanted) continue;
+      final extensions = block.name.endsWith('.xc');
+      statements.addAll(
+        Parser(
+          Source(block.name, block.source),
+          wide: extensions,
+          extensions: extensions,
+        ).parse(),
+      );
+      included.add(block.name);
+      changed = true;
+    }
+  }
 }
 
 /// §10.4 and decision T35: fewer than 1/5 polite statements is E079, more than 1/3 is E099, using

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'ast.dart';
 import 'errors.dart';
+import 'extracal/blocks.dart';
 import 'frontend.dart';
 import 'lexer.dart';
 
@@ -389,6 +390,19 @@ class IrTryAgain extends IrOp {
 
   @override
   String toString() => 'TRY AGAIN';
+}
+
+/// `PETITION #n` (R10, L29): host service [service], on the variables [petitionServices] lists
+/// for it, as [scalars] and [arrays].
+class IrPetition extends IrOp {
+  const IrPetition(this.service, this.scalars, this.arrays);
+
+  final int service;
+  final List<Slot> scalars;
+  final List<Slot> arrays;
+
+  @override
+  String toString() => 'PETITION #$service';
 }
 
 /// A statement of `ick`'s WHILE expansion that does nothing (R3).
@@ -830,6 +844,7 @@ class _Lowering {
       GoBack() => const IrGoBack(),
       GoAhead() => const IrGoAhead(),
       Nothing() => const IrNothing(),
+      Petition(:final service) => _petition(service),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),
@@ -851,6 +866,26 @@ class _Lowering {
         target: target == null ? null : _expr(target),
       ),
     };
+  }
+
+  /// An unknown service is a fault of its statement, E801.
+  IrOp _petition(int service) {
+    final registers = petitionServices[service];
+    if (registers == null) {
+      _faults.add(const Fault(801));
+      return IrPetition(service, const [], const []);
+    }
+    VarRef ref(String name) {
+      final sigil = name.replaceAll(RegExp('[0-9]'), '');
+      final kind = VarKind.values.firstWhere((k) => k.sigil == sigil);
+      return VarRef(kind, int.parse(name.substring(sigil.length)));
+    }
+
+    return IrPetition(
+      service,
+      [for (final r in registers.scalars) _scalar(ref(r))],
+      [for (final r in registers.arrays) _array(ref(r))],
+    );
   }
 
   int _signature(String signature) =>

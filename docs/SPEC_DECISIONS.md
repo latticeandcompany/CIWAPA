@@ -1268,6 +1268,27 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/backtracking/e404.xc`, `packages/conformance/tests/extracal/backtracking/go-ahead.xc`
 - **Date:** 2026-10-18
 
+### E801: a PETITION to an unknown service
+- **Text:** `A PETITION HAS BEEN MADE TO A SERVICE THAT DOES NOT EXIST.`
+- **Joke:** `THE OPERATING SYSTEM HAS NO RECORD OF THIS DEPARTMENT.`
+- **Source:** R10, R11 and L29. A new condition, so a new code that neither `ick` 0.15 nor 0.35 uses. `PETITION #n` with a number that names no host service is a fault of its statement, raised when it executes.
+- **Tests:** `packages/conformance/tests/extracal/lib-system/e801.xc`
+- **Date:** 2026-10-18
+
+### E802: an exit status out of range
+- **Text:** `AN EXIT STATUS OUTSIDE 0 TO 255 HAS BEEN REQUESTED.`
+- **Joke:** `THE PROGRAM TRIED TO LEAVE WITH MORE THAN IT CAME WITH.`
+- **Source:** R10, R11. A new code. The System block's exit routine (8030) takes a status from 0 to 255, the range every platform keeps; anything larger is a programming error (Q139).
+- **Tests:** `packages/conformance/tests/extracal/lib-system/e802.xc`, `packages/conformance/tests/extracal/lib-system/e802-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E803: a string array with more than one dimension
+- **Text:** `A STRING HAS BEEN GIVEN AS AN ARRAY OF MORE THAN ONE DIMENSION.`
+- **Joke:** `WORDS COME IN LINES, NOT IN BLOCKS.`
+- **Source:** R8, R10, R11. A new code. A library routine that takes a string needs a tail array with one dimension, or none for the empty string (L30); more is a programming error (Q139).
+- **Tests:** `packages/conformance/tests/extracal/lib-system/e803.xc`, `packages/conformance/tests/extracal/lib-system/e803-no-opt.xc`
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

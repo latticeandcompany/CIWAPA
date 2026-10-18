@@ -1,0 +1,4 @@
+	DO READ OUT #1
+	DO .1 <- #3
+	PLEASE (8030) NEXT
+	DO READ OUT #2

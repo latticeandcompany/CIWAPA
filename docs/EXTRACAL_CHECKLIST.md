@@ -128,7 +128,7 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### System (8000)–(8999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-system`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-system`, `packages/ciwapa_core/test/extracal_library_test.dart`
 
 ### I/O (2000)–(2999)
 

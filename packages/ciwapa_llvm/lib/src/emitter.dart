@@ -13,6 +13,9 @@ class LlvmEmitter {
   final IrProgram program;
   final EmitOptions options;
   final String triple;
+  late final _petitions = options.optimize
+      ? findNativePetitions(program)
+      : const <int, NativePetition>{};
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
@@ -174,6 +177,7 @@ declare void @ick_ov_retrieve(i32)
 declare i64 @ick_reverse_unary(i32, i64, i32, i32)
 declare void @ick_read_out_signed(i64, i32)
 declare void @ick_x_creates(i32, ptr)
+declare void @ick_petition(i32, i32, i32, i32, i32, i32, i32, i32, i32)
 declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
 ''';
 
@@ -277,9 +281,32 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
           if (s.op case IrNext(:final target) when _natives.containsKey(target))
             (s, _natives[target]!),
       ];
+      final petitions = [
+        for (final s in program.statements)
+          if (s.op case IrNext(:final target)
+              when _petitions.containsKey(target))
+            (s, _petitions[target]!),
+      ];
       _line(
-        'switch i32 %ordinal, label %done [${calls.map((c) => 'i32 ${c.$1.ordinal}, label %n${c.$1.ordinal}').join(' ')}]',
+        'switch i32 %ordinal, label %done [${[for (final c in calls) 'i32 ${c.$1.ordinal}, label %n${c.$1.ordinal}', for (final p in petitions) 'i32 ${p.$1.ordinal}, label %p${p.$1.ordinal}'].join(' ')}]',
       );
+      for (final (s, native) in petitions) {
+        _block('p${s.ordinal}');
+        final free = _fresh(), room = _fresh(), run = _newBlock('native');
+        _line('$free = call i32 @ick_next_free()');
+        _line('$room = icmp uge i32 $free, 1');
+        _line('br i1 $room, label %$run, label %done');
+        _block(run);
+        for (final o in native.abstainable) {
+          final flag = _fresh(), ok = _fresh(), next = _newBlock('native');
+          _line('$flag = call i32 @ick_x_clear(i32 $o)');
+          _line('$ok = icmp ne i32 $flag, 0');
+          _line('br i1 $ok, label %$next, label %done');
+          _block(next);
+        }
+        _petition(native.petition, native.next);
+        _line('ret i32 1');
+      }
       for (final (s, call) in calls) {
         _block('n${s.ordinal}');
         final free = _fresh(), room = _fresh(), native = _newBlock('native');
@@ -548,7 +575,8 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
     IrDimension() ||
     IrVarList() ||
     IrWriteIn() ||
-    IrReadOut() => true,
+    IrReadOut() ||
+    IrPetition() => true,
     _ => false,
   };
 
@@ -740,6 +768,9 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
+        if (_petitions[target] case final native?) {
+          _nativePetition(s, native);
+        }
         _line('call void @next_push(i32 ${s.ordinal}, i32 $target)');
         _line('br label %s$target');
         _block(_newBlock('dead'));
@@ -756,6 +787,8 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
         _resumes.add((id, dispatch));
         _line('br label %resume');
         _block(_newBlock('dead'));
+      case final IrPetition petition:
+        _petition(petition, next);
       case IrGiveUp():
         _line('call void @ick_give_up()');
         _line('unreachable');
@@ -1024,6 +1057,47 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       default:
         throw StateError('cannot assign to $target');
     }
+  }
+
+  /// A host service (R10, L29), given its variables' keys (64-bit scalars after the others) and
+  /// array numbers, with -1 for the ones it doesn't use.
+  void _petition(IrPetition p, Object next) {
+    final scalars = [
+      for (var i = 0; i < 4; i++)
+        i < p.scalars.length ? '${_key(p.scalars[i])}' : '-1',
+    ];
+    final arrays = [
+      for (var i = 0; i < 3; i++)
+        i < p.arrays.length ? '${p.arrays[i].index}' : '-1',
+    ];
+    _line(
+      'call void @ick_petition(i32 ${p.service}, ${[...scalars, ...arrays].map((a) => 'i32 $a').join(', ')}, i32 $next)',
+    );
+  }
+
+  /// Runs the PETITION a library routine consists of in place of the NEXT [s], when the NEXT
+  /// stack has room and the routine's statements aren't abstained, and continues to the NEXT
+  /// otherwise.
+  void _nativePetition(IrStatement s, NativePetition native) {
+    final run = _newBlock('native'), fallback = _newBlock('fallback');
+    final free = _fresh(), room = _fresh();
+    _line('$free = call i32 @ick_next_free()');
+    _line('$room = icmp uge i32 $free, 1');
+    _line('br i1 $room, label %$run, label %$fallback');
+    _block(run);
+    for (final o in native.abstainable) {
+      final flag = _fresh(), clear = _fresh();
+      _line(
+        '$flag = load i8, ptr getelementptr inbounds ([${program.statements.length + 1} x i8], ptr @ab, i64 0, i64 $o)',
+      );
+      _line('$clear = icmp eq i8 $flag, 0');
+      final next = _newBlock('native');
+      _line('br i1 $clear, label %$next, label %$fallback');
+      _block(next);
+    }
+    _petition(native.petition, native.next);
+    _line('br label %a${s.ordinal}');
+    _block(fallback);
   }
 
   /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
