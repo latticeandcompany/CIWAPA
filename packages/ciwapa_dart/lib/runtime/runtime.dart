@@ -2758,12 +2758,19 @@ bool _startHelper() {
     (_) => random.nextInt(256).toRadixString(16),
   ).join();
   Isolate.spawn(_helperMain, (ports.path, _token));
+  // On Windows a virus scanner can hold the file a moment after it appears, so reading is retried.
   final waited = Stopwatch()..start();
-  while (!ports.existsSync()) {
+  String? announced;
+  while (announced == null) {
     if (waited.elapsed > const Duration(seconds: 30)) return false;
-    sleep(const Duration(milliseconds: 1));
+    try {
+      if (ports.existsSync()) announced = ports.readAsStringSync();
+    } on FileSystemException {
+      announced = null;
+    }
+    if (announced == null) sleep(const Duration(milliseconds: 1));
   }
-  final [control, proxy] = ports.readAsStringSync().split(' ');
+  final [control, proxy] = announced.split(' ');
   try {
     dir.deleteSync(recursive: true);
   } on FileSystemException {
