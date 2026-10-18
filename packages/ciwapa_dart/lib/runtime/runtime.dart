@@ -849,20 +849,87 @@ void ickReadOut64(int bits) {
     _flush();
     return;
   }
+  _writeLines(_numeralLines(value));
+}
+
+/// The lines READ OUT prints for [value], without their newlines: the overline rows, then the
+/// letters.
+List<String> _numeralLines(BigInt value) {
+  if (value == BigInt.zero) return const ['_', ''];
   final high = (value ~/ _trillion).toInt();
-  if (high == 0) {
-    ickReadOut((value % _trillion).toInt());
+  final (lowBars, lowNumeral) = _butcher((value % _trillion).toInt());
+  if (high == 0) return [lowBars, lowNumeral];
+  final (highBars, highNumeral) = _butcher(high);
+  return [
+    '${'_' * highNumeral.length}${' ' * lowNumeral.length}',
+    '$highBars$lowBars',
+    '$highNumeral$lowNumeral',
+  ];
+}
+
+void _writeLines(List<String> lines) {
+  _write(utf8.encode(lines.map((l) => '$l\n').join()));
+  _flush();
+}
+
+/// R6, Q124, Q138: [bits] read as two's complement at [width]. A negative value prints as `-` and
+/// the numeral of its magnitude, with a space above the `-` in the overline rows.
+@pragma('vm:never-inline')
+void ickReadOutSigned(int bits, int width) {
+  var value = BigInt.from(bits).toUnsigned(width);
+  final negative = (value >> (width - 1)) == BigInt.one;
+  if (negative) value = (BigInt.one << width) - value;
+  if (_wimpMode) {
+    _write(utf8.encode('${negative ? '-' : ''}$value\n'));
+    _flush();
     return;
   }
-  final (highBars, highNumeral) = _butcher(high);
-  final (lowBars, lowNumeral) = _butcher((value % _trillion).toInt());
-  _write(
-    utf8.encode(
-      '${'_' * highNumeral.length}${' ' * lowNumeral.length}\n'
-      '$highBars$lowBars\n$highNumeral$lowNumeral\n',
-    ),
-  );
-  _flush();
+  final lines = _numeralLines(value);
+  _writeLines([
+    for (final (i, line) in lines.indexed)
+      negative ? '${i == lines.length - 1 ? '-' : ' '}$line' : line,
+  ]);
+}
+
+/// WRITE IN SIGNED (R6): an optional MINUS, then the digits, for a variable of [width] bits. A
+/// value outside the variable's signed range is E536. It returns the value's two's complement in
+/// [width] bits. Wimp mode reads like C's atol (decision T32), then checks the same range.
+@pragma('vm:never-inline')
+int ickWriteInSigned(int width, int next) {
+  final line = _readLine();
+  if (line == null) ickFatal(562, next);
+  final limit = BigInt.one << (width - 1);
+  BigInt value;
+  if (_wimpMode) {
+    value = BigInt.from(_wimpLong(line));
+  } else {
+    var digits = 0, i = 0, negative = false;
+    value = BigInt.zero;
+    while (i < line.length) {
+      while (i < line.length && line[i] == 0x20) {
+        i++;
+      }
+      if (i == line.length) break;
+      final start = i;
+      while (i < line.length && line[i] != 0x20) {
+        i++;
+      }
+      final word = String.fromCharCodes(line, start, i);
+      if (word == 'MINUS' && digits == 0 && !negative) {
+        negative = true;
+        continue;
+      }
+      final digit = _numeralBytes[word];
+      if (digit == null) ickFatal(579, next);
+      value = value * BigInt.from(10) + BigInt.from(digit);
+      if (value > limit) ickFatal(536, next);
+      digits++;
+    }
+    if (digits == 0) ickFatal(562, next);
+    if (negative) value = -value;
+  }
+  if (value >= limit || value < -limit) ickFatal(536, next);
+  return value.toUnsigned(width).toSigned(64).toInt();
 }
 
 // ---- Turing Text (§5.2, decision T31) -----------------------------------------------------------

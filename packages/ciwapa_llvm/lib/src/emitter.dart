@@ -159,6 +159,8 @@ declare void @ick_turing_out64(i32, i32)
 declare void @ick_xmingle(ptr, i32, i64, i64, i32, i64, i64, i32)
 declare void @ick_xselect(ptr, i32, i64, i64, i32, i64, i64)
 declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
+declare i64 @ick_write_in_signed(i32, i32)
+declare void @ick_read_out_signed(i64, i32)
 ''';
 
   String emit() {
@@ -449,7 +451,7 @@ declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
           );
           _line('store i8 ${abstain ? 1 : 0}, ptr $p');
         }
-      case IrWriteIn(:final items):
+      case IrWriteIn(:final items, :final signed):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
@@ -459,13 +461,23 @@ declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
           }
           // Element subscripts are checked first, then the number is read, then E275 (even when
           // the target is IGNOREd, decision T24), then the store.
-          _assign(item, IrInput(width: item.width == 64 ? 64 : 32), next);
+          _assign(
+            item,
+            signed
+                ? IrInput(width: item.width, signed: true)
+                : IrInput(width: item.width == 64 ? 64 : 32),
+            next,
+          );
         }
-      case IrReadOut(:final items):
+      case IrReadOut(:final items, :final signed):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
               'call void @ick_turing_out${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
+            );
+          } else if (signed) {
+            _line(
+              'call void @ick_read_out_signed(i64 ${_as64(item, next)}, i32 ${item.width})',
             );
           } else if (item.width == 64) {
             _line('call void @ick_read_out64(i64 ${_expr(item, next)})');
@@ -918,6 +930,13 @@ declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
             value,
           ]),
         };
+      case IrInput(signed: true, :final width):
+        final t = _fresh();
+        _line('$t = call i64 @ick_write_in_signed(i32 $width, i32 $next)');
+        if (width == 64) return t;
+        final narrow = _fresh();
+        _line('$narrow = trunc i64 $t to i32');
+        return narrow;
       case IrInput(width: 64):
         final t = _fresh();
         _line('$t = call i64 @ick_write_in64(i32 $next)');

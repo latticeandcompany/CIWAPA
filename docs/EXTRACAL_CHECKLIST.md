@@ -106,9 +106,9 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Signed numbers (R6)
 
-- [ ] R6 — `WRITE IN SIGNED` reads an optional `MINUS` before the digits, at 16, 32 and 64 bits, including each width's extremes. Tests: `packages/conformance/tests/extracal/signed/write-in.xc`
-- [ ] R6 — `READ OUT SIGNED` prints negative values as `-` and the numeral of the magnitude, including each width's most negative value. Tests: `packages/conformance/tests/extracal/signed/read-out.xc`
-- [ ] R6 — a signed value out of its variable's range is an error. Tests: `packages/conformance/tests/extracal/signed/out-of-range.xc`
+- [x] R6 — `WRITE IN SIGNED` reads an optional `MINUS` before the digits, at 16, 32 and 64 bits, including each width's extremes, and in wimp mode. Tests: `packages/conformance/tests/extracal/signed/write-in.xc`, `packages/conformance/tests/extracal/signed/minus-in-the-middle.xc`, `packages/conformance/tests/extracal/signed/wimp-signed.xc`
+- [x] R6 — `READ OUT SIGNED` prints negative values as `-` and the numeral of the magnitude, including each width's most negative value. Tests: `packages/conformance/tests/extracal/signed/read-out.xc`
+- [x] R6 — a signed value out of its variable's range is E536. Tests: `packages/conformance/tests/extracal/signed/out-of-range.xc`, `packages/conformance/tests/extracal/signed/out-of-range-negative.xc`
 
 ## 64-bit numerals (R7)
 

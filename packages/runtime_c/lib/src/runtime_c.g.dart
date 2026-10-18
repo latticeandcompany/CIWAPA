@@ -728,23 +728,26 @@ void ick_read_out(uint32_t value) {
   fflush(stdout);
 }
 
+static void write_decimal(uint64_t value, int negative) {
+  char digits[24];
+  int at = 23;
+  digits[at] = '\0';
+  do {
+    digits[--at] = (char)('0' + value % 10);
+    value /= 10;
+  } while (value);
+  printf("%s%s\n", negative ? "-" : "", digits + at);
+  ICK_FLUSH();
+}
+
 /* R7, Q125: a 64-bit value splits into groups of 12 decimal digits. The x10^12 group is printed
- * like the low one with an extra overline on every character, in a row of its own on top. */
-void ick_read_out64(uint64_t value) {
-  if (wimp_mode) {
-    char digits[24];
-    int at = 23;
-    digits[at] = '\0';
-    do {
-      digits[--at] = (char)('0' + value % 10);
-      value /= 10;
-    } while (value);
-    printf("%s\n", digits + at);
-    ICK_FLUSH();
-    return;
-  }
-  if (value <= 0xFFFFFFFFu) {
-    ick_read_out((uint32_t)value);
+ * like the low one with an extra overline on every character, in a row of its own on top. A
+ * [negative] value (R6, Q138) gets a `-` before the letters and a space above it. */
+static void print_numeral(uint64_t value, int negative) {
+  const char *sign = negative ? "-" : "", *above = negative ? " " : "";
+  if (value == 0) {
+    printf("%s_\n%s\n", above, sign);
+    fflush(stdout);
     return;
   }
   uint64_t high = value / 1000000000000ull, low = value % 1000000000000ull;
@@ -754,12 +757,67 @@ void ick_read_out64(uint64_t value) {
   int split = butcher(low, numeral, bars, end);
   int at = butcher(high, numeral, bars, split);
   for (int i = at; i < end; i++) top[i] = i < split ? '_' : ' ';
-  if (high == 0) {
-    printf("%s\n%s\n", bars + at, numeral + at);
-  } else {
-    printf("%s\n%s\n%s\n", top + at, bars + at, numeral + at);
-  }
+  if (high != 0) printf("%s%s\n", above, top + at);
+  printf("%s%s\n%s%s\n", above, bars + at, sign, numeral + at);
   fflush(stdout);
+}
+
+void ick_read_out64(uint64_t value) {
+  if (wimp_mode) {
+    write_decimal(value, 0);
+    return;
+  }
+  print_numeral(value, 0);
+}
+
+/* R6, Q124, Q138: [value] read as two's complement at [width] bits. */
+void ick_read_out_signed(uint64_t value, uint32_t width) {
+  uint64_t mask = width == 64 ? UINT64_MAX : ((uint64_t)1 << width) - 1;
+  value &= mask;
+  int negative = (value >> (width - 1)) & 1;
+  uint64_t magnitude = negative ? (0 - value) & mask : value;
+  if (wimp_mode) {
+    write_decimal(magnitude, negative);
+    return;
+  }
+  print_numeral(magnitude, negative);
+}
+
+/* WRITE IN SIGNED (R6): an optional MINUS, then the digits, for a variable of [width] bits. A
+ * value outside the variable's signed range is E536. Returns the two's complement in [width]
+ * bits. Wimp mode reads like C's atol (decision T32), then checks the same range. */
+uint64_t ick_write_in_signed(uint32_t width, uint32_t next) {
+  size_t length;
+  if (!read_line(&length, next)) ick_fatal(562, next);
+  uint64_t limit = (uint64_t)1 << (width - 1), magnitude = 0;
+  uint64_t mask = width == 64 ? UINT64_MAX : ((uint64_t)1 << width) - 1;
+  int negative = 0;
+  if (wimp_mode) {
+    uint64_t value = wimp_long();
+    negative = (int)(value >> 63);
+    magnitude = negative ? 0 - value : value;
+  } else {
+    int digits = 0;
+    size_t i = 0;
+    while (i < length) {
+      while (i < length && line_buffer[i] == ' ') i++;
+      if (i == length) break;
+      size_t start = i;
+      while (i < length && line_buffer[i] != ' ') i++;
+      if (i - start == 5 && memcmp(line_buffer + start, "MINUS", 5) == 0 && digits == 0 && !negative) {
+        negative = 1;
+        continue;
+      }
+      int digit = numeral_digit(line_buffer + start, i - start);
+      if (digit < 0) ick_fatal(579, next);
+      if (magnitude > (limit - (uint64_t)digit) / 10) ick_fatal(536, next);
+      magnitude = magnitude * 10 + (uint64_t)digit;
+      digits++;
+    }
+    if (digits == 0) ick_fatal(562, next);
+  }
+  if (negative ? magnitude > limit : magnitude >= limit) ick_fatal(536, next);
+  return (negative ? 0 - magnitude : magnitude) & mask;
 }
 
 /* ---- Turing Text (§5.2, decision T31) -------------------------------------------------- */

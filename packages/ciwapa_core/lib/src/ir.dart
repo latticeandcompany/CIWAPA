@@ -193,12 +193,15 @@ class IrUnary extends IrExpr {
 }
 
 /// The next number from input, as WRITE IN reads it (§4.4.12), for a target of [width] bits. The
-/// emitters use it to share the assignment path; lowering never produces it.
+/// emitters use it to share the assignment path; lowering never produces it. A [signed] input
+/// already has its target's width (R6).
 class IrInput extends IrExpr {
-  const IrInput({this.width = 32});
+  const IrInput({this.width = 32, this.signed = false});
 
   @override
   final int width;
+
+  final bool signed;
 
   @override
   String toString() => 'input';
@@ -306,21 +309,27 @@ class IrAbstain extends IrOp {
 }
 
 class IrWriteIn extends IrOp {
-  const IrWriteIn(this.items);
+  const IrWriteIn(this.items, {this.signed = false});
 
   final List<IrExpr> items;
 
+  /// `WRITE IN SIGNED` (R6, Q124): numbers may start with MINUS and are stored in two's complement.
+  final bool signed;
+
   @override
-  String toString() => 'WRITE IN ${items.join('+')}';
+  String toString() => 'WRITE IN ${signed ? 'SIGNED ' : ''}${items.join('+')}';
 }
 
 class IrReadOut extends IrOp {
-  const IrReadOut(this.items);
+  const IrReadOut(this.items, {this.signed = false});
 
   final List<IrExpr> items;
 
+  /// `READ OUT SIGNED` (R6, Q124): each number is read as two's complement at its width.
+  final bool signed;
+
   @override
-  String toString() => 'READ OUT ${items.join('+')}';
+  String toString() => 'READ OUT ${signed ? 'SIGNED ' : ''}${items.join('+')}';
 }
 
 class IrGiveUp extends IrOp {
@@ -584,14 +593,12 @@ class _Lowering {
         ],
       ),
       AbstainBody() => _abstain(body),
-      // SIGNED parses already, but its meaning comes with signed numbers (R6).
-      IoBody(signed: true) => IrUndecodable(_text(s)),
-      IoBody(input: true, :final items) => IrWriteIn([
+      IoBody(input: true, :final items, :final signed) => IrWriteIn([
         for (final i in items) _expr(i),
-      ]),
-      IoBody(input: false, :final items) => IrReadOut([
+      ], signed: signed),
+      IoBody(input: false, :final items, :final signed) => IrReadOut([
         for (final i in items) _expr(i),
-      ]),
+      ], signed: signed),
       GiveUp() => const IrGiveUp(),
       ComeFrom() => const IrComeFrom(),
       Undecodable() => IrUndecodable(_text(s)),

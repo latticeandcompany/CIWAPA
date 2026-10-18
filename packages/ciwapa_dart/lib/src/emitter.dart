@@ -392,16 +392,18 @@ class DartEmitter {
             _line('abT[$t] = ++_clock;');
           }
         }
-      case IrWriteIn(:final items):
+      case IrWriteIn(:final items, :final signed):
         for (final item in items) {
-          _writeIn(item, next);
+          _writeIn(item, next, signed: signed);
         }
-      case IrReadOut(:final items):
+      case IrReadOut(:final items, :final signed):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
               'ickTuringOut${_suffix(item.array)}(${item.array.index}, $next);',
             );
+          } else if (signed) {
+            _line('ickReadOutSigned(${_expr(item, next)}, ${item.width});');
           } else {
             _line(
               'ickReadOut${item.width == 64 ? '64' : ''}(${_expr(item, next)});',
@@ -441,11 +443,17 @@ class DartEmitter {
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is
   /// read, then E275 (even when the target is IGNOREd, decision T24), then the store.
-  void _writeIn(IrExpr target, int next) {
+  void _writeIn(IrExpr target, int next, {bool signed = false}) {
     switch (target) {
       case IrScalar() || IrElement():
         _line('{');
-        _assign(target, IrInput(width: target.width == 64 ? 64 : 32), next);
+        _assign(
+          target,
+          signed
+              ? IrInput(width: target.width, signed: true)
+              : IrInput(width: target.width == 64 ? 64 : 32),
+          next,
+        );
         _line('}');
       case IrArrayItem(:final array):
         _line('ickTuringIn${_suffix(array)}(${array.index}, $next);');
@@ -549,6 +557,7 @@ class DartEmitter {
     IrSelect(:final left, :final right) =>
       'ickSelect(${_expr(left, next)}, ${_expr(right, next)})',
     IrUnary(:final op, :final operand) => _unary(op, operand, next),
+    IrInput(signed: true, :final width) => 'ickWriteInSigned($width, $next)',
     IrInput(width: 64) => 'ickWriteIn64($next)',
     IrInput() => 'ickWriteIn($next)',
     IrArrayItem() => throw StateError('a whole array is not a value'),
