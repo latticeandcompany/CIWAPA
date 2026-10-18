@@ -173,6 +173,8 @@ declare void @ick_ov_stash(i32)
 declare void @ick_ov_retrieve(i32)
 declare i64 @ick_reverse_unary(i32, i64, i32, i32)
 declare void @ick_read_out_signed(i64, i32)
+declare void @ick_x_creates(i32, ptr)
+declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
 ''';
 
   String emit() {
@@ -257,7 +259,8 @@ declare void @ick_read_out_signed(i64, i32)
               case IrForget(:final count) ||
                   IrResume(:final count) ||
                   IrComputedComeFrom(label: final count) ||
-                  IrAbstain(count: final count?))
+                  IrAbstain(count: final count?) ||
+                  IrCreate(target: final count?))
             (s, count),
       ];
       _line(
@@ -330,6 +333,51 @@ declare void @ick_read_out_signed(i64, i32)
       }
     });
 
+    if (program.signatures.isNotEmpty) {
+      // On the way into an unknown statement given a meaning, `:1601` and on are stashed and
+      // stand for its operands; on the way back, they're retrieved. Both go from the last operand
+      // to the first, as in `ick` (R3).
+      _engineFunction('void @x_unknown(i32 %ordinal, i32 %entering)', 'ret void', () {
+        final unknowns = [
+          for (final s in program.statements)
+            if (s.op case final IrUnknown op) (s, op),
+        ];
+        _line(
+          'switch i32 %ordinal, label %done [${unknowns.map((u) => 'i32 ${u.$1.ordinal}, label %u${u.$1.ordinal}').join(' ')}]',
+        );
+        for (final (s, op) in unknowns) {
+          _block('u${s.ordinal}');
+          final entering = _fresh();
+          _line('$entering = icmp ne i32 %entering, 0');
+          final into = _newBlock('in'), back = _newBlock('back');
+          _line('br i1 $entering, label %$into, label %$back');
+          _block(into);
+          // `ick` evaluates the operands, in order, before anything else.
+          for (final id in op.operands) {
+            final e = program.overloads[id - 1];
+            if (e is! IrArrayItem) _as64(e, s.next);
+          }
+          for (var i = op.variables.length - 1; i >= 0; i--) {
+            final v = op.variables[i];
+            _line('call void @ick_stash_scalar(i32 ${v.index}, i32 ${s.next})');
+            _line('call void @ick_ov_stash(i32 ${_key(v)})');
+            _line(
+              'call i64 @ick_ov_slat(i32 ${_key(v)}, i32 ${op.operands[i]}, i64 0)',
+            );
+          }
+          _line('br label %done');
+          _block(back);
+          for (var i = op.variables.length - 1; i >= 0; i--) {
+            final v = op.variables[i];
+            _line(
+              'call void @ick_retrieve_scalar(i32 ${v.index}, i32 ${s.next})',
+            );
+            _line('call void @ick_ov_retrieve(i32 ${_key(v)})');
+          }
+          _line('br label %done');
+        }
+      });
+    }
     if (program.overloading) {
       _engineFunction('i64 @ov_get(i32 %id, i32 %next)', 'ret i64 0', () {
         final ids = [for (var i = 1; i <= program.overloads.length; i++) i];
@@ -338,7 +386,14 @@ declare void @ick_read_out_signed(i64, i32)
         );
         for (final id in ids) {
           _block('g$id');
-          _line('ret i64 ${_as64(program.overloads[id - 1], '%next')}');
+          final e = program.overloads[id - 1];
+          if (e is IrArrayItem) {
+            // A whole array that a created statement's `:1601` stands for has no value.
+            _line('call void @ick_fatal(i32 277, i32 %next)');
+            _line('unreachable');
+          } else {
+            _line('ret i64 ${_as64(e, '%next')}');
+          }
         }
       });
       _engineFunction('void @ov_set(i32 %id, i64 %value, i32 %next)', 'ret void', () {
@@ -390,6 +445,11 @@ declare void @ick_read_out_signed(i64, i32)
         program.overloading
             ? '  call void @ick_init_overloading(i32 ${program.scalars.length + program.wideScalars.length}, '
                   'i32 ${program.overloads.length}, ptr @ov_get, ptr @ov_set)\n'
+            : '',
+      )
+      ..write(
+        program.signatures.isNotEmpty
+            ? '  call void @ick_x_creates(i32 ${program.signatures.length}, ptr @x_unknown)\n'
             : '',
       )
       ..writeln(
@@ -943,8 +1003,14 @@ declare void @ick_read_out_signed(i64, i32)
         _line('$ignored = icmp ne i8 $flag, 0');
         _storeUnlessIgnored(pointer, v, ignored, type);
       case IrElement(:final array, :final subscripts):
-        final pointer = _elementPointer(array, subscripts, next);
+        final values = _subscriptValues(subscripts, next);
+        var pointer = _elementAt(array, values, next);
         final v = checked(_expr(value, next));
+        // A created operator in the value can re-dimension the array or go back to a
+        // choicepoint, so the element is found again, as Dart's code does.
+        if (program.signatures.isNotEmpty) {
+          pointer = _elementAt(array, values, next);
+        }
         if (!program.ignorable.contains(array)) {
           _line('store $type $v, ptr $pointer');
           return;
@@ -1104,11 +1170,15 @@ declare void @ick_read_out_signed(i64, i32)
   }
 
   /// A subscript past 32 bits is past the end of any array, so it becomes 0, which is E241 too.
-  String _elementPointer(Slot array, List<IrExpr> subscripts, Object next) {
-    final values = [
-      for (final s in subscripts)
-        s.valueWidth == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
-    ];
+  String _elementPointer(Slot array, List<IrExpr> subscripts, Object next) =>
+      _elementAt(array, _subscriptValues(subscripts, next), next);
+
+  List<String> _subscriptValues(List<IrExpr> subscripts, Object next) => [
+    for (final s in subscripts)
+      s.valueWidth == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
+  ];
+
+  String _elementAt(Slot array, List<String> values, Object next) {
     _storeSubscripts(values);
     final p = _fresh();
     _line(
@@ -1300,6 +1370,33 @@ declare void @ick_read_out_signed(i64, i32)
         return _call('ick_write_in', ['$next']);
       case IrArrayItem():
         throw StateError('a whole array is not a value');
+      case IrCreatedOp(
+        :final signature,
+        :final left,
+        :final right,
+        :final leftId,
+        :final rightId,
+        :final variables,
+        :final text,
+      ):
+        // The operands are evaluated first, as in `ick`.
+        _as64(left, next);
+        _as64(right, next);
+        final message = _stringGlobal(text), length = utf8.encode(text).length;
+        if (signature == 0) {
+          _line(
+            'call void @ick_undecodable(ptr $message, i32 $length, i32 $next)',
+          );
+          _line('unreachable');
+          _block(_newBlock('dead'));
+          return '0';
+        }
+        final t = _fresh();
+        _line(
+          '$t = call i32 @ick_x_operator(i32 $signature, i32 $leftId, i32 $rightId, '
+          '${variables.map((v) => 'i32 ${v.index}').join(', ')}, ptr $message, i32 $length, i32 $next)',
+        );
+        return t;
     }
   }
 }

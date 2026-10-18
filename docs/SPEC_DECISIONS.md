@@ -1261,6 +1261,13 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/signed/out-of-range.xc`, `packages/conformance/tests/extracal/signed/out-of-range-negative.xc`
 - **Date:** 2026-10-18
 
+### E404: no choicepoint
+- **Text:** `THERE IS NO CHOICEPOINT TO GO BACK OR AHEAD TO.`
+- **Joke:** `THE ROAD NOT TAKEN WAS NEVER BUILT.`
+- **Source:** R3 item 7, with `ick` 0.35 semantics. This is `ick`'s own code for `ick`'s own condition, so it keeps the number; the text is CIWAPA's. GO BACK or GO AHEAD with no choicepoint left raises it, reported at the statement after.
+- **Tests:** `packages/conformance/tests/extracal/backtracking/e404.xc`, `packages/conformance/tests/extracal/backtracking/go-ahead.xc`
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

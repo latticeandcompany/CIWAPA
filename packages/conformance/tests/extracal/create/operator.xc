@@ -1,0 +1,8 @@
+	DO CREATE (200) x
+	DO .1 <- #3 x #4
+	DO READ OUT .1
+	PLEASE :2 <- '#1 x #2' x #3
+	DO READ OUT :2
+	DO GIVE UP
+(200)	DO :1603 <- :1601 $ :1602
+	PLEASE RESUME #1

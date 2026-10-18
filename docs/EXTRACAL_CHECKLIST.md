@@ -67,8 +67,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 7. Backtracking
 
-- [ ] R3.7 — MAYBE creates a choicepoint; GO BACK returns to it with the statement's abstention reversed; GO AHEAD discards it. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/backtracking/maybe.xc`
-- [ ] R3.7 — GO BACK and GO AHEAD with no choicepoint are E404. Tests: `packages/conformance/tests/extracal/backtracking/e404.xc`
+- [ ] R3.7 — MAYBE creates a choicepoint; GO BACK returns to it with the statement's abstention reversed; GO AHEAD discards it. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/backtracking/maybe.xc`, `packages/conformance/tests/extracal/backtracking/maybe-not.xc`, `packages/conformance/tests/extracal/backtracking/come-from.xc`, `packages/conformance/tests/extracal/backtracking/computed-come-from.xc`, `packages/conformance/tests/extracal/backtracking/stash.xc`, `packages/conformance/tests/extracal/backtracking/arrays.xc`, `packages/conformance/tests/extracal/backtracking/ignore.xc`, `packages/conformance/tests/extracal/backtracking/overloading.xc`, `packages/conformance/tests/extracal/backtracking/operator-unwind.xc`, `packages/conformance/tests/extracal/backtracking/finished-operator.xc`, `packages/conformance/tests/extracal/backtracking/element-operator.xc`, `packages/conformance/tests/extracal/backtracking/next-stack.xc`, `packages/conformance/tests/extracal/backtracking/abstentions-stay.xc`, `packages/conformance/tests/extracal/backtracking/once.xc`, `packages/conformance/tests/extracal/backtracking/gerund.xc`, `packages/conformance/tests/extracal/backtracking/latin.xc`, `packages/conformance/tests/extracal/backtracking/traditional.xc`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] R3.7 — GO BACK and GO AHEAD with no choicepoint are E404. Tests: `packages/conformance/tests/extracal/backtracking/e404.xc`, `packages/conformance/tests/extracal/backtracking/go-ahead.xc`
 
 ### 8. Operand overloading
 
@@ -77,8 +77,9 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 9. CREATE
 
-- [ ] R3.9 — `CREATE (n) template` makes statements of that shape NEXT to (n) with `:1601`… standing for their operands. Tests: `packages/conformance/tests/extracal/create/statement.xc`
-- [ ] R3.9 — `CREATE (n) x` makes `x` a binary operator. Tests: `packages/conformance/tests/extracal/create/operator.xc`
+- [x] R3.9 — `CREATE (n) template` makes statements of that shape NEXT to (n) with `:1601`… standing for their operands, which are retrieved when a RESUME returns. Tests: `packages/conformance/tests/extracal/create/statement.xc`, `packages/conformance/tests/extracal/create/come-from.xc`, `packages/conformance/tests/extracal/create/e277-array.xc`, `packages/conformance/tests/extracal/create/e277-array-write.xc`, `packages/conformance/tests/extracal/create/operands-first.xc`, `packages/conformance/tests/extracal/create/grouped.xc`, `packages/conformance/tests/extracal/create/once.xc`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] R3.9 — `CREATE (n) x` makes `x` (or an unused punctuation mark, or an overstrike) a binary operator whose result is `:1603`. Tests: `packages/conformance/tests/extracal/create/operator.xc`, `packages/conformance/tests/extracal/create/overstrike.xc`, `packages/conformance/tests/extracal/create/abandon.xc`, `packages/conformance/tests/extracal/create/nested-abandon.xc`, `packages/conformance/tests/extracal/create/forget.xc`, `packages/conformance/tests/extracal/create/recursion.xc`, `packages/conformance/tests/extracal/create/no-create.xc`
+- [x] R3.9 — computed CREATE, a newer CREATE replacing an older one, CONFICE, the COMMENT and CREATION gerunds, E000 without a meaning and E129 for a missing label. Tests: `packages/conformance/tests/extracal/create/computed.xc`, `packages/conformance/tests/extracal/create/computed-grouped.xc`, `packages/conformance/tests/extracal/create/supersede.xc`, `packages/conformance/tests/extracal/create/latin.xc`, `packages/conformance/tests/extracal/create/gerunds.xc`, `packages/conformance/tests/extracal/create/unmatched.xc`, `packages/conformance/tests/extracal/create/e129.xc`, `packages/conformance/tests/extracal/create/traditional.xc`
 
 ### 11. CLC-style binary I/O
 

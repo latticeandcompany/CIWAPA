@@ -1,0 +1,9 @@
+	DO CREATE (200) x
+	DO .1 <- #1
+	MAYBE DO .1 <- #9
+	DO .2 <- #1 x #1
+	DO READ OUT .1
+	PLEASE GIVE UP
+(200)	PLEASE GO BACK
+	DO :1603 <- #4
+	DO RESUME #1

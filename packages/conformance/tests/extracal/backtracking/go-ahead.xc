@@ -1,0 +1,5 @@
+	DO .1 <- #1
+	MAYBE DO .1 <- #5
+	PLEASE GO AHEAD
+	DO READ OUT .1
+	DO GO BACK

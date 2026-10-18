@@ -210,7 +210,8 @@ Set<int> reachable(IrProgram program) {
       case IrElement() || IrArrayItem():
         arrays = true;
       case IrMingle(:final left, :final right) ||
-          IrSelect(:final left, :final right):
+          IrSelect(:final left, :final right) ||
+          IrCreatedOp(:final left, :final right):
         expr(left);
         expr(right);
       case IrUnary(:final operand):

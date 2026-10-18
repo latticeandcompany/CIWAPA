@@ -26,6 +26,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - A comment that happens to read as `TRY AGAIN` before the last statement is a compile-time E993 in `ick`.
   - A comment that reads as `NEXT FROM (n)` with no label `n` is a compile-time E444. With a label `n`, it becomes a working trap on `n` even though Mode 1 never executes it, since a COME FROM acts where its target is (`come-from/dead-next-from.i`). The same goes for never-executed text that reads as a computed or gerund COME FROM (`COME FROM .1`, `COME FROM CALCULATING`), which can trap every labelled statement or every statement of a kind. And never-executed text that reads as `ABSTAIN expr FROM` takes the label of the statement after it as its target, so that statement loses its label.
   - A keyword that ends in `D`, such as `SIGNED` or `GO AHEAD`, swallows the `D` of a `DO` that follows it with no space, so a Mode 1 comment containing `SIGNEDO` is split differently in `.xc`.
+  - A character `ick` doesn't use between two operands is a created operator (R3 item 9), so `DO .1 <- #1 x #2`, a comment in Mode 1, is a CALCULATE in `.xc`: still E000 when it runs without a CREATE, but now subject to `ABSTAIN FROM CALCULATING` and `REINSTATE CALCULATING`. The new words `CREATE`, `CONFICE`, `COMMENT` and the like do the same to comments that contain them as statements.
   - A slat turns a statement that doesn't decode in Mode 1 into a live one. In Mode 1, `(1) DO .1 <- .2/#3` is a comment that `REINSTATE CALCULATING` leaves alone; in `.xc` it is a CALCULATE that the REINSTATE wakes up, and once it runs `.2` stands for `#3`.
   - A trailing `ONCE`, `AGAIN`, `QUONDAM` or `ITERUM` turns a never-executed statement into a decodable one. After `DO REINSTATE READING OUT`, Mode 1's `PLEASE DON'T READ OUT #1 AGAIN` is a comment that never prints, but in `.xc` it is a READ OUT that runs. And Mode 1's dead `PLEASE COME FROM (5) AGAIN` becomes a working trap on `(5)` in `.xc`.
 
@@ -116,3 +117,34 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The compiler does (a) until this is answered.
 - **Blocks:** no checklist items; `overloading/narrowing.xc` and `overloading/e277.xc` pin (a).
 - **Raised:** 2026-10-18
+
+## L24: How do CREATEd statements and operators behave where `ick`'s code generators disagree or crash?
+
+- **Context:** R3 asks for `ick` 0.35's CREATE. `ick` has two implementations: created statements in its ordinary code use its NEXT stack, but created operators exist only with `-e`, whose code runs NEXT and RESUME on the C stack with `setjmp`/`longjmp`. Some corners differ between the two, crash, or aren't defined:
+  - A created operator's code is a NEXT from the middle of an expression. When a RESUME or FORGET removes its NEXT stack entry without returning to it, `ick -e` abandons the expression (FORGET is put off until the next jump). A COME FROM can also take control from the RESUME that would return.
+  - `ick` evaluates a created operator's operands (as arguments to a C function, in C's unspecified order) before matching it, whenever the program has a CREATE; with no CREATE at all it raises E000 without evaluating them.
+  - A created label that doesn't exist is E129, which `ick` reports at statement 0 for a statement.
+  - A whole array as an operand: `:1601` standing for it crashes `ick` (a segmentation fault) when read.
+  - Operator names: `ick` allows any byte its lexer doesn't use, including the bytes of non-ASCII characters.
+  - An unknown statement whose operands wouldn't compile (an ungrouped chain, a constant too big, an operator the base lacks) is a compile-time error in `ick`.
+  - `ick` lexes `PIN` (a PIC-INTERCAL keyword) and its other dialects' words, so those letters can't appear in a template there.
+- **Options:**
+  - (a) As CIWAPA does: a created operator ends when a RESUME returns to its entry, and a RESUME, FORGET or COME FROM that takes its entry away abandons the expression at once, continuing where it sends control. A created operator's operands, and a created statement's, are evaluated left to right before anything else, CREATE or not. E129 is reported at the statement after the one that jumps. Reading or assigning `:1601` that stands for a whole array is E277. Operator names are ASCII: lowercase letters, punctuation and control characters `ick` doesn't use (not `_`, `\` or `|`) and overstrikes (not `c^H|`). An unknown statement whose operands wouldn't compile stays a comment, as in Mode 1. Only EXTRACAL's own keywords are reserved.
+  - (b) Copy `ick -e` exactly, including the postponed FORGET and the crash.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items; `create/abandon.xc`, `create/forget.xc`, `create/e129.xc` and `create/e277-array.xc` pin (a).
+- **Raised:** 2026-10-18
+
+## L25: Where may CIWAPA's backtracking differ from `ick`'s?
+
+- **Context:** R3 asks for `ick` 0.35's backtracking. A few corners of `ick`'s come from how its C is put together rather than from a design:
+  - `ick` stores MAYBE in the same number as the `%` chance, so `MAYBE DO %0` loses its MAYBE and makes no choicepoint.
+  - A ONCE or AGAIN on a NEXT or GO BACK keeps the abstention it found in a single global variable, which a choicepoint doesn't save, so going back can test a later statement's value.
+  - `ick` has no created operators and backtracking together (they need `-e` and `-m`), so it doesn't say what going back to a choicepoint made inside a created operator that has since finished means.
+- **Options:**
+  - (a) As CIWAPA does: MAYBE always makes its choicepoint; each choicepoint saves the abstention its guard tested; a choicepoint made inside a finished created operator is discarded like a stale one, and one made at a shallower level abandons the operators in between.
+  - (b) Copy `ick`'s first two quirks.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+

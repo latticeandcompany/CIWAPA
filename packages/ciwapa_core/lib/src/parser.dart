@@ -50,7 +50,8 @@ class Parser {
         continue;
       }
       final label = labelled ? _tokens[_pos++].value : null;
-      final polite = _tokens[_pos++].polite;
+      final polite = _tokens[_pos].polite;
+      final maybe = _tokens[_pos++].maybe;
       final not = _tok.kind == TokenKind.not;
       if (not) _pos++;
       final percent = _tok.kind == TokenKind.percent
@@ -60,6 +61,7 @@ class Parser {
       _chain = false;
       Body body;
       var onceAgain = OnceAgain.none;
+      final bodyStart = _pos;
       try {
         body = _body();
         // `ick`'s ONCE and AGAIN end a statement (R3).
@@ -69,8 +71,18 @@ class Parser {
               : OnceAgain.again;
         }
       } on _Fail catch (fail) {
-        _pos = _resync(fail.at);
-        body = const Undecodable();
+        _pos = bodyStart;
+        final unknown = _extensions ? _tryUnknown() : null;
+        if (unknown == null) _pos = _resync(fail.at);
+        body = unknown ?? const Undecodable();
+        // An unknown statement takes a ONCE or AGAIN; without a CREATE, the front end makes it
+        // part of the comment again (L22).
+        if (unknown != null &&
+            (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again)) {
+          onceAgain = _tokens[_pos++].kind == TokenKind.once
+              ? OnceAgain.once
+              : OnceAgain.again;
+        }
       }
       statements.add(
         Statement(
@@ -84,6 +96,7 @@ class Parser {
           body: body,
           chain: _chain,
           onceAgain: onceAgain,
+          maybe: maybe,
         ),
       );
     }
@@ -127,6 +140,114 @@ class Parser {
   }
 
   Never _fail() => throw _Fail(_pos);
+
+  /// `ick`'s just-in-case compilation (R3): the whole body as an [Unknown], or null.
+  Unknown? _tryUnknown() {
+    try {
+      final start = _pos;
+      _chain = false;
+      final (signature, operands) = _template();
+      final atEnd =
+          _tok.kind == TokenKind.identifier ||
+          _tok.kind == TokenKind.label ||
+          _tok.kind == TokenKind.end ||
+          _tok.kind == TokenKind.once ||
+          _tok.kind == TokenKind.again;
+      // An ungrouped chain, invalid in Mode 1, keeps the statement a comment.
+      if (atEnd && !_chain) return Unknown(signature, operands);
+      _pos = start;
+    } on _Fail {
+      // Not readable either.
+    }
+    _chain = false;
+    return null;
+  }
+
+  /// Capital letters and operands, never two operands in a row, as in `ick`'s unknown statements.
+  (String, List<Expr>) _template() {
+    final signature = StringBuffer();
+    final operands = <Expr>[];
+    var afterOperand = false;
+    while (true) {
+      if (_isLetter(_tok)) {
+        signature.writeCharCode(_tokens[_pos++].value);
+        afterOperand = false;
+      } else if (!afterOperand && _startsOperand(_tok.kind)) {
+        // A grouped scalar or element is no longer one, in `ick`'s grammar.
+        final grouped =
+            _tok.kind == TokenKind.spark || _tok.kind == TokenKind.ears;
+        final operand = _templateOperand();
+        signature.write(switch (operand) {
+          _ when grouped => '~',
+          Scalar() => '.',
+          Element() => ';',
+          ArrayItem() => ',',
+          _ => '~',
+        });
+        operands.add(operand);
+        afterOperand = true;
+      } else {
+        break;
+      }
+    }
+    if (signature.isEmpty) _fail();
+    return (signature.toString(), operands);
+  }
+
+  /// A CREATE's template, whose operands are only examples of their kind.
+  String _templateSignature() {
+    final chain = _chain;
+    final signature = _template().$1;
+    _chain = chain;
+    return signature;
+  }
+
+  Expr _templateOperand() {
+    final kind = _arrayKinds[_tok.kind];
+    if (kind != null &&
+        _tokens[_pos + 1].kind == TokenKind.number &&
+        _tokens[_pos + 2].kind != TokenKind.sub) {
+      _pos += 2;
+      return ArrayItem(VarRef(kind, _tokens[_pos - 1].value));
+    }
+    return _expr();
+  }
+
+  /// A capital letter that starts no keyword (`V` is always an operator).
+  static bool _isLetter(Token t) =>
+      t.kind == TokenKind.badChar &&
+      t.end - t.start == 1 &&
+      t.value >= 0x41 &&
+      t.value <= 0x5A;
+
+  static bool _startsOperand(TokenKind kind) =>
+      _constantWidths.containsKey(kind) ||
+      _scalarKinds.containsKey(kind) ||
+      _arrayKinds.containsKey(kind) ||
+      kind == TokenKind.spark ||
+      kind == TokenKind.ears;
+
+  /// A character that can name a created operator: an ASCII one `ick` lexes as nothing else (so
+  /// not a capital letter, `_`, `\` or `|`), or an overstrike other than `ick`'s mingle `c^H|`.
+  bool _isOperatorName(Token t) {
+    if (!_extensions || t.kind != TokenKind.badChar) return false;
+    final c = t.value;
+    if (t.end - t.start == 3) {
+      return c != 0x637C && (c >> 8) < 0x80 && (c & 0xFF) < 0x80;
+    }
+    return c < 0x80 &&
+        c != 0x08 &&
+        !_isLetter(t) &&
+        c != 0x5F &&
+        c != 0x5C &&
+        c != 0x7C;
+  }
+
+  /// `ick`'s name for a created operator: `u` and the character in hex, or for an overstrike, `o`
+  /// and the two characters.
+  static String _operatorSignature(Token t) => t.value > 256
+      ? 'o${(t.value >> 8).toRadixString(16)}x${(t.value & 0xFF).toRadixString(16)}'
+      : 'u${t.value.toRadixString(16)}';
 
   void _expect(TokenKind kind) {
     if (_tok.kind != kind) _fail();
@@ -248,6 +369,32 @@ class Parser {
       case TokenKind.tryAgain:
         _pos++;
         return const TryAgain();
+      case TokenKind.goBack:
+        _pos++;
+        return const GoBack();
+      case TokenKind.goAhead:
+        _pos++;
+        return const GoAhead();
+      case TokenKind.createLabel:
+        final label = _tokens[_pos++].value;
+        if (_isOperatorName(_tok)) {
+          return Create(_operatorSignature(_tokens[_pos++]), label: label);
+        }
+        return Create(_templateSignature(), label: label);
+      case TokenKind.create:
+        _pos++;
+        // `ick`'s computed operator CREATE takes one operand (a group, but not a slat) as its
+        // target; the template form takes a whole expression.
+        final start = _pos;
+        final operand = _operand();
+        if (_isOperatorName(_tok) && !_startsOperand(_tokens[_pos + 1].kind)) {
+          return Create(_operatorSignature(_tokens[_pos++]), target: operand);
+        }
+        _pos = start;
+        final target = _expr();
+        // A computed CREATE's template starts with a letter, so the target ends before it.
+        if (!_isLetter(_tok)) _fail();
+        return Create(_templateSignature(), target: target);
       case TokenKind.comeFrom || TokenKind.nextFrom:
         _pos++;
         final nexting = kind == TokenKind.nextFrom;
@@ -305,13 +452,31 @@ class Parser {
     var left = _slat(_operand(), grouped);
     var operators = 0;
     while (left is! Slat &&
-        (_tok.kind == TokenKind.mingle || _tok.kind == TokenKind.select)) {
-      final op = _tok.kind == TokenKind.mingle
-          ? BinaryOp.mingle
-          : BinaryOp.select;
-      _pos++;
+        (_tok.kind == TokenKind.mingle ||
+            _tok.kind == TokenKind.select ||
+            _createdOperatorNext())) {
+      final token = _tokens[_pos++];
       final right = _slat(_operand(), grouped);
-      left = Binary(op, left, right, ungrouped: operators > 0);
+      left = switch (token.kind) {
+        TokenKind.mingle => Binary(
+          BinaryOp.mingle,
+          left,
+          right,
+          ungrouped: operators > 0,
+        ),
+        TokenKind.select => Binary(
+          BinaryOp.select,
+          left,
+          right,
+          ungrouped: operators > 0,
+        ),
+        _ => CreatedOp(
+          _operatorSignature(token),
+          left,
+          right,
+          ungrouped: operators > 0,
+        ),
+      };
       operators++;
       if (right is Slat) break;
     }
@@ -321,6 +486,11 @@ class Parser {
     }
     return left;
   }
+
+  /// A created operator with an operand after it: without one, as in `CREATE .5 x`, the operator
+  /// isn't part of the expression.
+  bool _createdOperatorNext() =>
+      _isOperatorName(_tok) && _startsOperand(_tokens[_pos + 1].kind);
 
   /// `ick`'s slat (R3): a scalar, `/`, then the rest of the expression, which the scalar stands for
   /// from then on.

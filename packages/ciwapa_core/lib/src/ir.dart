@@ -207,6 +207,37 @@ class IrSlat extends IrExpr {
   String toString() => '$slot/#$id';
 }
 
+/// A created operator (R3). When a CREATE has given [signature] (from 1 in
+/// [IrProgram.signatures]) a meaning, it stashes [variables] (`:1601` to `:1603`), makes the first
+/// two stand for overloads [leftId] and [rightId] (its operands), runs the INTERCAL code until it
+/// RESUMEs, and has `:1603`'s value. Otherwise, or with [signature] 0 in a program with no CREATE,
+/// its operands are evaluated and it is E000 with [text].
+class IrCreatedOp extends IrExpr {
+  const IrCreatedOp(
+    this.signature,
+    this.left,
+    this.right, {
+    required this.text,
+    this.leftId = 0,
+    this.rightId = 0,
+    this.variables = const [],
+  });
+
+  final int signature;
+  final IrExpr left;
+  final IrExpr right;
+  final String text;
+  final int leftId;
+  final int rightId;
+  final List<Slot> variables;
+
+  @override
+  int get width => 32;
+
+  @override
+  String toString() => '($signature $left $right)';
+}
+
 /// The next number from input, as WRITE IN reads it (§4.4.12), for a target of [width] bits. The
 /// emitters use it to share the assignment path; lowering never produces it. A [signed] input
 /// already has its target's width (R6).
@@ -360,6 +391,21 @@ class IrTryAgain extends IrOp {
   String toString() => 'TRY AGAIN';
 }
 
+/// `ick`'s GO BACK and GO AHEAD (R3). Only the control engine runs them.
+class IrGoBack extends IrOp {
+  const IrGoBack();
+
+  @override
+  String toString() => 'GO BACK';
+}
+
+class IrGoAhead extends IrOp {
+  const IrGoAhead();
+
+  @override
+  String toString() => 'GO AHEAD';
+}
+
 class IrGiveUp extends IrOp {
   const IrGiveUp();
 
@@ -403,6 +449,36 @@ class IrGerundComeFrom extends IrOp {
       '${nexting ? 'NEXT' : 'COME'} FROM ${[for (final g in gerunds) g.name].join('+')}';
 }
 
+/// `ick`'s CREATE (R3): signature [signature] (from 1 in [IrProgram.signatures]) NEXTs to [label]
+/// from now on, or for a computed CREATE to [target]'s value; 0 takes the meaning away. Only the
+/// control engine runs it.
+class IrCreate extends IrOp {
+  const IrCreate(this.signature, {this.label = 0, this.target});
+
+  final int signature;
+  final int label;
+  final IrExpr? target;
+
+  @override
+  String toString() => 'CREATE#$signature ${target ?? '($label)'}';
+}
+
+/// An undecodable statement that a CREATE can give a meaning (R3): it stashes [variables]
+/// (`:1601` on), makes each stand for its operand (overloads [operands]), NEXTs to the created
+/// label, and retrieves them when a RESUME returns. Without a meaning, it is E000 with [text]. Only
+/// the control engine runs it.
+class IrUnknown extends IrOp {
+  const IrUnknown(this.signature, this.operands, this.variables, this.text);
+
+  final int signature;
+  final List<int> operands;
+  final List<Slot> variables;
+  final String text;
+
+  @override
+  String toString() => 'UNKNOWN#$signature';
+}
+
 /// An undecodable statement: E000 with [text] as the message (decision T10).
 class IrUndecodable extends IrOp {
   const IrUndecodable(this.text);
@@ -423,6 +499,7 @@ class IrStatement {
     required this.percent,
     required this.faults,
     this.onceAgain = OnceAgain.none,
+    this.maybe = false,
   });
 
   final int ordinal;
@@ -443,6 +520,9 @@ class IrStatement {
 
   /// `ick`'s ONCE or AGAIN, as written (R3). Only the control engine runs it.
   final OnceAgain onceAgain;
+
+  /// `ick`'s MAYBE (R3). Only the control engine runs it.
+  final bool maybe;
 
   /// The ordinal printed on line 3 of an error raised here (decision T33).
   late int next;
@@ -491,7 +571,12 @@ class IrProgram {
     this.wideArrays = const [],
     this.engine = false,
     this.overloads = const [],
+    this.signatures = const [],
   });
+
+  /// The signatures of the CREATE templates, unknown statements and created operators (R3),
+  /// numbered from 1. Empty when the program has no CREATE.
+  final List<String> signatures;
 
   /// The expressions slats make variables stand for (R3), numbered from 1. A program with any
   /// reads and writes every scalar through its overloading.
@@ -580,6 +665,13 @@ class _Lowering {
   final _labels = <int, int>{};
   late List<Fault> _faults;
 
+  /// The statement being lowered.
+  late Statement _statement;
+
+  /// Without a CREATE, unknown statements and created operators can only be E000.
+  late final bool _creates = program.statements.any((s) => s.body is Create);
+  final _signatures = <String, int>{};
+
   IrProgram build(IrOptions options) {
     final statements = program.statements;
     for (final (i, s) in statements.indexed) {
@@ -597,6 +689,7 @@ class _Lowering {
       }
       final percent = s.percent;
       if (percent != null && percent > 100) _faults.add(const Fault(17));
+      _statement = s;
       final op = _op(s);
       ir.add(
         IrStatement(
@@ -607,7 +700,9 @@ class _Lowering {
           initiallyAbstained: s.not,
           percent: percent != null && percent <= 100 ? percent : null,
           faults: _faults,
-          onceAgain: s.onceAgain,
+          // An unknown statement whose operands would fault is a comment, ONCE and all (L22).
+          onceAgain: op is IrUndecodable ? OnceAgain.none : s.onceAgain,
+          maybe: s.maybe,
         ),
       );
     }
@@ -654,12 +749,17 @@ class _Lowering {
       wideScalars: _wideScalars.values.toList(),
       wideArrays: _wideArrays.values.toList(),
       overloads: _overloads,
+      signatures: _signatures.keys.toList(),
       engine:
           program.extracal &&
           (options.forceEngine ||
               _overloads.isNotEmpty ||
+              _creates ||
               ir.any(
-                (s) => _needsEngine(s.op) || s.onceAgain != OnceAgain.none,
+                (s) =>
+                    _needsEngine(s.op) ||
+                    s.onceAgain != OnceAgain.none ||
+                    s.maybe,
               )),
     );
   }
@@ -670,7 +770,9 @@ class _Lowering {
     IrComputedComeFrom() ||
     IrGerundComeFrom() ||
     IrAbstain(count: _?) ||
-    IrTryAgain() => true,
+    IrTryAgain() ||
+    IrGoBack() ||
+    IrGoAhead() => true,
     _ => false,
   };
 
@@ -707,6 +809,8 @@ class _Lowering {
       ], signed: signed),
       GiveUp() => const IrGiveUp(),
       TryAgain() => const IrTryAgain(),
+      GoBack() => const IrGoBack(),
+      GoAhead() => const IrGoAhead(),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),
@@ -717,7 +821,49 @@ class _Lowering {
         nexting: nexting,
       ),
       Undecodable() => IrUndecodable(_text(s)),
+      Unknown(:final signature, :final operands) => _unknown(
+        s,
+        signature,
+        operands,
+      ),
+      Create(:final signature, :final label, :final target) => IrCreate(
+        _signature(signature),
+        label: label ?? 0,
+        target: target == null ? null : _expr(target),
+      ),
     };
+  }
+
+  int _signature(String signature) =>
+      _signatures.putIfAbsent(signature, () => _signatures.length + 1);
+
+  /// `:1601` and on, which stand for a created statement's or operator's operands.
+  List<Slot> _createVariables(int count) => [
+    for (var i = 0; i < count; i++) _scalar(VarRef(VarKind.twoSpot, 1601 + i)),
+  ];
+
+  /// An unknown statement whose operands would fault stays a comment, as it is in Mode 1.
+  IrOp _unknown(Statement s, String signature, List<Expr> operands) {
+    if (!_creates) return IrUndecodable(_text(s));
+    final faults = _faults, overloads = _overloads.length;
+    _faults = [];
+    final ids = <int>[];
+    for (final o in operands) {
+      _overloads.add(_expr(o));
+      ids.add(_overloads.length);
+    }
+    final clean = _faults.isEmpty;
+    _faults = faults;
+    if (!clean) {
+      _overloads.length = overloads;
+      return IrUndecodable(_text(s));
+    }
+    return IrUnknown(
+      _signature(signature),
+      ids,
+      _createVariables(operands.length),
+      _text(s),
+    );
   }
 
   String _text(Statement s) {
@@ -800,7 +946,28 @@ class _Lowering {
     Unary(:final op, :final operand) => IrUnary(op, _expr(operand)),
     Slat(:final scalar, :final expr) => _slat(scalar, expr),
     Binary() => _binary(e),
+    CreatedOp() => _createdOp(e),
   };
+
+  IrExpr _createdOp(CreatedOp e) {
+    final left = _expr(e.left);
+    if (e.ungrouped) _faults.add(const Fault(17));
+    final right = _expr(e.right);
+    final text = _text(_statement);
+    if (!_creates) return IrCreatedOp(0, left, right, text: text);
+    _overloads
+      ..add(left)
+      ..add(right);
+    return IrCreatedOp(
+      _signature(e.signature),
+      left,
+      right,
+      text: text,
+      leftId: _overloads.length - 1,
+      rightId: _overloads.length,
+      variables: _createVariables(3),
+    );
+  }
 
   IrExpr _slat(VarRef scalar, Expr expr) {
     final slot = _scalar(scalar);

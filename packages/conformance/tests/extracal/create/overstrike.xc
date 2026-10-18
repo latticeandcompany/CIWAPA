@@ -1,0 +1,6 @@
+	DO CREATE (15) o-
+	DO .1 <- #2 o- #3
+	DO READ OUT .1
+	PLEASE GIVE UP
+(15)	DO :1603 <- :1602 ~ :1601
+	PLEASE RESUME #1
