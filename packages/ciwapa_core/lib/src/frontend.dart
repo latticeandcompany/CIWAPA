@@ -68,7 +68,8 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           gerund == Gerund.nextingFrom ||
           (body is AbstainBody && body.count != null) ||
           s.onceAgain != OnceAgain.none ||
-          body is TryAgain) {
+          body is TryAgain ||
+          body is Create) {
         throw CompileError(111, i + 1);
       }
     }
@@ -85,6 +86,7 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   }
   _checkLabels(statements);
   _checkOperators(statements, base);
+  _demoteUnreadable(statements, base);
   return Program(
     source,
     base,
@@ -145,17 +147,31 @@ void _checkLabels(List<Statement> statements) {
 
 /// `^` and `@` exist only in bases 3–7, and `N@` only where N ≤ base − 2 (§6.6, decision T40).
 void _checkOperators(List<Statement> statements, int base) {
-  bool allowed(UnaryOp op) => switch (op) {
-    UnaryOp.and || UnaryOp.or || UnaryOp.xor => true,
-    UnaryOp.sharkfin => base >= 3,
-    _ => op.whirlpoolDigit + 2 <= base,
-  };
   for (final (i, s) in statements.indexed) {
     for (final e in expressionsOf(s.body)) {
-      if (unaryOps(e).any((op) => !allowed(op))) throw CompileError(997, i + 1);
+      if (unaryOps(e).any((op) => !_allowed(op, base))) {
+        throw CompileError(997, i + 1);
+      }
     }
   }
 }
+
+/// An unknown statement whose operands use an operator the base doesn't have stays a comment, as
+/// it is in Mode 1, rather than failing the whole program.
+void _demoteUnreadable(List<Statement> statements, int base) {
+  for (final s in statements) {
+    final body = s.body;
+    if (body is! Unknown) continue;
+    final ops = body.operands.expand(unaryOps);
+    if (ops.any((op) => !_allowed(op, base))) s.body = const Undecodable();
+  }
+}
+
+bool _allowed(UnaryOp op, int base) => switch (op) {
+  UnaryOp.and || UnaryOp.or || UnaryOp.xor => true,
+  UnaryOp.sharkfin => base >= 3,
+  _ => op.whirlpoolDigit + 2 <= base,
+};
 
 /// Every top-level expression a statement body evaluates or assigns to.
 Iterable<Expr> expressionsOf(Body body) => switch (body) {
@@ -164,6 +180,7 @@ Iterable<Expr> expressionsOf(Body body) => switch (body) {
   Forget(:final count) || Resume(:final count) => [count],
   ComputedComeFrom(:final label) => [label],
   AbstainBody(:final count?) => [count],
+  Create(:final target?) => [target],
   IoBody(:final items) => items,
   _ => const [],
 };
@@ -173,7 +190,8 @@ Iterable<UnaryOp> unaryOps(Expr e) sync* {
     case Unary(:final op, :final operand):
       yield op;
       yield* unaryOps(operand);
-    case Binary(:final left, :final right):
+    case Binary(:final left, :final right) ||
+        CreatedOp(:final left, :final right):
       yield* unaryOps(left);
       yield* unaryOps(right);
     case Element(:final subscripts):

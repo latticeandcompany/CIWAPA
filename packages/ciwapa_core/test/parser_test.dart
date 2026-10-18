@@ -417,4 +417,58 @@ void main() {
       }
     });
   });
+
+  group('CREATE and just-in-case compilation (R3)', () {
+    List<Statement> xc(String text) =>
+        Parser(Source('test.xc', text), extensions: true).parse();
+
+    test(
+      'an undecodable statement of letters and operands has a signature',
+      () {
+        final body = xc('DO SWITCH .1 WITH ,2 SUB #1 AND ,3 OR #4~.5')
+            .single
+            .body;
+        expect(body, isA<Unknown>());
+        expect((body as Unknown).signature, 'SWITCH.WITH;AND,OR~');
+        expect(body.operands, hasLength(4));
+        expect(body.operands[2], isA<ArrayItem>());
+      },
+    );
+
+    test('two operands in a row, or a keyword, keep a statement a comment', () {
+      expect(xc('DO FOO .1 .2').single.body, isA<Undecodable>());
+      expect(xc('DO FOO .1 FROM .2').single.body, isA<Undecodable>());
+      expect(xc('PLEASE NOTE THIS RUNS ONCE').single.body, isA<Undecodable>());
+    });
+
+    test('Mode 1 has no unknown statements', () {
+      expect(parse('DO SWITCH .1 WITH .2').single.body, isA<Undecodable>());
+    });
+
+    test('CREATE takes a template or an operator', () {
+      final statement = xc('DO CREATE (5) SWITCH .1 WITH .2').single.body;
+      expect(statement, isA<Create>());
+      expect((statement as Create).signature, 'SWITCH.WITH.');
+      expect(statement.label, 5);
+      final operator = xc('DO CREATE (6) x').single.body as Create;
+      expect(operator.signature, 'u78');
+      final computed = xc('DO CREATE .5 =').single.body as Create;
+      expect(computed.signature, 'u3d');
+      expect(computed.target, isA<Scalar>());
+      final overstrike = xc('DO CREATE (7) o\b-').single.body as Create;
+      expect(overstrike.signature, 'o2dx6f');
+    });
+
+    test('a computed CREATE template starts with a letter', () {
+      final body = xc('DO CREATE .5~.6 TWICE .1').single.body as Create;
+      expect(body.target, isA<Binary>());
+      expect(body.signature, 'TWICE.');
+    });
+
+    test('a created operator parses like a mingle', () {
+      final s = xc('DO .1 <- #1 x .2').single.body as Calculate;
+      expect(s.value, isA<CreatedOp>());
+      expect((s.value as CreatedOp).signature, 'u78');
+    });
+  });
 }

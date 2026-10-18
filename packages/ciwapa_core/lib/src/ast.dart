@@ -111,6 +111,27 @@ class Slat extends Expr {
   String toString() => '$scalar/$expr';
 }
 
+/// A use of an operator a CREATE may define (R3): any character `ick` doesn't use, written
+/// between two operands like a mingle. [signature] is `ick`'s name for it, such as `u78` for `x`.
+class CreatedOp extends Expr {
+  const CreatedOp(
+    this.signature,
+    this.left,
+    this.right, {
+    this.ungrouped = false,
+  });
+
+  final String signature;
+  final Expr left;
+  final Expr right;
+
+  /// As for [Binary.ungrouped].
+  final bool ungrouped;
+
+  @override
+  String toString() => '($signature $left $right)';
+}
+
 class Binary extends Expr {
   const Binary(this.op, this.left, this.right, {this.ungrouped = false});
 
@@ -298,12 +319,44 @@ class GerundComeFrom extends Body {
   Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
 }
 
-/// A statement the compiler can't decode (§4.5). It raises E000 if it executes.
+/// A statement the compiler can't decode (§4.5). It raises E000 if it executes. EXTRACAL's COMMENT
+/// gerund abstains it (R3).
 class Undecodable extends Body {
   const Undecodable();
 
   @override
-  Gerund? get gerund => null;
+  Gerund get gerund => Gerund.commenting;
+}
+
+/// An undecodable statement that `ick`'s just-in-case compiler can still read (R3): capital
+/// letters and operands, no two operands in a row. If a CREATE has given its [signature] a
+/// meaning, it NEXTs there with `:1601` and on standing for its [operands]; otherwise it is E000.
+class Unknown extends Body {
+  const Unknown(this.signature, this.operands);
+
+  /// The letters as themselves and each operand as `.` (a scalar), `;` (an array element), `,` (a
+  /// whole array) or `~` (any other expression), as in `ick`.
+  final String signature;
+
+  /// The operands in order: scalars, elements, other expressions and [ArrayItem]s.
+  final List<Expr> operands;
+
+  @override
+  Gerund get gerund => Gerund.commenting;
+}
+
+/// `ick`'s CREATE (R3): from now on, statements shaped like the template, or uses of the operator,
+/// NEXT to [label] or, for a computed CREATE, to [target]'s value.
+class Create extends Body {
+  const Create(this.signature, {this.label, this.target});
+
+  /// The template's signature, as for [Unknown], or an operator's, as for [CreatedOp].
+  final String signature;
+  final int? label;
+  final Expr? target;
+
+  @override
+  Gerund get gerund => Gerund.creating;
 }
 
 /// `ick`'s ONCE and AGAIN: after a statement is reached, ONCE on a reinstated statement (or AGAIN

@@ -19,6 +19,9 @@ enum EngineKind {
   gerundNextFrom,
   computedAbstain,
   tryAgain,
+  create,
+  computedCreate,
+  unknown,
 }
 
 /// The fields of one statement's row, in order.
@@ -36,13 +39,14 @@ enum EngineField {
   listLength,
   comeFromStart,
   comeFromLength,
+  signature,
 }
 
 const engineInitiallyAbstained = 1, engineBug = 2;
 
 /// What EXTRACAL's control engine needs to know about a program (R3): a row of [EngineField]s per
 /// statement (row 0 is unused, so a row's index is its ordinal), the lists the rows point into,
-/// and the text of each undecodable statement.
+/// and the text of each undecodable or unknown statement.
 class EngineTable {
   EngineTable(IrProgram program) {
     rows.addAll(List.filled(EngineField.values.length, 0));
@@ -67,6 +71,9 @@ class EngineTable {
         IrComeFrom(nexting: true) => (EngineKind.nextFrom, const <int>[]),
         IrComeFrom() => (EngineKind.comeFrom, const <int>[]),
         IrUndecodable() => (EngineKind.undecodable, const <int>[]),
+        IrCreate(target: _?) => (EngineKind.computedCreate, const <int>[]),
+        IrCreate() => (EngineKind.create, const <int>[]),
+        IrUnknown() => (EngineKind.unknown, const <int>[]),
         IrComputedComeFrom(nexting: true) => (
           EngineKind.computedNextFrom,
           const <int>[],
@@ -101,7 +108,17 @@ class EngineTable {
       });
       set(EngineField.fault, s.faults.isEmpty ? 0 : s.faults.first.code);
       set(EngineField.next, s.next);
-      if (s.op case IrNext(:final target)) set(EngineField.target, target);
+      switch (s.op) {
+        case IrNext(:final target) || IrCreate(label: final target):
+          set(EngineField.target, target);
+        case IrUnknown(:final signature, :final text):
+          set(EngineField.signature, signature);
+          texts[s.ordinal] = text;
+        default:
+      }
+      if (s.op case IrCreate(:final signature)) {
+        set(EngineField.signature, signature);
+      }
       set(EngineField.listStart, lists.length);
       set(EngineField.listLength, targets.length);
       lists.addAll(targets);

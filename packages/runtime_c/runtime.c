@@ -1,5 +1,6 @@
 /* The runtime that ciwapa-llvm links into every program. runtime.dart is its twin; the
  * conformance suite keeps the two byte-for-byte identical in behavior. */
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1181,13 +1182,13 @@ void ick_xunary(uint64_t *out, uint32_t op, uint32_t aw, uint64_t ahi, uint64_t 
 
 enum {
   X_KIND, X_LABEL, X_GERUND, X_FLAGS, X_PERCENT, X_ONCE_AGAIN, X_FAULT, X_NEXT, X_TARGET,
-  X_LIST_START, X_LIST_LENGTH, X_COME_FROM_START, X_COME_FROM_LENGTH, X_STRIDE
+  X_LIST_START, X_LIST_LENGTH, X_COME_FROM_START, X_COME_FROM_LENGTH, X_SIGNATURE, X_STRIDE
 };
 
 enum {
   X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
   X_NEXT_FROM, X_UNDECODABLE, X_COMPUTED_COME_FROM, X_COMPUTED_NEXT_FROM, X_GERUND_COME_FROM,
-  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN, X_TRY_AGAIN
+  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN, X_TRY_AGAIN, X_CREATE, X_COMPUTED_CREATE, X_UNKNOWN
 };
 
 /* The computed and gerund COME FROMs and NEXT FROMs. */
@@ -1205,8 +1206,13 @@ enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2 };
 enum { X_NO_ONCE_AGAIN, X_ABSTAIN_AFTER, X_REINSTATE_AFTER };
 
 /* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. Position
- * X_CHAIN_END is the end of the computed COME FROM checks. */
-enum { X_START, X_TAIL, X_END, X_LANDING, X_CHECK, X_MATCHED, X_LANDED, X_CHAIN_END };
+ * X_CHAIN_END is the end of the computed COME FROM checks, and X_OPERATOR_DONE the end of a
+ * created operator's code. */
+enum { X_START, X_TAIL, X_END, X_LANDING, X_CHECK, X_MATCHED, X_LANDED, X_RETURNED };
+#define X_CHAIN_END 7u
+#define X_OPERATOR_DONE UINT32_MAX
+#define X_NO_RESUME (-1)
+#define X_RESUME_OPERATOR (-2)
 
 typedef struct {
   const int32_t *table;
@@ -1228,6 +1234,9 @@ typedef struct {
 } ick_x_thread;
 
 static ick_x_program x;
+static void x_loop(uint32_t level);
+void ick_ov_stash(uint32_t key);
+void ick_ov_retrieve(uint32_t key);
 /* Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more than
  * 1, and it saturates instead of overflowing. */
 static int64_t *x_abstained;
@@ -1240,6 +1249,33 @@ static uint32_t *x_chain, x_chain_length, *x_chain_next;
 static int x_gerund_chain;
 
 static int32_t x_get(uint32_t ordinal, int field) { return x.table[ordinal * X_STRIDE + field]; }
+
+/* Each signature's created label, or 0 (`ick`'s just-in-case table, R3), and the program's
+ * function that stashes `:1601` and on for an unknown statement given a meaning, or on its
+ * return, retrieves them. */
+static uint64_t *x_creations;
+static void (*x_unknown)(uint32_t ordinal, uint32_t entering);
+
+/* Each label's ordinal, for the jumps to created labels. */
+static uint32_t *x_labels;
+
+/* How many created operators are being evaluated. Each one runs the engine a level deeper, with a
+ * NEXT stack entry of X_MARKER | level, and a RESUME to that entry ends it. x_levels is where each
+ * level's loop picks up when the operators deeper than it are abandoned, and x_expanding the
+ * overload expansions in progress as it started. */
+#define X_MARKER 0x80000000u
+static uint32_t x_level;
+static jmp_buf x_levels[NEXT_DEPTH + 1];
+static uint8_t *x_expanding[NEXT_DEPTH + 1][2];
+static uint8_t *getting, *setting;
+static int32_t *overload_of;
+static uint32_t overload_count;
+
+void ick_x_creates(uint32_t signatures, void (*unknown)(uint32_t, uint32_t)) {
+  x_creations = calloc(signatures + 1, sizeof(uint64_t));
+  if (!x_creations) ick_fatal(778, 1);
+  x_unknown = unknown;
+}
 
 static void x_next_push(uint32_t id, uint32_t target) {
   if (ick_next_depth == NEXT_DEPTH) ick_fatal(123, target);
@@ -1283,7 +1319,42 @@ static int x_runs(uint32_t ordinal, int64_t abstained) {
 /* Where a RESUME to [ordinal] lands: a NEXT's own return point, before its tail, or the end of a
  * statement a NEXT FROM took control from. */
 static uint32_t x_return(uint32_t ordinal) {
-  return ordinal * 8 + (x_get(ordinal, X_KIND) == X_NEXT_KIND ? X_TAIL : X_END);
+  int32_t kind = x_get(ordinal, X_KIND);
+  return ordinal * 8 + (kind == X_NEXT_KIND ? X_TAIL : kind == X_UNKNOWN ? X_RETURNED : X_END);
+}
+
+static void x_restore_expanding(uint32_t level) {
+  if (!overload_count) return;
+  if (level == 0) {
+    memset(getting, 0, overload_count + 1);
+    memset(setting, 0, overload_count + 1);
+  } else {
+    memcpy(getting, x_expanding[level][0], overload_count + 1);
+    memcpy(setting, x_expanding[level][1], overload_count + 1);
+  }
+}
+
+/* Continues at [level] when the created operators deeper than it have been abandoned. */
+static void x_unwind_to(uint32_t level) {
+  if (level < x_level) longjmp(x_levels[level], 1);
+}
+
+/* The shallowest level among the created operators' NEXT stack entries from [from] up to [to],
+ * or 0. */
+static uint32_t x_level_in(uint32_t from, uint32_t to) {
+  for (uint32_t i = from; i < to; i++) {
+    if (ick_next_stack[i] & X_MARKER) return ick_next_stack[i] & ~X_MARKER;
+  }
+  return 0;
+}
+
+/* Pushes [id] for a NEXT to created label [label], and returns the label's ordinal: E123 first, as
+ * in `ick`, then E129 when there is no such label. */
+static uint32_t x_created_next(uint32_t id, uint64_t label, uint32_t next) {
+  uint32_t target = label >= 1 && label <= 65535 ? x_labels[label] : 0;
+  x_next_push(id, target ? target : next);
+  if (!target) ick_fatal(129, next);
+  return target;
 }
 
 static void x_start(ick_x_thread *t, uint32_t ordinal) {
@@ -1292,8 +1363,9 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
   int32_t kind = x_get(ordinal, X_KIND);
   t->position = ordinal * 8 + X_TAIL;
   if (x_comes_from(kind)) return;
-  int64_t abstained =
-      kind == X_NEXT_KIND || kind == X_UNDECODABLE ? x_once_again(ordinal) : x_abstained[ordinal];
+  int64_t abstained = kind == X_NEXT_KIND || kind == X_UNDECODABLE || kind == X_UNKNOWN
+                          ? x_once_again(ordinal)
+                          : x_abstained[ordinal];
   if (!x_runs(ordinal, abstained)) {
     /* A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything. */
     if (kind == X_TRY_AGAIN) ick_give_up();
@@ -1311,12 +1383,29 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     t->position = target * 8 + X_START;
     break;
   }
-  case X_FORGET: x_forget(x.expr(ordinal)); break;
-  case X_RESUME:
+  case X_FORGET: {
+    uint32_t from = ick_next_depth;
+    x_forget(x.expr(ordinal));
+    uint32_t abandoned = x_level_in(ick_next_depth, from);
+    if (abandoned) x_unwind_to(abandoned - 1);
+    break;
+  }
+  case X_RESUME: {
     /* Unlike `ick`, an executed RESUME still springs a COME FROM aimed at it, as in Mode 1
      * (§4.4.14.2), so it returns only after its tail. */
-    t->resume_to = x_return(x_resume(x.expr(ordinal), next));
+    uint32_t from = ick_next_depth;
+    uint32_t landing = x_resume(x.expr(ordinal), next);
+    if (landing & X_MARKER) {
+      /* Back into a created operator: its level finishes this RESUME. */
+      t->resume_to = X_RESUME_OPERATOR;
+      x_unwind_to(landing & ~X_MARKER);
+    } else {
+      t->resume_to = x_return(landing);
+      uint32_t abandoned = x_level_in(ick_next_depth, from);
+      if (abandoned) x_unwind_to(abandoned - 1);
+    }
     break;
+  }
   case X_GIVE_UP: ick_give_up();
   case X_TRY_AGAIN:
     /* `ick` jumps straight back to the start, past this statement's tail. */
@@ -1344,6 +1433,17 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
     break;
   }
   case X_UNDECODABLE: ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
+  case X_CREATE:
+    x_creations[x_get(ordinal, X_SIGNATURE)] = (uint32_t)x_get(ordinal, X_TARGET);
+    break;
+  case X_COMPUTED_CREATE: x_creations[x_get(ordinal, X_SIGNATURE)] = x.expr(ordinal); break;
+  case X_UNKNOWN: {
+    uint64_t label = x_creations[x_get(ordinal, X_SIGNATURE)];
+    if (!label) ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
+    x_unknown(ordinal, 1);
+    t->position = x_created_next(ordinal, label, next) * 8 + X_START;
+    break;
+  }
   }
 }
 
@@ -1356,8 +1456,8 @@ static void x_candidate(ick_x_thread *t, uint32_t landing) {
 static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   int32_t kind = x_get(ordinal, X_KIND);
   /* An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen. */
-  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_COME_FROM && kind != X_NEXT_FROM &&
-      t->resume_to < 0) {
+  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_UNKNOWN && kind != X_COME_FROM &&
+      kind != X_NEXT_FROM && t->resume_to == X_NO_RESUME) {
     x_once_again(ordinal);
   }
   t->candidates = 0;
@@ -1366,7 +1466,7 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
    * is the one this thread follows. */
   /* An executed RESUME springs only a plain COME FROM, by Mode 1's rule; in `ick` it springs
    * nothing, and so it is for the extensions. */
-  int resuming = t->resume_to >= 0;
+  int resuming = t->resume_to != X_NO_RESUME;
   int32_t start = x_get(ordinal, X_COME_FROM_START);
   for (int32_t i = x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
     uint32_t from = (uint32_t)x.lists[start + i];
@@ -1380,8 +1480,15 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
     if (fault && !(x_get(from, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(from, X_NEXT));
     x_candidate(t, from * 8 + X_LANDING);
   }
-  uint32_t otherwise = t->resume_to >= 0 ? (uint32_t)t->resume_to : ordinal * 8 + X_END;
-  t->resume_to = -1;
+  uint32_t otherwise = t->resume_to == X_RESUME_OPERATOR ? X_OPERATOR_DONE
+                       : resuming                          ? (uint32_t)t->resume_to
+                                                           : ordinal * 8 + X_END;
+  t->resume_to = X_NO_RESUME;
+  /* A COME FROM that takes control from a RESUME into a created operator abandons it. */
+  if (otherwise == X_OPERATOR_DONE && t->candidates) {
+    t->position = t->chosen;
+    x_unwind_to(x_level - 1);
+  }
   uint32_t label = (uint32_t)x_get(ordinal, X_LABEL);
   if (!resuming && x_chain_length && (label || x_gerund_chain)) {
     t->finishing_label = label;
@@ -1439,12 +1546,30 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
   for (uint32_t i = 0; i < x_chain_length; i++) {
     x_chain_next[x_chain[i]] = i + 1 < x_chain_length ? x_chain[i + 1] * 8 + X_CHECK : X_CHAIN_END;
   }
+  x_labels = calloc(65536, sizeof(uint32_t));
+  if (!x_labels) ick_fatal(778, 1);
+  for (uint32_t s = count; s >= 1; s--) {
+    int32_t label = x_get(s, X_LABEL);
+    if (label) x_labels[label] = s;
+  }
+  x_loop(0);
+  ick_fatal(778, 1);
+}
+
+/* Runs the engine at [level] until the created operator that started it finishes. */
+static void x_loop(uint32_t level) {
   ick_x_thread *t = &x_thread;
+  uint32_t count = x.count;
+  if (setjmp(x_levels[level])) {
+    x_level = level;
+    x_restore_expanding(level);
+  }
   for (;;) {
     if (t->position == X_CHAIN_END) {
       t->position = t->chosen;
       continue;
     }
+    if (t->position == X_OPERATOR_DONE) return;
     uint32_t ordinal = t->position >> 3;
     if (ordinal > count || ordinal == 0) ick_fatal(633, count + 1);
     switch (t->position & 7) {
@@ -1458,8 +1583,51 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
       x_candidate(t, ordinal * 8 + X_LANDED);
       t->position = x_chain_next[ordinal];
       break;
+    case X_RETURNED:
+      x_unknown(ordinal, 0);
+      t->position = ordinal * 8 + X_TAIL;
+      break;
     }
   }
+}
+
+/* A created operator (R3): `:1601` to `:1603` (scalars [a], [b] and [c]) are stashed, the first
+ * two stand for the operands (overloads [left_id] and [right_id]), and the created label's code
+ * runs, a level deeper, until a RESUME returns to it. The result is `:1603`'s value. The program
+ * has already evaluated the operands, as `ick` does. */
+uint32_t ick_x_operator(uint32_t signature, uint32_t left_id, uint32_t right_id, uint32_t a,
+                        uint32_t b, uint32_t c, const char *text, uint32_t length, uint32_t next) {
+  uint64_t label = x_creations[signature];
+  if (!label) ick_undecodable(text, length, next);
+  uint32_t vars[3] = {a, b, c};
+  for (int i = 0; i < 3; i++) {
+    ick_stash_scalar(vars[i], next);
+    ick_ov_stash(vars[i]);
+  }
+  overload_of[a] = (int32_t)left_id;
+  overload_of[b] = (int32_t)right_id;
+  overload_of[c] = 0;
+  ick_x_thread *t = &x_thread, saved = *t;
+  uint32_t level = ++x_level;
+  if (!x_expanding[level][0]) {
+    x_expanding[level][0] = malloc(overload_count + 1);
+    x_expanding[level][1] = malloc(overload_count + 1);
+    if (!x_expanding[level][0] || !x_expanding[level][1]) ick_fatal(778, 1);
+  }
+  memcpy(x_expanding[level][0], getting, overload_count + 1);
+  memcpy(x_expanding[level][1], setting, overload_count + 1);
+  t->position = x_created_next(X_MARKER | level, label, next) * 8 + X_START;
+  t->resume_to = X_NO_RESUME;
+  x_loop(level);
+  x_level = level - 1;
+  x_restore_expanding(level);
+  *t = saved;
+  uint32_t result = program->values[c];
+  for (int i = 0; i < 3; i++) {
+    ick_retrieve_scalar(vars[i], next);
+    ick_ov_retrieve(vars[i]);
+  }
+  return result;
 }
 
 /* Whether statement [ordinal] isn't abstained, for the native library guards. */
@@ -1477,9 +1645,7 @@ typedef struct {
   size_t count, capacity;
 } ick_overload_stash;
 
-static int32_t *overload_of;
 static ick_overload_stash *overload_stashes;
-static uint8_t *getting, *setting;
 static uint64_t (*ov_get)(uint32_t id, uint32_t next);
 static void (*ov_set)(uint32_t id, uint64_t value, uint32_t next);
 
@@ -1489,6 +1655,7 @@ void ick_init_overloading(uint32_t keys, uint32_t overloads, uint64_t (*get)(uin
   overload_stashes = calloc(keys ? keys : 1, sizeof(ick_overload_stash));
   getting = calloc(overloads + 1, 1);
   setting = calloc(overloads + 1, 1);
+  overload_count = overloads;
   if (!overload_of || !overload_stashes || !getting || !setting) ick_fatal(778, 1);
   ov_get = get;
   ov_set = set;

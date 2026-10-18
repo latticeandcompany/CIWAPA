@@ -77,8 +77,9 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 9. CREATE
 
-- [ ] R3.9 — `CREATE (n) template` makes statements of that shape NEXT to (n) with `:1601`… standing for their operands. Tests: `packages/conformance/tests/extracal/create/statement.xc`
-- [ ] R3.9 — `CREATE (n) x` makes `x` a binary operator. Tests: `packages/conformance/tests/extracal/create/operator.xc`
+- [x] R3.9 — `CREATE (n) template` makes statements of that shape NEXT to (n) with `:1601`… standing for their operands, which are retrieved when a RESUME returns. Tests: `packages/conformance/tests/extracal/create/statement.xc`, `packages/conformance/tests/extracal/create/come-from.xc`, `packages/conformance/tests/extracal/create/e277-array.xc`, `packages/ciwapa_core/test/parser_test.dart`
+- [x] R3.9 — `CREATE (n) x` makes `x` (or an unused punctuation mark, or an overstrike) a binary operator whose result is `:1603`. Tests: `packages/conformance/tests/extracal/create/operator.xc`, `packages/conformance/tests/extracal/create/overstrike.xc`, `packages/conformance/tests/extracal/create/abandon.xc`, `packages/conformance/tests/extracal/create/forget.xc`, `packages/conformance/tests/extracal/create/no-create.xc`
+- [x] R3.9 — computed CREATE, a newer CREATE replacing an older one, CONFICE, the COMMENT and CREATION gerunds, E000 without a meaning and E129 for a missing label. Tests: `packages/conformance/tests/extracal/create/computed.xc`, `packages/conformance/tests/extracal/create/supersede.xc`, `packages/conformance/tests/extracal/create/latin.xc`, `packages/conformance/tests/extracal/create/gerunds.xc`, `packages/conformance/tests/extracal/create/unmatched.xc`, `packages/conformance/tests/extracal/create/e129.xc`, `packages/conformance/tests/extracal/create/traditional.xc`
 
 ### 11. CLC-style binary I/O
 

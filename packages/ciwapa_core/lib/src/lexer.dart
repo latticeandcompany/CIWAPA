@@ -41,6 +41,8 @@ enum TokenKind {
   nextFrom,
   giveUp,
   tryAgain,
+  create,
+  createLabel,
   gerund,
   signed,
   once,
@@ -80,6 +82,8 @@ enum Gerund {
   comingFrom,
   nextingFrom,
   tryingAgain,
+  creating,
+  commenting,
 }
 
 class Token {
@@ -100,8 +104,10 @@ class Token {
   final int start;
   final int end;
 
-  /// The number of a [TokenKind.number], [TokenKind.label] or [TokenKind.percent],
-  /// saturated at [Lexer.numberCap] so that absurdly long digit strings stay "too big".
+  /// The number of a [TokenKind.number], [TokenKind.label], [TokenKind.percent] or
+  /// [TokenKind.createLabel], saturated at [Lexer.numberCap] so that absurdly long digit strings
+  /// stay "too big". A [TokenKind.badChar]'s character, or for an overstrike, its two characters
+  /// as `ick` numbers them: the smaller one times 256 plus the larger.
   final int value;
 
   /// Whether an [TokenKind.identifier] includes PLEASE.
@@ -184,7 +190,9 @@ class Lexer {
       // The wow `!` is a spark followed by a spot (§3.4.3, decision T3).
       return [Token(TokenKind.spark, i, i), Token(TokenKind.oneSpot, i, i + 1)];
     }
-    if (candidates.isEmpty) return [Token(TokenKind.badChar, i, i + 1)];
+    if (candidates.isEmpty) {
+      return [Token(TokenKind.badChar, i, i + 1, value: c)];
+    }
     var best = candidates.first;
     for (final t in candidates.skip(1)) {
       if (t.end > best.end) best = t;
@@ -197,6 +205,34 @@ class Lexer {
       final end = _match(pattern, i);
       if (end != null) yield make(i, end);
     }
+    if (extensions) {
+      for (final word in const ['CREATE', 'CONFICE']) {
+        final end = _match(word, i);
+        if (end != null) {
+          yield _labelAfter(i, end) ?? Token(TokenKind.create, i, end);
+        }
+      }
+      if (_overstrike(i) case final token?) yield token;
+    }
+  }
+
+  /// `ick`'s CREATE with a label is one token (`CREATE{W}\({W}{D}\)`).
+  Token? _labelAfter(int i, int end) {
+    final j = _skipSpace(end);
+    if (j >= _text.length || _text[j] != 0x28) return null;
+    final label = _label(j);
+    if (label == null) return null;
+    return Token(TokenKind.createLabel, i, label.end, value: label.value);
+  }
+
+  /// `ick`'s `.\^H.`: two characters overstruck with a backspace, which names a created operator
+  /// unless the overstrike is a built-in one (longer matches win, and the built-ins come first).
+  Token? _overstrike(int i) {
+    if (i + 2 >= _text.length || _text[i + 1] != 0x08) return null;
+    final a = _text[i], b = _text[i + 2];
+    if (a == 0x0A || b == 0x0A) return null;
+    final value = a > b ? a + b * 256 : a * 256 + b;
+    return Token(TokenKind.badChar, i, i + 3, value: value);
   }
 
   /// Matches [pattern] at [i], where a space in the pattern stands for optional whitespace
@@ -395,6 +431,14 @@ class Lexer {
     ('CONCEDERE', _kind(TokenKind.giveUp)),
     ('DESPERARE', _kind(TokenKind.giveUp)),
     ('CONOR ITERUM', _kind(TokenKind.tryAgain)),
+    // CREATE and CONFICE are in [_fixed], because with a label they are one token.
+    ('CREATING', _gerund(Gerund.creating)),
+    ('CREATION', _gerund(Gerund.creating)),
+    ('CONFICENDUM', _gerund(Gerund.creating)),
+    ('COMMENT', _gerund(Gerund.commenting)),
+    ('COMMENTS', _gerund(Gerund.commenting)),
+    ('COMMENTING', _gerund(Gerund.commenting)),
+    ('COMMEMERO', _gerund(Gerund.commenting)),
   ];
 
   static final _widePatterns = <(String, Token Function(int, int))>[
