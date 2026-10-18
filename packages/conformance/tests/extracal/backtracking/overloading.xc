@@ -1,0 +1,6 @@
+	DO .1 <- #3
+	MAYBE DO .9 <- .1/.2
+	DO .2 <- #2
+	DO READ OUT .1
+	PLEASE GO BACK
+	PLEASE GIVE UP

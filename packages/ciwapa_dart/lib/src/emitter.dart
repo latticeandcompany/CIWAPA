@@ -791,6 +791,24 @@ class DartEmitter {
         final store = slot.wide ? 'w' : 'v', flags = slot.wide ? 'igw' : 'ig';
         _line('final t = ${checked(_expr(value, next))};');
         _line('if ($flags[${slot.index}] == 0) $store[${slot.index}] = t;');
+      // A created operator in the value can re-dimension the array or go back to a choicepoint,
+      // so the element is found again once the value is known.
+      case IrElement(:final array, :final subscripts)
+          when program.signatures.isNotEmpty:
+        final suffix = _suffix(array);
+        final values = _subscriptValues(subscripts, next);
+        final names = [for (var i = 0; i < values.length; i++) 'k$i'];
+        for (final (i, v) in values.indexed) {
+          _line('final ${names[i]} = $v;');
+        }
+        _line('${_elementOf(array, names, next)};');
+        _line('final t = ${checked(_expr(value, next))};');
+        _line('final o = ${_elementOf(array, names, next)};');
+        _line(
+          program.ignorable.contains(array)
+              ? 'if (!ickArrayIgnored$suffix(${array.index})) ickArrayData$suffix(${array.index})[o] = t;'
+              : 'ickArrayData$suffix(${array.index})[o] = t;',
+        );
       case IrElement(:final array, :final subscripts):
         final suffix = _suffix(array);
         _line('final o = ${_element(array, subscripts, next)};');
@@ -821,13 +839,15 @@ class DartEmitter {
       : _expr(count, next);
 
   /// The checked offset of an element; one and two subscripts skip building a list.
-  String _element(Slot array, List<IrExpr> subscripts, Object next) {
-    final values = [
-      for (final s in subscripts)
-        s.valueWidth == 64
-            ? 'ickSubscript64(${_expr(s, next)})'
-            : _expr(s, next),
-    ];
+  String _element(Slot array, List<IrExpr> subscripts, Object next) =>
+      _elementOf(array, _subscriptValues(subscripts, next), next);
+
+  List<String> _subscriptValues(List<IrExpr> subscripts, Object next) => [
+    for (final s in subscripts)
+      s.valueWidth == 64 ? 'ickSubscript64(${_expr(s, next)})' : _expr(s, next),
+  ];
+
+  String _elementOf(Slot array, List<String> values, Object next) {
     if (array.wide) {
       return 'ickElement64(${array.index}, [${values.join(', ')}], $next)';
     }
@@ -852,6 +872,10 @@ class DartEmitter {
     IrScalar(:final slot) => _trueValue(slot),
     IrSlat(:final slot, :final id) =>
       'ickOvSlat(${_key(slot)}, $id, ${_trueValue(slot)})',
+    // With created operators, the subscripts can change the array, so it is fetched after them.
+    IrElement(:final array, :final subscripts)
+        when program.signatures.isNotEmpty =>
+      'ickArrayAt${_suffix(array)}(${array.index}, ${_element(array, subscripts, next)})',
     IrElement(:final array, :final subscripts) =>
       'ickArrayData${_suffix(array)}(${array.index})[${_element(array, subscripts, next)}]',
     IrMingle(:final left, :final right)

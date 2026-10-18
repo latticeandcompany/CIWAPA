@@ -1003,8 +1003,14 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
         _line('$ignored = icmp ne i8 $flag, 0');
         _storeUnlessIgnored(pointer, v, ignored, type);
       case IrElement(:final array, :final subscripts):
-        final pointer = _elementPointer(array, subscripts, next);
+        final values = _subscriptValues(subscripts, next);
+        var pointer = _elementAt(array, values, next);
         final v = checked(_expr(value, next));
+        // A created operator in the value can re-dimension the array or go back to a
+        // choicepoint, so the element is found again, as Dart's code does.
+        if (program.signatures.isNotEmpty) {
+          pointer = _elementAt(array, values, next);
+        }
         if (!program.ignorable.contains(array)) {
           _line('store $type $v, ptr $pointer');
           return;
@@ -1164,11 +1170,15 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
   }
 
   /// A subscript past 32 bits is past the end of any array, so it becomes 0, which is E241 too.
-  String _elementPointer(Slot array, List<IrExpr> subscripts, Object next) {
-    final values = [
-      for (final s in subscripts)
-        s.valueWidth == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
-    ];
+  String _elementPointer(Slot array, List<IrExpr> subscripts, Object next) =>
+      _elementAt(array, _subscriptValues(subscripts, next), next);
+
+  List<String> _subscriptValues(List<IrExpr> subscripts, Object next) => [
+    for (final s in subscripts)
+      s.valueWidth == 64 ? _clamp32(_expr(s, next), 0) : _expr(s, next),
+  ];
+
+  String _elementAt(Slot array, List<String> values, Object next) {
     _storeSubscripts(values);
     final p = _fresh();
     _line(

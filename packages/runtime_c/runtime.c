@@ -1282,6 +1282,9 @@ static uint32_t *x_labels;
 static uint32_t x_level;
 static jmp_buf x_levels[NEXT_DEPTH + 2];
 static uint8_t *x_expanding[NEXT_DEPTH + 2][2];
+/* The serial number of the created operator call running at each level, so that a choicepoint
+ * made inside one that has finished is never gone back to. */
+static uint64_t x_serials[NEXT_DEPTH + 2], x_serial_count;
 static uint8_t *getting, *setting;
 static int32_t *overload_of;
 static uint32_t overload_count, overload_keys;
@@ -1382,6 +1385,8 @@ typedef struct {
   uint32_t next_depth;
   int32_t *overload_of;
   ick_overload_stash *overload_stashes;
+  /* The test-only count of stashed values (decision L7). */
+  uint64_t stashed;
 } ick_x_machine;
 
 static void *x_copy(const void *from, size_t size) {
@@ -1445,6 +1450,7 @@ static ick_x_machine *x_capture(void) {
   }
   memcpy(m->next_stack, ick_next_stack, sizeof m->next_stack);
   m->next_depth = ick_next_depth;
+  m->stashed = stashed;
   m->overload_of = NULL;
   m->overload_stashes = NULL;
   if (overload_of) {
@@ -1524,6 +1530,7 @@ static void x_restore(ick_x_machine *m) {
   wide_stashes = m->wide_stashes;
   memcpy(ick_next_stack, m->next_stack, sizeof m->next_stack);
   ick_next_depth = m->next_depth;
+  stashed = m->stashed;
   if (overload_of) {
     free(overload_of);
     overload_of = m->overload_of;
@@ -1543,6 +1550,8 @@ typedef struct {
   ick_x_machine *machine;
   ick_x_thread registers;
   uint32_t level;
+  /* Which call of a created operator level belonged to. */
+  uint64_t serial;
 } ick_x_choice;
 
 static ick_x_choice *x_choices;
@@ -1556,6 +1565,7 @@ static void x_push_choice(ick_x_machine *m, const ick_x_thread *registers) {
   }
   x_choices[x_choice_count].machine = m;
   if (registers) x_choices[x_choice_count].registers = *registers;
+  x_choices[x_choice_count].serial = x_serials[x_level];
   x_choices[x_choice_count++].level = x_level;
 }
 
@@ -1587,7 +1597,7 @@ static void x_go_back(ick_x_thread *t, uint32_t next) {
   if (!x_choice_count) ick_fatal(404, next);
   ick_x_choice choice = x_choices[--x_choice_count];
   if (!choice.machine) return;
-  if (choice.level > x_level) {
+  if (choice.level > x_level || x_serials[choice.level] != choice.serial) {
     x_free_machine(choice.machine);
     return;
   }
@@ -1872,6 +1882,7 @@ uint32_t ick_x_operator(uint32_t signature, uint32_t left_id, uint32_t right_id,
   overload_of[c] = 0;
   ick_x_thread *t = &x_thread, saved = *t;
   uint32_t level = ++x_level;
+  x_serials[level] = ++x_serial_count;
   if (!x_expanding[level][0]) {
     x_expanding[level][0] = malloc(overload_count + 1);
     x_expanding[level][1] = malloc(overload_count + 1);

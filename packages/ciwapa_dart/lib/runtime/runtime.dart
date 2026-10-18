@@ -517,6 +517,10 @@ int ickElement2(int index, int s0, int s1, int next) {
 
 Uint32List ickArrayData(int index) => _arrays[index].shape.data;
 
+/// An element, fetched once its offset is known.
+@pragma('vm:prefer-inline')
+int ickArrayAt(int index, int offset) => _arrays[index].shape.data[offset];
+
 bool ickArrayIgnored(int index) => _arrays[index].ignored;
 
 void ickArraySetIgnored(int index, bool ignored) =>
@@ -1162,6 +1166,10 @@ int ickElement64(int index, List<int> subscripts, int next) {
 
 Uint64List ickArrayData64(int index) => _wideArrays[index].shape.data;
 
+@pragma('vm:prefer-inline')
+int ickArrayAt64(int index, int offset) =>
+    _wideArrays[index].shape.data[offset];
+
 bool ickArrayIgnored64(int index) => _wideArrays[index].ignored;
 
 void ickArraySetIgnored64(int index, bool ignored) =>
@@ -1542,7 +1550,8 @@ class _XMachine {
       nextStack = Int64List.fromList(_nextStack),
       nextCount = _nextCount,
       overloadOf = Int32List.fromList(_overloadOf),
-      overloadStashes = [for (final st in _overloadStashes) List.of(st)];
+      overloadStashes = [for (final st in _overloadStashes) List.of(st)],
+      stashed = _stashed;
 
   final Uint32List values;
   final Uint8List ignored;
@@ -1558,6 +1567,9 @@ class _XMachine {
   final int nextCount;
   final Int32List overloadOf;
   final List<List<int>> overloadStashes;
+
+  /// The test-only count of stashed values (decision L7).
+  final int stashed;
 
   static _Shape _copyShape(_Shape s) =>
       _Shape(Uint32List.fromList(s.dims), Uint32List.fromList(s.data));
@@ -1582,6 +1594,7 @@ class _XMachine {
     _nextCount = nextCount;
     _overloadOf = overloadOf;
     _overloadStashes = overloadStashes;
+    _stashed = stashed;
   }
 }
 
@@ -1589,14 +1602,27 @@ class _XMachine {
 /// made it, and the created operator level it was made at. A stale one, left where a program
 /// went back to, has no state: going back to it just discards it.
 class _XChoice {
-  _XChoice(this.machine, this.registers, this.level);
+  _XChoice(this.machine, this.registers, this.level)
+    : serial = _xSerials[level];
 
-  _XChoice.stale() : machine = null, registers = const [], level = 0;
+  _XChoice.stale()
+    : machine = null,
+      registers = const [],
+      level = 0,
+      serial = 0;
 
   final _XMachine? machine;
   final List<int> registers;
   final int level;
+
+  /// Which call of a created operator [level] belonged to.
+  final int serial;
 }
+
+/// The serial number of the created operator call running at each level, so that a choicepoint
+/// made inside one that has finished is never gone back to.
+final _xSerials = <int>[0];
+var _xSerialCount = 0;
 
 final _xChoices = <_XChoice>[];
 
@@ -1624,7 +1650,11 @@ void _xGoBack(_XThread t, int next) {
   if (_xChoices.isEmpty) ickFatal(404, next);
   final choice = _xChoices.removeLast();
   final machine = choice.machine;
-  if (machine == null || choice.level > _xLevel) return;
+  if (machine == null ||
+      choice.level > _xLevel ||
+      _xSerials[choice.level] != choice.serial) {
+    return;
+  }
   machine.restore();
   t.restore(choice.registers);
   t.maybeBack = true;
@@ -1800,6 +1830,9 @@ int ickXOperator(
   final t = _xThread;
   final registers = t.save();
   final level = ++_xLevel;
+  _xSerials
+    ..length = level
+    ..add(++_xSerialCount);
   _xExpanding.add((Uint8List.fromList(_getting), Uint8List.fromList(_setting)));
   t.position = _xCreatedNext(-level, label, next) * 8 + _start;
   t.resumeTo = -1;
