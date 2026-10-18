@@ -168,5 +168,5 @@ Each new code is listed under "EXTRACAL error codes" in [`SPEC_DECISIONS.md`](SP
 
 ## Mode 1 is unchanged (Q111)
 
-- [ ] Q111 — the Mode 1 conformance suite passes unchanged in both flavors. Tests: `packages/conformance/bin/conformance.dart`
-- [ ] Q111 — Mode 1 benchmark timings show no regression against goal 1's. Tests: `tools/goal/no-regression.json`
+- [x] Q111 — the Mode 1 conformance suite passes unchanged in both flavors. Tests: `packages/conformance/bin/conformance.dart`
+- [x] Q111 — Mode 1 benchmark timings show no regression against goal 1's. Tests: `tools/goal/no-regression.json`

@@ -1,0 +1,31 @@
+{
+  "met": true,
+  "sha": "27e239e3b3eb8b1fd2f7728ec6a38625efeb0fbc",
+  "dirty": false,
+  "summary": [
+    "ok     ciwapa-llvm empty: 885 us (goal 1: 1036 us, 0.85x)",
+    "ok     ciwapa-llvm tpk: 1400 us (goal 1: 1419 us, 0.99x)",
+    "ok     ciwapa-llvm unlambda: 1115 us (goal 1: 1246 us, 0.89x)",
+    "ok     ciwapa-llvm beer: 1264 us (goal 1: 1256 us, 1.01x)",
+    "ok     ciwapa-llvm hail_mary: 979571 us (goal 1: 1047767 us, 0.93x)",
+    "ok     ciwapa-llvm next-resume: 7429 us (goal 1: 7840 us, 0.95x)",
+    "ok     ciwapa-llvm abstain: 9743 us (goal 1: 9746 us, 1.00x)",
+    "ok     ciwapa-llvm primes: 1431172 us (goal 1: 1482608 us, 0.97x)",
+    "ok     ciwapa-llvm pi: 1397 us (goal 1: 1502 us, 0.93x)",
+    "ok     ciwapa-llvm fft: 25389 us (goal 1: 26426 us, 0.96x)",
+    "ok     ciwapa-llvm life: 1342 us (goal 1: 1276 us, 1.05x)",
+    "ok     ciwapa-llvm geometric mean: 0.956x (limit 1.05)",
+    "ok     ciwapa-dart empty: 1957 us (goal 1: 1931 us, 1.01x)",
+    "ok     ciwapa-dart tpk: 3448 us (goal 1: 3536 us, 0.98x)",
+    "ok     ciwapa-dart unlambda: 2355 us (goal 1: 2431 us, 0.97x)",
+    "ok     ciwapa-dart beer: 2643 us (goal 1: 2645 us, 1.00x)",
+    "ok     ciwapa-dart hail_mary: 1719114 us (goal 1: 1758258 us, 0.98x)",
+    "ok     ciwapa-dart next-resume: 18982 us (goal 1: 19329 us, 0.98x)",
+    "ok     ciwapa-dart abstain: 9021 us (goal 1: 8824 us, 1.02x)",
+    "ok     ciwapa-dart primes: 3071386 us (goal 1: 3113981 us, 0.99x)",
+    "ok     ciwapa-dart pi: 3068 us (goal 1: 3045 us, 1.01x)",
+    "ok     ciwapa-dart fft: 89657 us (goal 1: 93445 us, 0.96x)",
+    "ok     ciwapa-dart life: 2748 us (goal 1: 2745 us, 1.00x)",
+    "ok     ciwapa-dart geometric mean: 0.990x (limit 1.05)"
+  ]
+}
