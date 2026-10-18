@@ -4,6 +4,7 @@
 // 1.05, and no program is more than 1.15× slower unless it lost less than a millisecond.
 // Usage: dart run tools/bench/no_regression.dart --record <runs.jsonl> <baseline.json>
 //        dart run tools/bench/no_regression.dart --compare <runs.jsonl> <baseline.json> <verdict.json>
+//            <commit> <dirty: true|false>
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -63,9 +64,9 @@ void main(List<String> args) {
       '${mean <= meanLimit ? 'ok    ' : 'SLOWER'} $flavor geometric mean: ${mean.toStringAsFixed(3)}x (limit $meanLimit)',
     );
   }
-  File(
-    args[3],
-  ).writeAsStringSync('${encoder.convert({'met': met, 'summary': summary})}\n');
+  File(args[3]).writeAsStringSync(
+    '${encoder.convert({'met': met, 'sha': args[4], 'dirty': args[5] == 'true', 'summary': summary})}\n',
+  );
   summary.forEach(print);
   if (!met) exit(1);
 }

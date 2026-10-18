@@ -62,3 +62,11 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a), since it is part of `ick` 0.35's COME FROM. The compiler does (a) until this is answered.
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-17
+
+## L19: Is `.2xc` a valid EXTRACAL extension?
+
+- **Context:** R2 lists `.xc` and `.3xc`–`.7xc`, and says anything else is E998. Mode 1 also accepts `.2i` as base 2 (§6.3, T40), although R2's own Mode 1 row lists only `.i` and `.3i`–`.7i`. The superset harness renames each Mode 1 test to its EXTRACAL twin, so the two `.2i` tests become `.2xc`.
+- **Options:** (a) accept `.2xc` as binary EXTRACAL, mirroring `.2i`; (b) make `.2xc` E998, and rename `.2i` tests to `.xc` in the superset harness.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18

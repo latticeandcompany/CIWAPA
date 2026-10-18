@@ -14,6 +14,20 @@ echo "$sha" >"$cache/mega-sha"
 git -C "$repo_root" rev-parse HEAD >"$cache/head-sha"
 git -C "$repo_root" ls-files tools/oracle tools/bench >"$cache/tracked-scaffolding"
 docker image ls --format '{{.Repository}}:{{.Tag}}' >"$cache/docker-images"
+echo "ciwapa-toolchain:$(shasum -a 256 "$repo_root/Dockerfile" | cut -c1-12)" >"$cache/toolchain-image"
+
+# A verdict counts only if the compiler hasn't changed since the commit it measured.
+for verdict in no-regression oracle; do
+  file="$repo_root/tools/goal/$verdict.json"
+  [[ -f "$file" ]] || continue
+  measured="$(jq -r '.sha // empty' "$file")"
+  if [[ -n "$measured" && "$(jq -r '.dirty' "$file")" == false ]] &&
+    git -C "$repo_root" diff --quiet "$measured" "$sha" -- packages/ 2>/dev/null; then
+    echo current >"$cache/$verdict-freshness"
+  else
+    echo "stale: measured at ${measured:-an unknown commit}${measured:+ (or with uncommitted changes)}, and packages/ changed since" >"$cache/$verdict-freshness"
+  fi
+done
 
 gh run list --commit "$sha" --limit 100 \
   --json databaseId,workflowName,status,conclusion,event,headBranch >"$cache/runs.json"

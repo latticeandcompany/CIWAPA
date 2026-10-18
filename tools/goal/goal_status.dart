@@ -37,7 +37,7 @@ void main() {
   print('');
 
   final sections = _checklistSections();
-  final criteria = [
+  final rest = [
     for (final MapEntry(key: title, value: items) in sections.entries)
       _section(title, items),
     _conformance(),
@@ -45,8 +45,8 @@ void main() {
     _noRegression(),
     _ci(),
     _archives(),
-    _scaffolding(),
   ];
+  final criteria = [...rest, _scaffolding(waiting: rest.any((c) => c.blocked))];
   for (final (i, c) in criteria.indexed) {
     final state = c.met
         ? '[MET]    '
@@ -80,7 +80,8 @@ void main() {
   }
 }
 
-/// The checklist's items, grouped by its `##` sections.
+/// The checklist's items, grouped by its `##` sections. An item's indented continuation lines are
+/// part of it.
 Map<String, List<String>> _checklistSections() {
   final sections = <String, List<String>>{};
   var inFence = false;
@@ -91,18 +92,34 @@ Map<String, List<String>> _checklistSections() {
       continue;
     }
     if (inFence) continue;
+    final items = section == null ? null : sections[section];
     if (line.startsWith('## ')) {
       section = line.substring(3);
       sections[section] = [];
-    } else if (section != null && RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
-      sections[section]!.add(line);
+    } else if (items != null && RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
+      items.add(line);
+    } else if (items != null && items.isNotEmpty && line.startsWith('  ')) {
+      items[items.length - 1] += ' ${line.trim()}';
     }
   }
-  sections.removeWhere((_, items) => items.isEmpty);
   return sections;
 }
 
+/// The questions still open in QUESTIONS.md, such as `L14`.
+final Set<String> _openQuestions = {
+  for (final m in RegExp(
+    r'^## (L\d+):',
+    multiLine: true,
+  ).allMatches(_read('docs/QUESTIONS.md')))
+    m.group(1)!,
+};
+
 Criterion _section(String title, List<String> items) {
+  if (items.isEmpty) {
+    return Criterion('EXTRACAL_CHECKLIST.md: $title', false, [
+      'the section has no items',
+    ]);
+  }
   var done = 0, open = 0, blocked = 0;
   final problems = <String>[];
   for (final item in items) {
@@ -118,9 +135,18 @@ Criterion _section(String title, List<String> items) {
       (t) => FileSystemEntity.typeSync(t) == FileSystemEntityType.notFound,
     );
     final summary = item.length > 110 ? '${item.substring(0, 110)}…' : item;
-    if (item.contains('**BLOCKED**')) {
+    final waitingOn = RegExp(r'\*\*BLOCKED\*\* \((L\d+)\)')
+        .allMatches(item)
+        .map((m) => m.group(1)!)
+        .where(_openQuestions.contains);
+    if (waitingOn.isNotEmpty) {
       blocked++;
-      problems.add('blocked: $summary');
+      problems.add('blocked on ${waitingOn.join(', ')}: $summary');
+    } else if (item.contains('**BLOCKED**')) {
+      open++;
+      problems.add(
+        'marked blocked, but cites no open QUESTIONS.md entry: $summary',
+      );
     } else if (!checked) {
       open++;
       problems.add('open: $summary');
@@ -180,10 +206,16 @@ Criterion _oracle() {
   final file = File('tools/goal/oracle.json');
   if (!file.existsSync()) {
     return Criterion(title, false, [
-      'no tools/goal/oracle.json: run tools/oracle/differential extracal',
+      'no tools/goal/oracle.json yet: the EXTRACAL oracle run writes it',
     ]);
   }
   final triage = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  final freshness = _read('$cache/oracle-freshness').trim();
+  if (freshness != 'current' || (triage['programs'] as int? ?? 0) == 0) {
+    return Criterion(title, false, [
+      freshness == 'current' ? 'no programs were compared' : freshness,
+    ]);
+  }
   final differences = (triage['differences'] as List)
       .cast<Map<String, dynamic>>();
   final untriaged = differences.where(
@@ -212,7 +244,9 @@ Criterion _noRegression() {
     ]);
   }
   final verdict = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  return Criterion(title, verdict['met'] == true, [
+  final freshness = _read('$cache/no-regression-freshness').trim();
+  return Criterion(title, verdict['met'] == true && freshness == 'current', [
+    if (freshness != 'current') freshness,
     for (final line in verdict['summary'] as List) '$line',
   ]);
 }
@@ -281,8 +315,10 @@ Criterion _jobsGreen(String title, String runFile, String jobPrefix) {
 }
 
 /// Goal 1's and goal 2's temporary scaffolding (Q140). tools/goal and the image this script runs
-/// in are removed right after it reports, so they can't be checked here.
-Criterion _scaffolding() {
+/// in are removed right after it reports, so they can't be checked here. While other criteria wait
+/// on QUESTIONS.md the scaffolding is still needed to finish them, so it is [waiting] too.
+Criterion _scaffolding({required bool waiting}) {
+  final toolchain = _read('$cache/toolchain-image').trim();
   const title =
       'The temporary scaffolding from goals 1 and 2 is removed (Q140); tools/goal and ciwapa-toolchain go last';
   final tracked = _read('$cache/tracked-scaffolding')
@@ -291,9 +327,7 @@ Criterion _scaffolding() {
       .toList();
   final images = _read('$cache/docker-images')
       .split('\n')
-      .where(
-        (l) => l.startsWith('ciwapa-') && !l.startsWith('ciwapa-toolchain:'),
-      )
+      .where((l) => l.startsWith('ciwapa-') && l != toolchain)
       .toList();
   final problems = [
     if (tracked.isNotEmpty)

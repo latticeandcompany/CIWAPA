@@ -8,7 +8,7 @@ Format, as in [`SPEC_CHECKLIST.md`](SPEC_CHECKLIST.md):
 - [ ] R4 — rule, in one line. Tests: `packages/conformance/...`
 ```
 
-The sections follow the plan's acceptance criteria. `lattice run goal-status` reads this file.
+The sections follow the plan's acceptance criteria. `lattice run goal-status` reads this file; the `pit/` oracle comparison is judged there, from `tools/goal/oracle.json`.
 
 ## Superset (R1)
 
@@ -85,10 +85,6 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [ ] R3.12 — the Latin statements, `NON`, `QUONDAM`/`ITERUM` and gerunds. Tests: `packages/conformance/tests/extracal/latin/statements.xc`
 - [ ] R3.12 — Latin number words in WRITE IN. Tests: `packages/conformance/tests/extracal/latin/write-in.xc`
 
-### The `pit/` oracle
-
-- [ ] R3 — every `pit/` program that uses an `ick` extension, compiled as `.xc`, matches `ick` 0.35 (`-b -m -a`). Tests: `tools/oracle/triage.json`
-
 ## 64-bit types (R4)
 
 - [ ] R4 — `::n` is a 64-bit scalar and `;;n` a 64-bit array. Tests: `packages/conformance/tests/extracal/wide/cateye.xc`, `packages/conformance/tests/extracal/wide/double-hybrid.xc`
@@ -157,6 +153,8 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 ## Error codes (R11)
 
 Each new code is listed under "EXTRACAL error codes" in [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) and has a test here.
+
+- [ ] R11 — every new error code has official text and a joke line, an entry in `SPEC_DECISIONS.md`, and a test. Tests: `packages/ciwapa_core/test/errors_test.dart`
 
 ## Mode 1 is unchanged (Q111)
 
