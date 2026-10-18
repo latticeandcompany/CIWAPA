@@ -26,6 +26,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - A comment that happens to read as `TRY AGAIN` before the last statement is a compile-time E993 in `ick`.
   - A comment that reads as `NEXT FROM (n)` with no label `n` is a compile-time E444. With a label `n`, it becomes a working trap on `n` even though Mode 1 never executes it, since a COME FROM acts where its target is (`come-from/dead-next-from.i`). The same goes for never-executed text that reads as a computed or gerund COME FROM (`COME FROM .1`, `COME FROM CALCULATING`), which can trap every labelled statement or every statement of a kind. And never-executed text that reads as `ABSTAIN expr FROM` takes the label of the statement after it as its target, so that statement loses its label.
   - A keyword that ends in `D`, such as `SIGNED` or `GO AHEAD`, swallows the `D` of a `DO` that follows it with no space, so a Mode 1 comment containing `SIGNEDO` is split differently in `.xc`.
+  - A trailing `ONCE`, `AGAIN`, `QUONDAM` or `ITERUM` turns a never-executed statement into a decodable one. After `DO REINSTATE READING OUT`, Mode 1's `PLEASE DON'T READ OUT #1 AGAIN` is a comment that never prints, but in `.xc` it is a READ OUT that runs. And Mode 1's dead `PLEASE COME FROM (5) AGAIN` becomes a working trap on `(5)` in `.xc`.
 
   `ick`'s manual warns about exactly this for `MAYBE` ("be careful what words you use in comments!"). No existing conformance test or `pit/` program trips over it, but user programs could. There is no rule that keeps every Mode 1 program identical while still letting `MAYBE` and the Latin identifiers start statements.
 - **Options:**
@@ -82,3 +83,22 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items; `computed-abstain/huge-count.xc` pins (a).
 - **Raised:** 2026-10-18
 
+## L21: Where does TRY AGAIN restart after a RESUME or a computed COME FROM?
+
+- **Context:** R3 asks for `ick` 0.35's TRY AGAIN, which its manual describes as restarting the program from the top. But `ick`'s generated code restarts by jumping back to its dispatch on `ick_skipto`, and nothing resets that variable. Every executed RESUME sets it, so after a RESUME, TRY AGAIN goes back to the return point of the last resumed NEXT instead. With computed or gerund COME FROM, every labelled statement sets it too, so TRY AGAIN can give E129 or jump somewhere unrelated.
+- **Options:**
+  - (a) TRY AGAIN always restarts from the first statement, as the manual and the plan describe.
+  - (b) Imitate `ick`'s generated code, including the jumps to the last return point.
+- **Lean:** (a), since `ick`'s behavior comes from a stale variable rather than a design. The compiler does (a) until this is answered.
+- **Blocks:** no checklist items; `try-again/after-resume.xc` pins (a).
+- **Raised:** 2026-10-18
+
+## L22: Does ONCE or AGAIN attach to an undecodable statement?
+
+- **Context:** `ick` parses a comment made only of capital letters as an unknown statement, and a trailing `ONCE` or `AGAIN` attaches to it. So `PLEASE NOTE THIS RUNS ONCE` is an abstained statement that `ONCE` reinstates the first time it's reached: the second time, it raises E000. CIWAPA treats the whole text as the comment, ONCE included, so the comment stays harmless however often it's reached.
+- **Options:**
+  - (a) A comment's trailing `ONCE` or `AGAIN` is part of the comment.
+  - (b) Imitate `ick`: it attaches, so comments that end in those words can wake up and raise E000.
+- **Lean:** (a). Mode 1 comments ending in "ONCE" or "AGAIN" inside loops are far more common than programs relying on (b), and R1 asks for them to keep working. The compiler does (a) until this is answered.
+- **Blocks:** no checklist items; `once-again/comment.xc` pins (a).
+- **Raised:** 2026-10-18

@@ -1246,8 +1246,6 @@ static void x_forget(uint64_t count) {
 /* The statement after [ordinal]'s, or E633 off the end of the user's program or the library
  * (decision T37). */
 static uint32_t x_fall_through(uint32_t ordinal) {
-  /* A TRY AGAIN that didn't run ends the program without E633. */
-  if (x_get(ordinal, X_KIND) == X_TRY_AGAIN) ick_give_up();
   if (ordinal == x.user_statements) ick_fatal(633, ordinal + 1);
   return (ordinal + 1) * 8 + X_START;
 }
@@ -1282,7 +1280,11 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
   if (x_comes_from(kind)) return;
   int64_t abstained =
       kind == X_NEXT_KIND || kind == X_UNDECODABLE ? x_once_again(ordinal) : x_abstained[ordinal];
-  if (!x_runs(ordinal, abstained)) return;
+  if (!x_runs(ordinal, abstained)) {
+    /* A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything. */
+    if (kind == X_TRY_AGAIN) ick_give_up();
+    return;
+  }
   int32_t fault = x_get(ordinal, X_FAULT);
   if (fault) ick_fatal((uint32_t)fault, next);
   int32_t start = x_get(ordinal, X_LIST_START), length = x_get(ordinal, X_LIST_LENGTH);

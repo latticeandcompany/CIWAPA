@@ -1484,8 +1484,6 @@ Never ickXRun(XProgram program) {
 /// The statement after [ordinal]'s, or E633 off the end of the user's program or the library
 /// (decision T37).
 int _xFallThrough(int ordinal) {
-  // A TRY AGAIN that didn't run ends the program without E633.
-  if (_xGet(ordinal, xKind) == xTryAgain) ickGiveUp();
   if (ordinal == _x.userStatements) ickFatal(633, ordinal + 1);
   return (ordinal + 1) * 8 + _start;
 }
@@ -1520,7 +1518,11 @@ void _xStart(_XThread t, int ordinal) {
       ? _xOnceAgain(ordinal)
       : _xAbstained[ordinal];
   t.position = ordinal * 8 + _tail;
-  if (!_xRuns(ordinal, abstained)) return;
+  if (!_xRuns(ordinal, abstained)) {
+    // A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything.
+    if (kind == xTryAgain) ickGiveUp();
+    return;
+  }
   final fault = _xGet(ordinal, xFault);
   if (fault != 0) ickFatal(fault, next);
   switch (kind) {
