@@ -62,6 +62,30 @@ The INTERCAL versions of (2100) to (2310) use the system library and these label
 (2101)–(2113), (2201)–(2210), (2301)–(2304), (2311), (2312), (2900), (2950)–(2958). They reach at
 most 40 NEXT stack levels.
 
+## Strings, (3000)–(3999)
+
+A routine that makes a string puts it in ,1, replacing what was there, so the routines chain: the
+result of one is the input of the next, and the I/O block writes ,1.
+
+| Entry | Inputs | Results | Notes |
+|---|---|---|---|
+| (3000) | ,1 | :1 = its length | in elements; a character above U+FFFF counts 2 |
+| (3010) | ,1, ,2 | ,1 = ,1 then ,2 | |
+| (3020) | ,1, :1 = start, :2 = count | ,1 = :2 elements of ,1 from element :1 | it must lie within ,1, or it is E807; a count of #0 from up to one past the end gives the empty string |
+| (3030) | ,1, ,2 | .1 = #1 if ,1 sorts first, #2 if they're equal, #3 if ,2 does | element by element, a prefix first |
+| (3040) | ,1, ,2 | :1 = where ,2 first starts in ,1; .1 = #1, or #2 if it doesn't, leaving :1 alone | the empty string is found at #1 |
+| (3050) | :1 | ,1 = :1 in decimal digits | |
+| (3060) | ,1 | :1 = the number it spells; .1 = #1, or #2 if it is empty, holds anything but decimal digits, or is above 4294967295, leaving :1 alone | |
+| (3070) | ,1 | ,1 = its UTF-8 bytes | a lone surrogate becomes U+FFFD |
+| (3080) | ,1 = UTF-8 bytes | ,1 = the characters | an element above 255 is E808 |
+
+(3080) turns each malformed sequence into U+FFFD: a lead byte that starts no sequence, or whose
+continuation bytes run out or are interrupted, becomes U+FFFD and uses up only itself; a complete
+sequence that is overlong, encodes a surrogate or is above U+10FFFF becomes U+FFFD and uses up all
+its bytes.
+
+The INTERCAL versions use the system library and the labels from (3100) on.
+
 ## System, (8000)–(8999)
 
 | Entry | Inputs | Results | Notes |
@@ -100,5 +124,7 @@ Each is a single PETITION of the same number.
 | #2030 | .1 | .3 | closes a file |
 | #3000 | ,1 | :1 | a string's length; E803 for an array with more than one dimension |
 | #3001 | | ,1 | makes ,1 the empty string |
+| #3002 | ,2 | :2 | ,2's length, as #3000 |
+| #807, #808 | | | raise E807 and E808 for the INTERCAL versions |
 | #8000–#8060 | | | as the System routines of the same numbers |
 

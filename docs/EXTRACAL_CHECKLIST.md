@@ -136,7 +136,7 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### Strings (3000)–(3999)
 
-- [ ] R8, R10 — reference, native paths, auto-inclusion and agreement tests, including astral characters as surrogate pairs. Tests: `packages/conformance/tests/extracal/lib-strings`
+- [x] R8, R10 — reference, native paths, auto-inclusion and agreement tests, including astral characters as surrogate pairs. Tests: `packages/conformance/tests/extracal/lib-strings`
 
 ### Arrays (6000)–(6999)
 

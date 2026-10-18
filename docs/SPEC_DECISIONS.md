@@ -1310,6 +1310,20 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/lib-io/e806.xc`, `packages/conformance/tests/extracal/lib-io/e806-no-opt.xc`
 - **Date:** 2026-10-18
 
+### E807: a slice outside its string
+- **Text:** `A SLICE HAS BEEN TAKEN FROM OUTSIDE A STRING.`
+- **Joke:** `YOU CANNOT CUT A PIECE FROM THE END OF NOTHING.`
+- **Source:** R8, R10, R11, Q139. A new code. SLICE (3020) takes a start from #1 to one past the end and a count that stays within the string; anything else is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-strings/e807.xc`, `packages/conformance/tests/extracal/lib-strings/e807-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E808: decoding a non-byte as UTF-8
+- **Text:** `AN ELEMENT ABOVE 255 HAS BEEN DECODED AS A BYTE.`
+- **Joke:** `THAT WAS NOT UTF-8. THAT WAS NOT EVEN A BYTE.`
+- **Source:** R8, R10, R11, Q139. A new code. UTF-8 DECODE (3080) reads bytes; an element above 255, when the decoder reaches it, is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-strings/e808.xc`, `packages/conformance/tests/extracal/lib-strings/e808-no-opt.xc`
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

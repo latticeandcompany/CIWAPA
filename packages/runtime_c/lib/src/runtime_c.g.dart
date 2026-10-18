@@ -2626,9 +2626,96 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
     break;
   }
   case 3001: set_string(a0, NULL, 0); break;
+  case 3002: {
+    size_t length;
+    string_at(a0, &length, next);
+    set_scalar(s0, length);
+    break;
+  }
+  case 807:
+  case 808: ick_fatal(service, next);
   default: ick_fatal(801, next);
   }
 }
+/* ---- EXTRACAL's Strings block (R8, R10) ------------------------------------------------ */
+
+/* UTF-8 bytes for UTF-16 code units, as the Strings block's (3070) makes them: a lone surrogate
+ * becomes U+FFFD. [out] has room for 3 bytes per unit; returns the count. */
+static size_t utf8_encode(const uint32_t *units, size_t length, uint16_t *out) {
+  size_t n = 0;
+  for (size_t i = 0; i < length; i++) {
+    uint32_t c = units[i];
+    if (c < 0x80) {
+      out[n++] = (uint16_t)c;
+    } else if (c < 0x800) {
+      out[n++] = (uint16_t)(0xC0 | c >> 6);
+      out[n++] = (uint16_t)(0x80 | (c & 0x3F));
+    } else if (c >= 0xD800 && c <= 0xDFFF) {
+      int paired = c <= 0xDBFF && i + 1 < length && units[i + 1] >= 0xDC00 && units[i + 1] <= 0xDFFF;
+      if (!paired) {
+        out[n++] = 0xEF;
+        out[n++] = 0xBF;
+        out[n++] = 0xBD;
+        continue;
+      }
+      c = 0x10000 + ((c & 0x3FF) << 10) + (units[++i] & 0x3FF);
+      out[n++] = (uint16_t)(0xF0 | c >> 18);
+      out[n++] = (uint16_t)(0x80 | ((c >> 12) & 0x3F));
+      out[n++] = (uint16_t)(0x80 | ((c >> 6) & 0x3F));
+      out[n++] = (uint16_t)(0x80 | (c & 0x3F));
+    } else {
+      out[n++] = (uint16_t)(0xE0 | c >> 12);
+      out[n++] = (uint16_t)(0x80 | ((c >> 6) & 0x3F));
+      out[n++] = (uint16_t)(0x80 | (c & 0x3F));
+    }
+  }
+  return n;
+}
+
+/* UTF-16 code units for UTF-8 [bytes], as the Strings block's (3080) reads them; see
+ * runtime.dart's _utf8Decode for the rules. An element above 255 is E808 when it is reached.
+ * [out] has room for one unit per byte; returns the count. */
+static size_t utf8_decode(const uint32_t *bytes, size_t length, uint16_t *out, uint32_t next) {
+  size_t n = 0, i = 0;
+  while (i < length) {
+    if (bytes[i] > 255) ick_fatal(808, next);
+    uint32_t lead = bytes[i];
+    if (lead < 0x80) {
+      out[n++] = (uint16_t)lead;
+      i++;
+      continue;
+    }
+    uint32_t need = 0, minimum = 0, value = 0;
+    if (lead >> 5 == 6) need = 1, minimum = 0x80, value = lead & 0x1F;
+    else if (lead >> 4 == 14) need = 2, minimum = 0x800, value = lead & 0x0F;
+    else if (lead >> 3 == 30) need = 3, minimum = 0x10000, value = lead & 0x07;
+    uint32_t got = 0;
+    while (got < need) {
+      if (i + got + 1 >= length) break;
+      if (bytes[i + got + 1] > 255) ick_fatal(808, next);
+      uint32_t b = bytes[i + got + 1];
+      if (b >> 6 != 2) break;
+      value = value << 6 | (b & 0x3F);
+      got++;
+    }
+    if (need == 0 || got < need) {
+      out[n++] = 0xFFFD;
+      i++;
+      continue;
+    }
+    i += need + 1;
+    if (value < minimum || value > 0x10FFFF || value >> 11 == 27) {
+      out[n++] = 0xFFFD;
+    } else if (value >= 0x10000) {
+      out[n++] = (uint16_t)(0xD800 | ((value - 0x10000) >> 10));
+      out[n++] = (uint16_t)(0xDC00 | ((value - 0x10000) & 0x3FF));
+    } else {
+      out[n++] = (uint16_t)value;
+    }
+  }
+  return n;
+}
+
 /* The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
  * in, the routine's documented ones: [scalars] by key and [arrays] by number. [nexts] lists, in
  * program order, each PETITION the INTERCAL version uses as a service and where its errors are
@@ -2711,6 +2798,101 @@ void ick_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays
     }
     if (ok && label == 2310) ok = write_byte_to(handle, '\n', next_of(nexts, next_count, 2010, 1));
     set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+
+  case 3010: {
+    size_t n1, n2;
+    const uint32_t *first = string_at(arrays[0], &n1, next_of(nexts, next_count, 3000, 0));
+    const uint32_t *second = string_at(arrays[1], &n2, next_of(nexts, next_count, 3002, 0));
+    uint16_t *both = malloc((n1 + n2 + 1) * sizeof(uint16_t));
+    if (!both) ick_fatal(778, 1);
+    for (size_t i = 0; i < n1; i++) both[i] = (uint16_t)first[i];
+    for (size_t i = 0; i < n2; i++) both[n1 + i] = (uint16_t)second[i];
+    set_string(arrays[0], both, n1 + n2);
+    free(both);
+    return;
+  }
+  case 3020: {
+    size_t length;
+    const uint32_t *text = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint64_t start = scalar_at(scalars[0]), count = scalar_at(scalars[1]), end = length + 1;
+    if (start == 0 || start > end || count > end || start + count > end) {
+      ick_fatal(807, next_of(nexts, next_count, 807, 0));
+    }
+    uint16_t *part = malloc((count + 1) * sizeof(uint16_t));
+    if (!part) ick_fatal(778, 1);
+    for (uint64_t i = 0; i < count; i++) part[i] = (uint16_t)text[start - 1 + i];
+    set_string(arrays[0], part, (size_t)count);
+    free(part);
+    return;
+  }
+  case 3030: {
+    size_t n1, n2;
+    const uint32_t *first = string_at(arrays[0], &n1, next_of(nexts, next_count, 3000, 0));
+    const uint32_t *second = string_at(arrays[1], &n2, next_of(nexts, next_count, 3002, 0));
+    int order = 0;
+    for (size_t i = 0; !order && i < n1 && i < n2; i++) {
+      order = first[i] < second[i] ? -1 : first[i] > second[i] ? 1 : 0;
+    }
+    if (!order) order = n1 < n2 ? -1 : n1 > n2 ? 1 : 0;
+    set_scalar(scalars[0], order < 0 ? 1 : order == 0 ? 2 : 3);
+    return;
+  }
+  case 3040: {
+    size_t n1, n2;
+    const uint32_t *haystack = string_at(arrays[0], &n1, next_of(nexts, next_count, 3000, 0));
+    const uint32_t *needle = string_at(arrays[1], &n2, next_of(nexts, next_count, 3002, 0));
+    for (size_t at = 0; n2 <= n1 && at <= n1 - n2; at++) {
+      size_t k = 0;
+      while (k < n2 && haystack[at + k] == needle[k]) k++;
+      if (k == n2) {
+        set_scalar(scalars[0], at + 1);
+        set_scalar(scalars[1], 1);
+        return;
+      }
+    }
+    set_scalar(scalars[1], 2);
+    return;
+  }
+  case 3050: {
+    char digits[24];
+    uint16_t units[24];
+    int n = snprintf(digits, sizeof digits, "%llu", (unsigned long long)scalar_at(scalars[0]));
+    for (int i = 0; i < n; i++) units[i] = (uint16_t)digits[i];
+    set_string(arrays[0], units, (size_t)n);
+    return;
+  }
+  case 3060: {
+    size_t length;
+    const uint32_t *units = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint64_t value = 0;
+    int ok = length > 0;
+    for (size_t i = 0; ok && i < length; i++) {
+      ok = units[i] >= '0' && units[i] <= '9';
+      value = value * 10 + units[i] - '0';
+      ok = ok && value <= 0xFFFFFFFFu;
+    }
+    if (ok) set_scalar(scalars[0], value);
+    set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+  case 3070: {
+    size_t length;
+    const uint32_t *units = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint16_t *bytes = malloc((3 * length + 1) * sizeof(uint16_t));
+    if (!bytes) ick_fatal(778, 1);
+    set_string(arrays[0], bytes, utf8_encode(units, length, bytes));
+    free(bytes);
+    return;
+  }
+  case 3080: {
+    size_t length;
+    const uint32_t *bytes = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint16_t *units = malloc((length + 1) * sizeof(uint16_t));
+    if (!units) ick_fatal(778, 1);
+    set_string(arrays[0], units, utf8_decode(bytes, length, units, next_of(nexts, next_count, 808, 0)));
+    free(units);
     return;
   }
   }

@@ -112,6 +112,14 @@ const libraryRoutines = <int, ({List<String> scalars, List<String> arrays})>{
   2200: (scalars: ['.1', '.3'], arrays: [',1']),
   2300: (scalars: ['.1', '.3'], arrays: [',1']),
   2310: (scalars: ['.1', '.3'], arrays: [',1']),
+  3010: (scalars: [], arrays: [',1', ',2']),
+  3020: (scalars: [':1', ':2'], arrays: [',1']),
+  3030: (scalars: ['.1'], arrays: [',1', ',2']),
+  3040: (scalars: [':1', '.1'], arrays: [',1', ',2']),
+  3050: (scalars: [':1'], arrays: [',1']),
+  3060: (scalars: [':1', '.1'], arrays: [',1']),
+  3070: (scalars: [], arrays: [',1']),
+  3080: (scalars: [], arrays: [',1']),
 };
 
 const _libraryDepth = 40;

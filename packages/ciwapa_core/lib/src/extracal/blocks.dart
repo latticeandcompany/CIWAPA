@@ -15,6 +15,7 @@ class LibraryBlock {
 /// The blocks, in the order they are appended after a program.
 const libraryBlocks = [
   LibraryBlock('io', 2000, 2999),
+  LibraryBlock('strings', 3000, 3999),
   LibraryBlock('system', 8000, 8999),
 ];
 
@@ -35,4 +36,7 @@ const petitionServices = <int, ({List<String> scalars, List<String> arrays})>{
   2030: (scalars: ['.1', '.3'], arrays: []),
   3000: (scalars: [':1'], arrays: [',1']),
   3001: (scalars: [], arrays: [',1']),
+  3002: (scalars: [':2'], arrays: [',2']),
+  807: (scalars: [], arrays: []),
+  808: (scalars: [], arrays: []),
 };

@@ -2509,6 +2509,10 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       _setScalar(scalars[0], _stringAt(arrays[0], next).length);
     case 3001:
       _setString(arrays[0], '');
+    case 3002:
+      _setScalar(scalars[0], _stringAt(arrays[0], next).length);
+    case 807 || 808:
+      ickFatal(service, next);
     default:
       ickFatal(801, next);
   }
@@ -2671,6 +2675,154 @@ void ickLibrary(
       }
       if (ok && label == 2310) ok = _writeByteTo(handle, 10, nextOf(2010, 1));
       _setScalar(scalars[1], ok ? 1 : 2);
+
+    case 3010:
+      final first = _stringAt(arrays[0], nextOf(3000));
+      final second = _stringAt(arrays[1], nextOf(3002));
+      _setString(arrays[0], first + second);
+    case 3020:
+      final text = _stringAt(arrays[0], nextOf(3000));
+      final start = _scalarAt(scalars[0]), count = _scalarAt(scalars[1]);
+      final end = text.length + 1;
+      if (start == 0 || start > end || count > end || start + count > end) {
+        ickFatal(807, nextOf(807));
+      }
+      _setString(arrays[0], text.substring(start - 1, start - 1 + count));
+    case 3030:
+      final first = _stringAt(arrays[0], nextOf(3000));
+      final second = _stringAt(arrays[1], nextOf(3002));
+      final order = _compareUnits(first.codeUnits, second.codeUnits);
+      _setScalar(scalars[0], order < 0 ? 1 : (order == 0 ? 2 : 3));
+    case 3040:
+      final haystack = _stringAt(arrays[0], nextOf(3000));
+      final needle = _stringAt(arrays[1], nextOf(3002));
+      final at = haystack.indexOf(needle);
+      if (at >= 0) _setScalar(scalars[0], at + 1);
+      _setScalar(scalars[1], at >= 0 ? 1 : 2);
+    case 3050:
+      _setString(arrays[0], _scalarAt(scalars[0]).toString());
+    case 3060:
+      final units = _stringAt(arrays[0], nextOf(3000)).codeUnits;
+      var value = 0;
+      var ok = units.isNotEmpty;
+      for (final u in units) {
+        if (!ok) break;
+        ok = u >= 48 && u <= 57;
+        value = value * 10 + u - 48;
+        ok &= value <= 0xFFFFFFFF;
+      }
+      if (ok) _setScalar(scalars[0], value);
+      _setScalar(scalars[1], ok ? 1 : 2);
+    case 3070:
+      final units = _stringAt(arrays[0], nextOf(3000)).codeUnits;
+      _setString(arrays[0], String.fromCharCodes(_utf8Encode(units)));
+    case 3080:
+      final bytes = _stringAt(arrays[0], nextOf(3000)).codeUnits;
+      _setString(
+        arrays[0],
+        String.fromCharCodes(_utf8Decode(bytes, nextOf(808))),
+      );
   }
+}
+
+/// -1, 0 or 1 as [a] sorts before, with or after [b], element by element.
+int _compareUnits(List<int> a, List<int> b) {
+  for (var i = 0; i < a.length && i < b.length; i++) {
+    if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+  }
+  return a.length.compareTo(b.length);
+}
+
+// ---- EXTRACAL's Strings block (R8, R10) -----------------------------------------------------
+
+/// UTF-8 bytes for UTF-16 code units, as the Strings block's (3070) makes them: a lone surrogate
+/// becomes U+FFFD.
+List<int> _utf8Encode(List<int> units) {
+  final bytes = <int>[];
+  for (var i = 0; i < units.length; i++) {
+    var c = units[i];
+    if (c < 0x80) {
+      bytes.add(c);
+      continue;
+    }
+    if (c < 0x800) {
+      bytes
+        ..add(0xC0 | c >> 6)
+        ..add(0x80 | c & 0x3F);
+      continue;
+    }
+    if (c >= 0xD800 && c <= 0xDFFF) {
+      final paired =
+          c <= 0xDBFF &&
+          i + 1 < units.length &&
+          units[i + 1] >= 0xDC00 &&
+          units[i + 1] <= 0xDFFF;
+      if (!paired) {
+        bytes.addAll(const [0xEF, 0xBF, 0xBD]);
+        continue;
+      }
+      c = 0x10000 + ((c & 0x3FF) << 10) + (units[++i] & 0x3FF);
+      bytes
+        ..add(0xF0 | c >> 18)
+        ..add(0x80 | c >> 12 & 0x3F)
+        ..add(0x80 | c >> 6 & 0x3F)
+        ..add(0x80 | c & 0x3F);
+      continue;
+    }
+    bytes
+      ..add(0xE0 | c >> 12)
+      ..add(0x80 | c >> 6 & 0x3F)
+      ..add(0x80 | c & 0x3F);
+  }
+  return bytes;
+}
+
+/// UTF-16 code units for UTF-8 [bytes], as the Strings block's (3080) reads them. A lead byte
+/// that starts no sequence, or one whose continuation bytes run out, becomes U+FFFD and uses up
+/// only itself; a sequence that is overlong, a surrogate or above U+10FFFF becomes U+FFFD and
+/// uses up all its bytes. An element above 255 is E808 when it is reached.
+List<int> _utf8Decode(List<int> bytes, int next) {
+  int byteAt(int i) => bytes[i] > 255 ? ickFatal(808, next) : bytes[i];
+  final units = <int>[];
+  var i = 0;
+  while (i < bytes.length) {
+    final lead = byteAt(i);
+    if (lead < 0x80) {
+      units.add(lead);
+      i++;
+      continue;
+    }
+    final (need, minimum, bits) = lead >> 5 == 6
+        ? (1, 0x80, lead & 0x1F)
+        : lead >> 4 == 14
+        ? (2, 0x800, lead & 0x0F)
+        : lead >> 3 == 30
+        ? (3, 0x10000, lead & 0x07)
+        : (0, 0, 0);
+    var value = bits, got = 0;
+    while (got < need) {
+      if (i + got + 1 >= bytes.length) break;
+      final b = byteAt(i + got + 1);
+      if (b >> 6 != 2) break;
+      value = value << 6 | b & 0x3F;
+      got++;
+    }
+    if (need == 0 || got < need) {
+      units.add(0xFFFD);
+      i++;
+      continue;
+    }
+    i += need + 1;
+    if (value < minimum || value > 0x10FFFF || value >> 11 == 27) {
+      units.add(0xFFFD);
+    } else if (value >= 0x10000) {
+      units
+        ..add(0xD800 | (value - 0x10000) >> 10)
+        ..add(0xDC00 | (value - 0x10000) & 0x3FF);
+    } else {
+      units.add(value);
+    }
+  }
+  return units;
 }
 ''';
