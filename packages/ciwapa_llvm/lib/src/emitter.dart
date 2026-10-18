@@ -403,9 +403,10 @@ declare void @ick_read_out_signed(i64, i32)
 
   /// Assigns i64 [target] to [e] backwards, as `ick` does for an overloaded variable: a mingle's
   /// operands get the target's odd and even bits, a select's left operand gets the target and its
-  /// right operand #65535 (`ick`'s "all ones" for a target whose width it never set), a unary
-  /// operator is undone, and a constant is E277. Runs inside @ov_set, whose `%next` it uses.
-  void _reverse(IrExpr e, String target) {
+  /// right operand all ones, a unary operator is undone, and a constant is E277. "All ones" is
+  /// [width] bits: `ick` starts at 16 and takes each unary operator's width on the way down. Runs
+  /// inside @ov_set, whose `%next` it uses.
+  void _reverse(IrExpr e, String target, [int width = 16]) {
     const next = '%next';
     switch (e) {
       case IrScalar(:final slot):
@@ -440,18 +441,18 @@ declare void @ick_read_out_signed(i64, i32)
         _line(
           '$even = call i64 @ick_select64(i64 $target, i64 6148914691236517205)',
         );
-        _reverse(left, odd);
-        _reverse(right, even);
+        _reverse(left, odd, width);
+        _reverse(right, even, width);
       case IrSelect(:final left, :final right) when program.base == 2:
-        _reverse(left, target);
-        _reverse(right, '65535');
+        _reverse(left, target, width);
+        _reverse(right, width == 64 ? '-1' : '${(1 << width) - 1}', width);
       case IrUnary(:final op, :final operand) when program.base == 2:
         final undone = _fresh();
         _line(
           '$undone = call i64 @ick_reverse_unary(i32 ${UnaryOp.values.indexOf(op)}, i64 $target, '
           'i32 ${operand.valueWidth}, i32 $next)',
         );
-        _reverse(operand, undone);
+        _reverse(operand, undone, operand.valueWidth);
       default:
         // Constants can't change, and the other bases' operators can't be undone.
         _line('call void @ick_fatal(i32 277, i32 $next)');

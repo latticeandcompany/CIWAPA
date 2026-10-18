@@ -1530,9 +1530,14 @@ void ick_ov_stash(uint32_t key) {
   s->items[s->count++] = overload_of[key];
 }
 
+/* Like the value, an IGNOREd variable's overloading stays as it is, and the stash is still used
+ * up. */
 void ick_ov_retrieve(uint32_t key) {
   ick_overload_stash *s = &overload_stashes[key];
-  overload_of[key] = s->items[--s->count];
+  int32_t stashed = s->items[--s->count];
+  uint32_t narrow = program->scalar_count;
+  uint8_t ignored = key < narrow ? program->ignored[key] : wide_ignored[key - narrow];
+  if (!ignored) overload_of[key] = stashed;
 }
 
 static uint64_t mask_of(uint32_t width) {

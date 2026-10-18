@@ -1754,8 +1754,13 @@ int ickOvSlat(int key, int id, int value) {
 
 void ickOvStash(int key) => _overloadStashes[key].add(_overloadOf[key]);
 
-void ickOvRetrieve(int key) =>
-    _overloadOf[key] = _overloadStashes[key].removeLast();
+/// Like the value, an IGNOREd variable's overloading stays as it is, and the stash is still used up.
+void ickOvRetrieve(int key) {
+  final stashed = _overloadStashes[key].removeLast();
+  final narrow = _ignored.length;
+  final ignored = key < narrow ? _ignored[key] : _wideIgnored[key - narrow];
+  if (ignored == 0) _overloadOf[key] = stashed;
+}
 
 int _maskOf(int width) => width == 64 ? -1 : (1 << width) - 1;
 
@@ -1795,11 +1800,11 @@ int ickReverseUnary(int op, int n, int width, int next) {
       if (parity != 0) candidate |= bit << 1;
     }
   } else {
-    final other = op == 0 ? 1 : 0;
-    candidate = _rotateLeft(
-      other == 1 ? n | _rotateRight(n, width) : n & _rotateRight(n, width),
-      width,
-    );
+    // AND's candidate comes from OR, and OR's from AND, rotated back left.
+    final mixed = op == 0
+        ? n | _rotateRight(n, width)
+        : n & _rotateRight(n, width);
+    candidate = _rotateLeft(mixed, width);
   }
   if (forward(candidate) != n) ickFatal(277, next);
   return candidate;

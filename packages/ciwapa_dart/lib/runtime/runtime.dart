@@ -1752,8 +1752,13 @@ int ickOvSlat(int key, int id, int value) {
 
 void ickOvStash(int key) => _overloadStashes[key].add(_overloadOf[key]);
 
-void ickOvRetrieve(int key) =>
-    _overloadOf[key] = _overloadStashes[key].removeLast();
+/// Like the value, an IGNOREd variable's overloading stays as it is, and the stash is still used up.
+void ickOvRetrieve(int key) {
+  final stashed = _overloadStashes[key].removeLast();
+  final narrow = _ignored.length;
+  final ignored = key < narrow ? _ignored[key] : _wideIgnored[key - narrow];
+  if (ignored == 0) _overloadOf[key] = stashed;
+}
 
 int _maskOf(int width) => width == 64 ? -1 : (1 << width) - 1;
 

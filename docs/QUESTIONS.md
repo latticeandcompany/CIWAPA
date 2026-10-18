@@ -26,6 +26,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - A comment that happens to read as `TRY AGAIN` before the last statement is a compile-time E993 in `ick`.
   - A comment that reads as `NEXT FROM (n)` with no label `n` is a compile-time E444. With a label `n`, it becomes a working trap on `n` even though Mode 1 never executes it, since a COME FROM acts where its target is (`come-from/dead-next-from.i`). The same goes for never-executed text that reads as a computed or gerund COME FROM (`COME FROM .1`, `COME FROM CALCULATING`), which can trap every labelled statement or every statement of a kind. And never-executed text that reads as `ABSTAIN expr FROM` takes the label of the statement after it as its target, so that statement loses its label.
   - A keyword that ends in `D`, such as `SIGNED` or `GO AHEAD`, swallows the `D` of a `DO` that follows it with no space, so a Mode 1 comment containing `SIGNEDO` is split differently in `.xc`.
+  - A slat turns a statement that doesn't decode in Mode 1 into a live one. In Mode 1, `(1) DO .1 <- .2/#3` is a comment that `REINSTATE CALCULATING` leaves alone; in `.xc` it is a CALCULATE that the REINSTATE wakes up, and once it runs `.2` stands for `#3`.
   - A trailing `ONCE`, `AGAIN`, `QUONDAM` or `ITERUM` turns a never-executed statement into a decodable one. After `DO REINSTATE READING OUT`, Mode 1's `PLEASE DON'T READ OUT #1 AGAIN` is a comment that never prints, but in `.xc` it is a READ OUT that runs. And Mode 1's dead `PLEASE COME FROM (5) AGAIN` becomes a working trap on `(5)` in `.xc`.
 
   `ick`'s manual warns about exactly this for `MAYBE` ("be careful what words you use in comments!"). No existing conformance test or `pit/` program trips over it, but user programs could. There is no rule that keeps every Mode 1 program identical while still letting `MAYBE` and the Latin identifiers start statements.
@@ -101,4 +102,17 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - (b) Imitate `ick`: it attaches, so comments that end in those words can wake up and raise E000.
 - **Lean:** (a). Mode 1 comments ending in "ONCE" or "AGAIN" inside loops are far more common than programs relying on (b), and R1 asks for them to keep working. The compiler does (a) until this is answered.
 - **Blocks:** no checklist items; `once-again/comment.xc` pins (a).
+- **Raised:** 2026-10-18
+
+## L23: Where may CIWAPA's operand overloading differ from `ick`'s?
+
+- **Context:** R3 asks for `ick` 0.35's operand overloading. Three corners of it don't fit EXTRACAL as it is:
+  - `ick` reads an overloaded onespot as the full 32-bit value of its expression, so `.1/:2` with `:2` = 131072 reads as 131072. CIWAPA's code generation relies on a onespot's value fitting 16 bits.
+  - In bases 3–7, `ick` reverses a unary operator by building the binary candidate and checking it with the base's own operator, which works for a few values (such as 0).
+  - `ick` lexes a backslash (`\`), the reverse of the slat, but never parses it.
+- **Options:**
+  - (a) An overloaded variable's value must fit the variable, as an assignment would (E275, E276). In bases 3–7, every mingle, select and unary operator in a reverse assignment is E277. A backslash is undecodable, as in `ick`.
+  - (b) Follow `ick` in the first two: overloaded onespot reads have 32 bits (every expression on a onespot then needs 32-bit code when the program overloads), and bases 3–7 copy `ick`'s binary candidate.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items; `overloading/narrowing.xc` and `overloading/e277.xc` pin (a).
 - **Raised:** 2026-10-18

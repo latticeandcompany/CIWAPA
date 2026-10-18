@@ -393,9 +393,9 @@ class DartEmitter {
 
   /// Assigns [target] to [e] backwards, as `ick` does for an overloaded variable: a mingle's
   /// operands get the target's odd and even bits, a select's left operand gets the target and its
-  /// right operand #65535 (`ick`'s "all ones" for a target whose width it never set), a unary
-  /// operator is undone, and a constant is E277.
-  void _reverse(IrExpr e, String target) {
+  /// right operand all ones, a unary operator is undone, and a constant is E277. "All ones" is
+  /// [width] bits: `ick` starts at 16 and takes each unary operator's width on the way down.
+  void _reverse(IrExpr e, String target, [int width = 16]) {
     String temp(String value) {
       final name = 'r${_reverseTemps++}';
       _line('final $name = $value;');
@@ -430,25 +430,29 @@ class DartEmitter {
       case IrMingle(:final left, :final right) when program.base == 2:
         final odd = temp('ickSelect64($target, 0xAAAAAAAAAAAAAAAA)');
         final even = temp('ickSelect64($target, 0x5555555555555555)');
-        _reverseInto(left, odd);
-        _reverseInto(right, even);
+        _reverseInto(left, odd, width);
+        _reverseInto(right, even, width);
       case IrSelect(:final left, :final right) when program.base == 2:
-        _reverseInto(left, target);
-        _reverseInto(right, '65535');
+        _reverseInto(left, target, width);
+        _reverseInto(
+          right,
+          _literal(width == 64 ? -1 : (1 << width) - 1),
+          width,
+        );
       case IrUnary(:final op, :final operand) when program.base == 2:
         final undone = temp(
           'ickReverseUnary(${UnaryOp.values.indexOf(op)}, $target, ${operand.valueWidth}, next)',
         );
-        _reverseInto(operand, undone);
+        _reverseInto(operand, undone, operand.valueWidth);
       default:
         // Constants can't change, and the other bases' operators can't be undone.
         _line('ickFatal(277, next);');
     }
   }
 
-  void _reverseInto(IrExpr e, String target) {
+  void _reverseInto(IrExpr e, String target, int width) {
     _line('{');
-    _reverse(e, target);
+    _reverse(e, target, width);
     _line('}');
   }
 
