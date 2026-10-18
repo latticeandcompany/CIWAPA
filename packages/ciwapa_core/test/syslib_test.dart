@@ -159,11 +159,11 @@ void main() {
     });
   });
 
-  group('live library statements', () {
-    test('only what the user NEXTs into can run', () {
+  group('reachable statements', () {
+    test('only what the user NEXTs into in the library can run', () {
       final ir = build('DO (1060) NEXT\nPLEASE GIVE UP');
       final first = ordinalOf(ir, 1060);
-      expect(liveLibrary(ir), {first, first + 1});
+      expect(reachable(ir), {1, 2, first, first + 1});
     });
 
     test(
@@ -172,22 +172,34 @@ void main() {
         final ir = build(
           'DO (1060) NEXT\nPLEASE ABSTAIN FROM RESUMING\nDO GIVE UP',
         );
-        expect(liveLibrary(ir), contains(ordinalOf(ir, 1070)));
-        expect(liveLibrary(ir), contains(ir.statements.length));
+        expect(reachable(ir), contains(ordinalOf(ir, 1070)));
+        expect(reachable(ir), contains(ir.statements.length));
       },
     );
 
-    test('a COME FROM out of the library stops at the user program', () {
+    test('a COME FROM out of the library reaches the user statements after it', () {
       final ir = build(
         'DO (1060) NEXT\nPLEASE GIVE UP\nDO COME FROM (1060)\nDO READ OUT #1\n'
         'DO (9999) NEXT\nPLEASE GIVE UP',
       );
-      expect(liveLibrary(ir).every((o) => o > ir.userStatements), isTrue);
-      expect(liveLibrary(ir), contains(ordinalOf(ir, 1060)));
+      expect(reachable(ir), containsAll([3, 4, 5, ordinalOf(ir, 1060)]));
     });
 
-    test('nothing is live without a NEXT into the library', () {
-      expect(liveLibrary(build('DO .1 <- #1\nPLEASE GIVE UP')), isEmpty);
+    test('nothing past an unconditional GIVE UP or RESUME runs', () {
+      final ir = build(
+        'DO (2) NEXT\nPLEASE GIVE UP\n(2) DO RESUME #1\nDO .1 <- #1\n'
+        '(3) DO .2 <- #2\nPLEASE GIVE UP',
+      );
+      expect(reachable(ir), {1, 2, 3});
+    });
+
+    test('a NEXT to a missing label reaches nothing more', () {
+      expect(reachable(build('DO (77) NEXT\nPLEASE GIVE UP')), {1, 2});
+    });
+
+    test('running off the user program is not a way into the library', () {
+      final ir = build('DO (1060) NEXT\nDO .1 <- #1');
+      expect(reachable(ir), isNot(contains(ir.userStatements + 1)));
     });
   });
 }
