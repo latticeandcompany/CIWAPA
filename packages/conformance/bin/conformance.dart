@@ -20,7 +20,8 @@
 // Every Mode 1 test also runs a second time as EXTRACAL, copied to <name>.xc (or .2xc–.7xc), and
 // must give the same results: the superset rule (R1). Where EXTRACAL deliberately differs, the
 // test has .xc.out, .xc.err or .xc.exit files, and the EXTRACAL run is compared with those instead
-// (each missing one counts as empty, or 0).
+// (each missing one counts as empty, or 0). R1 only allows that where the Mode 1 run ends in an
+// error, unless a .xc.reason file says which decision or open question allows it.
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
 import 'dart:convert';
@@ -214,7 +215,8 @@ String? _compare(String stem, Outcome actual, {required bool superset}) {
   // R1 lets EXTRACAL differ only where Mode 1 rejects the program or ends in an error.
   if (differs &&
       !File('$stem.err').existsSync() &&
-      !File('$stem.exit').existsSync()) {
+      !File('$stem.exit').existsSync() &&
+      !File('$stem.xc.reason').existsSync()) {
     return 'R1: a .xc override is only allowed where Mode 1 ends in an error, '
         'but $stem has no .err or .exit';
   }

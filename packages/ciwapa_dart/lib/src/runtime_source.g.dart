@@ -1514,9 +1514,13 @@ void _xTail(_XThread t, int ordinal) {
   t.finishing = ordinal;
   // `ick` tries the COME FROMs aimed here in reverse program order, so the first in the program is
   // the one this thread follows.
+  // An executed RESUME springs only a plain COME FROM, by Mode 1's rule; in `ick` it springs
+  // nothing, and so it is for the extensions.
+  final resuming = t.resumeTo >= 0;
   final start = _xGet(ordinal, xComeFromStart);
   for (var i = _xGet(ordinal, xComeFromLength) - 1; i >= 0; i--) {
     final from = _x.lists[start + i];
+    if (resuming && _xGet(from, xKind) != xComeFromKind) continue;
     final abstained = _xGet(from, xOnceAgain) != xNoOnceAgain
         ? _xOnceAgain(from)
         : _xAbstained[from];

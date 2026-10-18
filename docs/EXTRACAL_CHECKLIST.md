@@ -12,7 +12,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Superset (R1)
 
-- [x] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead. Tests: `packages/conformance/bin/conformance.dart`
+- [x] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead; one whose Mode 1 run doesn't end in an error also needs a `.xc.reason` citing what allows it (such as L15, `come-from/dead-next-from.i`). Tests: `packages/conformance/bin/conformance.dart`
 - [x] R1, R5 — a Mode 1 program that ends in E533 by mingling a value over 65535 gets a 64-bit result as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/calculate/e533-mingle-operand.xc.err`, `packages/conformance/tests/ignore/statement-still-executes.xc.err`
 - [ ] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.out`
 
@@ -27,7 +27,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 1. NEXT FROM
 
-- [x] R3.1 — `NEXT FROM (n)` takes control after statement (n) like COME FROM, and pushes a NEXT stack entry that returns to the statement after (n). Tests: `packages/conformance/tests/extracal/next-from/basic.xc`
+- [x] R3.1 — `NEXT FROM (n)` takes control after statement (n) like COME FROM, and pushes a NEXT stack entry that returns to the statement after (n). Tests: `packages/conformance/tests/extracal/next-from/basic.xc`, `packages/conformance/tests/extracal/next-from/reinstated.xc`, `packages/conformance/tests/extracal/next-from/off-the-end.xc`
+- [x] R3.1 — an executed RESUME springs a plain COME FROM aimed at it (Mode 1's rule) but not a NEXT FROM (`ick`'s), and a NEXT FROM's own fault fires instead of its jump (L2). Tests: `packages/conformance/tests/extracal/next-from/resume-target.xc`, `packages/conformance/tests/extracal/next-from/fault.xc`
 - [x] R3.1 — a NEXT FROM aimed at a NEXT fires when the NEXT is RESUMEd to. Tests: `packages/conformance/tests/extracal/next-from/at-next.xc`
 - [x] R3.1 — a NEXT FROM that would make the 80th entry is E123. Tests: `packages/conformance/tests/extracal/next-from/e123.xc`
 - [x] R3.1 — a NEXT FROM aimed at a missing label is a compile-time E444. Tests: `packages/conformance/tests/extracal/next-from/e444.xc`

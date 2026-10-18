@@ -1310,9 +1310,13 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   t->finishing = ordinal;
   /* `ick` tries the COME FROMs aimed here in reverse program order, so the first in the program
    * is the one this thread follows. */
+  /* An executed RESUME springs only a plain COME FROM, by Mode 1's rule; in `ick` it springs
+   * nothing, and so it is for the extensions. */
+  int resuming = t->resume_to >= 0;
   int32_t start = x_get(ordinal, X_COME_FROM_START);
   for (int32_t i = x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
     uint32_t from = (uint32_t)x.lists[start + i];
+    if (resuming && x_get(from, X_KIND) != X_COME_FROM) continue;
     int32_t abstained =
         x_get(from, X_ONCE_AGAIN) != X_NO_ONCE_AGAIN ? x_once_again(from) : x_abstained[from];
     if (!x_runs(from, abstained)) continue;
