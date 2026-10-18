@@ -1171,10 +1171,15 @@ enum {
 enum {
   X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
   X_NEXT_FROM, X_UNDECODABLE, X_COMPUTED_COME_FROM, X_COMPUTED_NEXT_FROM, X_GERUND_COME_FROM,
-  X_GERUND_NEXT_FROM
+  X_GERUND_NEXT_FROM, X_COMPUTED_ABSTAIN
 };
 
-static int x_comes_from(int32_t kind) { return kind == X_COME_FROM || kind >= X_COMPUTED_COME_FROM; }
+/* The computed and gerund COME FROMs and NEXT FROMs. */
+static int x_chained(int32_t kind) { return kind >= X_COMPUTED_COME_FROM && kind <= X_GERUND_NEXT_FROM; }
+
+static int x_gerund_kind(int32_t kind) { return kind == X_GERUND_COME_FROM || kind == X_GERUND_NEXT_FROM; }
+
+static int x_comes_from(int32_t kind) { return kind == X_COME_FROM || x_chained(kind); }
 
 static int x_nexting(int32_t kind) {
   return kind == X_NEXT_FROM || kind == X_COMPUTED_NEXT_FROM || kind == X_GERUND_NEXT_FROM;
@@ -1207,7 +1212,9 @@ typedef struct {
 } ick_x_thread;
 
 static ick_x_program x;
-static int32_t *x_abstained;
+/* Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more than
+ * 1, and it saturates instead of overflowing. */
+static int64_t *x_abstained;
 static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, 0, -1};
 
 /* The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
@@ -1242,8 +1249,8 @@ static uint32_t x_fall_through(uint32_t ordinal) {
 }
 
 /* Updates a statement's abstention for its ONCE or AGAIN, and returns the abstention before. */
-static int32_t x_once_again(uint32_t ordinal) {
-  int32_t old = x_abstained[ordinal];
+static int64_t x_once_again(uint32_t ordinal) {
+  int64_t old = x_abstained[ordinal];
   switch (x_get(ordinal, X_ONCE_AGAIN)) {
   case X_ABSTAIN_AFTER: x_abstained[ordinal] = old ? old : 1; break;
   case X_REINSTATE_AFTER: x_abstained[ordinal] = 0; break;
@@ -1252,7 +1259,7 @@ static int32_t x_once_again(uint32_t ordinal) {
 }
 
 /* The guard: the `%` roll first (decision T22), then the abstention. */
-static int x_runs(uint32_t ordinal, int32_t abstained) {
+static int x_runs(uint32_t ordinal, int64_t abstained) {
   int32_t percent = x_get(ordinal, X_PERCENT);
   return (percent >= 100 || ick_roll((uint32_t)percent)) && abstained == 0;
 }
@@ -1269,7 +1276,7 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
   int32_t kind = x_get(ordinal, X_KIND);
   t->position = ordinal * 8 + X_TAIL;
   if (x_comes_from(kind)) return;
-  int32_t abstained =
+  int64_t abstained =
       kind == X_NEXT_KIND || kind == X_UNDECODABLE ? x_once_again(ordinal) : x_abstained[ordinal];
   if (!x_runs(ordinal, abstained)) return;
   int32_t fault = x_get(ordinal, X_FAULT);
@@ -1303,6 +1310,15 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
       if (x_abstained[target]) x_abstained[target]--;
     }
     break;
+  case X_COMPUTED_ABSTAIN: {
+    uint64_t amount = x.expr(ordinal);
+    for (int32_t i = 0; i < length; i++) {
+      int32_t target = x.lists[start + i];
+      uint64_t room = (uint64_t)(INT64_MAX - x_abstained[target]);
+      x_abstained[target] = amount > room ? INT64_MAX : x_abstained[target] + (int64_t)amount;
+    }
+    break;
+  }
   case X_UNDECODABLE: ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
   }
 }
@@ -1329,7 +1345,7 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   for (int32_t i = x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
     uint32_t from = (uint32_t)x.lists[start + i];
     if (resuming && x_get(from, X_KIND) != X_COME_FROM) continue;
-    int32_t abstained =
+    int64_t abstained =
         x_get(from, X_ONCE_AGAIN) != X_NO_ONCE_AGAIN ? x_once_again(from) : x_abstained[from];
     if (!x_runs(from, abstained)) continue;
     /* A COME FROM's own faults fire in place of its jump, unless a bug planted on it fires
@@ -1355,7 +1371,7 @@ static void x_tail(ick_x_thread *t, uint32_t ordinal) {
  * statement is of one of its kinds. The expression is only evaluated for a labelled statement. */
 static void x_check(ick_x_thread *t, uint32_t ordinal) {
   int matches = 0;
-  if (x_get(ordinal, X_KIND) < X_GERUND_COME_FROM) {
+  if (!x_gerund_kind(x_get(ordinal, X_KIND))) {
     matches = t->finishing_label && x.expr(ordinal) == t->finishing_label;
   } else {
     int32_t gerund = x_get(t->finishing, X_GERUND);
@@ -1382,16 +1398,16 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
                const uint32_t *text_lengths, uint32_t user_statements, void (*body)(uint32_t),
                uint64_t (*expr)(uint32_t), uint32_t (*native)(uint32_t)) {
   x = (ick_x_program){table, lists, texts, text_lengths, count, user_statements, body, expr, native};
-  x_abstained = calloc(count + 1, sizeof(int32_t));
+  x_abstained = calloc(count + 1, sizeof(int64_t));
   if (!x_abstained) ick_fatal(778, 1);
   x_chain = calloc(count + 1, sizeof(uint32_t));
   x_chain_next = calloc(count + 1, sizeof(uint32_t));
   if (!x_chain || !x_chain_next) ick_fatal(778, 1);
   for (uint32_t s = 1; s <= count; s++) {
     if (x_get(s, X_FLAGS) & X_INITIALLY_ABSTAINED) x_abstained[s] = 1;
-    if (x_get(s, X_KIND) >= X_COMPUTED_COME_FROM) {
+    if (x_chained(x_get(s, X_KIND))) {
       x_chain[x_chain_length++] = s;
-      x_gerund_chain |= x_get(s, X_KIND) >= X_GERUND_COME_FROM;
+      x_gerund_chain |= x_gerund_kind(x_get(s, X_KIND));
     }
   }
   for (uint32_t i = 0; i < x_chain_length; i++) {

@@ -194,12 +194,17 @@ class AbstainBody extends Body {
     required this.abstain,
     this.label,
     this.gerunds = const [],
+    this.count,
   });
 
   /// True for ABSTAIN FROM, false for REINSTATE.
   final bool abstain;
   final int? label;
   final List<Gerund> gerunds;
+
+  /// `ick`'s computed ABSTAIN (`ABSTAIN expr FROM …`), which adds this to the abstention count
+  /// instead of just abstaining (R3).
+  final Expr? count;
 
   @override
   Gerund get gerund => abstain ? Gerund.abstaining : Gerund.reinstating;

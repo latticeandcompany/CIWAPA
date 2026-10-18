@@ -31,6 +31,8 @@ enum TokenKind {
   ignore,
   remember,
   abstainFrom,
+  abstain,
+  from,
   reinstate,
   readOut,
   writeIn,
@@ -342,6 +344,8 @@ class Lexer {
 
   static final _extensionPatterns = <(String, Token Function(int, int))>[
     ('NEXT FROM', _kind(TokenKind.nextFrom)),
+    ('ABSTAIN', _kind(TokenKind.abstain)),
+    ('FROM', _kind(TokenKind.from)),
     ('NEXTING FROM', _gerund(Gerund.nextingFrom)),
   ];
 

@@ -153,6 +153,7 @@ Iterable<Expr> expressionsOf(Body body) => switch (body) {
   Dimension(:final dimensions) => dimensions,
   Forget(:final count) || Resume(:final count) => [count],
   ComputedComeFrom(:final label) => [label],
+  AbstainBody(:final count?) => [count],
   IoBody(:final items) => items,
   _ => const [],
 };

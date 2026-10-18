@@ -195,6 +195,19 @@ class Parser {
           _ => ListOp.remember,
         };
         return VarListBody(op, vars);
+      case TokenKind.abstain:
+        // `ick`'s computed ABSTAIN adds the expression's value to the abstention count (R3).
+        _pos++;
+        final count = _expr();
+        _expect(TokenKind.from);
+        if (_tok.kind == TokenKind.label) {
+          return AbstainBody(
+            abstain: true,
+            label: _tokens[_pos++].value,
+            count: count,
+          );
+        }
+        return AbstainBody(abstain: true, gerunds: _gerunds(), count: count);
       case TokenKind.abstainFrom || TokenKind.reinstate:
         _pos++;
         final abstain = kind == TokenKind.abstainFrom;

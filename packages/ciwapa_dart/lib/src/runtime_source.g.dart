@@ -1337,10 +1337,17 @@ const xPlain = 0,
     xComputedComeFrom = 10,
     xComputedNextFrom = 11,
     xGerundComeFrom = 12,
-    xGerundNextFrom = 13;
+    xGerundNextFrom = 13,
+    xComputedAbstain = 14;
 
-bool _xComesFrom(int kind) =>
-    kind == xComeFromKind || kind >= xComputedComeFrom;
+bool _xComesFrom(int kind) => kind == xComeFromKind || _xChained(kind);
+
+/// The computed and gerund COME FROMs and NEXT FROMs.
+bool _xChained(int kind) =>
+    kind >= xComputedComeFrom && kind <= xGerundNextFrom;
+
+bool _xGerundKind(int kind) =>
+    kind == xGerundComeFrom || kind == xGerundNextFrom;
 
 bool _xNexting(int kind) =>
     kind == xNextFromKind ||
@@ -1414,7 +1421,10 @@ class _XThread {
 }
 
 late XProgram _x;
-late Int32List _xAbstained;
+
+/// Each statement's abstention count: 0 for reinstated. Only a computed ABSTAIN makes it more
+/// than 1, and it saturates instead of overflowing.
+late Int64List _xAbstained;
 
 /// The computed and gerund COME FROMs, in program order, which every labelled statement (or, with
 /// a gerund one, every statement) is checked against as it finishes; and whether any is a gerund
@@ -1432,15 +1442,15 @@ int _xGet(int ordinal, int field) => _x.table[ordinal * xStride + field];
 Never ickXRun(XProgram program) {
   _x = program;
   final count = program.table.length ~/ xStride - 1;
-  _xAbstained = Int32List(count + 1);
+  _xAbstained = Int64List(count + 1);
   for (var s = 1; s <= count; s++) {
     if (_xGet(s, xFlags) & xInitiallyAbstained != 0) _xAbstained[s] = 1;
   }
   _xChain = [
     for (var s = 1; s <= count; s++)
-      if (_xGet(s, xKind) >= xComputedComeFrom) s,
+      if (_xChained(_xGet(s, xKind))) s,
   ];
-  _xGerundChain = _xChain.any((s) => _xGet(s, xKind) >= xGerundComeFrom);
+  _xGerundChain = _xChain.any((s) => _xGerundKind(_xGet(s, xKind)));
   for (final (i, s) in _xChain.indexed) {
     _xChainNext[s] = i + 1 < _xChain.length
         ? _xChain[i + 1] * 8 + _check
@@ -1536,6 +1546,15 @@ void _xStart(_XThread t, int ordinal) {
       _xEachTarget(ordinal, (t) {
         if (_xAbstained[t] != 0) _xAbstained[t]--;
       });
+    case xComputedAbstain:
+      // A value from 2^63 up is a negative Dart int: either way it saturates.
+      final amount = _x.expr(ordinal);
+      _xEachTarget(ordinal, (t) {
+        final room = 0x7FFFFFFFFFFFFFFF - _xAbstained[t];
+        _xAbstained[t] = amount < 0 || amount > room
+            ? 0x7FFFFFFFFFFFFFFF
+            : _xAbstained[t] + amount;
+      });
     case xUndecodable:
       ickUndecodable(_x.texts[ordinal]!, next);
   }
@@ -1601,7 +1620,7 @@ void _xTail(_XThread t, int ordinal) {
 /// statement is of one of its kinds. The expression is only evaluated for a labelled statement.
 void _xCheck(_XThread t, int ordinal) {
   final bool matches;
-  if (_xGet(ordinal, xKind) < xGerundComeFrom) {
+  if (!_xGerundKind(_xGet(ordinal, xKind))) {
     matches = t.finishingLabel != 0 && _x.expr(ordinal) == t.finishingLabel;
   } else {
     final gerund = _xGet(t.finishing, xGerund);

@@ -294,9 +294,14 @@ class IrAbstain extends IrOp {
     required this.abstain,
     required this.targets,
     this.gerunds = const {},
+    this.count,
   });
 
   final bool abstain;
+
+  /// For `ick`'s computed ABSTAIN, the amount added to each target's abstention count (R3). Only
+  /// the control engine runs it.
+  final IrExpr? count;
 
   /// Ordinals whose abstention flag this statement sets or clears.
   final List<int> targets;
@@ -622,7 +627,8 @@ class _Lowering {
   static bool _needsEngine(IrOp op) => switch (op) {
     IrComeFrom(nexting: true) ||
     IrComputedComeFrom() ||
-    IrGerundComeFrom() => true,
+    IrGerundComeFrom() ||
+    IrAbstain(count: _?) => true,
     _ => false,
   };
 
@@ -690,18 +696,24 @@ class _Lowering {
   }
 
   IrOp _abstain(AbstainBody body) {
+    final count = body.count == null ? null : _expr(body.count!);
     final label = body.label;
     if (label != null) {
       final target = _labels[label];
       if (target == null) {
         _faults.add(const Fault(139));
-        return IrAbstain(abstain: body.abstain, targets: const []);
+        return IrAbstain(
+          abstain: body.abstain,
+          targets: const [],
+          count: count,
+        );
       }
       // REINSTATE of a GIVE UP by label does nothing, so DON'T GIVE UP stays a no-op (§4.4.10).
       final giveUp = program.statements[target - 1].body is GiveUp;
       return IrAbstain(
         abstain: body.abstain,
         targets: !body.abstain && giveUp ? const [] : [target],
+        count: count,
       );
     }
     final gerunds = body.gerunds.toSet();
@@ -712,6 +724,7 @@ class _Lowering {
           if (gerunds.contains(s.body.gerund)) i + 1,
       ],
       gerunds: gerunds.whereType<Gerund>().toSet(),
+      count: count,
     );
   }
 

@@ -302,6 +302,10 @@ class DartEmitter {
         _out.writeln('    case ${s.ordinal}:');
         _line('return ${_count(count, s.next)};');
       }
+      if (s.op case IrAbstain(count: final count?)) {
+        _out.writeln('    case ${s.ordinal}:');
+        _line('return ${_expr(count, s.next)};');
+      }
       if (s.op case IrComputedComeFrom(:final label)) {
         _out.writeln('    case ${s.ordinal}:');
         _line('return ${_expr(label, s.next)};');
