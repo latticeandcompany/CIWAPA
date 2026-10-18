@@ -1,6 +1,6 @@
 {
  "programs": 65,
- "sha": "b93af3f8b0ff659bd1b607c8c013b289f51dd9f0",
+ "sha": "05778c7c3a06c2ec3c758c5c22d45cf3cea665ee",
  "dirty": false,
  "oracle": "C-INTERCAL 0.35",
  "differences": [
@@ -273,15 +273,6 @@
    "ciwapa_exit": "compile:ICL444",
    "status": "divergence",
    "reason": "R3 (item 10, external calls, is deferred: iffit1.i is half of an INTERCAL and Befunge-98 program built with ick -e)"
-  },
-  {
-   "program": "pit_tests_iogerunds.xc",
-   "oracle": "ick035",
-   "flavor": "llvm",
-   "ick_exit": "50:ICL562",
-   "ciwapa_exit": "50:ICL562",
-   "status": "divergence",
-   "reason": "T22"
   },
   {
    "program": "pit_tests_iogerunds.xc",
