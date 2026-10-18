@@ -240,7 +240,11 @@ void _checkLabels(List<Statement> statements, {required bool extracal}) {
   for (final (i, s) in statements.indexed) {
     final body = s.body;
     if (body is! ComeFrom) continue;
-    if (!firstWithLabel.containsKey(body.label)) throw CompileError(444, i + 1);
+    // Only WHILE's own statements can reach its internal labels.
+    final reachable = isValidLabel(body.label) || s.preproc;
+    if (!reachable || !firstWithLabel.containsKey(body.label)) {
+      throw CompileError(444, i + 1);
+    }
     // In EXTRACAL, several COME FROMs on one label start threads (R3).
     if (!targeted.add(body.label) && !extracal) throw CompileError(555, i + 1);
   }

@@ -77,6 +77,7 @@ class Parser {
               : OnceAgain.again;
         }
       } on _Fail catch (fail) {
+        whileBody = null;
         _pos = bodyStart;
         final unknown = _extensions ? _tryUnknown() : null;
         if (unknown == null) _pos = _resync(fail.at);
@@ -131,6 +132,7 @@ class Parser {
     } else {
       statements.last
         ..body = const Undecodable()
+        ..whileBody = null
         ..end = _tokens[_pos - 1].end;
     }
   }

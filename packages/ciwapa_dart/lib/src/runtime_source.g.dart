@@ -1718,10 +1718,13 @@ void _xGoAhead(int next) {
 void _xGoBack(_XThread t, int next) {
   final top = _xTop ?? ickFatal(404, next);
   final data = top.data;
-  if (data == null) return _xGoAhead(next);
+  if (data == null ||
+      top.level > _xLevel ||
+      _xSerials[top.level] != top.serial) {
+    return _xGoAhead(next);
+  }
   if (top.refcount > 1) _xKill(t);
   _xTop = top.next;
-  if (top.level > _xLevel || _xSerials[top.level] != top.serial) return;
   // Threads woven with this one keep the data it leaves.
   final strand = _xRing[_xCurrent];
   strand.data?.store();
@@ -2079,7 +2082,7 @@ void _xStart(_XThread t, int ordinal) {
   t.position = ordinal * 8 + _tail;
   if (!_xGuard(t, ordinal, abstained, ordinal * 8 + _start)) {
     // A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything.
-    if (kind == xTryAgain) ickGiveUp();
+    if (kind == xTryAgain) _xKill(t);
     return;
   }
   final fault = _xGet(ordinal, xFault);

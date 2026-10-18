@@ -894,8 +894,12 @@ class _Lowering {
     ]);
   }
 
+  /// [label]'s ordinal. Only WHILE's own statements can reach its internal labels.
+  int? _target(int label) =>
+      isValidLabel(label) || _statement.preproc ? _labels[label] : null;
+
   IrOp _next(int label) {
-    final target = _labels[label];
+    final target = _target(label);
     if (target == null) {
       _faults.add(const Fault(129));
       return const IrNext(0);
@@ -907,7 +911,7 @@ class _Lowering {
     final count = body.count == null ? null : _expr(body.count!);
     final label = body.label;
     if (label != null) {
-      final target = _labels[label];
+      final target = _target(label);
       if (target == null) {
         _faults.add(const Fault(139));
         return IrAbstain(

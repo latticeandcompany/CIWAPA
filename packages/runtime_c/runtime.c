@@ -1736,7 +1736,8 @@ static void x_kill(ick_x_thread *t) {
 static void x_go_back(ick_x_thread *t, uint32_t next) {
   ick_x_choice *top = x_top;
   if (!top) ick_fatal(404, next);
-  if (!top->data) {
+  uint32_t level = top->level;
+  if (!top->data || level > x_level || x_serials[level] != top->serial) {
     x_go_ahead(next);
     return;
   }
@@ -1745,12 +1746,6 @@ static void x_go_back(ick_x_thread *t, uint32_t next) {
     return;
   }
   x_top = top->next;
-  uint32_t level = top->level;
-  if (level > x_level || x_serials[level] != top->serial) {
-    x_data_free(top->data);
-    free(top);
-    return;
-  }
   ick_x_strand *s = x_ring[x_current];
   x_data_release(s->data);
   s->data = top->data;
@@ -1788,7 +1783,7 @@ static void x_start(ick_x_thread *t, uint32_t ordinal) {
                                              : x_once_again(ordinal);
   if (!x_guard(t, ordinal, abstained, ordinal * 8 + X_START)) {
     /* A TRY AGAIN that doesn't run ends the program quietly, before its tail can spring anything. */
-    if (kind == X_TRY_AGAIN) ick_give_up();
+    if (kind == X_TRY_AGAIN) x_kill(t);
     return;
   }
   int32_t fault = x_get(ordinal, X_FAULT);

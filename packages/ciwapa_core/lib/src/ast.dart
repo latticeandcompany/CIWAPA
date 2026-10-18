@@ -432,7 +432,7 @@ class Statement {
   final bool maybe;
 
   /// The `b` of `ick`'s `a WHILE b` (R3), until the front end expands it.
-  final Body? whileBody;
+  Body? whileBody;
 
   /// One of the statements `ick`'s WHILE expansion adds: its label is internal, and no gerund,
   /// computed COME FROM or created statement can reach it.

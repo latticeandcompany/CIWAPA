@@ -27,6 +27,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - A comment that reads as `NEXT FROM (n)` with no label `n` is a compile-time E444. With a label `n`, it becomes a working trap on `n` even though Mode 1 never executes it, since a COME FROM acts where its target is (`come-from/dead-next-from.i`). The same goes for never-executed text that reads as a computed or gerund COME FROM (`COME FROM .1`, `COME FROM CALCULATING`), which can trap every labelled statement or every statement of a kind. And never-executed text that reads as `ABSTAIN expr FROM` takes the label of the statement after it as its target, so that statement loses its label.
   - A keyword that ends in `D`, such as `SIGNED` or `GO AHEAD`, swallows the `D` of a `DO` that follows it with no space, so a Mode 1 comment containing `SIGNEDO` is split differently in `.xc`.
   - A character `ick` doesn't use between two operands is a created operator (R3 item 9), so `DO .1 <- #1 x #2`, a comment in Mode 1, is a CALCULATE in `.xc`: still E000 when it runs without a CREATE, but now subject to `ABSTAIN FROM CALCULATING` and `REINSTATE CALCULATING`. The new words `CREATE`, `CONFICE`, `COMMENT` and the like do the same to comments that contain them as statements.
+  - `WHILE` makes a Mode 1 comment of the form `x WHILE y`, where x and y decode, into ick's 11-statement WHILE: it runs if reached, and its added statements shift every later statement's number.
   - A slat turns a statement that doesn't decode in Mode 1 into a live one. In Mode 1, `(1) DO .1 <- .2/#3` is a comment that `REINSTATE CALCULATING` leaves alone; in `.xc` it is a CALCULATE that the REINSTATE wakes up, and once it runs `.2` stands for `#3`.
   - A trailing `ONCE`, `AGAIN`, `QUONDAM` or `ITERUM` turns a never-executed statement into a decodable one. After `DO REINSTATE READING OUT`, Mode 1's `PLEASE DON'T READ OUT #1 AGAIN` is a comment that never prints, but in `.xc` it is a READ OUT that runs. And Mode 1's dead `PLEASE COME FROM (5) AGAIN` becomes a working trap on `(5)` in `.xc`.
 
@@ -180,3 +181,14 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a), since `ick`'s loop is a bug in how it saves the jump target. The compiler does (a) until this is answered.
 - **Blocks:** no checklist items; `threads/computed.xc` pins (a).
 - **Raised:** 2026-10-18
+
+## L31: Do WHILE's added statements count in statement numbers?
+
+- **Context:** CIWAPA expands `a WHILE b` into the 11 statements `ick`'s preprocessor makes (R3). Error messages give statement ordinals (T33), so the ten added statements shift every later statement's number: an error after one WHILE is reported 10 higher than a reader counting the source would expect. `ick` prints source line numbers, so it doesn't have the question.
+- **Options:**
+  - (a) Count them. Ordinals stay plain positions in the expanded program, and the user docs say a WHILE counts as 11 statements.
+  - (b) Number every statement by the source statement it came from, so a WHILE counts as one. Errors inside the expansion then share a number.
+- **Lean:** (a). The compiler does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+
