@@ -44,7 +44,7 @@ bool timedOutAlike(String name, List<int> a, List<int> b) {
     return false;
   }
   final n = a.length < b.length ? a.length : b.length;
-  return same(a.sublist(0, n), b.sublist(0, n));
+  return n > 0 && same(a.sublist(0, n), b.sublist(0, n));
 }
 
 /// The ICL code of a run-time error in an exit ("0:ICL000" gives "ICL000"), or null.
@@ -183,7 +183,9 @@ void main(List<String> args) {
     if (reasons[name] != 'T22') untriaged.add('llvm and dart differ on $name');
   }
   for (final key in reasons.keys.where((k) => !used.contains(k))) {
-    untriaged.add('reasons.json: $key explains no difference');
+    untriaged.add(
+      '${extracal ? 'extracal-reasons.json' : 'reasons.json'}: $key explains no difference',
+    );
   }
   if (untriaged.isNotEmpty) {
     untriaged.forEach(stdout.writeln);

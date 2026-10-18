@@ -14,6 +14,7 @@ set -euo pipefail
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 cd "$repo_root"
 what="${1:-all}"
+case "$what" in conformance | pit | all | extracal) ;; *) echo "unknown mode: $what" >&2; exit 2 ;; esac
 work="$repo_root/.cache/oracle"
 rm -rf "$work"
 mkdir -p "$work/programs"
@@ -27,7 +28,7 @@ add() { # name source-file input-file-or-empty [ick options]
   fi
   LC_ALL=C sed 's/¢/$/g' "$2" >"$work/programs/$1"
   [[ -n "$3" && -f "$3" ]] && cp "$3" "$work/programs/$1.in"
-  [[ -n "${4:-}" ]] && echo "$4" >"$work/programs/$1.ickflags"
+  [[ "$what" == extracal && -n "${4:-}" ]] && echo "$4" >"$work/programs/$1.ickflags"
   echo "$1" >>"$list"
 }
 if [[ "$what" == conformance || "$what" == all ]]; then
@@ -61,8 +62,6 @@ if [[ "$what" != conformance ]]; then
   done < <(find "$repo_root/pit" -path "$repo_root/pit/lib" -prune -o -type f \( -name '*.i' -o -name '*.[3-7]i' \) -print | sort)
 fi
 cp "$list" "$work/programs/list"
-git rev-parse HEAD >"$work/programs/sha"
-if git diff --quiet HEAD -- packages/; then echo false; else echo true; fi >"$work/programs/dirty"
 
 # Runs inside each container, from the programs directory. Output goes to the container's own /tmp
 # first: through a bind mount, output flushed at every newline (T31) is slow enough to time out.
@@ -98,6 +97,10 @@ for oracle in $oracles; do
     "ciwapa-oracle-ick:${oracle%%:*}" sh -c "$run_all" sh "${oracle#*:}" sh -c 'timeout 60 ick -b $(cat ickflags 2>/dev/null) "$0"'
 done
 
+# The verdict names the commit the compilers come from; it is dirty if packages/ has uncommitted
+# changes, or changes while the flavors run.
+sha="$(git rev-parse HEAD)"
+packages="$(git status --porcelain -- packages/)"
 # Fresh compilers of their own, so a concurrent CI check rebuilding .cache/build can't interfere.
 "$repo_root/tools/in-docker" sh -c 'for flavor in llvm dart; do
   dart --suppress-analytics compile exe "packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" -o ".cache/oracle/ciwapa-$flavor" >/dev/null
@@ -106,6 +109,14 @@ for flavor in llvm dart; do
   "$repo_root/tools/in-docker" sh -c "cd /work/.cache/oracle/programs && $run_all" sh "$flavor" \
     sh -c '/work/.cache/oracle/ciwapa-'"$flavor"' build --no-random-bug "$0" -o p'
 done
+
+dirty=false
+if [[ -n "$packages" || "$(git rev-parse HEAD)" != "$sha" ||
+  "$(git status --porcelain -- packages/)" != "$packages" ]]; then
+  dirty=true
+fi
+echo "$sha" >"$work/programs/sha"
+echo "$dirty" >"$work/programs/dirty"
 
 while IFS= read -r f; do
   for impl in $(for o in $oracles; do echo "${o#*:}"; done); do
