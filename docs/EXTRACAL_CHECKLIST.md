@@ -8,7 +8,7 @@ Format, as in [`SPEC_CHECKLIST.md`](SPEC_CHECKLIST.md):
 - [ ] R4 — rule, in one line. Tests: `packages/conformance/...`
 ```
 
-The sections follow the plan's acceptance criteria. `lattice run goal-status` reads this file; the `pit/` oracle comparison is judged there, from `tools/goal/oracle.json`.
+The sections follow the plan's acceptance criteria. `goal-status` read this file and judged the `pit/` oracle comparison from `tools/goal/oracle.json`; both were removed by goal 2's cleanup (Q140), so that verdict lives in the git history.
 
 ## Superset (R1)
 
@@ -169,4 +169,4 @@ Each new code is listed under "EXTRACAL error codes" in [`SPEC_DECISIONS.md`](SP
 ## Mode 1 is unchanged (Q111)
 
 - [x] Q111 — the Mode 1 conformance suite passes unchanged in both flavors. Tests: `packages/conformance/bin/conformance.dart`
-- [x] Q111 — Mode 1 benchmark timings show no regression against goal 1's. Tests: `tools/goal/no-regression.json`
+- [x] Q111 — Mode 1 benchmark timings show no regression against goal 1's. Tests: `tools/goal/no-regression.json` (removed by goal 2's cleanup, Q140; see the git history)

@@ -198,7 +198,6 @@ packages/
   conformance/               # golden tests run against both flavors
 tools/
   in-docker                  # permanent: runs a command inside ciwapa-toolchain
-  oracle/  bench/  goal/     # TEMPORARY: ick oracle, baselines, pit fetch, goal-status
 docs/
   PLAN.md  EXTRACAL_PLAN.md  INTERSTATES_PLAN.md  SPEC_CHECKLIST.md  SPEC_DECISIONS.md  QUESTIONS.md
   assets/do-not-use.png      # README banner (Ryan removes it, Q130)
