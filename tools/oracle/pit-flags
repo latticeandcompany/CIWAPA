@@ -1,0 +1,8 @@
+# TEMPORARY (goal 2's cleanup removes it): the ick options pit programs need for their extensions,
+# from pit's Makefile, plus continuation.i, whose threads and CREATE need -m and -a. program | options
+pass.i | -m
+continuation.i | -m -a
+tests/compucome.i | -m
+tests/permute.i | -m
+tests/whileadd.i | -m
+tests/testcreate.i | -a

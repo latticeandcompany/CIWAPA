@@ -1,0 +1,13 @@
+{
+ "pit_iching1.xc": "T22",
+ "pit_iching2.xc": "T22",
+ "pit_random.xc": "T22",
+ "pit_tests_testcf.xc": "T22",
+ "pit_tests_normaldist.xc": "T22",
+ "pit_tests_iffit1.xc": "R3 (item 10, external calls, is deferred: iffit1.i is half of an INTERCAL and Befunge-98 program built with ick -e)",
+ "pit_tests_pictest.xc": "not a difference: ick 0.35 can't build it either without -P, and R3 drops PIC-INTERCAL (item 13)",
+ "pit_tests_test16bit.xc": "R4, R5 (the mingle widens to 64 bits, so storing it in a 32-bit variable is E276, not E533)",
+ "pit_tests_testi18n.xc": "T14",
+ "pit_tests_whileadd.xc": "L26 (ungrouped operator chains stay invalid)",
+ "pit_tests_iogerunds.xc": "T22"
+}

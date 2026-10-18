@@ -2,12 +2,15 @@
 // difference from an ick oracle gets the Divergences entry (or decision) that explains it, by the
 // rules below or by tools/oracle/reasons.json. Writes tools/oracle/triage.json when every
 // difference is explained; otherwise lists the ones that aren't and exits 1.
-// Usage: tools/in-docker dart run tools/oracle/triage.dart
+// With `extracal` it triages `differential extracal`'s run against 0.35 by
+// tools/oracle/extracal-reasons.json, and writes goal 2's verdict, tools/goal/oracle.json. A reason
+// starting "blocked:" marks a difference that waits on QUESTIONS.md.
+// Usage: tools/in-docker dart run tools/oracle/triage.dart [extracal]
 import 'dart:convert';
 import 'dart:io';
 
 const work = '.cache/oracle/programs';
-const oracles = ['ick035', 'ick015'];
+var oracles = ['ick035', 'ick015'];
 const flavors = ['llvm', 'dart'];
 
 /// The §7.2 entry points; pit programs that NEXT to any other 1xxx label rely on ick's library.
@@ -34,6 +37,16 @@ bool same(List<int> a, List<int> b) {
   return true;
 }
 
+/// Both flavors ran into the timeout, one having printed a prefix of what the other printed.
+bool timedOutAlike(String name, List<int> a, List<int> b) {
+  if (read('$work/$name.exit.llvm') != '124' ||
+      read('$work/$name.exit.dart') != '124') {
+    return false;
+  }
+  final n = a.length < b.length ? a.length : b.length;
+  return same(a.sublist(0, n), b.sublist(0, n));
+}
+
 /// The ICL code of a run-time error in an exit ("0:ICL000" gives "ICL000"), or null.
 String? runtimeCode(String exit) =>
     exit.startsWith('compile') || !exit.contains(':')
@@ -55,11 +68,15 @@ String? rule(
       r'^\s*\((\d+)\)',
       multiLine: true,
     ).allMatches(source).map((m) => int.parse(m[1]!)).toSet();
-    final called = RegExp(r'\(\s*(1\d\d\d)\s*\)\s*NEXT')
+    final called = RegExp(r'\(\s*([15]\d\d\d)\s*\)\s*NEXT')
         .allMatches(source)
-        .map((m) => int.parse(m[1]!));
-    if (called.any((l) => !documented.contains(l) && !defined.contains(l))) {
+        .map((m) => int.parse(m[1]!))
+        .where((l) => !defined.contains(l));
+    if (called.any((l) => l < 2000 && !documented.contains(l))) {
       return 'Q35, Q38 (ick-internal library labels)';
+    }
+    if (called.any((l) => l >= 5000 && l < 5700)) {
+      return "Q38, Q135 (ick's floatlib, which CIWAPA doesn't have)";
     }
   }
   if (oracle == 'ick015' &&
@@ -94,9 +111,15 @@ String? rule(
   return null;
 }
 
-void main() {
+void main(List<String> args) {
+  final extracal = args.contains('extracal');
+  if (extracal) oracles = ['ick035'];
   final reasons = (jsonDecode(
-    File('tools/oracle/reasons.json').readAsStringSync(),
+    File(
+      extracal
+          ? 'tools/oracle/extracal-reasons.json'
+          : 'tools/oracle/reasons.json',
+    ).readAsStringSync(),
   ) as Map).cast<String, String>();
   final names = File('$work/list').readAsLinesSync().where((l) => l.isNotEmpty);
   final triaged = <Map<String, String>>[];
@@ -110,7 +133,8 @@ void main() {
     if (llvmOut != null &&
         dartOut != null &&
         (!same(llvmOut, dartOut) ||
-            read('$work/$name.exit.llvm') != read('$work/$name.exit.dart'))) {
+            read('$work/$name.exit.llvm') != read('$work/$name.exit.dart')) &&
+        !timedOutAlike(name, llvmOut, dartOut)) {
       parity.add(name);
     }
     for (final oracle in oracles) {
@@ -140,6 +164,8 @@ void main() {
           'ciwapa_exit': ourExit,
           'status': reason.startsWith('not a difference')
               ? 'not a difference'
+              : reason.startsWith('blocked:')
+              ? 'blocked'
               : 'divergence',
           'reason': reason,
         });
@@ -162,6 +188,13 @@ void main() {
   if (untriaged.isNotEmpty) {
     untriaged.forEach(stdout.writeln);
     exit(1);
+  }
+  if (extracal) {
+    File('tools/goal/oracle.json').writeAsStringSync(
+      '${const JsonEncoder.withIndent(' ').convert({'programs': names.length, 'sha': read('$work/sha'), 'dirty': read('$work/dirty') == 'true', 'oracle': 'C-INTERCAL 0.35', 'differences': triaged})}\n',
+    );
+    stdout.writeln('wrote tools/goal/oracle.json');
+    return;
   }
   File('tools/oracle/triage.json').writeAsStringSync(
     '${const JsonEncoder.withIndent(' ').convert({

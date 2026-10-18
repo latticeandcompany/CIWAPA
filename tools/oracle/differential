@@ -4,9 +4,11 @@
 # the ICL code of a run-time error ("0:ICL000"), or "compile:ICLnnn". The rest of stderr isn't
 # compared: CIWAPA's messages and statement numbering differ on purpose (Q83, T33).
 #
-# Usage: tools/oracle/differential [conformance|pit|all]
+# Usage: tools/oracle/differential [conformance|pit|all|extracal]
 # Leaves <name>.out.<impl> and <name>.exit.<impl> in .cache/oracle/programs for
 # tools/oracle/triage.dart, and lists the programs whose results differ in .cache/oracle/differences.txt.
+# extracal compiles every pit/ program as EXTRACAL (.xc, or .3xc-.7xc) and runs it against 0.35 only;
+# `triage.dart extracal` then writes goal 2's verdict, tools/goal/oracle.json.
 set -euo pipefail
 
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -19,12 +21,16 @@ mkdir -p "$work/programs"
 # Copy the programs into one directory that every container can see; ick wants ASCII mingle.
 list="$work/programs.txt"
 : >"$list"
-add() { # name source-file input-file-or-empty
+add() { # name source-file input-file-or-empty [ick options]
+  if [[ "$what" == extracal ]]; then
+    set -- "$(sed -E 's/\.([2-7]?)i$/.\1xc/' <<<"$1")" "$2" "$3" "${4:-}"
+  fi
   LC_ALL=C sed 's/¢/$/g' "$2" >"$work/programs/$1"
   [[ -n "$3" && -f "$3" ]] && cp "$3" "$work/programs/$1.in"
+  [[ -n "${4:-}" ]] && echo "$4" >"$work/programs/$1.ickflags"
   echo "$1" >>"$list"
 }
-if [[ "$what" != pit ]]; then
+if [[ "$what" == conformance || "$what" == all ]]; then
   while IFS= read -r f; do
     stem="${f%.*}"
     [[ -f "$stem.flags" || -f "$stem.args" || -f "$stem.timeout" || -f "$stem.env" ]] && continue
@@ -50,10 +56,13 @@ if [[ "$what" != conformance ]]; then
     rel="${f#"$repo_root/pit/"}"
     grep -qx "$rel" <<<"$special" && continue
     stem="${f%.*}"
-    add "pit_$(echo "$rel" | tr '/' '_')" "$f" "$stem.tst"
+    flags="$(grep -v '^#' "$repo_root/tools/oracle/pit-flags" | awk -F' *[|] *' -v p="$rel" '$1 == p {print $2}')"
+    add "pit_$(echo "$rel" | tr '/' '_')" "$f" "$stem.tst" "$flags"
   done < <(find "$repo_root/pit" -path "$repo_root/pit/lib" -prune -o -type f \( -name '*.i' -o -name '*.[3-7]i' \) -print | sort)
 fi
 cp "$list" "$work/programs/list"
+git rev-parse HEAD >"$work/programs/sha"
+if git diff --quiet HEAD -- packages/; then echo false; else echo true; fi >"$work/programs/dirty"
 
 # Runs inside each container, from the programs directory. Output goes to the container's own /tmp
 # first: through a bind mount, output flushed at every newline (T31) is slow enough to time out.
@@ -64,7 +73,9 @@ impl="$1"
 shift
 for f in $(cat list); do
   ext="${f##*.}"
+  case "$impl" in ick*) ext="$(echo "$ext" | sed "s/xc$/i/")" ;; esac
   rm -rf /tmp/b && mkdir -p /tmp/b && cp "$f" "/tmp/b/p.$ext"
+  case "$impl" in ick*) [ -f "$f.ickflags" ] && cp "$f.ickflags" /tmp/b/ickflags ;; esac
   if (cd /tmp/b && "$@" "p.$ext" >/tmp/b/cerr 2>&1); then
     input=/dev/null
     [ -f "$f.in" ] && input="$f.in"
@@ -80,9 +91,11 @@ for f in $(cat list); do
 done
 rm -rf /tmp/b'
 
-for oracle in 0.35:ick035 0.15:ick015; do
+oracles="0.35:ick035 0.15:ick015"
+[[ "$what" == extracal ]] && oracles="0.35:ick035"
+for oracle in $oracles; do
   docker run --rm --user "$(id -u):$(id -g)" -v "$work/programs:/work" -w /work \
-    "ciwapa-oracle-ick:${oracle%%:*}" sh -c "$run_all" sh "${oracle#*:}" sh -c 'timeout 60 ick -b "$0"'
+    "ciwapa-oracle-ick:${oracle%%:*}" sh -c "$run_all" sh "${oracle#*:}" sh -c 'timeout 60 ick -b $(cat ickflags 2>/dev/null) "$0"'
 done
 
 # Fresh compilers of their own, so a concurrent CI check rebuilding .cache/build can't interfere.
@@ -95,7 +108,7 @@ for flavor in llvm dart; do
 done
 
 while IFS= read -r f; do
-  for impl in ick035 ick015; do
+  for impl in $(for o in $oracles; do echo "${o#*:}"; done); do
     for flavor in llvm dart; do
       if ! cmp -s "$work/programs/$f.out.$impl" "$work/programs/$f.out.$flavor" ||
         ! cmp -s "$work/programs/$f.exit.$impl" "$work/programs/$f.exit.$flavor"; then
