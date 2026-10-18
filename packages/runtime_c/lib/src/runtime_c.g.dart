@@ -1135,6 +1135,165 @@ void ick_turing_out64(uint32_t index, uint32_t next) {
   }
 }
 
+/* ---- CLC-INTERCAL's Baudot text I/O (R3 item 11, L14) ------------------------------------ */
+/* WRITE IN BAUDOT reads one line of Latin-1 into an array as Baudot codes, one per element, and
+ * READ OUT BAUDOT prints an array of codes as a line, starting in letters shift with the fewest
+ * shift codes a character needs; only an element's low 5 bits are its code, and code 0 is
+ * skipped. runtime.dart has the same, with the shift rules. */
+
+/* The Latin-1 character for each code in letters, lower case, figures and symbols; 0 for none. */
+static const unsigned char baudot[32][4] = {
+    {0, 0, 0, 0},
+    {69, 101, 51, 162},
+    {10, 10, 10, 10},
+    {65, 97, 45, 43},
+    {32, 32, 32, 32},
+    {83, 115, 7, 92},
+    {73, 105, 56, 35},
+    {85, 117, 55, 61},
+    {13, 13, 13, 13},
+    {68, 100, 36, 42},
+    {82, 114, 52, 123},
+    {74, 106, 39, 126},
+    {78, 110, 44, 165},
+    {70, 102, 33, 124},
+    {67, 99, 58, 94},
+    {75, 107, 40, 60},
+    {84, 116, 53, 91},
+    {90, 122, 34, 125},
+    {87, 119, 41, 62},
+    {76, 108, 50, 93},
+    {72, 104, 0, 8},
+    {89, 121, 54, 64},
+    {80, 112, 48, 0},
+    {81, 113, 49, 163},
+    {79, 111, 57, 172},
+    {66, 98, 63, 127},
+    {71, 103, 38, 0},
+    {0, 0, 0, 0},
+    {77, 109, 46, 37},
+    {88, 120, 47, 95},
+    {86, 118, 59, 0},
+    {0, 0, 0, 0}
+};
+
+static int baudot_shift(int state, int code) {
+  return code == 31 ? (state < 2 ? 1 : 0) : (state < 2 ? 2 : 3);
+}
+
+/* Baudot codes for a line of input, into codes (room for 3 per byte); returns the count. */
+static size_t baudot_encode(const unsigned char *line, size_t length, uint32_t *codes) {
+  static const int shifts[2] = {31, 27};
+  size_t n = 0;
+  int state = 0;
+  for (size_t i = 0; i < length; i++) {
+    int c = line[i] == 9 ? 32 : line[i], code = 0, target = state;
+    for (int k = 1; k < 32 && c; k++) {
+      for (int s = 0; s < 4; s++) {
+        if (baudot[k][s] == c && (code == 0 || s == state)) {
+          code = k;
+          target = s;
+        }
+      }
+    }
+    if (target != state) {
+      int done = 0;
+      for (int a = 0; a < 2 && !done; a++) {
+        if (baudot_shift(state, shifts[a]) == target) {
+          codes[n++] = (uint32_t)shifts[a];
+          done = 1;
+        }
+      }
+      for (int a = 0; a < 2 && !done; a++) {
+        for (int b = 0; b < 2 && !done; b++) {
+          if (baudot_shift(baudot_shift(state, shifts[a]), shifts[b]) == target) {
+            codes[n++] = (uint32_t)shifts[a];
+            codes[n++] = (uint32_t)shifts[b];
+            done = 1;
+          }
+        }
+      }
+      state = target;
+    }
+    codes[n++] = (uint32_t)code;
+  }
+  return n;
+}
+
+/* A line of input as Baudot codes for an array of length elements; E241 if they don't fit. The
+ * codes are malloc'd. */
+static uint32_t *baudot_line(size_t length, size_t *count, uint32_t next) {
+  ICK_FLUSH();
+  size_t size = 0, capacity = 64;
+  unsigned char *line = malloc(capacity);
+  if (!line) ick_fatal(778, 1);
+  for (int c = ICK_GETCHAR(); c != EOF && c != '\n'; c = ICK_GETCHAR()) {
+    if (size == capacity) {
+      capacity *= 2;
+      line = realloc(line, capacity);
+      if (!line) ick_fatal(778, 1);
+    }
+    line[size++] = (unsigned char)c;
+  }
+  uint32_t *codes = malloc((3 * size + 1) * sizeof(uint32_t));
+  if (!codes) ick_fatal(778, 1);
+  *count = baudot_encode(line, size, codes);
+  free(line);
+  if (*count > length) ick_fatal(241, next);
+  return codes;
+}
+
+static void baudot_print(uint64_t value, int *state) {
+  int code = (int)(value & 31);
+  if (code == 0) return;
+  if (code == 27 || code == 31) {
+    *state = baudot_shift(*state, code);
+    return;
+  }
+  int c = baudot[code][*state];
+  putchar(c ? c : 0x1A);
+}
+
+void ick_baudot_in(uint32_t index, uint32_t next) {
+  ick_shape *a = &arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  size_t count;
+  uint32_t *codes = baudot_line(a->dims[0], &count, next);
+  if (!arrays[index].ignored) {
+    for (size_t i = 0; i < a->dims[0]; i++) a->data[i] = i < count ? codes[i] : 0;
+  }
+  free(codes);
+}
+
+void ick_baudot_out(uint32_t index, uint32_t next) {
+  ick_shape *a = &arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  int state = 0;
+  for (size_t i = 0; i < a->dims[0]; i++) baudot_print(a->data[i], &state);
+  putchar('\n');
+  ICK_FLUSH();
+}
+
+void ick_baudot_in64(uint32_t index, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  size_t count;
+  uint32_t *codes = baudot_line(a->dims[0], &count, next);
+  if (!wide_arrays[index].ignored) {
+    for (size_t i = 0; i < a->dims[0]; i++) a->data[i] = i < count ? codes[i] : 0;
+  }
+  free(codes);
+}
+
+void ick_baudot_out64(uint32_t index, uint32_t next) {
+  ick_wide_shape *a = &wide_arrays[index].shape;
+  if (a->rank != 1) ick_fatal(241, next);
+  int state = 0;
+  for (size_t i = 0; i < a->dims[0]; i++) baudot_print(a->data[i], &state);
+  putchar('\n');
+  ICK_FLUSH();
+}
+
 /* ---- EXTRACAL's mingle widening (R5, Q122) ---------------------------------------------- */
 /* A mingle's width depends on its operands' values, so its result is held as (width, high, low):
  * width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can

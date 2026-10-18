@@ -366,12 +366,19 @@ class Parser {
         final input = kind == TokenKind.writeIn;
         final signed = _tok.kind == TokenKind.signed;
         if (signed) _pos++;
+        final baudot = !signed && _tok.kind == TokenKind.baudot;
+        if (baudot) _pos++;
         final items = [_ioItem(input: input)];
         while (_tok.kind == TokenKind.intersection) {
           _pos++;
           items.add(_ioItem(input: input));
         }
-        return IoBody(input: input, items: items, signed: signed);
+        return IoBody(
+          input: input,
+          items: items,
+          signed: signed,
+          baudot: baudot,
+        );
       case TokenKind.giveUp:
         _pos++;
         return const GiveUp();

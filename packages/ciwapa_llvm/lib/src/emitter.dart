@@ -55,6 +55,8 @@ declare i32 @ick_write_in(i32)
 declare void @ick_read_out(i32)
 declare void @ick_turing_in(i32, i32)
 declare void @ick_turing_out(i32, i32)
+declare void @ick_baudot_in(i32, i32)
+declare void @ick_baudot_out(i32, i32)
 declare void @ick_dimension(i32, i32, ptr, i32)
 declare ptr @ick_element(i32, i32, ptr, i32)
 declare i32 @ick_array_ignored(i32)
@@ -162,6 +164,8 @@ declare i64 @ick_write_in64(i32)
 declare void @ick_read_out64(i64)
 declare void @ick_turing_in64(i32, i32)
 declare void @ick_turing_out64(i32, i32)
+declare void @ick_baudot_in64(i32, i32)
+declare void @ick_baudot_out64(i32, i32)
 declare void @ick_xmingle(ptr, i32, i64, i64, i32, i64, i64, i32)
 declare void @ick_xselect(ptr, i32, i64, i64, i32, i64, i64)
 declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
@@ -823,11 +827,11 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
           );
           _line('store i8 ${abstain ? 1 : 0}, ptr $p');
         }
-      case IrWriteIn(:final items, :final signed):
+      case IrWriteIn(:final items, :final signed, :final baudot):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
-              'call void @ick_turing_in${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
+              'call void @ick_${baudot ? 'baudot' : 'turing'}_in${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
             );
             continue;
           }
@@ -841,11 +845,11 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
             next,
           );
         }
-      case IrReadOut(:final items, :final signed):
+      case IrReadOut(:final items, :final signed, :final baudot):
         for (final item in items) {
           if (item is IrArrayItem) {
             _line(
-              'call void @ick_turing_out${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
+              'call void @ick_${baudot ? 'baudot' : 'turing'}_out${_suffix(item.array)}(i32 ${item.array.index}, i32 $next)',
             );
           } else if (signed) {
             _line(

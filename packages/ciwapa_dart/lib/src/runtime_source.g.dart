@@ -1272,6 +1272,158 @@ void ickTuringOut64(int index, int next) {
   }
 }
 
+// ---- CLC-INTERCAL's Baudot text I/O (R3 item 11, L14) -------------------------------------------
+// WRITE IN BAUDOT reads one line of Latin-1 into an array as Baudot codes, one per element, and
+// READ OUT BAUDOT prints an array of codes as a line. Both start in letters shift. Shift code 31
+// goes from letters or lower case to lower case and from figures or symbols to letters; 27 goes
+// from letters or lower case to figures and from figures or symbols to symbols. The encoder puts
+// in the fewest a character needs. Only the low 5 bits of an element are its code, and code 0 is
+// skipped. runtime.c has the same.
+
+/// The Latin-1 character for each code in letters, lower case, figures and symbols; 0 for none.
+const _baudot = <List<int>>[
+  [0, 0, 0, 0],
+  [69, 101, 51, 162],
+  [10, 10, 10, 10],
+  [65, 97, 45, 43],
+  [32, 32, 32, 32],
+  [83, 115, 7, 92],
+  [73, 105, 56, 35],
+  [85, 117, 55, 61],
+  [13, 13, 13, 13],
+  [68, 100, 36, 42],
+  [82, 114, 52, 123],
+  [74, 106, 39, 126],
+  [78, 110, 44, 165],
+  [70, 102, 33, 124],
+  [67, 99, 58, 94],
+  [75, 107, 40, 60],
+  [84, 116, 53, 91],
+  [90, 122, 34, 125],
+  [87, 119, 41, 62],
+  [76, 108, 50, 93],
+  [72, 104, 0, 8],
+  [89, 121, 54, 64],
+  [80, 112, 48, 0],
+  [81, 113, 49, 163],
+  [79, 111, 57, 172],
+  [66, 98, 63, 127],
+  [71, 103, 38, 0],
+  [0, 0, 0, 0],
+  [77, 109, 46, 37],
+  [88, 120, 47, 95],
+  [86, 118, 59, 0],
+  [0, 0, 0, 0],
+];
+
+int _baudotShift(int state, int code) =>
+    code == 31 ? (state < 2 ? 1 : 0) : (state < 2 ? 2 : 3);
+
+/// The codes for a line of Latin-1: a character with no code is 0, and a tab is a space.
+List<int> _baudotEncode(List<int> line) {
+  final codes = <int>[];
+  var state = 0;
+  for (final byte in line) {
+    final c = byte == 9 ? 32 : byte;
+    var code = 0, target = state;
+    for (var k = 1; k < 32 && c != 0; k++) {
+      for (var s = 0; s < 4; s++) {
+        if (_baudot[k][s] == c && (code == 0 || s == state)) {
+          code = k;
+          target = s;
+        }
+      }
+    }
+    if (target != state) {
+      final direct = [31, 27].where((s) => _baudotShift(state, s) == target);
+      if (direct.isNotEmpty) {
+        codes.add(direct.first);
+      } else {
+        for (final first in [31, 27]) {
+          final via = _baudotShift(state, first);
+          final second = [31, 27].where((s) => _baudotShift(via, s) == target);
+          if (second.isNotEmpty) {
+            codes.addAll([first, second.first]);
+            break;
+          }
+        }
+      }
+      state = target;
+    }
+    codes.add(code);
+  }
+  return codes;
+}
+
+/// The Latin-1 a run of codes prints as: 0x1A for a code with no character in its shift.
+List<int> _baudotDecode(Iterable<int> values) {
+  final text = <int>[];
+  var state = 0;
+  for (final value in values) {
+    final code = value & 31;
+    if (code == 0) continue;
+    if (code == 27 || code == 31) {
+      state = _baudotShift(state, code);
+      continue;
+    }
+    final c = _baudot[code][state];
+    text.add(c == 0 ? 0x1A : c);
+  }
+  return text;
+}
+
+/// A line of input as Baudot codes, for an array of [length] elements; E241 if they don't fit.
+List<int> _baudotLine(int length, int next) {
+  _flush();
+  final line = <int>[];
+  for (var c = ickReadByte(); c != -1 && c != 10; c = ickReadByte()) {
+    line.add(c);
+  }
+  final codes = _baudotEncode(line);
+  if (codes.length > length) ickFatal(241, next);
+  return codes;
+}
+
+void _baudotPrint(Iterable<int> values) {
+  _baudotDecode(values).forEach(_writeByte);
+  _writeByte(10);
+  _flush();
+}
+
+@pragma('vm:never-inline')
+void ickBaudotIn(int index, int next) {
+  final length = _turingArray(index, next);
+  final codes = _baudotLine(length, next);
+  final a = _arrays[index];
+  if (a.ignored) return;
+  for (var i = 0; i < length; i++) {
+    a.shape.data[i] = i < codes.length ? codes[i] : 0;
+  }
+}
+
+@pragma('vm:never-inline')
+void ickBaudotOut(int index, int next) {
+  _baudotPrint(_arrays[index].shape.data.take(_turingArray(index, next)));
+}
+
+@pragma('vm:never-inline')
+void ickBaudotIn64(int index, int next) {
+  final shape = _wideArrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  final codes = _baudotLine(shape.dims[0], next);
+  if (_wideArrays[index].ignored) return;
+  for (var i = 0; i < shape.dims[0]; i++) {
+    shape.data[i] = i < codes.length ? codes[i] : 0;
+  }
+}
+
+@pragma('vm:never-inline')
+void ickBaudotOut64(int index, int next) {
+  final shape = _wideArrays[index].shape;
+  if (shape.rank != 1) ickFatal(241, next);
+  _baudotPrint(shape.data);
+}
+
 // ---- EXTRACAL's mingle widening (R5, Q122) ------------------------------------------------------
 // A mingle's width depends on its operands' values, so its result is held as (width, high, low):
 // width 32 or 64 with the value in low, or 128 for an ephemeral value that only a select can use.

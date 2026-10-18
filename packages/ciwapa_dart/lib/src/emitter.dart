@@ -706,15 +706,16 @@ class DartEmitter {
             _line('abT[$t] = ++_clock;');
           }
         }
-      case IrWriteIn(:final items, :final signed):
+      case IrWriteIn(:final items, :final signed, :final baudot):
         for (final item in items) {
-          _writeIn(item, next, signed: signed);
+          _writeIn(item, next, signed: signed, baudot: baudot);
         }
-      case IrReadOut(:final items, :final signed):
+      case IrReadOut(:final items, :final signed, :final baudot):
         for (final item in items) {
           if (item is IrArrayItem) {
+            final kind = baudot ? 'Baudot' : 'Turing';
             _line(
-              'ickTuringOut${_suffix(item.array)}(${item.array.index}, $next);',
+              'ick${kind}Out${_suffix(item.array)}(${item.array.index}, $next);',
             );
           } else if (signed) {
             _line('ickReadOutSigned(${_expr(item, next)}, ${item.width});');
@@ -782,7 +783,12 @@ class DartEmitter {
 
   /// Reads one number into [target]: element subscripts are checked first, then the number is
   /// read, then E275 (even when the target is IGNOREd, decision T24), then the store.
-  void _writeIn(IrExpr target, Object next, {bool signed = false}) {
+  void _writeIn(
+    IrExpr target,
+    Object next, {
+    bool signed = false,
+    bool baudot = false,
+  }) {
     switch (target) {
       case IrScalar() || IrElement():
         _line('{');
@@ -795,7 +801,8 @@ class DartEmitter {
         );
         _line('}');
       case IrArrayItem(:final array):
-        _line('ickTuringIn${_suffix(array)}(${array.index}, $next);');
+        final kind = baudot ? 'Baudot' : 'Turing';
+        _line('ick${kind}In${_suffix(array)}(${array.index}, $next);');
       default:
         throw StateError('cannot WRITE IN $target');
     }

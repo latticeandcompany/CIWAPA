@@ -1229,6 +1229,21 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
 - **Decision:** First make INTERCAL-64 and CLC-INTERCAL run `tpk`, `primes`, `pi` and `life` correctly, by investigating input files, command-line flags and each baseline's own system library. Only configuration and harness changes are allowed, never patches to the baselines' source. If a program still can't run correctly on a baseline, remove that baseline from that program in `programs.txt` with the reason recorded next to it. The guardrail then compares only against baselines that produce the correct output. Wrong-output runs are never timed. **Code change needed:** the investigation, plus `programs.txt` and the bench's handling.
 - **Date:** 2026-10-16
 
+### L14: CLC-style binary I/O
+- **Options:** (a) a compiler flag like `ick -x` / (b) new syntax / (c) drop item 11
+- **Decision:** (b), Ryan's choice. `WRITE IN BAUDOT` and `READ OUT BAUDOT` do CLC-INTERCAL's Baudot text I/O on any array in the list; everything else in the list, and plain array I/O, keep their usual meaning (Turing Text, T31).
+  - **WRITE IN BAUDOT** reads one line of Latin-1 (without its line feed; a tab is a space), encodes it in CLC-INTERCAL's extended Baudot, one code per element with no padding bits, and zeroes the rest of the array. Codes that don't fit are E241; the end of input reads as an empty line.
+  - **READ OUT BAUDOT** prints the array's codes as a line of Latin-1. Only an element's low 5 bits are its code, and code 0 is skipped (CLC-INTERCAL ignores NULs); a code with no character in the current shift prints as 0x1A, as in `ick`.
+  - **Shifts:** both start in letters shift. Code 31 goes from letters or lower case to lower case, and from figures or symbols to letters; code 27 goes from letters or lower case to figures, and from figures or symbols to symbols. The encoder puts in the fewest a character needs (never more than two).
+  - **An array of rank other than 1** is E241, as for Turing Text. `--traditional` rejects BAUDOT with E111.
+  - **Not `ick` 0.35 exactly:** its Baudot I/O, used only under `-x`, pads every stored code with random high bits, so what it reads in can't be printed back, and its decoder picks a first shift from the wrong table entry, so even clean codes print wrongly (checked against the 0.35 oracle). EXTRACAL follows CLC-INTERCAL's documented behavior, which those bugs depart from. CLC-INTERCAL's other mechanism, generalised binary I/O on hybrid arrays, isn't included: `ick` 0.35 never implemented it, and the manual's description of it can't be read back unambiguously.
+- **Date:** 2026-10-18
+
+### L15: EXTRACAL's words in a Mode 1 program's comments
+- **Options:** (a) follow `ick`: the words work anywhere / (b) only at the start of a line / (c) drop MAYBE and the Latin statement identifiers
+- **Decision:** (a), Ryan's choice, as the compiler already did. A Mode 1 program whose comments contain EXTRACAL's words (MAYBE, FAC, PLACET, a trailing ONCE or AGAIN, WHILE and the rest) can behave differently as `.xc`; that is a deliberate Mode 1 vs. EXTRACAL difference, like the E533 mingle case, and `docs/EXTRACAL.md` warns about it, as `ick`'s manual does.
+- **Date:** 2026-10-18
+
 ### L33: Floats
 - **Options:** for each of normal form, rounding, range, division by zero and ln's domain, the logarithm, integers, and decimal strings out and in: the leans in `QUESTIONS.md`, or the alternatives listed there
 - **Decision:** Ryan chose every recommended option.

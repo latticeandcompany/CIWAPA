@@ -185,6 +185,22 @@ AHEAD` throws the most recent choicepoint away. Either one with no choicepoint i
     PLEASE GIVE UP
 ```
 
+### Baudot text I/O
+
+`WRITE IN BAUDOT ,1` reads a line of input into `,1` as CLC-INTERCAL's Baudot codes, one per element,
+and `READ OUT BAUDOT ,1` prints them back as a line (L14). It works on any array in the list; plain
+`READ OUT ,1` stays Turing Text.
+
+```
+    DO ,1 <- #80
+    DO WRITE IN BAUDOT ,1
+    PLEASE READ OUT BAUDOT ,1
+    DO GIVE UP
+```
+
+Baudot has four shifts (letters, lower case, figures, symbols) and two shift codes, so a line can
+take more elements than characters; one that doesn't fit is E241.
+
 ### Operand overloading
 
 `.1 <- .2/expr` assigns `.2`'s value to `.1` and from then on makes `.2` stand for the expression.

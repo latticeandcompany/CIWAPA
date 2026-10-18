@@ -49,6 +49,7 @@ enum TokenKind {
   petition,
   gerund,
   signed,
+  baudot,
   once,
   again,
   intersection,
@@ -471,6 +472,8 @@ class Lexer {
     ('WHILE', _kind(TokenKind.whileKeyword)),
     ('WHILING', _gerund(Gerund.whiling)),
     ('LOOPING', _gerund(Gerund.whiling)),
+    // CLC-INTERCAL's Baudot text I/O (R3 item 11, L14).
+    ('BAUDOT', _kind(TokenKind.baudot)),
     // The library's way to the operating system (R10, L29).
     ('PETITION', _kind(TokenKind.petition)),
     ('PETITIONING', _gerund(Gerund.petitioning)),

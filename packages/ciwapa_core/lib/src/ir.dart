@@ -361,27 +361,35 @@ class IrAbstain extends IrOp {
 }
 
 class IrWriteIn extends IrOp {
-  const IrWriteIn(this.items, {this.signed = false});
+  const IrWriteIn(this.items, {this.signed = false, this.baudot = false});
 
   final List<IrExpr> items;
 
   /// `WRITE IN SIGNED` (R6, Q124): numbers may start with MINUS and are stored in two's complement.
   final bool signed;
 
+  /// `WRITE IN BAUDOT` (R3 item 11, L14): each array reads a line as Baudot codes.
+  final bool baudot;
+
   @override
-  String toString() => 'WRITE IN ${signed ? 'SIGNED ' : ''}${items.join('+')}';
+  String toString() =>
+      'WRITE IN ${signed ? 'SIGNED ' : ''}${baudot ? 'BAUDOT ' : ''}${items.join('+')}';
 }
 
 class IrReadOut extends IrOp {
-  const IrReadOut(this.items, {this.signed = false});
+  const IrReadOut(this.items, {this.signed = false, this.baudot = false});
 
   final List<IrExpr> items;
 
   /// `READ OUT SIGNED` (R6, Q124): each number is read as two's complement at its width.
   final bool signed;
 
+  /// `READ OUT BAUDOT` (R3 item 11, L14): each array prints as a line of Baudot codes.
+  final bool baudot;
+
   @override
-  String toString() => 'READ OUT ${signed ? 'SIGNED ' : ''}${items.join('+')}';
+  String toString() =>
+      'READ OUT ${signed ? 'SIGNED ' : ''}${baudot ? 'BAUDOT ' : ''}${items.join('+')}';
 }
 
 /// `ick`'s TRY AGAIN (R3). Only the control engine runs it.
@@ -833,12 +841,18 @@ class _Lowering {
         ],
       ),
       AbstainBody() => _abstain(body),
-      IoBody(input: true, :final items, :final signed) => IrWriteIn([
-        for (final i in items) _expr(i),
-      ], signed: signed),
-      IoBody(input: false, :final items, :final signed) => IrReadOut([
-        for (final i in items) _expr(i),
-      ], signed: signed),
+      IoBody(input: true, :final items, :final signed, :final baudot) =>
+        IrWriteIn(
+          [for (final i in items) _expr(i)],
+          signed: signed,
+          baudot: baudot,
+        ),
+      IoBody(input: false, :final items, :final signed, :final baudot) =>
+        IrReadOut(
+          [for (final i in items) _expr(i)],
+          signed: signed,
+          baudot: baudot,
+        ),
       GiveUp() => const IrGiveUp(),
       TryAgain() => const IrTryAgain(),
       GoBack() => const IrGoBack(),

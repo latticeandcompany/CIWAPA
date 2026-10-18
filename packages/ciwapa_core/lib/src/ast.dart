@@ -246,13 +246,22 @@ class AbstainBody extends Body {
 /// WRITE IN (items are [Scalar], [Element] or a whole-array [ArrayItem]) and READ OUT (which also
 /// accepts [Constant]).
 class IoBody extends Body {
-  const IoBody({required this.input, required this.items, this.signed = false});
+  const IoBody({
+    required this.input,
+    required this.items,
+    this.signed = false,
+    this.baudot = false,
+  });
 
   final bool input;
   final List<Expr> items;
 
   /// `WRITE IN SIGNED` or `READ OUT SIGNED` (R6, Q124).
   final bool signed;
+
+  /// `WRITE IN BAUDOT` or `READ OUT BAUDOT`: arrays as lines of CLC-INTERCAL Baudot (R3 item
+  /// 11, L14).
+  final bool baudot;
 
   @override
   Gerund get gerund => input ? Gerund.writingIn : Gerund.readingOut;

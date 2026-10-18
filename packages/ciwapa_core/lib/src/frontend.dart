@@ -75,7 +75,8 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           body is GoAhead ||
           s.maybe ||
           s.whileBody != null ||
-          body is Petition) {
+          body is Petition ||
+          (body is IoBody && body.baudot)) {
         throw CompileError(111, i + 1);
       }
     }
