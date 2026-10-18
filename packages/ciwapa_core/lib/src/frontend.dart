@@ -21,12 +21,21 @@ class CompileError implements Exception {
 
 /// A parsed program that passed every whole-program check.
 class Program {
-  Program(this.source, this.base, this.statements, this.userStatements);
+  Program(
+    this.source,
+    this.base,
+    this.statements,
+    this.userStatements, {
+    required this.extracal,
+  });
 
   final Source source;
 
   /// The numeric base picked by the file extension, 2 through 7.
   final int base;
+
+  /// Whether the file extension picked EXTRACAL rather than Mode 1 (decisions Q43, Q56).
+  final bool extracal;
 
   /// The user's statements, followed by the system library's when it was included (§7.3).
   final List<Statement> statements;
@@ -40,8 +49,9 @@ bool isValidLabel(int label) => label >= 1 && label <= 65535;
 /// Parses [source] and runs the whole-program checks, in C-INTERCAL 0.15's order.
 /// [memoryLimit] is test-only (decision L7): see [Parser.memoryLimit].
 Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
-  final base = Source.baseOf(source.path);
-  if (base == null) throw CompileError(998, 1);
+  final dialect = Source.dialectOf(source.path);
+  if (dialect == null) throw CompileError(998, 1);
+  final base = dialect.base;
   if (traditional && base != 2) throw CompileError(111, 1);
 
   final statements = Parser(source, memoryLimit: memoryLimit).parse();
@@ -57,7 +67,13 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
   }
   _checkLabels(statements);
   _checkOperators(statements, base);
-  return Program(source, base, statements, userStatements);
+  return Program(
+    source,
+    base,
+    statements,
+    userStatements,
+    extracal: dialect.extracal,
+  );
 }
 
 /// §7.3 and decision T36: the library is included when a NEXT targets a label from 1000 to 1999

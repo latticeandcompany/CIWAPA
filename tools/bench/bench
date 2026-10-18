@@ -3,6 +3,8 @@
 # four baselines, each in its own Docker image, and writes tools/bench/results.json (Q30–Q34).
 # Meant for Linux arm64 Docker; build the baselines first with tools/bench/build-images.
 # Usage: tools/bench/bench [runs per program, default 5]
+# With CIWAPA_ONLY=1, only the two CIWAPA flavors are measured, into .cache/bench/runs.jsonl, for
+# tools/bench/no-regression.
 set -euo pipefail
 
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -39,6 +41,10 @@ for flavor in llvm dart; do
     CIWAPA=/tmp/$flavor/bin/ciwapa-$flavor tools/bench/measure ciwapa-$flavor $runs /work/tools/bench/ciwapa-build" \
     >>"$out/runs.jsonl"
 done
+
+if [[ "${CIWAPA_ONLY:-}" == 1 ]]; then
+  exit 0
+fi
 
 # ick and rick build native executables. They're built in their own images but run here, next to
 # CIWAPA's, so every native program starts under the same libc and loader.

@@ -56,12 +56,27 @@ class Source {
   /// The text between rune offsets [start] and [end].
   String slice(int start, int end) => String.fromCharCodes(runes, start, end);
 
-  /// The numeric base selected by the file extension (§6.3, §6.6, decision T40), or null when the
-  /// extension is invalid (E998).
-  static int? baseOf(String path) {
-    final match = RegExp(r'\.([2-7]?)i$').firstMatch(path);
+  /// The language and base the file extension selects, or null when the extension is invalid
+  /// (E998). `.i` and `.2i`–`.7i` are Mode 1 (§6.3, §6.6, decision T40); `.xc` and `.2xc`–`.7xc`
+  /// are EXTRACAL (decisions Q43, Q56).
+  static Dialect? dialectOf(String path) {
+    final match = RegExp(r'\.([2-7]?)(i|xc)$').firstMatch(path);
     if (match == null) return null;
     final digit = match.group(1)!;
-    return digit.isEmpty ? 2 : int.parse(digit);
+    return Dialect(
+      digit.isEmpty ? 2 : int.parse(digit),
+      extracal: match.group(2) == 'xc',
+    );
   }
+}
+
+/// The language a program is written in.
+class Dialect {
+  const Dialect(this.base, {required this.extracal});
+
+  /// The numeric base, 2 through 7.
+  final int base;
+
+  /// EXTRACAL rather than Mode 1.
+  final bool extracal;
 }

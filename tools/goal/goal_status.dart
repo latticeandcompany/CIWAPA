@@ -1,5 +1,6 @@
-// TEMPORARY (goal 2's cleanup removes it): judges goal 1's acceptance criteria from the
-// working tree plus the GitHub state that tools/goal/goal-status saved in .cache/goal.
+// TEMPORARY (removed last, by goal 2's cleanup): judges goal 2's acceptance criteria
+// (docs/EXTRACAL_PLAN.md) from the working tree plus the GitHub state that tools/goal/goal-status
+// saved in .cache/goal.
 import 'dart:convert';
 import 'dart:io';
 
@@ -35,14 +36,17 @@ void main() {
   }
   print('');
 
-  final criteria = [
-    _checklist(),
+  final sections = _checklistSections();
+  final rest = [
+    for (final MapEntry(key: title, value: items) in sections.entries)
+      _section(title, items),
     _conformance(),
+    _oracle(),
+    _noRegression(),
     _ci(),
     _archives(),
-    _performance(),
-    _oracle(),
   ];
+  final criteria = [...rest, _scaffolding(waiting: rest.any((c) => c.blocked))];
   for (final (i, c) in criteria.indexed) {
     final state = c.met
         ? '[MET]    '
@@ -53,14 +57,6 @@ void main() {
     for (final d in c.details) {
       print('            $d');
     }
-  }
-
-  print('');
-  print('Temporary scaffolding still present (kept for goal 2):');
-  for (final path in ['tools/oracle', 'tools/bench', 'tools/goal', 'pit']) {
-    print(
-      '  $path: ${FileSystemEntity.typeSync(path) == FileSystemEntityType.notFound ? 'absent' : 'present'}',
-    );
   }
 
   print('');
@@ -84,31 +80,48 @@ void main() {
   }
 }
 
-Criterion _checklist() {
-  const title =
-      'Every SPEC_CHECKLIST.md item is checked and links to a passing test (or is blocked)';
-  final lines = _read('docs/SPEC_CHECKLIST.md').split('\n');
-  final items = <String>[];
+/// The checklist's items, grouped by its `##` sections. An item's indented continuation lines are
+/// part of it.
+Map<String, List<String>> _checklistSections() {
+  final sections = <String, List<String>>{};
   var inFence = false;
-  for (final line in lines) {
+  String? section;
+  for (final line in _read('docs/EXTRACAL_CHECKLIST.md').split('\n')) {
     if (line.startsWith('```')) {
       inFence = !inFence;
       continue;
     }
     if (inFence) continue;
-    if (line.startsWith('## Excluded by decision')) break;
-    if (RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
+    final items = section == null ? null : sections[section];
+    if (line.startsWith('## ')) {
+      section = line.substring(3);
+      sections[section] = [];
+    } else if (items != null && RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
       items.add(line);
-    } else if (items.isNotEmpty && line.startsWith('  ')) {
-      items[items.length - 1] += '\n$line';
-    } else if (line.startsWith('#')) {
-      items.add('');
+    } else if (items != null && items.isNotEmpty && line.startsWith('  ')) {
+      items[items.length - 1] += ' ${line.trim()}';
     }
   }
-  items.removeWhere((i) => i.isEmpty);
+  return sections;
+}
 
+/// The questions still open in QUESTIONS.md, such as `L14`.
+final Set<String> _openQuestions = {
+  for (final m in RegExp(
+    r'^## (L\d+):',
+    multiLine: true,
+  ).allMatches(_read('docs/QUESTIONS.md')))
+    m.group(1)!,
+};
+
+Criterion _section(String title, List<String> items) {
+  if (items.isEmpty) {
+    return Criterion('EXTRACAL_CHECKLIST.md: $title', false, [
+      'the section has no items',
+    ]);
+  }
   var done = 0, open = 0, blocked = 0;
-  final invalid = <String>[];
+  final problems = <String>[];
   for (final item in items) {
     final checked = item.startsWith('- [x]');
     final testsText = item.contains('Tests:')
@@ -121,25 +134,38 @@ Criterion _checklist() {
     final missing = tests.where(
       (t) => FileSystemEntity.typeSync(t) == FileSystemEntityType.notFound,
     );
-    if (item.contains('**BLOCKED**')) {
+    final summary = item.length > 110 ? '${item.substring(0, 110)}…' : item;
+    final waitingOn = RegExp(r'\*\*BLOCKED\*\* \((L\d+)\)')
+        .allMatches(item)
+        .map((m) => m.group(1)!)
+        .where(_openQuestions.contains);
+    if (waitingOn.isNotEmpty) {
       blocked++;
+      problems.add('blocked on ${waitingOn.join(', ')}: $summary');
+    } else if (item.contains('**BLOCKED**')) {
+      open++;
+      problems.add(
+        'marked blocked, but cites no open QUESTIONS.md entry: $summary',
+      );
     } else if (!checked) {
       open++;
+      problems.add('open: $summary');
     } else if (tests.isEmpty || missing.isNotEmpty) {
-      invalid.add(item.split('\n').first);
+      problems.add('checked without an existing linked test: $summary');
     } else {
       done++;
     }
   }
-  return Criterion(title, open == 0 && invalid.isEmpty, [
+  final met = done == items.length;
+  return Criterion('EXTRACAL_CHECKLIST.md: $title', met, [
     '${items.length} items: $done done, $open open, $blocked blocked',
-    for (final i in invalid) 'checked but without an existing linked test: $i',
-  ]);
+    ...problems,
+  ], blocked: !met && blocked + done == items.length);
 }
 
 Criterion _conformance() {
   const title =
-      'The conformance suite passes in both flavors with identical stdout, stderr and exit codes';
+      'The conformance suite, superset runs included, passes in both flavors on every platform';
   final details = <String>[];
   var met = true;
   final totals = <int>{};
@@ -156,20 +182,73 @@ Criterion _conformance() {
       final results =
           jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       final total = results['total'] as int;
+      final superset = results['superset'] as int? ?? 0;
       final failed = (results['failed'] as List).cast<String>();
       totals.add(total);
-      if (total == 0 || failed.isNotEmpty) met = false;
+      if (total == 0 || superset == 0 || failed.isNotEmpty) met = false;
       details.add(
-        '$platform $flavor: ${total - failed.length}/$total passed'
+        '$platform $flavor: ${total - failed.length}/$total passed, $superset of them superset runs'
         '${failed.isEmpty ? '' : ' (failed: ${failed.take(5).join(', ')}${failed.length > 5 ? ', …' : ''})'}',
       );
     }
   }
   if (totals.length > 1) {
     met = false;
-    details.add('the flavors ran different numbers of tests: $totals');
+    details.add('the jobs ran different numbers of tests: $totals');
   }
   return Criterion(title, met, details);
+}
+
+/// The oracle's verdict is copied here before tools/oracle is removed, so it outlives it.
+Criterion _oracle() {
+  const title =
+      'The pit/ programs using ick extensions match C-INTERCAL 0.35, or differ only by recorded divergences';
+  final file = File('tools/goal/oracle.json');
+  if (!file.existsSync()) {
+    return Criterion(title, false, [
+      'no tools/goal/oracle.json yet: the EXTRACAL oracle run writes it',
+    ]);
+  }
+  final triage = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  final freshness = _read('$cache/oracle-freshness').trim();
+  if (freshness != 'current' || (triage['programs'] as int? ?? 0) == 0) {
+    return Criterion(title, false, [
+      freshness == 'current' ? 'no programs were compared' : freshness,
+    ]);
+  }
+  final differences = (triage['differences'] as List)
+      .cast<Map<String, dynamic>>();
+  final untriaged = differences.where(
+    (d) => !const {
+      'fixed',
+      'divergence',
+      'not a difference',
+    }.contains(d['status']),
+  );
+  final blocked = differences.where((d) => d['status'] == 'blocked');
+  return Criterion(title, untriaged.isEmpty, [
+    '${triage['programs']} programs compared, ${differences.length} differences, '
+        '${untriaged.length} untriaged',
+    for (final d in untriaged.take(10)) '${d['status']}: ${d['program']}',
+  ], blocked: untriaged.isNotEmpty && untriaged.length == blocked.length);
+}
+
+/// Written by tools/bench/no-regression, which compares with goal 1's timings (Q111).
+Criterion _noRegression() {
+  const title =
+      'Mode 1 benchmark timings show no regression against goal 1 (Q111)';
+  final file = File('tools/goal/no-regression.json');
+  if (!file.existsSync()) {
+    return Criterion(title, false, [
+      'no tools/goal/no-regression.json: run tools/bench/no-regression',
+    ]);
+  }
+  final verdict = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  final freshness = _read('$cache/no-regression-freshness').trim();
+  return Criterion(title, verdict['met'] == true && freshness == 'current', [
+    if (freshness != 'current') freshness,
+    for (final line in verdict['summary'] as List) '$line',
+  ]);
 }
 
 Criterion _ci() => _jobsGreen(
@@ -235,51 +314,40 @@ Criterion _jobsGreen(String title, String runFile, String jobPrefix) {
   return Criterion(title, met, details);
 }
 
-Criterion _performance() {
-  const title = 'Every performance guardrail is met';
-  final file = File('tools/bench/results.json');
-  if (!file.existsSync()) {
-    return Criterion(title, false, [
-      'no benchmark results recorded in tools/bench/results.json',
-    ]);
-  }
-  final results = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  final guardrails = (results['guardrails'] as List)
-      .cast<Map<String, dynamic>>();
-  final unmet = guardrails.where((g) => g['met'] != true);
-  return Criterion(title, unmet.isEmpty, [
-    for (final g in guardrails)
-      '${g['met'] == true
-          ? 'ok     '
-          : g['blocked'] != null
-          ? 'BLOCKED'
-          : 'FAIL   '} ${g['name']}: ${g['ratio']} (target ${g['target']})${g['blocked'] != null ? ' (QUESTIONS.md ${g['blocked']})' : ''}',
-  ], blocked: unmet.isNotEmpty && unmet.every((g) => g['blocked'] != null));
-}
-
-Criterion _oracle() {
+/// Goal 1's and goal 2's temporary scaffolding (Q140). tools/goal and the image this script runs
+/// in are removed right after it reports, so they can't be checked here. While other criteria wait
+/// on QUESTIONS.md the scaffolding is still needed to finish them, so it is [waiting] too.
+Criterion _scaffolding({required bool waiting}) {
+  final toolchain = _read('$cache/toolchain-image').trim();
   const title =
-      'Every difference from the 0.35 oracle is fixed or recorded under Divergences';
-  final file = File('tools/oracle/triage.json');
-  if (!file.existsSync()) {
-    return Criterion(title, false, [
-      'the oracle has not been run (no tools/oracle/triage.json)',
-    ]);
-  }
-  final triage = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  final differences = (triage['differences'] as List)
-      .cast<Map<String, dynamic>>();
-  final untriaged = differences.where(
-    (d) => !const {
-      'fixed',
-      'divergence',
-      'not a difference',
-    }.contains(d['status']),
-  );
-  return Criterion(title, untriaged.isEmpty, [
-    '${triage['programs']} programs compared, ${differences.length} differences, ${untriaged.length} untriaged',
-    for (final d in untriaged.take(10)) 'untriaged: ${d['program']}',
+      'The temporary scaffolding from goals 1 and 2 is removed (Q140); tools/goal and ciwapa-toolchain go last';
+  final tracked = _read('$cache/tracked-scaffolding')
+      .split('\n')
+      .where((l) => l.trim().isNotEmpty)
+      .toList();
+  final images = _read('$cache/docker-images')
+      .split('\n')
+      .where((l) => l.startsWith('ciwapa-') && l != toolchain)
+      .toList();
+  final problems = [
+    if (tracked.isNotEmpty)
+      'still tracked: ${tracked.take(5).join(', ')}${tracked.length > 5 ? ', …' : ''}',
+    if (FileSystemEntity.typeSync('pit') != FileSystemEntityType.notFound)
+      'the pit/ download is still here',
+    if (_read('docs/PLAN.md').contains('## Performance guardrails'))
+      'docs/PLAN.md still has the performance-guardrails section',
+    if (_read('.github/workflows/ci.yml').contains('tools/bench'))
+      'the CI performance-regression check is still in ci.yml',
+    for (final i in images) 'Docker image still present: $i',
+  ];
+  return Criterion(title, problems.isEmpty, [
+    ...problems,
+    if (problems.isEmpty)
+      'tools/oracle, tools/bench, pit/ and their images are gone',
   ]);
 }
 
-String _read(String path) => File(path).readAsStringSync();
+String _read(String path) {
+  final file = File(path);
+  return file.existsSync() ? file.readAsStringSync() : '';
+}

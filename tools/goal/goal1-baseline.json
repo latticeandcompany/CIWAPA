@@ -1,0 +1,31 @@
+{
+  "measured": "2026-10-18T03:58:27.090079Z",
+  "run_us": {
+    "ciwapa-llvm": {
+      "empty": 1036,
+      "tpk": 1419,
+      "unlambda": 1246,
+      "beer": 1256,
+      "hail_mary": 1047767,
+      "next-resume": 7840,
+      "abstain": 9746,
+      "primes": 1482608,
+      "pi": 1502,
+      "fft": 26426,
+      "life": 1276
+    },
+    "ciwapa-dart": {
+      "empty": 1931,
+      "tpk": 3536,
+      "unlambda": 2431,
+      "beer": 2645,
+      "hail_mary": 1758258,
+      "next-resume": 19329,
+      "abstain": 8824,
+      "primes": 3113981,
+      "pi": 3045,
+      "fft": 93445,
+      "life": 2745
+    }
+  }
+}

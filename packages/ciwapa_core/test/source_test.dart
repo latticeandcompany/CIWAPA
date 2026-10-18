@@ -70,15 +70,36 @@ void main() {
     });
   });
 
-  group('the extension picks the base', () {
-    test('.i and .2i are binary', () {
-      expect(Source.baseOf('hello.i'), 2);
-      expect(Source.baseOf('dir.with.dots/hello.2i'), 2);
+  group('the extension picks the language and the base', () {
+    test('.i and .2i are binary Mode 1', () {
+      for (final path in ['hello.i', 'dir.with.dots/hello.2i']) {
+        final dialect = Source.dialectOf(path)!;
+        expect(dialect.base, 2, reason: path);
+        expect(dialect.extracal, isFalse, reason: path);
+      }
     });
 
-    test('.3i through .7i are bases 3 to 7', () {
+    test('.3i through .7i are Mode 1 in bases 3 to 7', () {
       for (var base = 3; base <= 7; base++) {
-        expect(Source.baseOf('tri.${base}i'), base);
+        final dialect = Source.dialectOf('tri.${base}i')!;
+        expect(dialect.base, base);
+        expect(dialect.extracal, isFalse);
+      }
+    });
+
+    test('.xc and .2xc are binary EXTRACAL', () {
+      for (final path in ['hello.xc', 'dir.with.dots/hello.2xc']) {
+        final dialect = Source.dialectOf(path)!;
+        expect(dialect.base, 2, reason: path);
+        expect(dialect.extracal, isTrue, reason: path);
+      }
+    });
+
+    test('.3xc through .7xc are EXTRACAL in bases 3 to 7', () {
+      for (var base = 3; base <= 7; base++) {
+        final dialect = Source.dialectOf('tri.${base}xc')!;
+        expect(dialect.base, base);
+        expect(dialect.extracal, isTrue);
       }
     });
 
@@ -91,8 +112,13 @@ void main() {
         'hello.33i',
         'hello.I',
         'hello.i.bak',
+        'hello.x',
+        'hello.xci',
+        'hello.8xc',
+        'hello.XC',
+        'hello.ixc',
       ]) {
-        expect(Source.baseOf(path), isNull, reason: path);
+        expect(Source.dialectOf(path), isNull, reason: path);
       }
     });
   });
