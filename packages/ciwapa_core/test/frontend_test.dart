@@ -29,6 +29,14 @@ void main() {
     test('the extension picks the base', () {
       expect(compile('DO GIVE UP', path: 'x.5i').base, 5);
     });
+
+    test('the extension picks Mode 1 or EXTRACAL (decisions Q43, Q56)', () {
+      expect(compile('DO GIVE UP', path: 'x.i').extracal, isFalse);
+      expect(compile('DO GIVE UP', path: 'x.xc').extracal, isTrue);
+      final tri = compile('DO GIVE UP', path: 'x.4xc');
+      expect(tri.extracal, isTrue);
+      expect(tri.base, 4);
+    });
   });
 
   group('--traditional (decision T39)', () {

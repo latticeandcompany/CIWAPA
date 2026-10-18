@@ -3,7 +3,8 @@
 //   dart run bin/conformance.dart --compiler <ciwapa-dart or ciwapa-llvm executable>
 //       [--results results.json] [--jobs n] [name filters...]
 //
-// Each test is tests/<group>/<name>.i with optional siblings:
+// Each test is tests/<group>/<name>.i (or .2i–.7i, .xc, .2xc–.7xc, or .bad for a bad extension)
+// with optional siblings:
 //   .in     stdin for the program
 //   .args   program arguments, one per line
 //   .flags  compiler flags, one per line (--no-random-bug is always passed)
@@ -15,6 +16,11 @@
 //             output so far is compared. Only for programs that loop forever by design and print
 //             nothing, since how much a looping program prints in N seconds varies.
 // Any other program that runs longer than a minute fails as timed out.
+//
+// Every Mode 1 test also runs a second time as EXTRACAL, copied to <name>.xc (or .2xc–.7xc), and
+// must give the same results: the superset rule (R1). Where EXTRACAL deliberately differs, the
+// test has .xc.out, .xc.err or .xc.exit files, and the EXTRACAL run is compared with those instead
+// (each missing one counts as empty, or 0).
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
 import 'dart:convert';
@@ -44,28 +50,36 @@ Future<void> main(List<String> arguments) async {
         .resolve('../tests/'),
   );
   final filters = args.rest;
-  final tests =
+  final sources =
       root
           .listSync(recursive: true)
           .whereType<File>()
-          .where(
-            (f) =>
-                f.path.endsWith('.i') ||
-                RegExp(r'\.[2-7]i$').hasMatch(f.path) ||
-                f.path.endsWith('.bad'),
-          )
           .map((f) => f.path)
+          .where(
+            (p) =>
+                _mode1.hasMatch(p) ||
+                _extracal.hasMatch(p) ||
+                p.endsWith('.bad'),
+          )
           .where((p) => filters.isEmpty || filters.any(p.contains))
           .toList()
         ..sort();
+  final tests = [
+    for (final path in sources) ...[
+      (path: path, superset: false),
+      if (_mode1.hasMatch(path)) (path: path, superset: true),
+    ],
+  ];
+  final supersetCount = tests.where((t) => t.superset).length;
 
   final failed = <String>[];
   var next = 0;
   Future<void> worker() async {
     while (next < tests.length) {
-      final path = tests[next++];
-      final name = _relative(path, root.path);
-      final failure = await _check(compiler, path);
+      final (:path, :superset) = tests[next++];
+      final name =
+          '${superset ? 'superset:' : ''}${_relative(path, root.path)}';
+      final failure = await _check(compiler, path, superset: superset);
       if (failure == null) {
         stdout.writeln('pass  $name');
       } else {
@@ -84,14 +98,21 @@ Future<void> main(List<String> arguments) async {
   stdout.writeln('\n${tests.length - failed.length}/${tests.length} passed');
   final results = args.option('results');
   if (results != null) {
-    File(
-      results,
-    ).writeAsStringSync(jsonEncode({'total': tests.length, 'failed': failed}));
+    File(results).writeAsStringSync(
+      jsonEncode({
+        'total': tests.length,
+        'superset': supersetCount,
+        'failed': failed,
+      }),
+    );
   }
   exit(failed.isEmpty && tests.isNotEmpty ? 0 : 1);
 }
 
 const _defaultTimeout = Duration(minutes: 1);
+
+final _mode1 = RegExp(r'\.[2-7]?i$');
+final _extracal = RegExp(r'\.[2-7]?xc$');
 
 String _relative(String path, String root) =>
     path.substring(root.length).replaceAll(r'\', '/');
@@ -102,10 +123,21 @@ List<String> _lines(File f) => f.existsSync()
     ? f.readAsLinesSync().where((l) => l.trim().isNotEmpty).toList()
     : const [];
 
-Future<String?> _check(String compiler, String path) async {
+Future<String?> _check(
+  String compiler,
+  String path, {
+  required bool superset,
+}) async {
   final stem = _stem(path);
   final temp = Directory.systemTemp.createTempSync('ciwapa-conformance-');
   try {
+    if (superset) {
+      final name = File(path).uri.pathSegments.last;
+      final copy =
+          '${temp.path}${Platform.pathSeparator}${name.substring(0, name.length - 1)}xc';
+      File(path).copySync(copy);
+      path = copy;
+    }
     final exe =
         '${temp.path}${Platform.pathSeparator}program${Platform.isWindows ? '.exe' : ''}';
     final environment = <String, String>{};
@@ -150,19 +182,23 @@ Future<String?> _check(String compiler, String path) async {
     if (build.exitCode == 0 && !mustLoop && outcome.timedOut) {
       return 'timed out after ${timeout.inSeconds}s';
     }
-    return _compare(stem, outcome);
+    return _compare(stem, outcome, superset: superset);
   } finally {
     temp.deleteSync(recursive: true);
   }
 }
 
-String? _compare(String stem, Outcome actual) {
+String? _compare(String stem, Outcome actual, {required bool superset}) {
+  final differs =
+      superset &&
+      ['out', 'err', 'exit'].any((e) => File('$stem.xc.$e').existsSync());
+  final prefix = differs ? '$stem.xc' : stem;
   List<int> expected(String extension) {
-    final f = File('$stem.$extension');
+    final f = File('$prefix.$extension');
     return f.existsSync() ? f.readAsBytesSync() : const [];
   }
 
-  final exitFile = File('$stem.exit');
+  final exitFile = File('$prefix.exit');
   final expectedExit = exitFile.existsSync()
       ? int.parse(exitFile.readAsStringSync().trim())
       : 0;

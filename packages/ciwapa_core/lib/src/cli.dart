@@ -142,8 +142,8 @@ ArgParser _parser() => ArgParser()
 String _usage(Backend backend, ArgParser parser) =>
     '''
 Usage:
-  ${backend.name} build <file.i> [-o <executable>] [options]
-  ${backend.name} run <file.i> [options] [-- <program arguments>]
+  ${backend.name} build <file.i or file.xc> [-o <executable>] [options]
+  ${backend.name} run <file.i or file.xc> [options] [-- <program arguments>]
   ${backend.name} doctor
 
 Options:

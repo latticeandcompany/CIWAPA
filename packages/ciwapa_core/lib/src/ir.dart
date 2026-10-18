@@ -391,10 +391,14 @@ class IrProgram {
     this.statements,
     this.scalars,
     this.arrays,
-    this.userStatements,
-  );
+    this.userStatements, {
+    this.extracal = false,
+  });
 
   final int base;
+
+  /// Whether the program is EXTRACAL rather than Mode 1.
+  final bool extracal;
   final List<IrStatement> statements;
   final List<Slot> scalars;
   final List<Slot> arrays;
@@ -518,6 +522,7 @@ class _Lowering {
       _scalars.values.toList(),
       _arrays.values.toList(),
       program.userStatements,
+      extracal: program.extracal,
     );
   }
 
