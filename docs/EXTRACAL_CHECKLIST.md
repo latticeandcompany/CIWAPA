@@ -12,16 +12,16 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Superset (R1)
 
-- [ ] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead. Tests: `packages/conformance/bin/conformance.dart`
+- [x] R1 — every Mode 1 conformance program, compiled as `.xc` (or `.3xc`–`.7xc`), gives identical stdout, stderr and exit status in both flavors. A test with `.xc.out`, `.xc.err` or `.xc.exit` files is a deliberate Mode 1 vs. EXTRACAL difference and is compared with those instead. Tests: `packages/conformance/bin/conformance.dart`
 - [ ] R1, R5 — a Mode 1 program that ends in E533 by mingling a value over 65535 gets a 64-bit result as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/calculate/e533-mingle-left.xc.out`
 - [ ] R1, R3 — several COME FROMs on one label are a compile-time E555 in Mode 1 and start threads as `.xc`, a recorded deliberate difference. Tests: `packages/conformance/tests/come-from/e555.xc.out`
 
 ## Mode selection (R2)
 
-- [ ] R2 — `.xc` (and `.2xc`, like Mode 1's `.2i`) selects EXTRACAL in base 2. Tests: `packages/ciwapa_core/test/source_test.dart`, `packages/conformance/tests/extracal/mode/xc-is-extracal.xc`
-- [ ] R2 — `.3xc`–`.7xc` select EXTRACAL in bases 3–7. Tests: `packages/conformance/tests/extracal/mode/base3.3xc`, `packages/conformance/tests/extracal/mode/base7.7xc`
-- [ ] R2 — `.i` and `.3i`–`.7i` stay Mode 1, where EXTRACAL's tokens are garbage. Tests: `packages/conformance/tests/extracal/mode/i-is-mode1.i`
-- [ ] R2 — any other extension is E998, including `.xci`, `.8xc` and `.XC`. Tests: `packages/ciwapa_core/test/source_test.dart`, `packages/conformance/tests/errors/e998-extension.bad`
+- [x] R2 — `.xc` (and `.2xc`, like Mode 1's `.2i`) selects EXTRACAL in base 2. Tests: `packages/ciwapa_core/test/source_test.dart`, `packages/conformance/tests/extracal/mode/xc-is-extracal.xc`
+- [x] R2 — `.3xc`–`.7xc` select EXTRACAL in bases 3–7. Tests: `packages/conformance/tests/extracal/mode/base3.3xc`, `packages/conformance/tests/extracal/mode/base7.7xc`
+- [x] R2 — `.i` and `.3i`–`.7i` stay Mode 1, where EXTRACAL's tokens are garbage. Tests: `packages/conformance/tests/extracal/mode/i-is-mode1.i`
+- [x] R2 — any other extension is E998, including `.xci`, `.8xc` and `.XC`. Tests: `packages/ciwapa_core/test/source_test.dart`, `packages/conformance/tests/errors/e998-extension.bad`
 
 ## `ick` extensions (R3)
 
