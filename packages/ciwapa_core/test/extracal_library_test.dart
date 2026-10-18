@@ -20,6 +20,13 @@ void main() {
     );
   });
 
+  test('every service fits the runtimes\' fixed registers', () {
+    for (final MapEntry(:key, :value) in petitionServices.entries) {
+      expect(value.scalars.length, lessThanOrEqualTo(4), reason: '#$key');
+      expect(value.arrays.length, lessThanOrEqualTo(3), reason: '#$key');
+    }
+  });
+
   test('every block has a source', () {
     for (final block in libraryBlocks) {
       expect(block.source, contains('(${block.first})'), reason: block.name);

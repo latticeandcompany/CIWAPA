@@ -600,7 +600,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       ..writeln()
       ..writeln('%ick_message = type { i32, ptr, ptr }')
       ..writeln(
-        '%ick_program = type { i32, i32, i32, i32, ptr, ptr, ptr, i32 }',
+        '%ick_program = type { i32, i32, i32, i32, ptr, ptr, ptr, i32, i32 }',
       )
       ..writeln()
       ..writeln('@v = internal global [$scalars x i32] zeroinitializer')
@@ -619,7 +619,8 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       )
       ..writeln(
         '@program = internal constant %ick_program { i32 ${program.base}, i32 ${options.clockface ? 1 : 0}, '
-        'i32 $scalars, i32 ${program.arrays.length}, ptr @v, ptr @ig, ptr @messages, i32 ${messages.length} }',
+        'i32 $scalars, i32 ${program.arrays.length}, ptr @v, ptr @ig, ptr @messages, i32 ${messages.length}, '
+        'i32 ${program.extracal ? 1 : 0} }',
       )
       ..write(_globals)
       ..writeln()

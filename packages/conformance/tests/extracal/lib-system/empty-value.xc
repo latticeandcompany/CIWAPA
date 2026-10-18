@@ -1,0 +1,5 @@
+	DO ,1 <- #1
+	DO ,1 SUB #1 <- #69
+	PLEASE (8020) NEXT
+	DO READ OUT .1
+	DO READ OUT ,2 SUB #1

@@ -26,10 +26,11 @@ STASH and restores it with RETRIEVE before returning.
 
 `PETITION #n` asks the host for service *n* (L29). It is how the library reaches what INTERCAL
 can't: arguments, the environment, the clock, files and sockets. Each service reads and writes
-fixed variables, listed with the routines below. It stores into a variable the way WRITE IN does:
-an IGNOREd variable keeps its value, and overloading is bypassed. A service the host doesn't have
-is E801. PETITIONING is its gerund. It exists only in `.xc` programs, and `--traditional` rejects
-it (E111).
+fixed variables, listed with the routines below. It reads and stores variables the way the native
+library routines do: it reads a variable's own value, bypassing any overloading, and stores the way
+WRITE IN does, so an IGNOREd variable keeps its value. A service the host doesn't have
+is E801. PETITIONING is its gerund. It exists only in `.xc` programs. `--traditional` rejects
+it (E111), and a program compiled with `--traditional` gets none of the library.
 
 ## System, (8000)–(8999)
 
@@ -43,6 +44,18 @@ it (E111).
 | (8050) | | ::1 = nanoseconds on a clock that only goes forward | for timing; its zero is arbitrary |
 | (8060) | ::1 = seed | | seeds the random numbers behind `%` and (1900)/(1910) |
 
-Each is a single PETITION of the same number. The program's arguments are the ones after the
-runtime options (`+wimpmode`, `+seed n` and the like), from the first that starts with neither `+`
-nor `-`. They and the environment are read as UTF-8.
+Each is a single PETITION of the same number.
+
+- **Arguments** are the ones after the runtime options (`+wimpmode`, `+seed n` and the like): from
+  the first that starts with neither `+` nor `-`, or from the one after a `--`, which ends the
+  options so an argument can start with a sign.
+- **Encoding:** arguments and environment values arrive as the host has them: UTF-16 on Windows,
+  UTF-8 elsewhere, where an encoded surrogate stays a lone surrogate. An environment variable whose
+  value isn't UTF-8, or a name holding NUL or `=`, counts as not set. ciwapa-dart programs can't
+  start at all with an argument that isn't UTF-8 (the Dart VM refuses it); ciwapa-llvm programs
+  read each malformed sequence as U+FFFD.
+- **The empty string:** an empty argument or value gives an array with no dimensions (L30), and
+  only the Strings block's (3000) can tell its length: INTERCAL itself can't ask an array's size,
+  and reading past its end is E241.
+- **Clocks:** (8050) counts in nanoseconds, but how finely it moves depends on the host: by the
+  microsecond in ciwapa-dart programs.

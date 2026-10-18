@@ -88,6 +88,7 @@ void ickInit(
   Uint8List? wideIgnored,
   int wideArrayCount = 0,
   bool latin = false,
+  bool extracal = false,
 }) {
   _latin = latin;
   _monotonic.start();
@@ -123,7 +124,7 @@ void ickInit(
   _clockface = clockface;
   _arrays = List.generate(arrayCount, (_) => _Array());
   _rngState = ickClock();
-  _parseOptions(args);
+  _parseOptions(args, extracal: extracal);
 }
 
 // ---- Errors (§9) -----------------------------------------------------------------------------
@@ -1039,12 +1040,18 @@ int? _parseSeed(String text) {
   return value;
 }
 
-void _parseOptions(List<String> args) {
+void _parseOptions(List<String> args, {required bool extracal}) {
   var help = false;
   String? unknown;
   _programArgs = const [];
   for (var i = 0; i < args.length; i++) {
     final arg = args[i];
+    // In EXTRACAL, `--` ends the runtime options, so a program's own arguments can start with a
+    // sign (R10).
+    if (extracal && arg == '--') {
+      _programArgs = args.sublist(i + 1);
+      break;
+    }
     if (!arg.startsWith('+') && !arg.startsWith('-')) {
       _programArgs = args.sublist(i);
       break;

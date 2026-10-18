@@ -88,7 +88,12 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
     throw CompileError(993, tryAgain + 2);
   }
   final userStatements = statements.length;
-  _includeLibraries(statements, base, extracal: dialect.extracal);
+  // `--traditional` has none of EXTRACAL's library, which is built on PETITION.
+  _includeLibraries(
+    statements,
+    base,
+    extracal: dialect.extracal && !traditional,
+  );
   _checkLabels(statements, extracal: dialect.extracal);
   _checkOperators(statements, base);
   _demoteUnreadable(statements, base);

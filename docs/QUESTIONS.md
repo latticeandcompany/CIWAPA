@@ -197,7 +197,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 
 - **Context:** Strings are tail arrays of code points (Q108), but INTERCAL can't DIMENSION an array to zero elements (E240), and nothing says how a string of length zero looks.
 - **Options:**
-  - (a) The empty string is a tail array with no dimensions, as an array is before its first DIMENSION. Only the library makes one; a program tests for it through the library.
+  - (a) The empty string is a tail array with no dimensions, as an array is before its first DIMENSION. Only the library makes one; a program tests for it through the library. INTERCAL can't ask an array's size, so a program learns any string's length only through the Strings block's (3000).
   - (b) Strings carry their length in a separate variable, and the array always has at least one element.
 - **Lean:** (a). A string stays one array, and no routine needs an extra length argument. The compiler does (a) until this is answered.
 - **Blocks:** no checklist items.

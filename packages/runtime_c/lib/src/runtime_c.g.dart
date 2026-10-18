@@ -33,6 +33,7 @@ static int ick_getchar(void) {
 #include <io.h>
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#include <wchar.h>
 #include <windows.h>
 #endif
 
@@ -73,6 +74,7 @@ typedef struct {
   uint8_t *ignored;
   const ick_message *messages;
   uint32_t message_count;
+  uint32_t extracal;
 } ick_program;
 
 static const ick_program *program;
@@ -902,9 +904,12 @@ static void parse_options(int argc, char **argv) {
   const char *unknown = NULL;
   for (int i = 1; i < argc; i++) {
     const char *arg = argv[i];
-    if (arg[0] != '+' && arg[0] != '-') {
-      program_argc = argc - i;
-      program_argv = argv + i;
+    /* In EXTRACAL, `--` ends the runtime options, so a program's own arguments can start with a
+     * sign (R10). */
+    int ends = program->extracal && strcmp(arg, "--") == 0;
+    if (ends || (arg[0] != '+' && arg[0] != '-')) {
+      program_argc = argc - i - ends;
+      program_argv = argv + i + ends;
       break;
     }
     const char *name = arg + 1;
@@ -2250,7 +2255,8 @@ static void set_string(uint32_t array, const uint16_t *units, size_t length) {
   for (size_t i = 0; i < length; i++) a->shape.data[i] = units[i];
 }
 
-/* UTF-8 to UTF-16, with U+FFFD for anything malformed. The result is malloc'd. */
+/* UTF-8 to UTF-16, with U+FFFD for anything malformed. As in Dart, an encoded surrogate stays a
+ * (lone) surrogate. The result is malloc'd. */
 static uint16_t *utf16_from_utf8(const char *text, size_t *length) {
   size_t n = strlen(text), out = 0;
   uint16_t *units = malloc((n + 1) * sizeof(uint16_t));
@@ -2264,7 +2270,7 @@ static uint16_t *utf16_from_utf8(const char *text, size_t *length) {
     else if (c >= 0x80) c = 0xFFFD;
     uint32_t got = 0;
     while (got < need && p < end && (*p & 0xC0) == 0x80) c = (c << 6) | (*p++ & 0x3F), got++;
-    if (got < need || c < min || c > 0x10FFFF || (c >= 0xD800 && c <= 0xDFFF)) c = need ? 0xFFFD : c;
+    if (got < need || c < min || c > 0x10FFFF) c = need ? 0xFFFD : c;
     if (c >= 0x10000) {
       c -= 0x10000;
       units[out++] = (uint16_t)(0xD800 + (c >> 10));
@@ -2311,6 +2317,88 @@ static char *utf8_from_units(const uint32_t *units, size_t length) {
   return text;
 }
 
+/* Whether [text] is UTF-8, encoded surrogates allowed, as Dart reads the environment: Dart
+ * leaves out a variable whose value isn't. */
+static int is_utf8(const char *text) {
+  const unsigned char *p = (const unsigned char *)text;
+  while (*p) {
+    uint32_t c = *p++, need = 0, min = 0;
+    if (c < 0x80) continue;
+    if (c >= 0xC2 && c <= 0xDF) need = 1, min = 0x80, c &= 0x1F;
+    else if (c >= 0xE0 && c <= 0xEF) need = 2, min = 0x800, c &= 0x0F;
+    else if (c >= 0xF0 && c <= 0xF4) need = 3, min = 0x10000, c &= 0x07;
+    else return 0;
+    for (uint32_t i = 0; i < need; i++, p++) {
+      if ((*p & 0xC0) != 0x80) return 0;
+      c = (c << 6) | (*p & 0x3F);
+    }
+    if (c < min || c > 0x10FFFF) return 0;
+  }
+  return 1;
+}
+
+#ifdef _WIN32
+/* The command line's arguments, in UTF-16, split by the C runtime's rules: whitespace separates
+ * them, quotes group, 2n backslashes before a quote are n backslashes and the quote counts,
+ * 2n + 1 are n and a literal quote, and "" inside quotes is a literal quote. The program name
+ * ends at the first whitespace, or the closing quote, with no escapes. */
+static wchar_t **wide_arguments(int *count) {
+  const wchar_t *p = GetCommandLineW();
+  size_t n = wcslen(p);
+  wchar_t **args = malloc((n + 2) * sizeof *args);
+  wchar_t *buffer = malloc((2 * n + 2) * sizeof(wchar_t));
+  if (!args || !buffer) ick_fatal(778, 1);
+  int c = 0;
+  wchar_t *out = buffer;
+  args[c++] = out;
+  if (*p == L'"') {
+    for (p++; *p && *p != L'"'; p++) *out++ = *p;
+    if (*p) p++;
+  } else {
+    while (*p && *p != L' ' && *p != L'\t') *out++ = *p++;
+  }
+  *out++ = 0;
+  for (;;) {
+    while (*p == L' ' || *p == L'\t') p++;
+    if (!*p) break;
+    args[c++] = out;
+    int quoted = 0;
+    while (*p && (quoted || (*p != L' ' && *p != L'\t'))) {
+      size_t slashes = 0;
+      while (*p == L'\\') slashes++, p++;
+      if (*p == L'"') {
+        for (size_t i = 0; i < slashes / 2; i++) *out++ = L'\\';
+        if (slashes % 2) {
+          *out++ = L'"';
+          p++;
+        } else if (quoted && p[1] == L'"') {
+          *out++ = L'"';
+          p += 2;
+        } else {
+          quoted = !quoted;
+          p++;
+        }
+      } else {
+        for (size_t i = 0; i < slashes; i++) *out++ = L'\\';
+        if (*p && (quoted || (*p != L' ' && *p != L'\t'))) *out++ = *p++;
+      }
+    }
+    *out++ = 0;
+  }
+  *count = c;
+  return args;
+}
+
+static void set_string_wide(uint32_t array, const wchar_t *text) {
+  size_t length = wcslen(text);
+  uint16_t *units = malloc((length + 1) * sizeof(uint16_t));
+  if (!units) ick_fatal(778, 1);
+  for (size_t i = 0; i < length; i++) units[i] = (uint16_t)text[i];
+  set_string(array, units, length);
+  free(units);
+}
+#endif
+
 static void set_string_utf8(uint32_t array, const char *text) {
   size_t length;
   uint16_t *units = utf16_from_utf8(text, &length);
@@ -2336,7 +2424,8 @@ static uint64_t monotonic_ns(void) {
   LARGE_INTEGER count, frequency;
   QueryPerformanceCounter(&count);
   QueryPerformanceFrequency(&frequency);
-  return (uint64_t)((double)count.QuadPart * 1e9 / (double)frequency.QuadPart);
+  uint64_t ticks = (uint64_t)count.QuadPart, rate = (uint64_t)frequency.QuadPart;
+  return ticks / rate * 1000000000ull + ticks % rate * 1000000000ull / rate;
 #else
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -2354,7 +2443,18 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 8010: {
     uint64_t n = scalar_at(s0);
     if (n >= 1 && n <= (uint64_t)program_argc) {
+#ifdef _WIN32
+      /* Windows hands narrow arguments over in the ANSI code page, so they come from the wide
+       * command line instead, at the same place. */
+      int count;
+      wchar_t **wide = wide_arguments(&count);
+      int at = count - program_argc + (int)n - 1;
+      set_string_wide(a0, at >= 0 && at < count ? wide[at] : L"");
+      free(wide[0]);
+      free(wide);
+#else
       set_string_utf8(a0, program_argv[n - 1]);
+#endif
       set_scalar(s1, 1);
     } else {
       set_scalar(s1, 2);
@@ -2364,11 +2464,31 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 8020: {
     size_t length;
     const uint32_t *units = string_at(a0, &length, next);
-    char *name = utf8_from_units(units, length);
-    const char *value = getenv(name);
+    /* No variable's name holds NUL or =, so such a name finds nothing, as in Dart. */
+    int found = 0;
+    int plain = length > 0;
+    for (size_t i = 0; i < length; i++) plain &= units[i] != 0 && units[i] != '=';
+#ifdef _WIN32
+    wchar_t *name = malloc((length + 1) * sizeof(wchar_t));
+    if (!name) ick_fatal(778, 1);
+    for (size_t i = 0; i < length; i++) name[i] = (wchar_t)units[i];
+    name[length] = 0;
+    const wchar_t *value = plain ? _wgetenv(name) : NULL;
     free(name);
-    if (value) set_string_utf8(a1, value);
-    set_scalar(s0, value ? 1 : 2);
+    if (value) {
+      set_string_wide(a1, value);
+      found = 1;
+    }
+#else
+    char *name = utf8_from_units(units, length);
+    const char *value = plain ? getenv(name) : NULL;
+    free(name);
+    if (value && is_utf8(value)) {
+      set_string_utf8(a1, value);
+      found = 1;
+    }
+#endif
+    set_scalar(s0, found ? 1 : 2);
     break;
   }
   case 8030: {
