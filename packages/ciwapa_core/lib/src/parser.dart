@@ -361,13 +361,17 @@ class Parser {
           return AbstainBody(abstain: abstain, label: _tokens[_pos++].value);
         }
         return AbstainBody(abstain: abstain, gerunds: _gerunds());
-      case TokenKind.writeIn || TokenKind.readOut:
+      case TokenKind.writeIn ||
+          TokenKind.readOut ||
+          TokenKind.writeInBaudot ||
+          TokenKind.readOutBaudot:
         _pos++;
-        final input = kind == TokenKind.writeIn;
-        final signed = _tok.kind == TokenKind.signed;
+        final input =
+            kind == TokenKind.writeIn || kind == TokenKind.writeInBaudot;
+        final baudot =
+            kind == TokenKind.writeInBaudot || kind == TokenKind.readOutBaudot;
+        final signed = !baudot && _tok.kind == TokenKind.signed;
         if (signed) _pos++;
-        final baudot = !signed && _tok.kind == TokenKind.baudot;
-        if (baudot) _pos++;
         final items = [_ioItem(input: input)];
         while (_tok.kind == TokenKind.intersection) {
           _pos++;

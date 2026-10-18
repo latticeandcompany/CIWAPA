@@ -1374,12 +1374,7 @@ List<int> _baudotDecode(Iterable<int> values) {
 
 /// A line of input as Baudot codes, for an array of [length] elements; E241 if they don't fit.
 List<int> _baudotLine(int length, int next) {
-  _flush();
-  final line = <int>[];
-  for (var c = ickReadByte(); c != -1 && c != 10; c = ickReadByte()) {
-    line.add(c);
-  }
-  final codes = _baudotEncode(line);
+  final codes = _baudotEncode(_readLine() ?? const []);
   if (codes.length > length) ickFatal(241, next);
   return codes;
 }

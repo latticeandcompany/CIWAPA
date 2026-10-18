@@ -32,7 +32,7 @@ ciwapa-dart run hello.xc -- first-argument
 
 `--traditional` works like `ick -t`. It rejects COME FROM, NEXT FROM, bases other than 2 and
 `ick`'s control extensions (computed ABSTAIN, ONCE and AGAIN, TRY AGAIN, CREATE, MAYBE, GO BACK,
-GO AHEAD, WHILE and PETITION) with E111, and leaves out the library. The 64-bit types, signed I/O
+GO AHEAD, WHILE, BAUDOT and PETITION) with E111, and leaves out the library. The 64-bit types, signed I/O
 and mingle widening stay, so it doesn't check that a program is Mode 1.
 
 The 64-bit sigils, signed I/O, mingle widening and the library need binary (L17).
@@ -45,9 +45,10 @@ Mostly what Mode 1 would have stopped on with an error:
 - Several COME FROMs aimed at one label start threads instead of being E555.
 
 One change reaches programs that never fail: statements Mode 1 can't parse are comments, and
-EXTRACAL can parse more of them. A comment written as a statement that happens to use EXTRACAL's
-words, like `PLEASE DON'T READ OUT #1 AGAIN`, is a real statement in `.xc`. Here it reads out #1
-once something reinstates READING OUT. `ick`'s manual warns about the same trap.
+EXTRACAL can parse more of them (L15). A comment written as a statement that happens to use
+EXTRACAL's words, like `PLEASE DON'T READ OUT #1 AGAIN`, is a real statement in `.xc`. Here it reads
+out #1 once something reinstates READING OUT. And some words start a statement wherever they
+appear, even mid-comment: `MAYBE`, `FAC`, `PLACET`. `ick`'s manual warns about the same trap.
 
 The conformance suite runs every Mode 1 program again as `.xc` and checks that the output is
 identical, apart from a few recorded differences like these.
@@ -199,7 +200,8 @@ and `READ OUT BAUDOT ,1` prints them back as a line (L14). It works on any array
 ```
 
 Baudot has four shifts (letters, lower case, figures, symbols) and two shift codes, so a line can
-take more elements than characters; one that doesn't fit is E241.
+take more elements than characters; one that doesn't fit is E241. A character Baudot has no code
+for becomes code 0, which prints as nothing.
 
 ### Operand overloading
 

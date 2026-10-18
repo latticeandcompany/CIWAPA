@@ -1221,22 +1221,11 @@ static size_t baudot_encode(const unsigned char *line, size_t length, uint32_t *
 /* A line of input as Baudot codes for an array of length elements; E241 if they don't fit. The
  * codes are malloc'd. */
 static uint32_t *baudot_line(size_t length, size_t *count, uint32_t next) {
-  ICK_FLUSH();
-  size_t size = 0, capacity = 64;
-  unsigned char *line = malloc(capacity);
-  if (!line) ick_fatal(778, 1);
-  for (int c = ICK_GETCHAR(); c != EOF && c != '\n'; c = ICK_GETCHAR()) {
-    if (size == capacity) {
-      capacity *= 2;
-      line = realloc(line, capacity);
-      if (!line) ick_fatal(778, 1);
-    }
-    line[size++] = (unsigned char)c;
-  }
+  size_t size = 0;
+  if (!read_line(&size, next)) size = 0;
   uint32_t *codes = malloc((3 * size + 1) * sizeof(uint32_t));
   if (!codes) ick_fatal(778, 1);
-  *count = baudot_encode(line, size, codes);
-  free(line);
+  *count = baudot_encode((const unsigned char *)line_buffer, size, codes);
   if (*count > length) ick_fatal(241, next);
   return codes;
 }
