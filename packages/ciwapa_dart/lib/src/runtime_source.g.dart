@@ -1421,6 +1421,9 @@ late Int32List _xAbstained;
 /// one (`compucomesused`, `gerucomesused`).
 var _xChain = <int>[];
 var _xGerundChain = false;
+
+/// The position after each statement in [_xChain]: the next one's check, or the chain's end.
+final _xChainNext = <int, int>{};
 final _xThread = _XThread();
 
 int _xGet(int ordinal, int field) => _x.table[ordinal * xStride + field];
@@ -1438,6 +1441,11 @@ Never ickXRun(XProgram program) {
       if (_xGet(s, xKind) >= xComputedComeFrom) s,
   ];
   _xGerundChain = _xChain.any((s) => _xGet(s, xKind) >= xGerundComeFrom);
+  for (final (i, s) in _xChain.indexed) {
+    _xChainNext[s] = i + 1 < _xChain.length
+        ? _xChain[i + 1] * 8 + _check
+        : _chainEnd;
+  }
   final t = _xThread;
   while (true) {
     final ordinal = t.position >> 3;
@@ -1612,10 +1620,7 @@ void _xCheck(_XThread t, int ordinal) {
   }
 }
 
-int _xNextCheck(int ordinal) {
-  final i = _xChain.indexOf(ordinal);
-  return i + 1 < _xChain.length ? _xChain[i + 1] * 8 + _check : _chainEnd;
-}
+int _xNextCheck(int ordinal) => _xChainNext[ordinal]!;
 
 /// One more COME FROM wants control. A second one would start a thread.
 void _xCandidate(_XThread t, int landing) {
