@@ -1229,6 +1229,18 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
 - **Decision:** First make INTERCAL-64 and CLC-INTERCAL run `tpk`, `primes`, `pi` and `life` correctly, by investigating input files, command-line flags and each baseline's own system library. Only configuration and harness changes are allowed, never patches to the baselines' source. If a program still can't run correctly on a baseline, remove that baseline from that program in `programs.txt` with the reason recorded next to it. The guardrail then compares only against baselines that produce the correct output. Wrong-output runs are never timed. **Code change needed:** the investigation, plus `programs.txt` and the bench's handling.
 - **Date:** 2026-10-16
 
+### L33: Floats
+- **Options:** for each of normal form, rounding, range, division by zero and ln's domain, the logarithm, integers, and decimal strings out and in: the leans in `QUESTIONS.md`, or the alternatives listed there
+- **Decision:** Ryan chose every recommended option.
+  - **Normal form:** every result has a mantissa magnitude from 2^14 to 2^15 − 1, and zero is #0. Inputs may be unnormalized.
+  - **Rounding:** to nearest, ties to even.
+  - **Range:** a characteristic above 32767 is E814; one below −32768 gives #0. Division by zero is E815, and ln of a value ≤ 0 is E816.
+  - **Logarithm:** shift-and-add over tables of ln(1 + 2^−k) and −ln(1 − 2^−k) in fixed point, rounded once, within one unit in the last place. Both runtimes reproduce it exactly.
+  - **Integers:** to and from `:1` read as signed 32-bit. An integer becomes a float rounded to nearest; a float becomes an integer truncated toward zero, and out of range is E814.
+  - **Decimal strings out:** scientific, with 5 significant digits, correctly rounded, like `-1.2346E+5`.
+  - **Decimal strings in:** an optional sign, digits, an optional fraction and an optional `E` exponent, rounded to nearest, with a status for malformed input.
+- **Date:** 2026-10-18
+
 ## EXTRACAL error codes
 
 New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 0.15 nor 0.35 uses (R11, Q90). Each has official text written for CIWAPA and a joke line, like every other code. Conditions that are the same as Mode 1's keep Mode 1's code: a constant above its sigil's range is E017, 32 bits into a 16-bit variable is E275 (R4), and WRITE IN of more than 32 bits into a 16- or 32-bit variable is E533.
@@ -1343,6 +1355,27 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Joke:** `THE ANSWER WAS CORRECT. IT JUST DID NOT FIT.`
 - **Source:** R6, R10, R11, Q139, L32's lean. A new code. The Math block's error variants raise it when the true result doesn't fit its width: unsigned for (4000)–(4099) and the (4500)/(4600) powers, two's complement for the signed routines, including the most negative value divided by −1. The flag variants store the wrapped result and #2 instead. Syslib keeps its own E000 for its own routines. With its PETITION abstained, an error variant returns as if nothing had overflowed (`packages/conformance/tests/extracal/lib-math/abstained-e813.xc`).
 - **Tests:** `packages/conformance/tests/extracal/lib-math/e813-add64.xc`, `packages/conformance/tests/extracal/lib-math/e813-div32.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul16.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow32.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv64.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul32.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub16.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sub64.xc`, each with a `-no-opt` twin
+- **Date:** 2026-10-18
+
+### E814: a float out of range
+- **Text:** `A FLOATING-POINT RESULT HAS BEEN TOO BIG TO REPRESENT.`
+- **Joke:** `THE POINT FLOATED AWAY.`
+- **Source:** R9, R11, L33. A new code. A Floats result whose characteristic would pass 32767 after rounding, a float too big for a signed 32-bit integer in (7070), and decimal text too big for a float in (7090). Results below the smallest float are #0 instead.
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e814-add.xc`, `packages/conformance/tests/extracal/lib-floats/e814-multiply.xc`, `packages/conformance/tests/extracal/lib-floats/e814-integer.xc`, `packages/conformance/tests/extracal/lib-floats/e814-string.xc`, each with a `-no-opt` twin
+- **Date:** 2026-10-18
+
+### E815: a float divided by zero
+- **Text:** `A FLOATING-POINT NUMBER HAS BEEN DIVIDED BY ZERO.`
+- **Joke:** `NOTHING GOES INTO NOTHING, OR INTO ANYTHING, THAT MANY TIMES.`
+- **Source:** R9, R11, L33. A new code, for (7030) with a zero divisor, whatever its characteristic.
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e815.xc`, `packages/conformance/tests/extracal/lib-floats/e815-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E816: the logarithm of a number that isn't positive
+- **Text:** `THE LOGARITHM OF A NUMBER THAT IS NOT POSITIVE HAS BEEN TAKEN.`
+- **Joke:** `IT HAS NO NATURAL LOG. IT IS NOT EVEN A NATURAL NUMBER.`
+- **Source:** R9, R11, L33. A new code, for (7050) of zero or a negative float.
+- **Tests:** `packages/conformance/tests/extracal/lib-floats/e816-zero.xc`, `packages/conformance/tests/extracal/lib-floats/e816-negative.xc`, each with a `-no-opt` twin
 - **Date:** 2026-10-18
 
 ### E817: a URL that isn't plain HTTP

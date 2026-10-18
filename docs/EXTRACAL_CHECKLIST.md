@@ -148,7 +148,7 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### Floats (7000)–(7999)
 
-- [ ] R9, R10 — reference, native paths, auto-inclusion and agreement tests. **BLOCKED** (L33) Tests: `packages/conformance/tests/extracal/lib-floats`
+- [x] R9, R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-floats`
 
 ### Network (9000)–(9999)
 

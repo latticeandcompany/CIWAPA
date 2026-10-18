@@ -132,6 +132,39 @@ The INTERCAL versions use the system library and these labels of their own: (440
 32-bit halves, the way the system library keeps 32-bit values in 16-bit ones, so AND, OR and XOR
 never need a 128-bit value.
 
+## Floats, (7000)–(7999)
+
+A float is a 32-bit value: the upper 16 bits are the mantissa and the lower 16 the
+characteristic, both two's complement, worth mantissa × 2^characteristic (R9, Q137). Every result
+is normalized, with a mantissa magnitude from 2^14 to 2^15 − 1, and zero is #0; inputs may be
+unnormalized. Results are rounded to nearest, ties to even. One whose characteristic would pass
+32767 is E814; one below −32768 is #0 (L33).
+
+| Entry | Inputs | Results | Notes |
+|---|---|---|---|
+| (7000) | :1, :2 | :3 = :1 + :2 | |
+| (7010) | :1, :2 | :3 = :1 − :2 | |
+| (7020) | :1, :2 | :3 = :1 × :2 | |
+| (7030) | :1, :2 | :3 = :1 ÷ :2 | dividing by zero is E815 |
+| (7040) | :1, :2 | :3 = #1 if :1 < :2, #2 if they're equal, #3 if greater | exact |
+| (7050) | :1 | :2 = ln :1 | :1 must be positive, or it is E816 |
+| (7060) | :1 = a signed 32-bit integer | :2 = the nearest float | |
+| (7070) | :1 | :2 = :1 truncated toward zero, as a signed 32-bit integer | out of range is E814 |
+| (7080) | :1 | ,1 = :1 in decimal | `-1.2346E+5`: 5 significant digits, correctly rounded; zero is `0.0000E+0` |
+| (7090) | ,1 = decimal text | :1 = the nearest float; .1 | .1 = #2, leaving :1 alone, unless ,1 is an optional sign, digits, an optional `.` and digits (at least one digit in all), and an optional `E` or `e` with an optional sign and digits |
+
+- **The logarithm** reduces :1 to a fraction from 0.75 to 1.5 times a power of 2^k, takes the
+  fraction's logarithm by shift-and-add over tables of ln(1 + 2^−j) and −ln(1 − 2^−j) in Q62
+  fixed point, adds k ln 2 in Q32 when k isn't 0, and rounds once: within one unit in the last
+  place. Both runtimes follow the same steps, so they agree to the bit.
+- **Decimal text** is converted exactly: (7080) and (7090) work through a base-10000 big number,
+  so they are slow in the INTERCAL for characteristics in the thousands, which the natives aren't.
+  (7090) reads exponents beyond 100000 as 100000, and gives #0 for any spelling of zero.
+
+The INTERCAL versions use the system library, the Math, Strings and Arrays blocks, and these
+labels of their own: (7100)–(7350), (7900), (7910), (7930), (7940), (7950), (7960), (7970),
+(7980)–(7983), (7985)–(7989), (7991)–(7994) and (7996)–(7998).
+
 ## Arrays, (6000)–(6999)
 
 The routines from (6000) work on tail arrays and 16-bit values; the same routines from (6100) work
@@ -246,6 +279,6 @@ of their own: (9300)–(9374), (9800), (9900), (9920), (9930), (9940), (9950), (
 | #6003, #6103 | | ,2 or ;2 | makes it an array with no dimensions |
 | #9000–#9030 | | | as the Network routines of the same numbers |
 | #9203 | | ,3 | makes ,3 the empty string |
-| #807, #808, #809, #813, #817 | | | raise E807, E808, E809, E813 and E817 for the INTERCAL versions |
+| #807–#809, #813–#817 | | | raise those errors for the INTERCAL versions |
 | #8000–#8060 | | | as the System routines of the same numbers |
 

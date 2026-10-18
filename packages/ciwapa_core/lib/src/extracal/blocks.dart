@@ -18,6 +18,7 @@ const libraryBlocks = [
   LibraryBlock('strings', 3000, 3999),
   LibraryBlock('math', 4000, 4999),
   LibraryBlock('arrays', 6000, 6999),
+  LibraryBlock('floats', 7000, 7999),
   LibraryBlock('system', 8000, 8999),
   LibraryBlock('network', 9000, 9999),
 ];
@@ -56,4 +57,7 @@ const petitionServices = <int, ({List<String> scalars, List<String> arrays})>{
   808: (scalars: [], arrays: []),
   809: (scalars: [], arrays: []),
   813: (scalars: [], arrays: []),
+  814: (scalars: [], arrays: []),
+  815: (scalars: [], arrays: []),
+  816: (scalars: [], arrays: []),
 };

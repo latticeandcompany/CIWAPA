@@ -2875,6 +2875,9 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 808:
   case 809:
   case 813:
+  case 814:
+  case 815:
+  case 816:
   case 817: ick_fatal(service, next); break;
   default: ick_fatal(801, next);
   }
@@ -3069,6 +3072,429 @@ static void math_library(uint32_t label, const uint32_t *scalars, uint32_t overf
   }
 }
 
+/* ---- EXTRACAL's Floats block (R9, L33) ------------------------------------------------- */
+/* A float is a 32-bit value: the upper 16 bits are the mantissa and the lower 16 the
+ * characteristic, both two's complement, worth mantissa x 2^characteristic. Every result but ln's
+ * is the exact value rounded to nearest, ties to even, to a mantissa of 2^14 to 2^15 - 1. These
+ * follow the INTERCAL's algorithms; runtime.dart gets the same results by exact arithmetic. */
+
+static uint32_t next_of(const uint32_t *nexts, uint32_t count, uint32_t service, uint32_t nth);
+
+/* ln(1 + 2^-j) and -ln(1 - 2^-j) for j = 1 to 62, in Q62. */
+static const uint64_t ln_up[62] = {
+    UINT64_C(1869877770022570995), UINT64_C(1029067995697975510), UINT64_C(543178378744478074),
+    UINT64_C(279581720803300556), UINT64_C(141909228037287941), UINT64_C(71500440275001118),
+    UINT64_C(35888788270063140), UINT64_C(17979305495762817), UINT64_C(8998414598213862),
+    UINT64_C(4501402034722952), UINT64_C(2251250236762820), UINT64_C(1125762490254678),
+    UINT64_C(562915596478891), UINT64_C(281466387125573), UINT64_C(140735340915370),
+    UINT64_C(70368207312213), UINT64_C(35184237871787), UINT64_C(17592152490069),
+    UINT64_C(8796084633611), UINT64_C(4398044413953), UINT64_C(2199022731264),
+    UINT64_C(1099511496704), UINT64_C(549755781120), UINT64_C(274877898752),
+    UINT64_C(137438951424), UINT64_C(68719476224), UINT64_C(34359738240),
+    UINT64_C(17179869152), UINT64_C(8589934584), UINT64_C(4294967294),
+    UINT64_C(2147483648), UINT64_C(1073741824), UINT64_C(536870912),
+    UINT64_C(268435456), UINT64_C(134217728), UINT64_C(67108864),
+    UINT64_C(33554432), UINT64_C(16777216), UINT64_C(8388608),
+    UINT64_C(4194304), UINT64_C(2097152), UINT64_C(1048576),
+    UINT64_C(524288), UINT64_C(262144), UINT64_C(131072),
+    UINT64_C(65536), UINT64_C(32768), UINT64_C(16384),
+    UINT64_C(8192), UINT64_C(4096), UINT64_C(2048),
+    UINT64_C(1024), UINT64_C(512), UINT64_C(256),
+    UINT64_C(128), UINT64_C(64), UINT64_C(32),
+    UINT64_C(16), UINT64_C(8), UINT64_C(4),
+    UINT64_C(2), UINT64_C(1),
+};
+static const uint64_t ln_down[62] = {
+    UINT64_C(3196577161300663915), UINT64_C(1326699391278092920), UINT64_C(615804856387649007),
+    UINT64_C(297631395580117410), UINT64_C(146415028120619150), UINT64_C(72626477643170933),
+    UINT64_C(36170271837057929), UINT64_C(18049674776816854), UINT64_C(9016006817812796),
+    UINT64_C(4505800083331209), UINT64_C(2252349748521668), UINT64_C(1126037368169814),
+    UINT64_C(562984315956139), UINT64_C(281483566994789), UINT64_C(140739635882668),
+    UINT64_C(70369281054037), UINT64_C(35184506307243), UINT64_C(17592219598933),
+    UINT64_C(8796101410827), UINT64_C(4398048608257), UINT64_C(2199023779840),
+    UINT64_C(1099511758848), UINT64_C(549755846656), UINT64_C(274877915136),
+    UINT64_C(137438955520), UINT64_C(68719477248), UINT64_C(34359738496),
+    UINT64_C(17179869216), UINT64_C(8589934600), UINT64_C(4294967298),
+    UINT64_C(2147483649), UINT64_C(1073741824), UINT64_C(536870912),
+    UINT64_C(268435456), UINT64_C(134217728), UINT64_C(67108864),
+    UINT64_C(33554432), UINT64_C(16777216), UINT64_C(8388608),
+    UINT64_C(4194304), UINT64_C(2097152), UINT64_C(1048576),
+    UINT64_C(524288), UINT64_C(262144), UINT64_C(131072),
+    UINT64_C(65536), UINT64_C(32768), UINT64_C(16384),
+    UINT64_C(8192), UINT64_C(4096), UINT64_C(2048),
+    UINT64_C(1024), UINT64_C(512), UINT64_C(256),
+    UINT64_C(128), UINT64_C(64), UINT64_C(32),
+    UINT64_C(16), UINT64_C(8), UINT64_C(4),
+    UINT64_C(2), UINT64_C(1),
+};
+
+static int bit_length(uint64_t v) {
+  int n = 0;
+  for (; v; v >>= 1) n++;
+  return n;
+}
+
+/* The float nearest +-magnitude x 2^exponent, ties to even: E814 above the range, #0 below. */
+static uint32_t float_round(int negative, uint64_t magnitude, int64_t exponent, uint32_t overflow_next) {
+  if (!magnitude) return 0;
+  int bits = bit_length(magnitude);
+  uint64_t q = magnitude;
+  if (bits > 15) {
+    int shift = bits - 15;
+    uint64_t half = UINT64_C(1) << (shift - 1), rest = magnitude & ((half << 1) - 1);
+    q = magnitude >> shift;
+    exponent += shift;
+    if (rest > half || (rest == half && (q & 1))) q++;
+    if (q == 1u << 15) {
+      q = 1u << 14;
+      exponent++;
+    }
+  } else {
+    q <<= 15 - bits;
+    exponent -= 15 - bits;
+  }
+  if (exponent > 32767) ick_fatal(814, overflow_next);
+  if (exponent < -32768) return 0;
+  uint32_t m = (uint32_t)(negative ? (0x10000 - q) & 0xFFFF : q);
+  return m << 16 | ((uint32_t)exponent & 0xFFFF);
+}
+
+typedef struct {
+  int negative;
+  uint64_t magnitude;
+  int64_t characteristic;
+} ick_float;
+
+static ick_float float_parts(uint64_t x) {
+  int m = (int16_t)(uint16_t)(x >> 16), c = (int16_t)(uint16_t)(x & 0xFFFF);
+  return (ick_float){m < 0, (uint64_t)(m < 0 ? -m : m), c};
+}
+
+/* a + b, through a doubled sum that keeps one sticky bit for whatever of b is shifted away. */
+static uint32_t float_add(ick_float a, ick_float b, uint32_t next) {
+  if (!a.magnitude) return float_round(b.negative, b.magnitude, b.characteristic, next);
+  if (!b.magnitude) return float_round(a.negative, a.magnitude, a.characteristic, next);
+  if (a.characteristic < b.characteristic) {
+    ick_float t = a;
+    a = b;
+    b = t;
+  }
+  int64_t d = a.characteristic - b.characteristic, k = d < 33 ? d : 33, r = d - k;
+  uint64_t big = a.magnitude << k, small = 0;
+  int sticky = 1;
+  if (r < 17) {
+    small = b.magnitude >> r;
+    sticky = (b.magnitude & ((UINT64_C(1) << r) - 1)) != 0;
+  }
+  int64_t e = a.characteristic - k - 1;
+  if (a.negative == b.negative) return float_round(a.negative, 2 * (big + small) + sticky, e, next);
+  if (big > small) return float_round(a.negative, 2 * (big - small) - sticky, e, next);
+  if (small > big) return float_round(b.negative, 2 * (small - big), e, next);
+  return 0;
+}
+
+/* #1, #2 or #3 as a is less than, equal to or greater than b. */
+static uint32_t float_compare(ick_float a, ick_float b) {
+  int ka = !a.magnitude ? 1 : a.negative ? 0 : 2, kb = !b.magnitude ? 1 : b.negative ? 0 : 2;
+  if (ka != kb) return ka < kb ? 1 : 3;
+  if (ka == 1) return 2;
+  int64_t ta = a.characteristic + bit_length(a.magnitude), tb = b.characteristic + bit_length(b.magnitude);
+  uint32_t order;
+  if (ta != tb) {
+    order = ta < tb ? 1 : 3;
+  } else {
+    uint64_t ma = a.magnitude << (16 - bit_length(a.magnitude)), mb = b.magnitude << (16 - bit_length(b.magnitude));
+    order = ma < mb ? 1 : ma == mb ? 2 : 3;
+  }
+  return a.negative ? 4 - order : order;
+}
+
+/* The INTERCAL's logarithm of a positive float: shift-and-add in Q62, then k ln 2 in Q32 unless
+ * k is 0, rounded once. */
+static uint32_t float_ln(ick_float x, uint32_t next) {
+  const uint64_t one = UINT64_C(1) << 62;
+  uint64_t m = x.magnitude;
+  int64_t c = x.characteristic;
+  while (m < 1u << 14) {
+    m <<= 1;
+    c--;
+  }
+  int64_t k = c + 14;
+  uint64_t f = m << 48;
+  if (m >= 24576) {
+    f = m << 47;
+    k++;
+  }
+  uint64_t acc = 0;
+  int negative = f < one;
+  for (int j = 1; j <= 62; j++) {
+    uint64_t t = negative ? f + (f >> j) : f - (f >> j);
+    if (negative ? t <= one : t >= one) {
+      f = t;
+      acc += (negative ? ln_up : ln_down)[j - 1];
+    }
+  }
+  acc += negative ? one - f : f - one;
+  if (k == 0) return float_round(negative, acc, -62, next);
+  int64_t term = (int64_t)((acc + (UINT64_C(1) << 29)) >> 30);
+  int64_t y = k * INT64_C(2977044472) + (negative ? -term : term);
+  return float_round(y < 0, (uint64_t)(y < 0 ? -y : y), -32, next);
+}
+
+/* Big numbers for the decimal strings: base-10^9 limbs, least significant first. */
+typedef struct {
+  uint32_t *limbs;
+  size_t count;
+} ick_big;
+
+static void big_multiply(ick_big *n, uint64_t by) {
+  uint64_t carry = 0;
+  for (size_t i = 0; i < n->count; i++) {
+    uint64_t t = n->limbs[i] * by + carry;
+    n->limbs[i] = (uint32_t)(t % 1000000000u);
+    carry = t / 1000000000u;
+  }
+  while (carry) {
+    n->limbs[n->count++] = (uint32_t)(carry % 1000000000u);
+    carry /= 1000000000u;
+  }
+}
+
+/* n / by, with *sticky set if anything is left over. */
+static void big_divide(ick_big *n, uint32_t by, int *sticky) {
+  uint64_t rest = 0;
+  for (size_t i = n->count; i-- > 0;) {
+    uint64_t t = rest * 1000000000u + n->limbs[i];
+    n->limbs[i] = (uint32_t)(t / by);
+    rest = t % by;
+  }
+  if (rest) *sticky = 1;
+  while (n->count > 1 && !n->limbs[n->count - 1]) n->count--;
+}
+
+static ick_big big_new(size_t capacity, uint32_t value) {
+  ick_big n = {calloc(capacity, sizeof(uint32_t)), 1};
+  if (!n.limbs) ick_fatal(778, 1);
+  n.limbs[0] = value;
+  return n;
+}
+
+/* Five significant digits, correctly rounded, ties to even: like -1.2346E+5. */
+static void float_to_string(ick_float x, uint32_t array) {
+  if (!x.magnitude) {
+    static const uint16_t zero[] = {'0', '.', '0', '0', '0', '0', 'E', '+', '0'};
+    set_string(array, zero, 9);
+    return;
+  }
+  ick_big n = big_new(3000, (uint32_t)x.magnitude);
+  int64_t places = 0;
+  if (x.characteristic < 0) {
+    places = -x.characteristic;
+    int64_t k = places;
+    for (; k >= 13; k -= 13) big_multiply(&n, UINT64_C(1220703125));
+    uint64_t power = 1;
+    for (; k > 0; k--) power *= 5;
+    big_multiply(&n, power);
+  } else {
+    int64_t k = x.characteristic;
+    for (; k >= 30; k -= 30) big_multiply(&n, UINT64_C(1) << 30);
+    big_multiply(&n, UINT64_C(1) << k);
+  }
+  /* the first six digits, and whether anything after them is non-zero */
+  char top[16];
+  int top_length = snprintf(top, sizeof top, "%u", n.limbs[n.count - 1]);
+  char digits[32];
+  int have = snprintf(digits, sizeof digits, "%s", top);
+  for (size_t i = n.count - 1; i-- > 0 && have < 24;) {
+    have += snprintf(digits + have, sizeof digits - have, "%09u", n.limbs[i]);
+  }
+  while (have < 6) digits[have++] = '0';
+  int rest = 0;
+  for (int i = 6; i < have; i++) rest |= digits[i] != '0';
+  for (size_t i = 0; i + 2 < n.count; i++) rest |= n.limbs[i] != 0;
+  int64_t exponent = top_length + 9 * (int64_t)(n.count - 1) - 1 - places;
+  uint32_t first = 0;
+  for (int i = 0; i < 5; i++) first = first * 10 + (uint32_t)(digits[i] - '0');
+  int sixth = digits[5] - '0';
+  if (sixth > 5 || (sixth == 5 && (rest || (first & 1)))) first++;
+  if (first == 100000) {
+    first = 10000;
+    exponent++;
+  }
+  free(n.limbs);
+  char text[40];
+  int length = snprintf(text, sizeof text, "%s%u.%04uE%c%lld", x.negative ? "-" : "", first / 10000,
+                        first % 10000, exponent < 0 ? '-' : '+',
+                        (long long)(exponent < 0 ? -exponent : exponent));
+  uint16_t units[40];
+  for (int i = 0; i < length; i++) units[i] = (uint16_t)text[i];
+  set_string(array, units, (size_t)length);
+}
+
+/* The float the decimal text spells, as the INTERCAL reads it: 1 with *result, or 0 if it is
+ * malformed. E814 from the early range check is reported at early_next; from rounding, at
+ * round_next. */
+static int float_from_string(const uint32_t *text, size_t length, uint32_t *result,
+                             uint32_t early_next, uint32_t round_next) {
+  size_t i = 0;
+  int negative = 0;
+  if (i < length && (text[i] == '+' || text[i] == '-')) negative = text[i++] == '-';
+  size_t whole = i;
+  while (i < length && text[i] >= '0' && text[i] <= '9') i++;
+  size_t whole_count = i - whole, fraction = i, fraction_count = 0;
+  if (i < length && text[i] == '.') {
+    fraction = ++i;
+    while (i < length && text[i] >= '0' && text[i] <= '9') i++;
+    fraction_count = i - fraction;
+  }
+  if (!whole_count && !fraction_count) return 0;
+  int64_t exponent = 0;
+  if (i < length && (text[i] == 'e' || text[i] == 'E')) {
+    i++;
+    int minus = 0;
+    if (i < length && (text[i] == '+' || text[i] == '-')) minus = text[i++] == '-';
+    size_t start = i;
+    while (i < length && text[i] >= '0' && text[i] <= '9') {
+      exponent = exponent * 10 + (text[i++] - '0');
+      if (exponent > 100000) exponent = 100000;
+    }
+    if (i == start) return 0;
+    if (minus) exponent = -exponent;
+  }
+  if (i != length) return 0;
+  /* the digits, without leading zeros, into a big number */
+  ick_big n = big_new(whole_count / 9 + fraction_count / 9 + 3000, 0);
+  int64_t digits = 0;
+  uint64_t limb = 0, weight = 1;
+  n.count = 0;
+  for (size_t j = whole_count + fraction_count; j-- > 0;) {
+    uint32_t unit = j < whole_count ? text[whole + j] : text[fraction + j - whole_count];
+    limb += (unit - '0') * weight;
+    weight *= 10;
+    if (weight == 1000000000u) {
+      n.limbs[n.count++] = (uint32_t)limb;
+      limb = 0;
+      weight = 1;
+    }
+  }
+  n.limbs[n.count++] = (uint32_t)limb;
+  while (n.count > 1 && !n.limbs[n.count - 1]) n.count--;
+  if (!n.limbs[n.count - 1]) {
+    free(n.limbs);
+    *result = 0;
+    return 1;
+  }
+  char top[16];
+  digits = snprintf(top, sizeof top, "%u", n.limbs[n.count - 1]) + 9 * (int64_t)(n.count - 1);
+  int64_t e = exponent - (int64_t)fraction_count;
+  if (digits + e > 9869) ick_fatal(814, early_next);
+  if (digits + e < -9859) {
+    free(n.limbs);
+    *result = 0;
+    return 1;
+  }
+  /* enough powers of two to keep 16 bits through dropping digits */
+  int64_t s = 0, u = -e - digits + 6;
+  if (e < 0 && u > 0) s = u * INT64_C(3321928095) / INT64_C(1000000000) + 2;
+  int64_t k = s;
+  for (; k >= 30; k -= 30) big_multiply(&n, UINT64_C(1) << 30);
+  big_multiply(&n, UINT64_C(1) << k);
+  int sticky = 0;
+  if (e >= 0) {
+    int64_t k10 = e;
+    for (; k10 >= 9; k10 -= 9) big_multiply(&n, 1000000000u);
+    uint64_t power = 1;
+    for (; k10 > 0; k10--) power *= 10;
+    big_multiply(&n, power);
+  } else {
+    int64_t k10 = -e;
+    for (; k10 >= 9; k10 -= 9) big_divide(&n, 1000000000u, &sticky);
+    uint32_t power = 1;
+    for (; k10 > 0; k10--) power *= 10;
+    big_divide(&n, power, &sticky);
+  }
+  int64_t halvings = 0;
+  while (n.count > 1 || n.limbs[0] >= 65536) {
+    big_divide(&n, 2, &sticky);
+    halvings++;
+  }
+  uint64_t x = n.limbs[0];
+  free(n.limbs);
+  *result = float_round(negative, 2 * x + (uint64_t)sticky, halvings - s - 1, round_next);
+  return 1;
+}
+
+static void float_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays,
+                          const uint32_t *nexts, uint32_t next_count) {
+  uint32_t overflow = next_of(nexts, next_count, 814, 0);
+  ick_float a = float_parts(scalar_at(scalars[0]));
+  if (label <= 7040) {
+    ick_float b = float_parts(scalar_at(scalars[1]));
+    uint32_t result = 0;
+    switch (label) {
+    case 7000: result = float_add(a, b, overflow); break;
+    case 7010:
+      b.negative = !b.negative;
+      result = float_add(a, b, overflow);
+      break;
+    case 7020:
+      if (a.magnitude && b.magnitude) {
+        result = float_round(a.negative != b.negative, a.magnitude * b.magnitude,
+                             a.characteristic + b.characteristic, overflow);
+      }
+      break;
+    case 7030:
+      if (!b.magnitude) ick_fatal(815, next_of(nexts, next_count, 815, 0));
+      if (a.magnitude) {
+        uint64_t n = a.magnitude << 31, q = n / b.magnitude;
+        result = float_round(a.negative != b.negative, 2 * q + (n % b.magnitude != 0),
+                             a.characteristic - b.characteristic - 32, overflow);
+      }
+      break;
+    default: result = float_compare(a, b);
+    }
+    set_scalar(scalars[2], result);
+    return;
+  }
+  switch (label) {
+  case 7050:
+    if (!a.magnitude || a.negative) ick_fatal(816, next_of(nexts, next_count, 816, 0));
+    set_scalar(scalars[1], float_ln(a, overflow));
+    return;
+  case 7060: {
+    int32_t v = (int32_t)(uint32_t)scalar_at(scalars[0]);
+    set_scalar(scalars[1], float_round(v < 0, v < 0 ? (uint64_t)(-(int64_t)v) : (uint64_t)v, 0, overflow));
+    return;
+  }
+  case 7070: {
+    uint64_t magnitude = 0;
+    if (a.magnitude) {
+      if (a.characteristic < 0) {
+        magnitude = -a.characteristic >= 16 ? 0 : a.magnitude >> -a.characteristic;
+      } else {
+        if (a.characteristic >= 32) ick_fatal(814, overflow);
+        magnitude = a.magnitude << a.characteristic;
+      }
+    }
+    if (magnitude > (UINT64_C(1) << 31) || (magnitude == UINT64_C(1) << 31 && !a.negative)) {
+      ick_fatal(814, overflow);
+    }
+    set_scalar(scalars[1], (uint32_t)(a.negative ? 0 - magnitude : magnitude));
+    return;
+  }
+  case 7080: float_to_string(a, arrays[0]); return;
+  case 7090: {
+    size_t length;
+    const uint32_t *text = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    uint32_t result;
+    int ok = float_from_string(text, length, &result, next_of(nexts, next_count, 814, 1), overflow);
+    if (ok) set_scalar(scalars[0], result);
+    set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+  }
+}
+
 /* The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
  * in, the routine's documented ones: [scalars] by key and [arrays] by number. [nexts] lists, in
  * program order, each PETITION the INTERCAL version uses as a service and where its errors are
@@ -3084,6 +3510,10 @@ void ick_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays
                  const uint32_t *nexts, uint32_t next_count) {
   if (label >= 4000 && label < 5000) {
     math_library(label, scalars, next_of(nexts, next_count, 813, 0));
+    return;
+  }
+  if (label >= 7000 && label < 8000) {
+    float_library(label, scalars, arrays, nexts, next_count);
     return;
   }
   switch (label) {

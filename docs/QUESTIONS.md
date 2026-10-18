@@ -224,22 +224,6 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-18
 
-## L33: How do the Floats block's numbers behave?
-
-- **Context:** R9 and Q137 fix the layout: a 32-bit value whose upper 16 bits are the mantissa and lower 16 the characteristic, both two's complement, worth mantissa × 2^characteristic. R9 lists add, subtract, multiply, divide, compare, natural logarithm and conversions to and from integers and decimal strings. Nothing says how results are rounded or normalized, what overflow, underflow, division by zero or the logarithm of a non-positive number do, or what the decimal strings look like. The native versions must agree with the INTERCAL bit for bit (Q37), so each answer also fixes an exact algorithm, the logarithm's included.
-- **Options:**
-  - **Normal form:** (a) every result has a mantissa magnitude from 2^14 to 2^15 − 1, and zero is #0; inputs may be unnormalized. (b) results are left as they fall.
-  - **Rounding:** (a) to nearest, ties to even, as IEEE 754 does. (b) toward zero, which is simpler in INTERCAL and less accurate.
-  - **Out of range:** (a) a characteristic above 32767 is a new error, E814, and one below −32768 gives #0. (b) both are errors. (c) both saturate.
-  - **Division by zero and ln of a value ≤ 0:** (a) new errors, E815 and E816. (b) status flags.
-  - **Logarithm:** (a) shift-and-add with a table of ln(1 + 2^−k) in 32-bit fixed point, then rounded once: within one unit in the last place, and cheap for the natives to reproduce exactly. (b) correctly rounded, which needs much more precision in INTERCAL.
-  - **Integers:** (a) from and to `:1` read as signed 32-bit, float to integer truncating toward zero, and E814 out of range. (b) unsigned. (c) both.
-  - **Decimal strings out:** (a) scientific with 5 significant digits, correctly rounded, like `-1.2346E+5`, which needs big-number arithmetic for large characteristics (slow in INTERCAL, easy natively). (b) the exact decimal value: up to about 9,900 digits before the point for the largest characteristics, and up to 32,768 after it (about 22,900 of them significant) for the smallest. (c) mantissa and characteristic in decimal, like `-12345*2^-3`.
-  - **Decimal strings in:** (a) an optional sign, digits, an optional fraction and an optional `E` exponent, rounded to nearest, with a status flag for malformed input. (b) only what (a) of the output format prints.
-- **Lean:** (a) for each. It gives the floats people expect, and every piece has an exact integer algorithm that both runtimes can share.
-- **Blocks:** the Floats block (`docs/EXTRACAL_CHECKLIST.md`, Floats). It is a large, user-visible API, and the decimal format and the rounding change every routine. So unlike the corner cases above, it waits for an answer instead of being built on the lean.
-- **Raised:** 2026-10-18
-
 ## L34: How does the Dart runtime reach the network, and what does the Network block offer?
 
 - **Context:** The plan's Technical Approach says: "**Networking** in both runtimes uses the platform's sockets: `dart:io` in `runtime.dart`, and BSD sockets or Winsock in `runtime.c`." CIWAPA's Dart runtime is synchronous: each statement runs to completion, and a library service must return before the next one runs. `dart:io` has a synchronous client socket (`RawSynchronousSocket`) but no synchronous server socket: `ServerSocket.bind` and `RawServerSocket.bind` return futures, and Dart 3 has no `waitFor`. A server still works on `dart:io` alone if a helper isolate owns the listening sockets and the program talks to it over loopback through `RawSynchronousSocket`, which a reviewer confirmed with a working echo round trip. Q110 fixes the scope (TCP client and server, a minimal HTTP/1.1 client, request/response helpers, no TLS) but not the API.

@@ -2552,7 +2552,7 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       _setString(arrays[0], '');
     case 9203:
       _setString(arrays[0], '');
-    case 807 || 808 || 809 || 813 || 817:
+    case 807 || 808 || 809 || 813 || 814 || 815 || 816 || 817:
       ickFatal(service, next);
     default:
       ickFatal(801, next);
@@ -3098,6 +3098,8 @@ void ickLibrary(
         arrays[0],
         String.fromCharCodes(_utf8Decode(bytes, nextOf(808))),
       );
+    case >= 7000 && < 8000:
+      _floatLibrary(label, scalars, arrays, nextOf);
     case >= 4000 && < 5000:
       _mathLibrary(label, scalars, nextOf(813));
     case 6020 || 6120:
@@ -3195,6 +3197,348 @@ void _mathLibrary(int label, List<int> scalars, int overflowNext) {
       finish(b == BigInt.zero ? BigInt.zero : a ~/ b);
     case 60 || 70:
       store(2, order(a, b));
+  }
+}
+
+// ---- EXTRACAL's Floats block (R9, L33) -----------------------------------------------------------
+// A float is a 32-bit value: the upper 16 bits are the mantissa and the lower 16 the characteristic,
+// both two's complement, worth mantissa × 2^characteristic. Every result but ln's is the exact
+// value rounded to nearest, ties to even, to a mantissa of 2^14 to 2^15 - 1; ln follows the
+// INTERCAL's fixed-point algorithm step for step.
+
+/// ln(1 + 2^-j) and -ln(1 - 2^-j) for j = 1 to 62, in Q62.
+const _lnUp = <int>[
+  1869877770022570995,
+  1029067995697975510,
+  543178378744478074,
+  279581720803300556,
+  141909228037287941,
+  71500440275001118,
+  35888788270063140,
+  17979305495762817,
+  8998414598213862,
+  4501402034722952,
+  2251250236762820,
+  1125762490254678,
+  562915596478891,
+  281466387125573,
+  140735340915370,
+  70368207312213,
+  35184237871787,
+  17592152490069,
+  8796084633611,
+  4398044413953,
+  2199022731264,
+  1099511496704,
+  549755781120,
+  274877898752,
+  137438951424,
+  68719476224,
+  34359738240,
+  17179869152,
+  8589934584,
+  4294967294,
+  2147483648,
+  1073741824,
+  536870912,
+  268435456,
+  134217728,
+  67108864,
+  33554432,
+  16777216,
+  8388608,
+  4194304,
+  2097152,
+  1048576,
+  524288,
+  262144,
+  131072,
+  65536,
+  32768,
+  16384,
+  8192,
+  4096,
+  2048,
+  1024,
+  512,
+  256,
+  128,
+  64,
+  32,
+  16,
+  8,
+  4,
+  2,
+  1,
+];
+const _lnDown = <int>[
+  3196577161300663915,
+  1326699391278092920,
+  615804856387649007,
+  297631395580117410,
+  146415028120619150,
+  72626477643170933,
+  36170271837057929,
+  18049674776816854,
+  9016006817812796,
+  4505800083331209,
+  2252349748521668,
+  1126037368169814,
+  562984315956139,
+  281483566994789,
+  140739635882668,
+  70369281054037,
+  35184506307243,
+  17592219598933,
+  8796101410827,
+  4398048608257,
+  2199023779840,
+  1099511758848,
+  549755846656,
+  274877915136,
+  137438955520,
+  68719477248,
+  34359738496,
+  17179869216,
+  8589934600,
+  4294967298,
+  2147483649,
+  1073741824,
+  536870912,
+  268435456,
+  134217728,
+  67108864,
+  33554432,
+  16777216,
+  8388608,
+  4194304,
+  2097152,
+  1048576,
+  524288,
+  262144,
+  131072,
+  65536,
+  32768,
+  16384,
+  8192,
+  4096,
+  2048,
+  1024,
+  512,
+  256,
+  128,
+  64,
+  32,
+  16,
+  8,
+  4,
+  2,
+  1,
+];
+
+/// A float's exact value: mantissa × 2^exponent.
+typedef _Dyadic = (BigInt, int);
+
+_Dyadic _floatValue(int x) =>
+    (BigInt.from((x >> 16 & 0xFFFF).toSigned(16)), (x & 0xFFFF).toSigned(16));
+
+_Dyadic _dyadicSum(_Dyadic a, _Dyadic b) {
+  final e = a.$2 < b.$2 ? a.$2 : b.$2;
+  return ((a.$1 << (a.$2 - e)) + (b.$1 << (b.$2 - e)), e);
+}
+
+/// The float nearest [n] / [d] × 2^[e], negated if [negative]: E814 above the range, reported at
+/// [overflowNext]; #0 below it.
+int _floatNearest(bool negative, BigInt n, BigInt d, int e, int overflowNext) {
+  if (n == BigInt.zero) return 0;
+  final low = BigInt.from(1 << 14), high = BigInt.from(1 << 15);
+  BigInt scaledN(int s) => s >= 0 ? n << s : n;
+  BigInt scaledD(int s) => s >= 0 ? d : d << -s;
+  var s = 14 - (n.bitLength - d.bitLength);
+  while (scaledN(s) ~/ scaledD(s) >= high) {
+    s--;
+  }
+  while (scaledN(s) ~/ scaledD(s) < low) {
+    s++;
+  }
+  var q = scaledN(s) ~/ scaledD(s);
+  final twice = (scaledN(s) - q * scaledD(s)) * BigInt.two;
+  if (twice > scaledD(s) || (twice == scaledD(s) && q.isOdd)) q += BigInt.one;
+  var exponent = e - s;
+  if (q == high) {
+    q = low;
+    exponent++;
+  }
+  if (exponent > 32767) ickFatal(814, overflowNext);
+  if (exponent < -32768) return 0;
+  final m = negative ? -q.toInt() : q.toInt();
+  return (m & 0xFFFF) << 16 | exponent & 0xFFFF;
+}
+
+int _floatOf(_Dyadic v, int overflowNext) => v.$2 >= 0
+    ? _floatNearest(
+        v.$1.isNegative,
+        v.$1.abs() << v.$2,
+        BigInt.one,
+        0,
+        overflowNext,
+      )
+    : _floatNearest(
+        v.$1.isNegative,
+        v.$1.abs(),
+        BigInt.one,
+        v.$2,
+        overflowNext,
+      );
+
+/// The INTERCAL's logarithm of the positive float [m] × 2^[c]: shift-and-add in Q62 over
+/// [_lnUp] or [_lnDown], then k ln 2 in Q32 unless k is 0, rounded once.
+int _floatLn(int m, int c, int overflowNext) {
+  const one = 1 << 62;
+  while (m < 1 << 14) {
+    m <<= 1;
+    c--;
+  }
+  var k = c + 14, f = m << 48;
+  if (m >= 24576) {
+    f = m << 47;
+    k++;
+  }
+  var acc = 0;
+  final negative = f < one;
+  for (var j = 1; j <= 62; j++) {
+    final t = negative ? f + (f >> j) : f - (f >> j);
+    if (negative ? t <= one : t >= one) {
+      f = t;
+      acc += (negative ? _lnUp : _lnDown)[j - 1];
+    }
+  }
+  acc += negative ? one - f : f - one;
+  if (k == 0) {
+    return _floatNearest(
+      negative,
+      BigInt.from(acc),
+      BigInt.one,
+      -62,
+      overflowNext,
+    );
+  }
+  final term = (acc + (1 << 29)) >> 30;
+  final y = k * 2977044472 + (negative ? -term : term);
+  return _floatNearest(
+    y < 0,
+    BigInt.from(y.abs()),
+    BigInt.one,
+    -32,
+    overflowNext,
+  );
+}
+
+/// Five significant digits, correctly rounded, ties to even: like -1.2346E+5.
+String _floatToString(int x) {
+  final (m, c) = _floatValue(x);
+  if (m == BigInt.zero) return '0.0000E+0';
+  final places = c < 0 ? -c : 0;
+  final n = c < 0 ? m.abs() * BigInt.from(5).pow(-c) : m.abs() << c;
+  final digits = n.toString().padRight(6, '0');
+  var exponent = n.toString().length - 1 - places;
+  var first = int.parse(digits.substring(0, 5));
+  final sixth = digits.codeUnitAt(5) - 48;
+  final rest = digits.substring(6).replaceAll('0', '').isNotEmpty;
+  if (sixth > 5 || (sixth == 5 && (rest || first.isOdd))) first++;
+  if (first == 100000) {
+    first = 10000;
+    exponent++;
+  }
+  final text = '$first';
+  return '${m.isNegative ? '-' : ''}${text[0]}.${text.substring(1)}'
+      'E${exponent < 0 ? '-' : '+'}${exponent.abs()}';
+}
+
+/// The float [text] spells, as the INTERCAL reads it, or null if it is malformed. E814 from the
+/// INTERCAL's early range check is reported at [earlyNext]; from rounding, at [roundNext].
+int? _floatFromString(String text, int earlyNext, int roundNext) {
+  final match = RegExp(
+    r'^([+-]?)([0-9]*)(?:\.([0-9]*))?(?:[eE]([+-]?)([0-9]+))?$',
+  ).firstMatch(text);
+  if (match == null) return null;
+  final whole = match[2]!, fraction = match[3] ?? '';
+  if (whole.isEmpty && fraction.isEmpty) return null;
+  var exponent = 0;
+  for (final unit in (match[5] ?? '').codeUnits) {
+    exponent = exponent * 10 + unit - 48;
+    if (exponent > 100000) exponent = 100000;
+  }
+  if (match[4] == '-') exponent = -exponent;
+  final digits = (whole + fraction).replaceFirst(RegExp('^0+'), '');
+  if (digits.isEmpty) return 0;
+  final e = exponent - fraction.length;
+  if (digits.length + e > 9869) ickFatal(814, earlyNext);
+  if (digits.length + e < -9859) return 0;
+  final d = BigInt.parse(digits), ten = BigInt.from(10);
+  return _floatNearest(
+    match[1] == '-',
+    e >= 0 ? d * ten.pow(e) : d,
+    e >= 0 ? BigInt.one : ten.pow(-e),
+    0,
+    roundNext,
+  );
+}
+
+void _floatLibrary(
+  int label,
+  List<int> scalars,
+  List<int> arrays,
+  int Function(int, [int]) nextOf,
+) {
+  final x = _scalarAt(scalars[0]);
+  final a = _floatValue(x);
+  switch (label) {
+    case 7000 || 7010 || 7020 || 7030 || 7040:
+      final b = _floatValue(_scalarAt(scalars[1]));
+      final overflow = nextOf(814);
+      _setScalar(scalars[2], switch (label) {
+        7000 => _floatOf(_dyadicSum(a, b), overflow),
+        7010 => _floatOf(_dyadicSum(a, (-b.$1, b.$2)), overflow),
+        7020 => _floatOf((a.$1 * b.$1, a.$2 + b.$2), overflow),
+        7030 =>
+          b.$1 == BigInt.zero
+              ? ickFatal(815, nextOf(815))
+              : _floatNearest(
+                  a.$1.isNegative != b.$1.isNegative,
+                  a.$1.abs(),
+                  b.$1.abs(),
+                  a.$2 - b.$2,
+                  overflow,
+                ),
+        _ => _dyadicSum(a, (-b.$1, b.$2)).$1.sign + 2,
+      });
+    case 7050:
+      if (a.$1 <= BigInt.zero) ickFatal(816, nextOf(816));
+      _setScalar(scalars[1], _floatLn(a.$1.toInt(), a.$2, nextOf(814)));
+    case 7060:
+      _setScalar(
+        scalars[1],
+        _floatOf((BigInt.from(x.toSigned(32)), 0), nextOf(814)),
+      );
+    case 7070:
+      final magnitude = a.$2 >= 0 ? a.$1.abs() << a.$2 : a.$1.abs() >> -a.$2;
+      final truncated = a.$1.isNegative ? -magnitude : magnitude;
+      if (truncated < -BigInt.from(1 << 31) ||
+          truncated >= BigInt.from(1 << 31)) {
+        ickFatal(814, nextOf(814));
+      }
+      _setScalar(scalars[1], truncated.toInt() & 0xFFFFFFFF);
+    case 7080:
+      _setString(arrays[0], _floatToString(x));
+    case 7090:
+      final parsed = _floatFromString(
+        _stringAt(arrays[0], nextOf(3000)),
+        nextOf(814, 1),
+        nextOf(814),
+      );
+      if (parsed != null) _setScalar(scalars[0], parsed);
+      _setScalar(scalars[1], parsed != null ? 1 : 2);
   }
 }
 

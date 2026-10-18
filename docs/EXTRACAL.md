@@ -239,6 +239,7 @@ So defining one label in a block's range replaces the whole block with your own.
 | Strings | (3000)–(3999) | length, concatenate, slice, compare, find, numbers to and from decimal, UTF-8 |
 | Math | (4000)–(4999) | 64-bit and signed arithmetic, power, square root, modulo, gcd |
 | Arrays | (6000)–(6999) | rank and dimensions, fill, copy, sort, find |
+| Floats | (7000)–(7999) | §8.4's floats: arithmetic, comparison, the natural logarithm, integers and decimal text |
 | System | (8000)–(8999) | command-line arguments, environment variables, exit status, clocks, the random seed |
 | Network | (9000)–(9999) | TCP connections and listeners as I/O handles, an HTTP/1.1 client, and request and response helpers for servers |
 
@@ -260,9 +261,6 @@ Every routine is written in INTERCAL, and the compilers run a native version ins
 program can't tell the difference. `--no-opt` always runs the INTERCAL. The routines reach the host
 through `PETITION #n`, EXTRACAL's one new statement for the library; its services are listed in
 the library's README.
-
-Floats, (7000)–(7999), are still waiting on a design question (L33 in
-[`QUESTIONS.md`](QUESTIONS.md)).
 
 ## Errors
 
