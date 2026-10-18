@@ -1289,6 +1289,27 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/lib-system/e803.xc`, `packages/conformance/tests/extracal/lib-system/e803-no-opt.xc`
 - **Date:** 2026-10-18
 
+### E804: a handle not open that way
+- **Text:** `A FILE HANDLE THAT IS NOT OPEN THAT WAY HAS BEEN USED.`
+- **Joke:** `YOU CANNOT READ FROM A LETTERBOX OR POST INTO A NEWSPAPER.`
+- **Source:** R10, R11, Q139. A new code. Reading from a handle that isn't open for reading, writing to one that isn't open for writing, or closing one that isn't an open file, is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e804.xc`, `packages/conformance/tests/extracal/lib-io/e804-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E805: a byte above 255
+- **Text:** `A BYTE ABOVE 255 HAS BEEN WRITTEN.`
+- **Joke:** `IT DID NOT FIT THROUGH THE SLOT.`
+- **Source:** R10, R11, Q139. A new code. The I/O block writes bytes; a larger value, such as a string element that hasn't been through UTF-8 encoding, is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e805.xc`, `packages/conformance/tests/extracal/lib-io/e805-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E806: an open mode that doesn't exist
+- **Text:** `A FILE HAS BEEN OPENED IN A MODE THAT DOES NOT EXIST.`
+- **Joke:** `NEITHER READING, WRITING NOR APPENDING. PERHAPS JUST LOOKING.`
+- **Source:** R10, R11, Q139. A new code. OPEN (2020) takes mode #1, #2 or #3.
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e806.xc`, `packages/conformance/tests/extracal/lib-io/e806-no-opt.xc`
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

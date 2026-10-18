@@ -13,9 +13,9 @@ class LlvmEmitter {
   final IrProgram program;
   final EmitOptions options;
   final String triple;
-  late final _petitions = options.optimize
-      ? findNativePetitions(program)
-      : const <int, NativePetition>{};
+  late final _library = options.optimize
+      ? findNativeLibraryCalls(program)
+      : const <int, NativeLibraryCall>{};
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
@@ -178,6 +178,7 @@ declare i64 @ick_reverse_unary(i32, i64, i32, i32)
 declare void @ick_read_out_signed(i64, i32)
 declare void @ick_x_creates(i32, ptr)
 declare void @ick_petition(i32, i32, i32, i32, i32, i32, i32, i32, i32)
+declare void @ick_library(i32, ptr, ptr, ptr, i32)
 declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
 ''';
 
@@ -283,28 +284,21 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       ];
       final petitions = [
         for (final s in program.statements)
-          if (s.op case IrNext(:final target)
-              when _petitions.containsKey(target))
-            (s, _petitions[target]!),
+          if (s.op case IrNext(:final target) when _library.containsKey(target))
+            (s, _library[target]!),
       ];
       _line(
         'switch i32 %ordinal, label %done [${[for (final c in calls) 'i32 ${c.$1.ordinal}, label %n${c.$1.ordinal}', for (final p in petitions) 'i32 ${p.$1.ordinal}, label %p${p.$1.ordinal}'].join(' ')}]',
       );
       for (final (s, native) in petitions) {
         _block('p${s.ordinal}');
-        final free = _fresh(), room = _fresh(), run = _newBlock('native');
-        _line('$free = call i32 @ick_next_free()');
-        _line('$room = icmp uge i32 $free, 1');
-        _line('br i1 $room, label %$run, label %done');
-        _block(run);
-        for (final o in native.abstainable) {
-          final flag = _fresh(), ok = _fresh(), next = _newBlock('native');
+        _libraryGuard(native, 'done', (o) {
+          final flag = _fresh(), clear = _fresh();
           _line('$flag = call i32 @ick_x_clear(i32 $o)');
-          _line('$ok = icmp ne i32 $flag, 0');
-          _line('br i1 $ok, label %$next, label %done');
-          _block(next);
-        }
-        _petition(native.petition, native.next);
+          _line('$clear = icmp ne i32 $flag, 0');
+          return clear;
+        });
+        _libraryCall(native);
         _line('ret i32 1');
       }
       for (final (s, call) in calls) {
@@ -769,9 +763,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
-        if (_petitions[target] case final native?) {
-          _nativePetition(s, native);
-        }
+        if (_library[target] case final native?) _nativeLibrary(s, native);
         _line('call void @next_push(i32 ${s.ordinal}, i32 $target)');
         _line('br label %s$target');
         _block(_newBlock('dead'));
@@ -1076,30 +1068,83 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
     );
   }
 
-  /// Runs the PETITION a library routine consists of in place of the NEXT [s], when the NEXT
-  /// stack has room and the routine's statements aren't abstained, and continues to the NEXT
-  /// otherwise.
-  void _nativePetition(IrStatement s, NativePetition native) {
-    final run = _newBlock('native'), fallback = _newBlock('fallback');
-    final free = _fresh(), room = _fresh();
-    _line('$free = call i32 @ick_next_free()');
-    _line('$room = icmp uge i32 $free, 1');
-    _line('br i1 $room, label %$run, label %$fallback');
-    _block(run);
-    for (final o in native.abstainable) {
+  /// Runs a native library routine in place of the NEXT [s] when it can stand in for its INTERCAL,
+  /// and continues to the NEXT otherwise.
+  void _nativeLibrary(IrStatement s, NativeLibraryCall native) {
+    final fallback = _newBlock('fallback');
+    _libraryGuard(native, fallback, (o) {
       final flag = _fresh(), clear = _fresh();
       _line(
         '$flag = load i8, ptr getelementptr inbounds ([${program.statements.length + 1} x i8], ptr @ab, i64 0, i64 $o)',
       );
       _line('$clear = icmp eq i8 $flag, 0');
-      final next = _newBlock('native');
-      _line('br i1 $clear, label %$next, label %$fallback');
-      _block(next);
-    }
-    _petition(native.petition, native.next);
+      return clear;
+    });
+    _libraryCall(native);
     _line('br label %a${s.ordinal}');
     _block(fallback);
   }
+
+  /// Branches to [fallback] unless a native library routine can stand in for its INTERCAL; [clear]
+  /// emits an i1 that a statement isn't abstained.
+  void _libraryGuard(
+    NativeLibraryCall c,
+    String fallback,
+    String Function(int) clear,
+  ) {
+    void check(String ok) {
+      final next = _newBlock('native');
+      _line('br i1 $ok, label %$next, label %$fallback');
+      _block(next);
+    }
+
+    final free = _fresh(), room = _fresh();
+    _line('$free = call i32 @ick_next_free()');
+    _line('$room = icmp uge i32 $free, ${c.depth}');
+    check(room);
+    for (final w in c.watched) {
+      final flag = _fresh(), ok = _fresh();
+      _line('$flag = load i8, ptr ${_ignoredFlag(w)}');
+      _line('$ok = icmp eq i8 $flag, 0');
+      check(ok);
+    }
+    for (final a in c.watchedArrays) {
+      final flag = _fresh(), ok = _fresh();
+      _line('$flag = call i32 @ick_array_ignored(i32 ${a.index})');
+      _line('$ok = icmp eq i32 $flag, 0');
+      check(ok);
+    }
+    for (final o in c.abstainable) {
+      check(clear(o));
+    }
+  }
+
+  /// A native library routine: a PETITION alone, or the runtime's own version of a routine.
+  void _libraryCall(NativeLibraryCall c) {
+    if (c.petition case final petition?) {
+      _petition(petition, c.nexts.first.$2);
+      return;
+    }
+    String table(String name, List<int> values) {
+      final global = '@lib.$name.${_libraryTables++}';
+      final items = values.isEmpty ? [0] : values;
+      _globals.writeln(
+        '$global = private constant [${items.length} x i32] [${items.map((v) => 'i32 $v').join(', ')}]',
+      );
+      return global;
+    }
+
+    final scalars = table('s', [for (final v in c.scalars) _key(v)]);
+    final arrays = table('a', [for (final a in c.arrays) a.index]);
+    final nexts = table('n', [
+      for (final n in c.nexts) ...[n.$1, n.$2],
+    ]);
+    _line(
+      'call void @ick_library(i32 ${c.label}, ptr $scalars, ptr $arrays, ptr $nexts, i32 ${c.nexts.length})',
+    );
+  }
+
+  var _libraryTables = 0;
 
   /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
   /// continues to the NEXT otherwise.

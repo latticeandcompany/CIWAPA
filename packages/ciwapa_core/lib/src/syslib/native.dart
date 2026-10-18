@@ -73,44 +73,122 @@ bool _noNatives(IrProgram program) =>
           s.preproc,
     );
 
-/// A NEXT into a library routine that is just `PETITION #n` and `RESUME #1` (R10), which the
-/// emitters may run as the PETITION alone. It falls back to the routine when the NEXT stack is
-/// full, or when one of the [abstainable] statements is abstained.
-class NativePetition {
-  const NativePetition(this.petition, this.abstainable, this.next);
+/// A NEXT into a library routine that a runtime runs natively (R10, Q37): a routine that is just
+/// `PETITION #n` and `RESUME #1` runs as its [petition]; the routines in [libraryRoutines] run as
+/// the runtime's own version, on their documented [scalars] and [arrays]. It falls back to the
+/// INTERCAL when the NEXT stack has fewer than [depth] free levels, when one of the [watched]
+/// variables or [watchedArrays] is IGNOREd, or when one of the [abstainable] statements is
+/// abstained. [nexts] lists each PETITION the INTERCAL uses, in program order, as its service and
+/// the ordinal its errors name, so the native version reports them in the same place.
+class NativeLibraryCall {
+  const NativeLibraryCall({
+    required this.label,
+    required this.petition,
+    required this.scalars,
+    required this.arrays,
+    required this.depth,
+    required this.watched,
+    required this.watchedArrays,
+    required this.abstainable,
+    required this.nexts,
+  });
 
-  final IrPetition petition;
+  final int label;
+  final IrPetition? petition;
+  final List<Slot> scalars;
+  final List<Slot> arrays;
+  final int depth;
+  final List<Slot> watched;
+  final List<Slot> watchedArrays;
   final List<int> abstainable;
-
-  /// The PETITION statement's own next ordinal, where its errors are reported.
-  final int next;
+  final List<(int, int)> nexts;
 }
 
-/// The native petitions in [program], keyed by the ordinal of the library entry they replace.
-Map<int, NativePetition> findNativePetitions(IrProgram program) {
+/// The library routines with native versions, and their documented variables. Their INTERCAL
+/// never reaches deeper than [_libraryDepth] NEXT stack levels.
+const libraryRoutines = <int, ({List<String> scalars, List<String> arrays})>{
+  2100: (scalars: ['.1', ':1', '.3'], arrays: []),
+  2110: (scalars: ['.1', ':1', '.3'], arrays: []),
+  2200: (scalars: ['.1', '.3'], arrays: [',1']),
+  2300: (scalars: ['.1', '.3'], arrays: [',1']),
+  2310: (scalars: ['.1', '.3'], arrays: [',1']),
+};
+
+const _libraryDepth = 40;
+
+/// The native library calls in [program], keyed by the ordinal of the library entry they replace.
+Map<int, NativeLibraryCall> findNativeLibraryCalls(IrProgram program) {
   if (program.statements.length == program.userStatements) return const {};
   if (_noNatives(program)) return const {};
-  final found = <int, NativePetition>{};
+  final slots = {
+    for (final s in [...program.scalars, ...program.wideScalars]) s.ref: s,
+  };
+  final arraySlots = {for (final a in program.arrays) a.ref: a};
+  final found = <int, NativeLibraryCall>{};
   for (final entry in program.statements.skip(program.userStatements)) {
-    if (entry.ordinal == program.statements.length) continue;
+    final label = entry.label;
+    if (label == null) continue;
     final petition = entry.op;
-    final resume = program.at(entry.ordinal + 1);
-    if (petition is! IrPetition || entry.label == null) continue;
-    if (resume.op case IrResume(count: IrConst(value: 1))) {
-      final routine = [entry, resume];
-      final plain = routine.every(
-        (s) =>
-            !s.bug &&
-            s.comeFrom == null &&
-            s.faults.isEmpty &&
-            (s.percent == null || s.percent == 100),
-      );
-      if (!plain) continue;
-      found[entry.ordinal] = NativePetition(petition, [
-        for (final s in routine)
-          if (s.abstainable) s.ordinal,
-      ], entry.next);
+    final routine = libraryRoutines[label];
+    final List<int> ordinals;
+    if (routine != null) {
+      ordinals = (_reachable(program, entry.ordinal).toList()..sort());
+    } else if (petition is IrPetition &&
+        entry.ordinal < program.statements.length &&
+        program.at(entry.ordinal + 1).op is IrResume &&
+        (program.at(entry.ordinal + 1).op as IrResume).count is IrConst &&
+        ((program.at(entry.ordinal + 1).op as IrResume).count as IrConst)
+                .value ==
+            1) {
+      ordinals = [entry.ordinal, entry.ordinal + 1];
+    } else {
+      continue;
     }
+    final touched = <Slot>{}, touchedArrays = <Slot>{};
+    final abstainable = <int>[];
+    final nexts = <(int, int)>[];
+    var native = true;
+    for (final ordinal in ordinals) {
+      final s = program.at(ordinal);
+      native &=
+          ordinal > program.userStatements &&
+          !s.bug &&
+          s.comeFrom == null &&
+          s.faults.isEmpty &&
+          (s.percent == null || s.percent == 100);
+      if (s.abstainable) abstainable.add(ordinal);
+      final (scalars, arrays) = _variables(s.op);
+      touched.addAll(scalars);
+      touchedArrays.addAll(arrays);
+      if (s.op case IrPetition(:final service)) nexts.add((service, s.next));
+    }
+    if (!native) continue;
+    VarRef ref(String name) {
+      final sigil = name.replaceAll(RegExp('[0-9]'), '');
+      return VarRef(
+        VarKind.values.firstWhere((k) => k.sigil == sigil),
+        int.parse(name.substring(sigil.length)),
+      );
+    }
+
+    final scalars = [
+      for (final r in routine?.scalars ?? const []) slots[ref(r)],
+    ];
+    final arrays = [
+      for (final r in routine?.arrays ?? const []) arraySlots[ref(r)],
+    ];
+    if (scalars.contains(null) || arrays.contains(null)) continue;
+    found[entry.ordinal] = NativeLibraryCall(
+      label: label,
+      petition: routine == null ? petition as IrPetition : null,
+      scalars: scalars.cast(),
+      arrays: arrays.cast(),
+      depth: routine == null ? 1 : _libraryDepth,
+      watched: [...touched.intersection(program.ignorable)],
+      watchedArrays: [...touchedArrays.intersection(program.ignorable)],
+      abstainable: abstainable,
+      nexts: nexts,
+    );
   }
   return found;
 }
@@ -141,7 +219,7 @@ Map<int, NativeCall> findNativeCalls(IrProgram program) {
       if (s.abstainable) abstainable.add(ordinal);
       final (scalars, arrays) = _variables(s.op);
       touched.addAll(scalars);
-      native &= !arrays;
+      native &= arrays.isEmpty;
     }
     final args = [for (final a in routine.args) slots[_ref(a)]];
     final result = slots[_ref(routine.result)];
@@ -248,15 +326,18 @@ Set<int> reachable(IrProgram program) {
 }
 
 /// The scalars [op] names, and whether it names any array.
-(Set<Slot>, bool) _variables(IrOp op) {
+(Set<Slot>, Set<Slot>) _variables(IrOp op) {
   final scalars = <Slot>{};
-  var arrays = false;
+  final arrays = <Slot>{};
   void expr(IrExpr e) {
     switch (e) {
       case IrScalar(:final slot):
         scalars.add(slot);
-      case IrElement() || IrArrayItem():
-        arrays = true;
+      case IrElement(:final array, :final subscripts):
+        arrays.add(array);
+        subscripts.forEach(expr);
+      case IrArrayItem(:final array):
+        arrays.add(array);
       case IrMingle(:final left, :final right) ||
           IrSelect(:final left, :final right) ||
           IrCreatedOp(:final left, :final right):
@@ -275,15 +356,19 @@ Set<int> reachable(IrProgram program) {
     case IrAssign(:final target, :final value):
       expr(target);
       expr(value);
-    case IrDimension():
-      arrays = true;
+    case IrDimension(:final array, :final dimensions):
+      arrays.add(array);
+      dimensions.forEach(expr);
     case IrForget(:final count) || IrResume(:final count):
       expr(count);
     case IrVarList(scalars: final named, arrays: final named2):
       scalars.addAll(named);
-      arrays |= named2.isNotEmpty;
+      arrays.addAll(named2);
     case IrWriteIn(:final items) || IrReadOut(:final items):
       items.forEach(expr);
+    case IrPetition(scalars: final named, arrays: final named2):
+      scalars.addAll(named);
+      arrays.addAll(named2);
     default:
       break;
   }

@@ -32,6 +32,34 @@ WRITE IN does, so an IGNOREd variable keeps its value. A service the host doesn'
 is E801. PETITIONING is its gerund. It exists only in `.xc` programs. `--traditional` rejects
 it (E111), and a program compiled with `--traditional` gets none of the library.
 
+## I/O, (2000)–(2999)
+
+A handle names where bytes come from or go: #0 is standard input, #1 standard output and #2
+standard error, and OPEN gives files the lowest free number from #3 up. Bytes for standard output
+share READ OUT's buffer, so the two keep their order, and anything for standard error flushes
+standard output first. Status `.3` is #1 for success and #2 for failure: the end of input, a file
+that can't be opened, or a byte that can't be written.
+
+| Entry | Inputs | Results | Notes |
+|---|---|---|---|
+| (2000) | .1 = handle | .2 = the next byte; .3 | .3 = #2 at the end of input, leaving .2 alone |
+| (2010) | .1 = handle, .2 = byte | .3 | a byte above 255 is E805 |
+| (2020) | ,1 = path, .1 = mode | .2 = handle; .3 | mode #1 reads, #2 writes from empty, #3 appends; any other is E806 |
+| (2030) | .1 = handle | .3 | closes a file |
+| (2100) | .1 = handle | :1 = the number read; .3 | skips spaces, tabs and line ends, then reads decimal digits up to the first byte that isn't one, which it uses up. No digit at all leaves :1 alone with .3 = #2; a number above 4294967295 gives its low 32 bits and .3 = #2 |
+| (2110) | .1 = handle, :1 = number | .3 | writes :1 in decimal digits; .3 is the last byte's |
+| (2200) | .1 = handle | ,1 = the next line; .3 | one byte per element, without the line feed; .3 = #2 only at the end of input with nothing read, leaving ,1 alone |
+| (2300) | .1 = handle, ,1 = string | .3 | writes each element as one byte, stopping at the first that fails |
+| (2310) | .1 = handle, ,1 = string | .3 | the same, then a line feed unless something failed |
+
+A handle that isn't open the right way (reading from #1, writing to #0, a closed file) is E804.
+The routines read and write bytes, not characters: the Strings block turns UTF-8 bytes into code
+points and back.
+
+The INTERCAL versions of (2100) to (2310) use the system library and these labels of their own:
+(2101)–(2113), (2201)–(2212), (2301)–(2304), (2311), (2312), (2900), (2950)–(2958). They reach at
+most 40 NEXT stack levels.
+
 ## System, (8000)–(8999)
 
 | Entry | Inputs | Results | Notes |
@@ -59,3 +87,16 @@ Each is a single PETITION of the same number.
   and reading past its end is E241.
 - **Clocks:** (8050) counts in nanoseconds, but how finely it moves depends on the host: by the
   microsecond in ciwapa-dart programs.
+
+## Services
+
+| Service | Reads | Writes | Does |
+|---|---|---|---|
+| #2000 | .1 | .2, .3 | reads a byte |
+| #2010 | .1, .2 | .3 | writes a byte |
+| #2020 | ,1, .1 | .2, .3 | opens a file |
+| #2030 | .1 | .3 | closes a file |
+| #3000 | ,1 | :1 | a string's length; E803 for an array with more than one dimension |
+| #3001 | | ,1 | makes ,1 the empty string |
+| #8000–#8060 | | | as the System routines of the same numbers |
+

@@ -19,9 +19,9 @@ class DartEmitter {
   final EmitOptions options;
   var _out = StringBuffer();
   var _chunk = 0;
-  late final _petitions = options.optimize
-      ? findNativePetitions(program)
-      : const <int, NativePetition>{};
+  late final _library = options.optimize
+      ? findNativeLibraryCalls(program)
+      : const <int, NativeLibraryCall>{};
   late final _natives = options.optimize
       ? findNativeCalls(program)
       : const <int, NativeCall>{};
@@ -334,15 +334,11 @@ class DartEmitter {
       ..writeln('  final v = _v, ig = _ig;')
       ..writeln('  switch (ordinal) {');
     for (final s in program.statements) {
-      if (s.op case IrNext(:final target) when _petitions.containsKey(target)) {
-        final native = _petitions[target]!;
-        final guard = [
-          'ickNextFree() >= 1',
-          for (final o in native.abstainable) 'ickXClear($o)',
-        ];
+      if (s.op case IrNext(:final target) when _library.containsKey(target)) {
+        final native = _library[target]!;
         _out.writeln('    case ${s.ordinal}:');
-        _line('if (${guard.join(' && ')}) {');
-        _line('  ${_petition(native.petition, native.next)}');
+        _line('if (${_libraryGuard(native, (o) => 'ickXClear($o)')}) {');
+        _line('  ${_libraryCall(native)}');
         _line('  return true;');
         _line('}');
       }
@@ -651,13 +647,9 @@ class DartEmitter {
         );
       case IrNext(:final target):
         if (_natives[target] case final call?) _native(s, call);
-        if (_petitions[target] case final native?) {
-          final guard = [
-            'ickNextFree() >= 1',
-            for (final o in native.abstainable) _clear(o),
-          ];
-          _line('if (${guard.join(' && ')}) {');
-          _line('  ${_petition(native.petition, native.next)}');
+        if (_library[target] case final native?) {
+          _line('if (${_libraryGuard(native, _clear)}) {');
+          _line('  ${_libraryCall(native)}');
           _line('  ${_jump(after(s.ordinal))}');
           _line('}');
         }
@@ -746,6 +738,25 @@ class DartEmitter {
   String _petition(IrPetition p, Object next) =>
       'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
       '[${p.arrays.map((a) => a.index).join(', ')}], $next);';
+
+  /// When a native library routine can stand in for its INTERCAL: [clear] tests that a statement
+  /// isn't abstained.
+  String _libraryGuard(NativeLibraryCall c, String Function(int) clear) => [
+    'ickNextFree() >= ${c.depth}',
+    for (final w in c.watched) '${w.wide ? '_igw' : '_ig'}[${w.index}] == 0',
+    for (final a in c.watchedArrays) '!ickArrayIgnored(${a.index})',
+    for (final o in c.abstainable) clear(o),
+  ].join(' && ');
+
+  /// A native library routine: a PETITION alone, or the runtime's own version of a routine.
+  String _libraryCall(NativeLibraryCall c) {
+    if (c.petition case final petition?) {
+      return _petition(petition, c.nexts.first.$2);
+    }
+    return 'ickLibrary(${c.label}, [${c.scalars.map(_key).join(', ')}], '
+        '[${c.arrays.map((a) => a.index).join(', ')}], '
+        '[${c.nexts.map((n) => '${n.$1}, ${n.$2}').join(', ')}]);';
+  }
 
   /// Runs [call] in place of the NEXT [s] when the INTERCAL routine would behave the same, and
   /// falls through to the NEXT otherwise.

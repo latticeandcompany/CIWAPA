@@ -132,7 +132,7 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### I/O (2000)–(2999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-io`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-io`
 
 ### Strings (3000)–(3999)
 

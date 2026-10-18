@@ -13,7 +13,10 @@ class LibraryBlock {
 }
 
 /// The blocks, in the order they are appended after a program.
-const libraryBlocks = [LibraryBlock('system', 8000, 8999)];
+const libraryBlocks = [
+  LibraryBlock('io', 2000, 2999),
+  LibraryBlock('system', 8000, 8999),
+];
 
 /// The host services PETITION asks for (R10, L29), and the variables each reads and writes, in
 /// the order the runtimes take them. `packages/ciwapa_core/lib/extracal/README.md` documents
@@ -26,4 +29,10 @@ const petitionServices = <int, ({List<String> scalars, List<String> arrays})>{
   8040: (scalars: ['::1'], arrays: []),
   8050: (scalars: ['::1'], arrays: []),
   8060: (scalars: ['::1'], arrays: []),
+  2000: (scalars: ['.1', '.2', '.3'], arrays: []),
+  2010: (scalars: ['.1', '.2', '.3'], arrays: []),
+  2020: (scalars: ['.1', '.2', '.3'], arrays: [',1']),
+  2030: (scalars: ['.1', '.3'], arrays: []),
+  3000: (scalars: [':1'], arrays: [',1']),
+  3001: (scalars: [], arrays: [',1']),
 };

@@ -2433,10 +2433,98 @@ static uint64_t monotonic_ns(void) {
 #endif
 }
 
+/* ---- EXTRACAL's I/O block (R10) -------------------------------------------------------- */
+/* Handles: 0 is stdin, 1 stdout and 2 stderr; OPEN gives the lowest free one from 3 up. Bytes for
+ * stdout go the way READ OUT's do; anything for stderr flushes stdout first, so the two keep their
+ * order on a terminal. runtime.dart has the same. */
+
+typedef struct {
+  FILE *file;
+  int reading;
+} ick_handle;
+
+static ick_handle *handles;
+static uint32_t handle_count;
+
+static ick_handle *handle_at(uint32_t handle) {
+  return handle >= 3 && handle < handle_count && handles[handle].file ? &handles[handle] : NULL;
+}
+
+/* A byte from [handle], or -1 at the end of input. A handle that isn't open for reading is
+ * E804. */
+static int read_byte_from(uint64_t handle, uint32_t next) {
+  if (handle == 0) {
+    ICK_FLUSH();
+    int c = ICK_GETCHAR();
+    return c == EOF ? -1 : c;
+  }
+  ick_handle *h = handle < UINT32_MAX ? handle_at((uint32_t)handle) : NULL;
+  if (!h || !h->reading) ick_fatal(804, next);
+  int c = fgetc(h->file);
+  if (c == EOF) clearerr(h->file);
+  return c == EOF ? -1 : c;
+}
+
+/* Writes [byte] to [handle]: 1 if it was written. A handle that isn't open for writing is E804,
+ * and a byte over 255 is E805. */
+static int write_byte_to(uint64_t handle, uint64_t byte, uint32_t next) {
+  ick_handle *h = handle > 2 && handle < UINT32_MAX ? handle_at((uint32_t)handle) : NULL;
+  if (handle == 0 || (handle > 2 && (!h || h->reading))) ick_fatal(804, next);
+  if (byte > 255) ick_fatal(805, next);
+  if (handle == 1) {
+    putchar((int)byte);
+    if (byte == '\n') ICK_FLUSH();
+    return 1;
+  }
+  if (handle == 2) {
+    ICK_FLUSH();
+    return fputc((int)byte, stderr) != EOF;
+  }
+  return fputc((int)byte, h->file) != EOF;
+}
+
+/* Opens [path] (UTF-16 code units): 1 to read, 2 to write from empty, 3 to append, anything else
+ * E806. Returns the handle, or 0 if it couldn't be opened. */
+static uint32_t open_file(const uint32_t *units, size_t length, uint64_t mode, uint32_t next) {
+  if (mode < 1 || mode > 3) ick_fatal(806, next);
+#ifdef _WIN32
+  wchar_t *path = malloc((length + 1) * sizeof(wchar_t));
+  if (!path) ick_fatal(778, 1);
+  for (size_t i = 0; i < length; i++) path[i] = (wchar_t)units[i];
+  path[length] = 0;
+  FILE *file = _wfopen(path, mode == 1 ? L"rb" : mode == 2 ? L"wb" : L"ab");
+#else
+  char *path = utf8_from_units(units, length);
+  FILE *file = fopen(path, mode == 1 ? "rb" : mode == 2 ? "wb" : "ab");
+#endif
+  free(path);
+  if (!file) return 0;
+  uint32_t handle = 3;
+  while (handle < handle_count && handles[handle].file) handle++;
+  if (handle >= handle_count) {
+    uint32_t count = handle_count ? handle_count * 2 : 8;
+    handles = realloc(handles, count * sizeof(ick_handle));
+    if (!handles) ick_fatal(778, 1);
+    memset(handles + handle_count, 0, (count - handle_count) * sizeof(ick_handle));
+    handle_count = count;
+  }
+  handles[handle] = (ick_handle){file, mode == 1};
+  return handle;
+}
+
+static int close_file(uint64_t handle, uint32_t next) {
+  ick_handle *h = handle < UINT32_MAX ? handle_at((uint32_t)handle) : NULL;
+  if (!h) ick_fatal(804, next);
+  int ok = fclose(h->file) == 0;
+  h->file = NULL;
+  return ok;
+}
+
+
 void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3,
                   uint32_t a0, uint32_t a1, uint32_t a2, uint32_t next) {
-  (void)s2;
   (void)s3;
+  (void)a1;
   (void)a2;
   switch (service) {
   case 8000: set_scalar(s0, (uint64_t)program_argc); break;
@@ -2500,8 +2588,116 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 8040: set_scalar(s0, wall_clock_ms()); break;
   case 8050: set_scalar(s0, monotonic_ns()); break;
   case 8060: rng_state = scalar_at(s0); break;
+  case 2000: {
+    int byte = read_byte_from(scalar_at(s0), next);
+    if (byte >= 0) set_scalar(s1, (uint64_t)byte);
+    set_scalar(s2, byte >= 0 ? 1 : 2);
+    break;
+  }
+  case 2010: set_scalar(s2, write_byte_to(scalar_at(s0), scalar_at(s1), next) ? 1 : 2); break;
+  case 2020: {
+    size_t length;
+    const uint32_t *units = string_at(a0, &length, next);
+    uint32_t handle = open_file(units, length, scalar_at(s0), next);
+    if (handle) set_scalar(s1, handle);
+    set_scalar(s2, handle ? 1 : 2);
+    break;
+  }
+  case 2030: set_scalar(s1, close_file(scalar_at(s0), next) ? 1 : 2); break;
+  case 3000: {
+    size_t length;
+    string_at(a0, &length, next);
+    set_scalar(s0, length);
+    break;
+  }
+  case 3001: set_string(a0, NULL, 0); break;
   default: ick_fatal(801, next);
   }
 }
+/* The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
+ * in, the routine's documented ones: [scalars] by key and [arrays] by number. [nexts] lists, in
+ * program order, each PETITION the INTERCAL version uses as a service and where its errors are
+ * reported. runtime.dart has the same. */
+static uint32_t next_of(const uint32_t *nexts, uint32_t count, uint32_t service, uint32_t nth) {
+  for (uint32_t i = 0; i < count; i++) {
+    if (nexts[2 * i] == service && nth-- == 0) return nexts[2 * i + 1];
+  }
+  return 1;
+}
 
+void ick_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays,
+                 const uint32_t *nexts, uint32_t next_count) {
+  switch (label) {
+  case 2100: {
+    uint64_t handle = scalar_at(scalars[0]);
+    uint32_t next = next_of(nexts, next_count, 2000, 0);
+    int byte = read_byte_from(handle, next);
+    while (byte == ' ' || byte == '\t' || byte == '\n' || byte == '\r') {
+      byte = read_byte_from(handle, next);
+    }
+    if (byte < '0' || byte > '9') {
+      set_scalar(scalars[2], 2);
+      return;
+    }
+    uint64_t value = (uint64_t)(byte - '0');
+    int overflow = 0;
+    for (;;) {
+      byte = read_byte_from(handle, next);
+      if (byte < '0' || byte > '9') break;
+      value = value * 10 + (uint64_t)(byte - '0');
+      overflow |= value > 0xFFFFFFFFu;
+      value &= 0xFFFFFFFFu;
+    }
+    set_scalar(scalars[1], value);
+    set_scalar(scalars[2], overflow ? 2 : 1);
+    return;
+  }
+  case 2110: {
+    uint64_t handle = scalar_at(scalars[0]);
+    char digits[24];
+    snprintf(digits, sizeof digits, "%llu", (unsigned long long)scalar_at(scalars[1]));
+    int ok = 1;
+    for (char *d = digits; *d; d++) ok = write_byte_to(handle, (uint64_t)*d, next_of(nexts, next_count, 2010, 0));
+    set_scalar(scalars[2], ok ? 1 : 2);
+    return;
+  }
+  case 2200: {
+    uint64_t handle = scalar_at(scalars[0]);
+    uint32_t next = next_of(nexts, next_count, 2000, 0);
+    int byte = read_byte_from(handle, next);
+    if (byte < 0) {
+      set_scalar(scalars[1], 2);
+      return;
+    }
+    size_t length = 0, capacity = 64;
+    uint16_t *line = malloc(capacity * sizeof(uint16_t));
+    if (!line) ick_fatal(778, 1);
+    while (byte >= 0 && byte != '\n') {
+      if (length == capacity) {
+        line = realloc(line, (capacity *= 2) * sizeof(uint16_t));
+        if (!line) ick_fatal(778, 1);
+      }
+      line[length++] = (uint16_t)byte;
+      byte = read_byte_from(handle, next);
+    }
+    set_string(arrays[0], line, length);
+    free(line);
+    set_scalar(scalars[1], 1);
+    return;
+  }
+  case 2300:
+  case 2310: {
+    uint64_t handle = scalar_at(scalars[0]);
+    size_t length;
+    const uint32_t *units = string_at(arrays[0], &length, next_of(nexts, next_count, 3000, 0));
+    int ok = 1;
+    for (size_t i = 0; i < length && ok; i++) {
+      ok = write_byte_to(handle, units[i], next_of(nexts, next_count, 2010, 0));
+    }
+    if (ok && label == 2310) ok = write_byte_to(handle, '\n', next_of(nexts, next_count, 2010, 1));
+    set_scalar(scalars[1], ok ? 1 : 2);
+    return;
+  }
+  }
+}
 ''';

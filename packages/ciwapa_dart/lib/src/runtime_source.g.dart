@@ -2484,8 +2484,192 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       );
     case 8060:
       _rngState = _scalarAt(scalars[0]);
+    case 2000:
+      final byte = _readByteFrom(_scalarAt(scalars[0]), next);
+      if (byte >= 0) _setScalar(scalars[1], byte);
+      _setScalar(scalars[2], byte >= 0 ? 1 : 2);
+    case 2010:
+      final written = _writeByteTo(
+        _scalarAt(scalars[0]),
+        _scalarAt(scalars[1]),
+        next,
+      );
+      _setScalar(scalars[2], written ? 1 : 2);
+    case 2020:
+      final handle = _openFile(
+        _stringAt(arrays[0], next),
+        _scalarAt(scalars[0]),
+        next,
+      );
+      if (handle >= 0) _setScalar(scalars[1], handle);
+      _setScalar(scalars[2], handle >= 0 ? 1 : 2);
+    case 2030:
+      _setScalar(scalars[1], _closeFile(_scalarAt(scalars[0]), next) ? 1 : 2);
+    case 3000:
+      _setScalar(scalars[0], _stringAt(arrays[0], next).length);
+    case 3001:
+      _setString(arrays[0], '');
     default:
       ickFatal(801, next);
+  }
+}
+
+// ---- EXTRACAL's I/O block (R10) ----------------------------------------------------------------
+// Handles: 0 is stdin, 1 stdout and 2 stderr; OPEN gives the lowest free one from 3 up. Bytes for
+// stdout share READ OUT's buffer; anything for stderr flushes stdout first, so the two keep their
+// order on a terminal.
+
+/// An open file and which way it goes.
+class _Handle {
+  _Handle(this.file, {required this.reading});
+
+  final RandomAccessFile file;
+  final bool reading;
+}
+
+final _handles = <int, _Handle>{};
+
+/// A byte from [handle], or -1 at the end of input. A handle that isn't open for reading is E804.
+int _readByteFrom(int handle, int next) {
+  if (handle == 0) {
+    _flush();
+    return ickReadByte();
+  }
+  final h = _handles[handle];
+  if (h == null || !h.reading) ickFatal(804, next);
+  try {
+    return h.file.readByteSync();
+  } on FileSystemException {
+    return -1;
+  }
+}
+
+/// Writes [byte] to [handle]: true if it was written. A handle that isn't open for writing is
+/// E804, and a byte over 255 is E805.
+bool _writeByteTo(int handle, int byte, int next) {
+  if (handle == 0 || (handle > 2 && !(_handles[handle]?.reading == false))) {
+    ickFatal(804, next);
+  }
+  if (byte > 255) ickFatal(805, next);
+  if (handle == 1) {
+    _writeByte(byte);
+    if (byte == 10) _flush();
+    return true;
+  }
+  try {
+    if (handle == 2) {
+      _flush();
+      stderr.add([byte]);
+    } else {
+      _handles[handle]!.file.writeByteSync(byte);
+    }
+    return true;
+  } on FileSystemException {
+    return false;
+  }
+}
+
+int _openFile(String path, int mode, int next) {
+  final fileMode = switch (mode) {
+    1 => FileMode.read,
+    2 => FileMode.writeOnly,
+    3 => FileMode.writeOnlyAppend,
+    _ => ickFatal(806, next),
+  };
+  final RandomAccessFile file;
+  try {
+    file = File(path).openSync(mode: fileMode);
+  } on FileSystemException {
+    return -1;
+  }
+  var handle = 3;
+  while (_handles.containsKey(handle)) {
+    handle++;
+  }
+  _handles[handle] = _Handle(file, reading: mode == 1);
+  return handle;
+}
+
+bool _closeFile(int handle, int next) {
+  final h = _handles.remove(handle) ?? ickFatal(804, next);
+  try {
+    h.file.closeSync();
+    return true;
+  } on FileSystemException {
+    return false;
+  }
+}
+
+/// The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
+/// in, the routine's documented ones: scalars by key and arrays by number. [nexts] lists, in
+/// program order, each PETITION the INTERCAL version uses as a service and where its errors are
+/// reported.
+void ickLibrary(
+  int label,
+  List<int> scalars,
+  List<int> arrays,
+  List<int> nexts,
+) {
+  int nextOf(int service, [int nth = 0]) {
+    for (var i = 0; i < nexts.length; i += 2) {
+      if (nexts[i] == service && nth-- == 0) return nexts[i + 1];
+    }
+    return 1;
+  }
+
+  switch (label) {
+    case 2100:
+      final handle = _scalarAt(scalars[0]);
+      final next = nextOf(2000);
+      var byte = _readByteFrom(handle, next);
+      while (byte == 32 || byte == 9 || byte == 10 || byte == 13) {
+        byte = _readByteFrom(handle, next);
+      }
+      if (byte < 48 || byte > 57) {
+        _setScalar(scalars[2], 2);
+        return;
+      }
+      var value = byte - 48, overflow = false;
+      while (true) {
+        byte = _readByteFrom(handle, next);
+        if (byte < 48 || byte > 57) break;
+        value = value * 10 + byte - 48;
+        overflow |= value > 0xFFFFFFFF;
+        value &= 0xFFFFFFFF;
+      }
+      _setScalar(scalars[1], value);
+      _setScalar(scalars[2], overflow ? 2 : 1);
+    case 2110:
+      final handle = _scalarAt(scalars[0]);
+      var ok = true;
+      for (final c in _scalarAt(scalars[1]).toString().codeUnits) {
+        ok = _writeByteTo(handle, c, nextOf(2010));
+      }
+      _setScalar(scalars[2], ok ? 1 : 2);
+    case 2200:
+      final handle = _scalarAt(scalars[0]);
+      final line = <int>[];
+      var byte = _readByteFrom(handle, nextOf(2000));
+      if (byte < 0) {
+        _setScalar(scalars[1], 2);
+        return;
+      }
+      while (byte >= 0 && byte != 10) {
+        line.add(byte);
+        byte = _readByteFrom(handle, nextOf(2000));
+      }
+      _setString(arrays[0], String.fromCharCodes(line));
+      _setScalar(scalars[1], 1);
+    case 2300 || 2310:
+      final handle = _scalarAt(scalars[0]);
+      final text = _stringAt(arrays[0], nextOf(3000));
+      var ok = true;
+      for (final c in text.codeUnits) {
+        ok = _writeByteTo(handle, c, nextOf(2010));
+        if (!ok) break;
+      }
+      if (ok && label == 2310) ok = _writeByteTo(handle, 10, nextOf(2010, 1));
+      _setScalar(scalars[1], ok ? 1 : 2);
   }
 }
 ''';

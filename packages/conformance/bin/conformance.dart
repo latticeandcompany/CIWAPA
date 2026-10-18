@@ -180,6 +180,8 @@ Future<String?> _check(
                 : const [],
             timeout: timeout,
             environment: environment,
+            // A program that writes files writes them where the run cleans up after it.
+            workingDirectory: temp.path,
           );
     if (build.exitCode == 0 && mustLoop && !outcome.timedOut) {
       return 'expected the program to still be running after ${timeout.inSeconds}s, '
@@ -264,8 +266,14 @@ Future<Outcome> _run(
   List<int> stdin, {
   Duration? timeout,
   Map<String, String> environment = const {},
+  String? workingDirectory,
 }) async {
-  final process = await Process.start(exe, args, environment: environment);
+  final process = await Process.start(
+    exe,
+    args,
+    environment: environment,
+    workingDirectory: workingDirectory,
+  );
   final out = process.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
   final err = process.stderr.fold<List<int>>([], (a, b) => a..addAll(b));
   process.stdin.add(stdin);

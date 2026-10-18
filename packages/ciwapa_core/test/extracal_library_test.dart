@@ -63,4 +63,45 @@ void main() {
       );
     });
   });
+
+  group('native library routines (R10, Q37)', () {
+    Map<int, NativeLibraryCall> natives(String text) {
+      final ir = lower(
+        analyze(Source('p.xc', text)),
+        options: const IrOptions(randomBug: false),
+      );
+      return {for (final c in findNativeLibraryCalls(ir).values) c.label: c};
+    }
+
+    test('INTERCAL routines and single PETITIONs have natives', () {
+      final found = natives('DO (2200) NEXT\nDO (8000) NEXT\nPLEASE GIVE UP\n');
+      expect(found.keys, containsAll([2000, 2200, 8000]));
+      expect(found[2200]!.petition, isNull);
+      expect(found[8000]!.petition, isNotNull);
+      expect(found[2200]!.nexts.map((n) => n.$1), contains(2000));
+    });
+
+    test('they watch what the INTERCAL touches that IGNORE can reach', () {
+      final found = natives(
+        'PLEASE IGNORE ,40 + .5\nDO (2200) NEXT\nDO GIVE UP\n',
+      );
+      expect(found[2200]!.watchedArrays.map((a) => '${a.ref}'), [',40']);
+      expect(found[2200]!.watched.map((a) => '${a.ref}'), ['.5']);
+    });
+
+    test('they guard the statements an ABSTAIN can reach', () {
+      final found = natives(
+        'DO ABSTAIN FROM (2201)\nDO (2200) NEXT\nPLEASE GIVE UP\n',
+      );
+      expect(found[2200]!.abstainable, isNotEmpty);
+    });
+
+    test('a threaded program has none', () {
+      final found = natives(
+        '(1) DO (2200) NEXT\nDO COME FROM (1)\nPLEASE GIVE UP\n'
+        'DO COME FROM (1)\nDO GIVE UP\n',
+      );
+      expect(found, isEmpty);
+    });
+  });
 }

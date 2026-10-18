@@ -8,8 +8,8 @@ export 'src/ir.dart';
 export 'src/syslib/native.dart'
     show
         NativeCall,
-        NativePetition,
+        NativeLibraryCall,
         findNativeCalls,
-        findNativePetitions,
+        findNativeLibraryCalls,
         reachable;
 export 'src/cli.dart';

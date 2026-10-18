@@ -1,0 +1,58 @@
+	DO (30) NEXT
+	DO .1 <- #2
+	DO (2020) NEXT
+	PLEASE .1 <- .2
+	DO ,1 <- #3
+	DO ,1 SUB #1 <- #97
+	DO ,1 SUB #2 <- #98
+	PLEASE ,1 SUB #3 <- #99
+	DO (2310) NEXT
+	DO (2030) NEXT
+	DO (30) NEXT
+	PLEASE .1 <- #3
+	DO (2020) NEXT
+	DO .1 <- .2
+	DO ,1 <- #2
+	PLEASE ,1 SUB #1 <- #100
+	DO ,1 SUB #2 <- #101
+	DO (2310) NEXT
+	DO (2030) NEXT
+	PLEASE (30) NEXT
+	DO .1 <- #1
+	DO (2020) NEXT
+	DO .1 <- .2
+	PLEASE (2200) NEXT
+	DO (10) NEXT
+	DO (2200) NEXT
+	DO (10) NEXT
+	PLEASE (2200) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO (2030) NEXT
+	PLEASE ,1 SUB #1 <- #120
+	DO .1 <- #1
+	DO (2020) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO GIVE UP
+(10)	DO STASH .1
+	DO .1 <- #1
+	PLEASE (2310) NEXT
+	DO RETRIEVE .1
+	DO RESUME #1
+(20)	DO STASH .1
+	PLEASE .1 <- #1
+	DO (2110) NEXT
+	DO .2 <- #10
+	DO (2010) NEXT
+	PLEASE RETRIEVE .1
+	DO RESUME #1
+(30)	DO ,1 <- #7
+	DO ,1 SUB #1 <- #111
+	DO ,1 SUB #2 <- #117
+	PLEASE ,1 SUB #3 <- #116
+	DO ,1 SUB #4 <- #46
+	DO ,1 SUB #5 <- #116
+	DO ,1 SUB #6 <- #120
+	PLEASE ,1 SUB #7 <- #116
+	DO RESUME #1
