@@ -1,5 +1,6 @@
-// TEMPORARY (goal 2's cleanup removes it): judges goal 1's acceptance criteria from the
-// working tree plus the GitHub state that tools/goal/goal-status saved in .cache/goal.
+// TEMPORARY (removed last, by goal 2's cleanup): judges goal 2's acceptance criteria
+// (docs/EXTRACAL_PLAN.md) from the working tree plus the GitHub state that tools/goal/goal-status
+// saved in .cache/goal.
 import 'dart:convert';
 import 'dart:io';
 
@@ -35,13 +36,16 @@ void main() {
   }
   print('');
 
+  final sections = _checklistSections();
   final criteria = [
-    _checklist(),
+    for (final MapEntry(key: title, value: items) in sections.entries)
+      _section(title, items),
     _conformance(),
+    _oracle(),
+    _noRegression(),
     _ci(),
     _archives(),
-    _performance(),
-    _oracle(),
+    _scaffolding(),
   ];
   for (final (i, c) in criteria.indexed) {
     final state = c.met
@@ -53,14 +57,6 @@ void main() {
     for (final d in c.details) {
       print('            $d');
     }
-  }
-
-  print('');
-  print('Temporary scaffolding still present (kept for goal 2):');
-  for (final path in ['tools/oracle', 'tools/bench', 'tools/goal', 'pit']) {
-    print(
-      '  $path: ${FileSystemEntity.typeSync(path) == FileSystemEntityType.notFound ? 'absent' : 'present'}',
-    );
   }
 
   print('');
@@ -84,31 +80,31 @@ void main() {
   }
 }
 
-Criterion _checklist() {
-  const title =
-      'Every SPEC_CHECKLIST.md item is checked and links to a passing test (or is blocked)';
-  final lines = _read('docs/SPEC_CHECKLIST.md').split('\n');
-  final items = <String>[];
+/// The checklist's items, grouped by its `##` sections.
+Map<String, List<String>> _checklistSections() {
+  final sections = <String, List<String>>{};
   var inFence = false;
-  for (final line in lines) {
+  String? section;
+  for (final line in _read('docs/EXTRACAL_CHECKLIST.md').split('\n')) {
     if (line.startsWith('```')) {
       inFence = !inFence;
       continue;
     }
     if (inFence) continue;
-    if (line.startsWith('## Excluded by decision')) break;
-    if (RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
-      items.add(line);
-    } else if (items.isNotEmpty && line.startsWith('  ')) {
-      items[items.length - 1] += '\n$line';
-    } else if (line.startsWith('#')) {
-      items.add('');
+    if (line.startsWith('## ')) {
+      section = line.substring(3);
+      sections[section] = [];
+    } else if (section != null && RegExp(r'^- \[[ x]\] ').hasMatch(line)) {
+      sections[section]!.add(line);
     }
   }
-  items.removeWhere((i) => i.isEmpty);
+  sections.removeWhere((_, items) => items.isEmpty);
+  return sections;
+}
 
+Criterion _section(String title, List<String> items) {
   var done = 0, open = 0, blocked = 0;
-  final invalid = <String>[];
+  final problems = <String>[];
   for (final item in items) {
     final checked = item.startsWith('- [x]');
     final testsText = item.contains('Tests:')
@@ -121,25 +117,29 @@ Criterion _checklist() {
     final missing = tests.where(
       (t) => FileSystemEntity.typeSync(t) == FileSystemEntityType.notFound,
     );
+    final summary = item.length > 110 ? '${item.substring(0, 110)}…' : item;
     if (item.contains('**BLOCKED**')) {
       blocked++;
+      problems.add('blocked: $summary');
     } else if (!checked) {
       open++;
+      problems.add('open: $summary');
     } else if (tests.isEmpty || missing.isNotEmpty) {
-      invalid.add(item.split('\n').first);
+      problems.add('checked without an existing linked test: $summary');
     } else {
       done++;
     }
   }
-  return Criterion(title, open == 0 && invalid.isEmpty, [
+  final met = done == items.length;
+  return Criterion('EXTRACAL_CHECKLIST.md: $title', met, [
     '${items.length} items: $done done, $open open, $blocked blocked',
-    for (final i in invalid) 'checked but without an existing linked test: $i',
-  ]);
+    ...problems,
+  ], blocked: !met && blocked + done == items.length);
 }
 
 Criterion _conformance() {
   const title =
-      'The conformance suite passes in both flavors with identical stdout, stderr and exit codes';
+      'The conformance suite, superset runs included, passes in both flavors on every platform';
   final details = <String>[];
   var met = true;
   final totals = <int>{};
@@ -156,20 +156,65 @@ Criterion _conformance() {
       final results =
           jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       final total = results['total'] as int;
+      final superset = results['superset'] as int? ?? 0;
       final failed = (results['failed'] as List).cast<String>();
       totals.add(total);
-      if (total == 0 || failed.isNotEmpty) met = false;
+      if (total == 0 || superset == 0 || failed.isNotEmpty) met = false;
       details.add(
-        '$platform $flavor: ${total - failed.length}/$total passed'
+        '$platform $flavor: ${total - failed.length}/$total passed, $superset of them superset runs'
         '${failed.isEmpty ? '' : ' (failed: ${failed.take(5).join(', ')}${failed.length > 5 ? ', …' : ''})'}',
       );
     }
   }
   if (totals.length > 1) {
     met = false;
-    details.add('the flavors ran different numbers of tests: $totals');
+    details.add('the jobs ran different numbers of tests: $totals');
   }
   return Criterion(title, met, details);
+}
+
+/// The oracle's verdict is copied here before tools/oracle is removed, so it outlives it.
+Criterion _oracle() {
+  const title =
+      'The pit/ programs using ick extensions match C-INTERCAL 0.35, or differ only by recorded divergences';
+  final file = File('tools/goal/oracle.json');
+  if (!file.existsSync()) {
+    return Criterion(title, false, [
+      'no tools/goal/oracle.json: run tools/oracle/differential extracal',
+    ]);
+  }
+  final triage = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  final differences = (triage['differences'] as List)
+      .cast<Map<String, dynamic>>();
+  final untriaged = differences.where(
+    (d) => !const {
+      'fixed',
+      'divergence',
+      'not a difference',
+    }.contains(d['status']),
+  );
+  final blocked = differences.where((d) => d['status'] == 'blocked');
+  return Criterion(title, untriaged.isEmpty, [
+    '${triage['programs']} programs compared, ${differences.length} differences, '
+        '${untriaged.length} untriaged',
+    for (final d in untriaged.take(10)) '${d['status']}: ${d['program']}',
+  ], blocked: untriaged.isNotEmpty && untriaged.length == blocked.length);
+}
+
+/// Written by tools/bench/no-regression, which compares with goal 1's timings (Q111).
+Criterion _noRegression() {
+  const title =
+      'Mode 1 benchmark timings show no regression against goal 1 (Q111)';
+  final file = File('tools/goal/no-regression.json');
+  if (!file.existsSync()) {
+    return Criterion(title, false, [
+      'no tools/goal/no-regression.json: run tools/bench/no-regression',
+    ]);
+  }
+  final verdict = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  return Criterion(title, verdict['met'] == true, [
+    for (final line in verdict['summary'] as List) '$line',
+  ]);
 }
 
 Criterion _ci() => _jobsGreen(
@@ -235,51 +280,40 @@ Criterion _jobsGreen(String title, String runFile, String jobPrefix) {
   return Criterion(title, met, details);
 }
 
-Criterion _performance() {
-  const title = 'Every performance guardrail is met';
-  final file = File('tools/bench/results.json');
-  if (!file.existsSync()) {
-    return Criterion(title, false, [
-      'no benchmark results recorded in tools/bench/results.json',
-    ]);
-  }
-  final results = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  final guardrails = (results['guardrails'] as List)
-      .cast<Map<String, dynamic>>();
-  final unmet = guardrails.where((g) => g['met'] != true);
-  return Criterion(title, unmet.isEmpty, [
-    for (final g in guardrails)
-      '${g['met'] == true
-          ? 'ok     '
-          : g['blocked'] != null
-          ? 'BLOCKED'
-          : 'FAIL   '} ${g['name']}: ${g['ratio']} (target ${g['target']})${g['blocked'] != null ? ' (QUESTIONS.md ${g['blocked']})' : ''}',
-  ], blocked: unmet.isNotEmpty && unmet.every((g) => g['blocked'] != null));
-}
-
-Criterion _oracle() {
+/// Goal 1's and goal 2's temporary scaffolding (Q140). tools/goal and the image this script runs
+/// in are removed right after it reports, so they can't be checked here.
+Criterion _scaffolding() {
   const title =
-      'Every difference from the 0.35 oracle is fixed or recorded under Divergences';
-  final file = File('tools/oracle/triage.json');
-  if (!file.existsSync()) {
-    return Criterion(title, false, [
-      'the oracle has not been run (no tools/oracle/triage.json)',
-    ]);
-  }
-  final triage = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  final differences = (triage['differences'] as List)
-      .cast<Map<String, dynamic>>();
-  final untriaged = differences.where(
-    (d) => !const {
-      'fixed',
-      'divergence',
-      'not a difference',
-    }.contains(d['status']),
-  );
-  return Criterion(title, untriaged.isEmpty, [
-    '${triage['programs']} programs compared, ${differences.length} differences, ${untriaged.length} untriaged',
-    for (final d in untriaged.take(10)) 'untriaged: ${d['program']}',
+      'The temporary scaffolding from goals 1 and 2 is removed (Q140); tools/goal and ciwapa-toolchain go last';
+  final tracked = _read('$cache/tracked-scaffolding')
+      .split('\n')
+      .where((l) => l.trim().isNotEmpty)
+      .toList();
+  final images = _read('$cache/docker-images')
+      .split('\n')
+      .where(
+        (l) => l.startsWith('ciwapa-') && !l.startsWith('ciwapa-toolchain:'),
+      )
+      .toList();
+  final problems = [
+    if (tracked.isNotEmpty)
+      'still tracked: ${tracked.take(5).join(', ')}${tracked.length > 5 ? ', …' : ''}',
+    if (FileSystemEntity.typeSync('pit') != FileSystemEntityType.notFound)
+      'the pit/ download is still here',
+    if (_read('docs/PLAN.md').contains('## Performance guardrails'))
+      'docs/PLAN.md still has the performance-guardrails section',
+    if (_read('.github/workflows/ci.yml').contains('tools/bench'))
+      'the CI performance-regression check is still in ci.yml',
+    for (final i in images) 'Docker image still present: $i',
+  ];
+  return Criterion(title, problems.isEmpty, [
+    ...problems,
+    if (problems.isEmpty)
+      'tools/oracle, tools/bench, pit/ and their images are gone',
   ]);
 }
 
-String _read(String path) => File(path).readAsStringSync();
+String _read(String path) {
+  final file = File(path);
+  return file.existsSync() ? file.readAsStringSync() : '';
+}
