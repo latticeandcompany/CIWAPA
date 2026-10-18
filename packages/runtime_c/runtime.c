@@ -33,6 +33,8 @@ static int ick_getchar(void) {
 #define NOMINMAX
 #include <wchar.h>
 #include <windows.h>
+#else
+#include <sys/stat.h>
 #endif
 
 typedef struct {
@@ -2476,15 +2478,20 @@ static int write_byte_to(uint64_t handle, uint64_t byte, uint32_t next) {
   }
   if (handle == 2) {
     ICK_FLUSH();
-    return fputc((int)byte, stderr) != EOF;
+    fputc((int)byte, stderr);
+    return 1;
   }
   return fputc((int)byte, h->file) != EOF;
 }
 
 /* Opens [path] (UTF-16 code units): 1 to read, 2 to write from empty, 3 to append, anything else
- * E806. Returns the handle, or 0 if it couldn't be opened. */
+ * E806. Returns the handle, or 0 if it couldn't be opened. Files are unbuffered, as in Dart, so a
+ * byte written is there for any other handle to read, and a failed write fails at once. */
 static uint32_t open_file(const uint32_t *units, size_t length, uint64_t mode, uint32_t next) {
   if (mode < 1 || mode > 3) ick_fatal(806, next);
+  for (size_t i = 0; i < length; i++) {
+    if (!units[i]) return 0;
+  }
 #ifdef _WIN32
   wchar_t *path = malloc((length + 1) * sizeof(wchar_t));
   if (!path) ick_fatal(778, 1);
@@ -2497,6 +2504,14 @@ static uint32_t open_file(const uint32_t *units, size_t length, uint64_t mode, u
 #endif
   free(path);
   if (!file) return 0;
+#ifndef _WIN32
+  struct stat info;
+  if (fstat(fileno(file), &info) == 0 && S_ISDIR(info.st_mode)) {
+    fclose(file);
+    return 0;
+  }
+#endif
+  setvbuf(file, NULL, _IONBF, 0);
   uint32_t handle = 3;
   while (handle < handle_count && handles[handle].file) handle++;
   if (handle >= handle_count) {

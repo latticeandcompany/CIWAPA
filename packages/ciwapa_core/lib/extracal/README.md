@@ -38,7 +38,9 @@ A handle names where bytes come from or go: #0 is standard input, #1 standard ou
 standard error, and OPEN gives files the lowest free number from #3 up. Bytes for standard output
 share READ OUT's buffer, so the two keep their order, and anything for standard error flushes
 standard output first. Status `.3` is #1 for success and #2 for failure: the end of input, a file
-that can't be opened, or a byte that can't be written.
+that can't be opened (a directory, or a path holding NUL, can't be), or a byte that can't be
+written to a file. Standard output and standard error never report a failed byte. Files are
+unbuffered: a byte written can be read back at once through another handle.
 
 | Entry | Inputs | Results | Notes |
 |---|---|---|---|
@@ -48,7 +50,7 @@ that can't be opened, or a byte that can't be written.
 | (2030) | .1 = handle | .3 | closes a file |
 | (2100) | .1 = handle | :1 = the number read; .3 | skips spaces, tabs and line ends, then reads decimal digits up to the first byte that isn't one, which it uses up. No digit at all leaves :1 alone with .3 = #2; a number above 4294967295 gives its low 32 bits and .3 = #2 |
 | (2110) | .1 = handle, :1 = number | .3 | writes :1 in decimal digits; .3 is the last byte's |
-| (2200) | .1 = handle | ,1 = the next line; .3 | one byte per element, without the line feed; .3 = #2 only at the end of input with nothing read, leaving ,1 alone |
+| (2200) | .1 = handle | ,1 = the next line; .3 | one byte per element, without the line feed (a carriage return before it stays); .3 = #2 only at the end of input with nothing read, leaving ,1 alone |
 | (2300) | .1 = handle, ,1 = string | .3 | writes each element as one byte, stopping at the first that fails |
 | (2310) | .1 = handle, ,1 = string | .3 | the same, then a line feed unless something failed |
 
@@ -57,7 +59,7 @@ The routines read and write bytes, not characters: the Strings block turns UTF-8
 points and back.
 
 The INTERCAL versions of (2100) to (2310) use the system library and these labels of their own:
-(2101)–(2113), (2201)–(2212), (2301)–(2304), (2311), (2312), (2900), (2950)–(2958). They reach at
+(2101)–(2113), (2201)–(2210), (2301)–(2304), (2311), (2312), (2900), (2950)–(2958). They reach at
 most 40 NEXT stack levels.
 
 ## System, (8000)–(8999)

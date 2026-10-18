@@ -2576,6 +2576,7 @@ int _openFile(String path, int mode, int next) {
     3 => FileMode.writeOnlyAppend,
     _ => ickFatal(806, next),
   };
+  if (path.contains('\u0000')) return -1;
   final RandomAccessFile file;
   try {
     file = File(path).openSync(mode: fileMode);
