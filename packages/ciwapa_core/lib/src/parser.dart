@@ -59,8 +59,15 @@ class Parser {
 
       _chain = false;
       Body body;
+      var onceAgain = OnceAgain.none;
       try {
         body = _body();
+        // `ick`'s ONCE and AGAIN end a statement (R3).
+        if (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again) {
+          onceAgain = _tokens[_pos++].kind == TokenKind.once
+              ? OnceAgain.once
+              : OnceAgain.again;
+        }
       } on _Fail catch (fail) {
         _pos = _resync(fail.at);
         body = const Undecodable();
@@ -76,6 +83,7 @@ class Parser {
           percent: percent,
           body: body,
           chain: _chain,
+          onceAgain: onceAgain,
         ),
       );
     }

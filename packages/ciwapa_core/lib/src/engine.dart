@@ -1,3 +1,4 @@
+import 'ast.dart' show OnceAgain;
 import 'ir.dart';
 
 /// Statement kinds in the control engine's table. Both runtimes define the same numbers.
@@ -89,6 +90,13 @@ class EngineTable {
             (s.bug ? engineBug : 0),
       );
       set(EngineField.percent, s.percent ?? 100);
+      // What reaching the statement does to its abstention, after `ick`'s swap of ONCE and AGAIN
+      // on an initially abstained statement: 1 abstains it, 2 reinstates it.
+      set(EngineField.onceAgain, switch ((s.onceAgain, s.initiallyAbstained)) {
+        (OnceAgain.none, _) => 0,
+        (OnceAgain.once, false) || (OnceAgain.again, true) => 1,
+        _ => 2,
+      });
       set(EngineField.fault, s.faults.isEmpty ? 0 : s.faults.first.code);
       set(EngineField.next, s.next);
       if (s.op case IrNext(:final target)) set(EngineField.target, target);

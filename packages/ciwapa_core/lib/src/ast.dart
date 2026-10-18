@@ -285,6 +285,10 @@ class Undecodable extends Body {
   Gerund? get gerund => null;
 }
 
+/// `ick`'s ONCE and AGAIN: after a statement is reached, ONCE on a reinstated statement (or AGAIN
+/// on an abstained one) abstains it, and the other two combinations reinstate it.
+enum OnceAgain { none, once, again }
+
 /// One statement as parsed: its qualifiers, its body and where its text lies in the source.
 class Statement {
   Statement({
@@ -297,6 +301,7 @@ class Statement {
     required this.percent,
     required this.body,
     this.chain = false,
+    this.onceAgain = OnceAgain.none,
   });
 
   /// The file the statement comes from: the user's program or the system library.
@@ -316,6 +321,9 @@ class Statement {
 
   /// The parser saw two or more ungrouped binary operators in a row.
   final bool chain;
+
+  /// `ick`'s ONCE or AGAIN at the end of the statement (R3).
+  final OnceAgain onceAgain;
 
   /// An ungrouped chain of binary operators: E017 when the statement executes (decision Q97).
   /// A statement that later turns out to be undecodable raises E000 instead (decision T9).

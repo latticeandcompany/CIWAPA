@@ -41,6 +41,8 @@ enum TokenKind {
   giveUp,
   gerund,
   signed,
+  once,
+  again,
   intersection,
   badChar,
   end,
@@ -346,6 +348,8 @@ class Lexer {
     ('NEXT FROM', _kind(TokenKind.nextFrom)),
     ('ABSTAIN', _kind(TokenKind.abstain)),
     ('FROM', _kind(TokenKind.from)),
+    ('ONCE', _kind(TokenKind.once)),
+    ('AGAIN', _kind(TokenKind.again)),
     ('NEXTING FROM', _gerund(Gerund.nextingFrom)),
   ];
 

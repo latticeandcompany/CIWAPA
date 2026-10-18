@@ -399,6 +399,7 @@ class IrStatement {
     required this.initiallyAbstained,
     required this.percent,
     required this.faults,
+    this.onceAgain = OnceAgain.none,
   });
 
   final int ordinal;
@@ -416,6 +417,9 @@ class IrStatement {
 
   /// Statement-local errors, in source order. The first one fires when the statement executes.
   final List<Fault> faults;
+
+  /// `ick`'s ONCE or AGAIN, as written (R3). Only the control engine runs it.
+  final OnceAgain onceAgain;
 
   /// The ordinal printed on line 3 of an error raised here (decision T33).
   late int next;
@@ -572,6 +576,7 @@ class _Lowering {
           initiallyAbstained: s.not,
           percent: percent != null && percent <= 100 ? percent : null,
           faults: _faults,
+          onceAgain: s.onceAgain,
         ),
       );
     }
@@ -619,7 +624,10 @@ class _Lowering {
       wideArrays: _wideArrays.values.toList(),
       engine:
           program.extracal &&
-          (options.forceEngine || ir.any((s) => _needsEngine(s.op))),
+          (options.forceEngine ||
+              ir.any(
+                (s) => _needsEngine(s.op) || s.onceAgain != OnceAgain.none,
+              )),
     );
   }
 

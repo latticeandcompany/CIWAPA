@@ -1333,7 +1333,9 @@ static void x_candidate(ick_x_thread *t, uint32_t landing) {
 
 static void x_tail(ick_x_thread *t, uint32_t ordinal) {
   int32_t kind = x_get(ordinal, X_KIND);
-  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_COME_FROM && kind != X_NEXT_FROM) {
+  /* An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen. */
+  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_COME_FROM && kind != X_NEXT_FROM &&
+      t->resume_to < 0) {
     x_once_again(ordinal);
   }
   t->candidates = 0;

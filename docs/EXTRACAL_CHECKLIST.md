@@ -50,8 +50,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 4. ONCE and AGAIN
 
-- [ ] R3.4 — ONCE on a reinstated statement and AGAIN on an abstained one make it self-abstaining; the other two combinations self-reinstate. Tests: `packages/conformance/tests/extracal/once-again/combinations.xc`
-- [ ] R3.4 — ABSTAIN and REINSTATE turn a statement's ONCE back into AGAIN and back. Tests: `packages/conformance/tests/extracal/once-again/flip.xc`
+- [x] R3.4 — ONCE on a reinstated statement and AGAIN on an abstained one make it self-abstaining; the other two combinations self-reinstate. A NEXT's happens before it jumps, a COME FROM's where its target is, and an executed RESUME never reaches its own. Tests: `packages/conformance/tests/extracal/once-again/combinations.xc`, `packages/conformance/tests/extracal/once-again/next-once.xc`, `packages/conformance/tests/extracal/once-again/come-from-once.xc`, `packages/conformance/tests/extracal/once-again/resume-once.xc`, `packages/conformance/tests/extracal/once-again/traditional.xc`
+- [x] R3.4 — ABSTAIN and REINSTATE turn a statement's ONCE back into AGAIN and back. Tests: `packages/conformance/tests/extracal/once-again/flip.xc`
 
 ### 5. TRY AGAIN
 

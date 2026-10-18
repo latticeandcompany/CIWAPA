@@ -1572,10 +1572,12 @@ int _xReturn(int ordinal) =>
 
 void _xTail(_XThread t, int ordinal) {
   final kind = _xGet(ordinal, xKind);
+  // An executed RESUME leaves before this point in `ick`, so its ONCE or AGAIN doesn't happen.
   if (kind != xNextKind &&
       kind != xUndecodable &&
       kind != xComeFromKind &&
-      kind != xNextFromKind) {
+      kind != xNextFromKind &&
+      t.resumeTo < 0) {
     _xOnceAgain(ordinal);
   }
   t.candidates = 0;

@@ -66,7 +66,8 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
       final body = s.body;
       if (gerund == Gerund.comingFrom ||
           gerund == Gerund.nextingFrom ||
-          (body is AbstainBody && body.count != null)) {
+          (body is AbstainBody && body.count != null) ||
+          s.onceAgain != OnceAgain.none) {
         throw CompileError(111, i + 1);
       }
     }
