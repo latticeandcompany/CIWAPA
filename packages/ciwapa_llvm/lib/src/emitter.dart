@@ -352,6 +352,11 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
           final into = _newBlock('in'), back = _newBlock('back');
           _line('br i1 $entering, label %$into, label %$back');
           _block(into);
+          // `ick` evaluates the operands, in order, before anything else.
+          for (final id in op.operands) {
+            final e = program.overloads[id - 1];
+            if (e is! IrArrayItem) _as64(e, s.next);
+          }
           for (var i = op.variables.length - 1; i >= 0; i--) {
             final v = op.variables[i];
             _line('call void @ick_stash_scalar(i32 ${v.index}, i32 ${s.next})');

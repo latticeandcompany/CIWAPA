@@ -122,14 +122,14 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 
 - **Context:** R3 asks for `ick` 0.35's CREATE. `ick` has two implementations: created statements in its ordinary code use its NEXT stack, but created operators exist only with `-e`, whose code runs NEXT and RESUME on the C stack with `setjmp`/`longjmp`. Some corners differ between the two, crash, or aren't defined:
   - A created operator's code is a NEXT from the middle of an expression. When a RESUME or FORGET removes its NEXT stack entry without returning to it, `ick -e` abandons the expression (FORGET is put off until the next jump). A COME FROM can also take control from the RESUME that would return.
-  - `ick` passes the operands to the operator's C function before matching it, in C's unspecified argument order.
+  - `ick` evaluates a created operator's operands (as arguments to a C function, in C's unspecified order) before matching it, whenever the program has a CREATE; with no CREATE at all it raises E000 without evaluating them.
   - A created label that doesn't exist is E129, which `ick` reports at statement 0 for a statement.
   - A whole array as an operand: `:1601` standing for it crashes `ick` (a segmentation fault) when read.
-  - Operator names: `ick` allows any byte its lexer doesn't use, including bytes of non-ASCII characters and control characters.
+  - Operator names: `ick` allows any byte its lexer doesn't use, including the bytes of non-ASCII characters.
   - An unknown statement whose operands wouldn't compile (an ungrouped chain, a constant too big, an operator the base lacks) is a compile-time error in `ick`.
   - `ick` lexes `PIN` (a PIC-INTERCAL keyword) and its other dialects' words, so those letters can't appear in a template there.
 - **Options:**
-  - (a) As CIWAPA does: a created operator ends when a RESUME returns to its entry, and a RESUME, FORGET or COME FROM that takes its entry away abandons the expression at once, continuing where it sends control. The operands are evaluated left to right before matching. E129 is reported at the statement after the one that jumps. Reading or assigning `:1601` that stands for a whole array is E277. Operator names are ASCII: lowercase letters, punctuation `ick` doesn't use (not `_`, `\` or `|`) and overstrikes (not `c^H|`). An unknown statement whose operands wouldn't compile stays a comment, as in Mode 1. Only EXTRACAL's own keywords are reserved.
+  - (a) As CIWAPA does: a created operator ends when a RESUME returns to its entry, and a RESUME, FORGET or COME FROM that takes its entry away abandons the expression at once, continuing where it sends control. A created operator's operands, and a created statement's, are evaluated left to right before anything else, CREATE or not. E129 is reported at the statement after the one that jumps. Reading or assigning `:1601` that stands for a whole array is E277. Operator names are ASCII: lowercase letters, punctuation and control characters `ick` doesn't use (not `_`, `\` or `|`) and overstrikes (not `c^H|`). An unknown statement whose operands wouldn't compile stays a comment, as in Mode 1. Only EXTRACAL's own keywords are reserved.
   - (b) Copy `ick -e` exactly, including the postponed FORGET and the crash.
 - **Lean:** (a). The compiler does (a) until this is answered.
 - **Blocks:** no checklist items; `create/abandon.xc`, `create/forget.xc`, `create/e129.xc` and `create/e277-array.xc` pin (a).

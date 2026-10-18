@@ -1,0 +1,7 @@
+	DO .5 <- #300
+	DO CREATE '.5~#65535' x
+	DO .1 <- #3 x #4
+	PLEASE READ OUT .1
+	DO GIVE UP
+(300)	DO :1603 <- #7
+	PLEASE RESUME #1

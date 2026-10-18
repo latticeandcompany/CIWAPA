@@ -438,7 +438,10 @@ void main() {
     test('two operands in a row, or a keyword, keep a statement a comment', () {
       expect(xc('DO FOO .1 .2').single.body, isA<Undecodable>());
       expect(xc('DO FOO .1 FROM .2').single.body, isA<Undecodable>());
-      expect(xc('PLEASE NOTE THIS RUNS ONCE').single.body, isA<Undecodable>());
+      // A trailing ONCE attaches; without a CREATE, the front end makes it a comment again.
+      final once = xc('PLEASE NOTE THIS RUNS ONCE').single;
+      expect(once.body, isA<Unknown>());
+      expect(once.onceAgain, OnceAgain.once);
     });
 
     test('Mode 1 has no unknown statements', () {

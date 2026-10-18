@@ -74,6 +74,14 @@ class Parser {
         final unknown = _extensions ? _tryUnknown() : null;
         if (unknown == null) _pos = _resync(fail.at);
         body = unknown ?? const Undecodable();
+        // An unknown statement takes a ONCE or AGAIN; without a CREATE, the front end makes it
+        // part of the comment again (L22).
+        if (unknown != null &&
+            (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again)) {
+          onceAgain = _tokens[_pos++].kind == TokenKind.once
+              ? OnceAgain.once
+              : OnceAgain.again;
+        }
       }
       statements.add(
         Statement(
@@ -140,7 +148,9 @@ class Parser {
       final atEnd =
           _tok.kind == TokenKind.identifier ||
           _tok.kind == TokenKind.label ||
-          _tok.kind == TokenKind.end;
+          _tok.kind == TokenKind.end ||
+          _tok.kind == TokenKind.once ||
+          _tok.kind == TokenKind.again;
       // An ungrouped chain, invalid in Mode 1, keeps the statement a comment.
       if (atEnd && !_chain) return Unknown(signature, operands);
       _pos = start;
@@ -161,8 +171,12 @@ class Parser {
         signature.writeCharCode(_tokens[_pos++].value);
         afterOperand = false;
       } else if (!afterOperand && _startsOperand(_tok.kind)) {
+        // A grouped scalar or element is no longer one, in `ick`'s grammar.
+        final grouped =
+            _tok.kind == TokenKind.spark || _tok.kind == TokenKind.ears;
         final operand = _templateOperand();
         signature.write(switch (operand) {
+          _ when grouped => '~',
           Scalar() => '.',
           Element() => ';',
           ArrayItem() => ',',
@@ -361,11 +375,15 @@ class Parser {
         return Create(_templateSignature(), label: label);
       case TokenKind.create:
         _pos++;
-        final target = _expr();
-        if (_isOperatorName(_tok)) {
-          if (target is Binary || target is CreatedOp) _fail();
-          return Create(_operatorSignature(_tokens[_pos++]), target: target);
+        // `ick`'s computed operator CREATE takes one operand (a group, but not a slat) as its
+        // target; the template form takes a whole expression.
+        final start = _pos;
+        final operand = _operand();
+        if (_isOperatorName(_tok) && !_startsOperand(_tokens[_pos + 1].kind)) {
+          return Create(_operatorSignature(_tokens[_pos++]), target: operand);
         }
+        _pos = start;
+        final target = _expr();
         // A computed CREATE's template starts with a letter, so the target ends before it.
         if (!_isLetter(_tok)) _fail();
         return Create(_templateSignature(), target: target);

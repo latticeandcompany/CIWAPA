@@ -360,18 +360,27 @@ class DartEmitter {
   }
 
   /// What each unknown statement does when a CREATE has given it a meaning (R3): on the way in, it
-  /// stashes `:1601` and on and makes each stand for its operand; on the way back, it retrieves
-  /// them. Both go from the last operand to the first, as in `ick`.
+  /// evaluates its operands, then stashes `:1601` and on and makes each stand for its operand; on
+  /// the way back, it retrieves them. The stashing goes from the last operand to the first, as in
+  /// `ick`.
   void _emitUnknowns() {
     if (program.signatures.isEmpty) return;
     _out
       ..writeln()
       ..writeln('void _xUnknown(int ordinal, bool entering) {')
+      ..writeln(
+        '  final v = _v, ig = _ig${program.extracal ? ', w = _w, igw = _igw' : ''};',
+      )
       ..writeln('  switch (ordinal) {');
     for (final s in program.statements) {
       if (s.op case IrUnknown(:final operands, :final variables)) {
         _out.writeln('    case ${s.ordinal}:');
         _line('if (entering) {');
+        // `ick` evaluates the operands, in order, before anything else.
+        for (final id in operands) {
+          final e = program.overloads[id - 1];
+          if (e is! IrArrayItem) _line('  ${_expr(e, s.next)};');
+        }
         for (var i = variables.length - 1; i >= 0; i--) {
           final v = variables[i];
           _line('  ickStashScalar(${v.index}, ${s.next});');

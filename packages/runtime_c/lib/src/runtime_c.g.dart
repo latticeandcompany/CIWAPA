@@ -1267,8 +1267,8 @@ static uint32_t *x_labels;
  * overload expansions in progress as it started. */
 #define X_MARKER 0x80000000u
 static uint32_t x_level;
-static jmp_buf x_levels[NEXT_DEPTH + 1];
-static uint8_t *x_expanding[NEXT_DEPTH + 1][2];
+static jmp_buf x_levels[NEXT_DEPTH + 2];
+static uint8_t *x_expanding[NEXT_DEPTH + 2][2];
 static uint8_t *getting, *setting;
 static int32_t *overload_of;
 static uint32_t overload_count;

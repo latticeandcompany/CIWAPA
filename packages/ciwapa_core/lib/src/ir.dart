@@ -681,7 +681,8 @@ class _Lowering {
           initiallyAbstained: s.not,
           percent: percent != null && percent <= 100 ? percent : null,
           faults: _faults,
-          onceAgain: s.onceAgain,
+          // An unknown statement whose operands would fault is a comment, ONCE and all (L22).
+          onceAgain: op is IrUndecodable ? OnceAgain.none : s.onceAgain,
         ),
       );
     }

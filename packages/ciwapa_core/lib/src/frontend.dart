@@ -156,14 +156,20 @@ void _checkOperators(List<Statement> statements, int base) {
   }
 }
 
-/// An unknown statement whose operands use an operator the base doesn't have stays a comment, as
-/// it is in Mode 1, rather than failing the whole program.
+/// An unknown statement stays a comment, as in Mode 1, when no CREATE could give it a meaning, or
+/// when its operands use an operator the base doesn't have (rather than failing the whole
+/// program). A comment's ONCE or AGAIN is part of the comment (L22).
 void _demoteUnreadable(List<Statement> statements, int base) {
+  final creates = statements.any((s) => s.body is Create);
   for (final s in statements) {
     final body = s.body;
     if (body is! Unknown) continue;
     final ops = body.operands.expand(unaryOps);
-    if (ops.any((op) => !_allowed(op, base))) s.body = const Undecodable();
+    if (!creates || ops.any((op) => !_allowed(op, base))) {
+      s
+        ..body = const Undecodable()
+        ..onceAgain = OnceAgain.none;
+    }
   }
 }
 

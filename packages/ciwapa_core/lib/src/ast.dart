@@ -397,7 +397,7 @@ class Statement {
   final bool chain;
 
   /// `ick`'s ONCE or AGAIN at the end of the statement (R3).
-  final OnceAgain onceAgain;
+  OnceAgain onceAgain;
 
   /// An ungrouped chain of binary operators: E017 when the statement executes (decision Q97).
   /// A statement that later turns out to be undecodable raises E000 instead (decision T9).
