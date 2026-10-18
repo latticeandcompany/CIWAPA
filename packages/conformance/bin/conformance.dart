@@ -184,7 +184,21 @@ Future<String?> _check(
     }
     return _compare(stem, outcome, superset: superset);
   } finally {
-    temp.deleteSync(recursive: true);
+    await _deleteQuietly(temp);
+  }
+}
+
+/// On Windows a program that just exited can hold its executable open for a moment longer, so
+/// deleting its directory is retried for a few seconds, and a directory that still won't go is
+/// left behind rather than failing the run.
+Future<void> _deleteQuietly(Directory dir) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    try {
+      dir.deleteSync(recursive: true);
+      return;
+    } on FileSystemException {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
   }
 }
 
