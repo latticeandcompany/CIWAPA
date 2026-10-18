@@ -2665,7 +2665,8 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 6103: set_string(a0, NULL, 0); break;
   case 807:
   case 808:
-  case 809: ick_fatal(service, next); break;
+  case 809:
+  case 813: ick_fatal(service, next); break;
   default: ick_fatal(801, next);
   }
 }
@@ -2749,6 +2750,116 @@ static size_t utf8_decode(const uint32_t *bytes, size_t length, uint16_t *out, u
   return n;
 }
 
+/* ---- EXTRACAL's Math block (R6, R10) ---------------------------------------------------- */
+/* A routine's width and operation come from its number: (4000)-(4099) are unsigned 64-bit,
+ * (4100), (4200) and (4300) signed 16, 32 and 64-bit, and (4500) and (4600) power, square root,
+ * modulo and gcd at 32 and 64 bits. Results are stored as their width's bit patterns.
+ * runtime.dart has the same. */
+
+static int64_t sign_extend(uint64_t value, int bits) {
+  return bits == 64 ? (int64_t)value : (int64_t)(value << (64 - bits)) >> (64 - bits);
+}
+
+static int signed_fits(int64_t value, int bits) {
+  return bits == 64 || (value >= -(INT64_C(1) << (bits - 1)) && value < INT64_C(1) << (bits - 1));
+}
+
+static uint64_t multiply_within(uint64_t x, uint64_t y, uint64_t mask, int *overflow) {
+  uint64_t product;
+  if (__builtin_mul_overflow(x, y, &product) || product > mask) *overflow = 1;
+  return product & mask;
+}
+
+static void math_library(uint32_t label, const uint32_t *scalars, uint32_t overflow_next) {
+  uint32_t group = label / 100, op = label % 100;
+  int bits = group == 41 ? 16 : group == 42 || group == 45 ? 32 : 64;
+  int is_signed = group >= 41 && group <= 43;
+  uint64_t mask = bits == 64 ? UINT64_MAX : (UINT64_C(1) << bits) - 1;
+  if (label == 4020 || label == 4030) {
+    uint64_t a = scalar_at(scalars[0]), b = scalar_at(scalars[1]);
+    set_scalar(scalars[2], label == 4020 ? a << 32 | b : a * b);
+    return;
+  }
+  uint64_t a = scalar_at(scalars[0]) & mask, b = scalar_at(scalars[1]) & mask;
+  int64_t sa = sign_extend(a, bits), sb = sign_extend(b, bits);
+  uint64_t result = 0;
+  int overflow = 0;
+  if (group == 45 || group == 46) {
+    switch (op) {
+    case 0:
+    case 9: {
+      uint64_t base = a, exponent = b;
+      result = 1;
+      while (exponent) {
+        if (exponent & 1) result = multiply_within(result, base, mask, &overflow);
+        exponent >>= 1;
+        if (exponent) base = multiply_within(base, base, mask, &overflow);
+      }
+      break;
+    }
+    case 10: {
+      uint64_t root = 0;
+      for (uint64_t bit = UINT64_C(1) << 31; bit; bit >>= 1) {
+        uint64_t candidate = root | bit;
+        if (candidate * candidate <= a) root = candidate;
+      }
+      set_scalar(scalars[1], root);
+      return;
+    }
+    case 20: set_scalar(scalars[2], b ? a % b : a); return;
+    case 30:
+      while (b) {
+        uint64_t rest = a % b;
+        a = b;
+        b = rest;
+      }
+      set_scalar(scalars[2], a);
+      return;
+    }
+  } else if (op == 60 || op == 70) {
+    int less = is_signed ? sa < sb : a < b, equal = a == b;
+    set_scalar(scalars[2], less ? 1 : equal ? 2 : 3);
+    return;
+  } else if (!is_signed) {
+    switch (op) {
+    case 0:
+    case 9: overflow = __builtin_add_overflow(a, b, &result); break;
+    case 10: result = a - b; break;
+    case 40:
+    case 49: overflow = __builtin_mul_overflow(a, b, &result); break;
+    case 50: result = b ? a / b : 0; break;
+    }
+  } else {
+    int64_t exact = 0;
+    switch (op) {
+    case 0:
+    case 9: overflow = __builtin_add_overflow(sa, sb, &exact); break;
+    case 10:
+    case 19: overflow = __builtin_sub_overflow(sa, sb, &exact); break;
+    case 40:
+    case 49: overflow = __builtin_mul_overflow(sa, sb, &exact); break;
+    case 50:
+      if (sb == -1 && sa == sign_extend(UINT64_C(1) << (bits - 1), bits)) {
+        overflow = 1;
+        exact = (int64_t)((uint64_t)sa & mask);
+      } else {
+        exact = sb ? sa / sb : 0;
+      }
+      break;
+    }
+    overflow |= !signed_fits(exact, bits);
+    result = (uint64_t)exact;
+  }
+  result &= mask;
+  if (op % 10 == 9) {
+    set_scalar(scalars[2], result);
+    set_scalar(scalars[3], overflow ? 2 : 1);
+  } else {
+    if (overflow) ick_fatal(813, overflow_next);
+    set_scalar(scalars[2], result);
+  }
+}
+
 /* The library routines a runtime runs natively (R10, Q37), on the variables the compiler passes
  * in, the routine's documented ones: [scalars] by key and [arrays] by number. [nexts] lists, in
  * program order, each PETITION the INTERCAL version uses as a service and where its errors are
@@ -2762,6 +2873,10 @@ static uint32_t next_of(const uint32_t *nexts, uint32_t count, uint32_t service,
 
 void ick_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays,
                  const uint32_t *nexts, uint32_t next_count) {
+  if (label >= 4000 && label < 5000) {
+    math_library(label, scalars, next_of(nexts, next_count, 813, 0));
+    return;
+  }
   switch (label) {
   case 2100: {
     uint64_t handle = scalar_at(scalars[0]);

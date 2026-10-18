@@ -86,6 +86,52 @@ its bytes.
 
 The INTERCAL versions use the system library and the labels from (3100) on.
 
+## Math, (4000)–(4999)
+
+Each operation that can overflow comes in two forms, as in the system library. The error form
+raises E813 when the true result doesn't fit. The flag form, whose number ends in 9, stores the
+wrapped result and puts #1 in the next variable, or #2 if it didn't fit. Dividing by #0 gives #0,
+and taking a modulo by #0 gives the dividend.
+
+**Unsigned 64-bit**, on ::1 and ::2:
+
+| Entry | Results | Notes |
+|---|---|---|
+| (4000), (4009) | ::3 = ::1 + ::2 | flag in ::4 |
+| (4010) | ::3 = (::1 − ::2) mod 2^64 | |
+| (4020) | ::1 = :1 × 2^32 + :2 | joins two 32-bit halves |
+| (4030) | ::1 = :1 × :2 | can't overflow |
+| (4040), (4049) | ::3 = ::1 × ::2 | flag in ::4 |
+| (4050) | ::3 = ::1 ÷ ::2, truncated | |
+| (4070) | ::3 = #1 if ::1 < ::2, #2 if they're equal, #3 if greater | |
+
+**Signed**, reading each value as two's complement at its width: from (4100) on .1 and .2, from
+(4200) on :1 and :2, and from (4300) on ::1 and ::2. Results go in the next variables of the same
+kind; below, `x` is `.`, `:` or `::`.
+
+| Entry | Results | Notes |
+|---|---|---|
+| (4n00), (4n09) | x3 = x1 + x2 | flag in x4 |
+| (4n10), (4n19) | x3 = x1 − x2 | flag in x4 |
+| (4n40), (4n49) | x3 = x1 × x2 | flag in x4 |
+| (4n50) | x3 = x1 ÷ x2, truncated toward zero | the most negative value ÷ −1 is E813 |
+| (4n60) | x3 = #1 if x1 < x2, #2 if they're equal, #3 if greater | |
+
+**Powers, roots, modulo and gcd**, unsigned: from (4500) on :1 and :2, and from (4600) on ::1 and
+::2.
+
+| Entry | Results | Notes |
+|---|---|---|
+| (4m00), (4m09) | x3 = x1 to the power x2 | flag in x4; anything to the power #0 is #1 |
+| (4m10) | x2 = the largest number whose square is at most x1 | |
+| (4m20) | x3 = x1 mod x2 | x1 if x2 is #0 |
+| (4m30) | x3 = the greatest common divisor of x1 and x2 | #0 for two #0s |
+
+The INTERCAL versions use the system library and these labels of their own: (4400), (4410),
+(4420), (4430), (4440) and (4700) on. They keep a 64-bit value as its odd and even bits in two
+32-bit halves, the way the system library keeps 32-bit values in 16-bit ones, so AND, OR and XOR
+never need a 128-bit value.
+
 ## Arrays, (6000)–(6999)
 
 The routines from (6000) work on tail arrays and 16-bit values; the same routines from (6100) work
@@ -152,6 +198,6 @@ Each is a single PETITION of the same number.
 | #6000, #6100 | ,1 or ;1 | :1 | its number of dimensions |
 | #6010, #6110 | ,1 or ;1, :1 | :1 | the size of one dimension; E812 for one it doesn't have |
 | #6003, #6103 | | ,2 or ;2 | makes it an array with no dimensions |
-| #807, #808, #809 | | | raise E807, E808 and E809 for the INTERCAL versions |
+| #807, #808, #809, #813 | | | raise E807, E808, E809 and E813 for the INTERCAL versions |
 | #8000–#8060 | | | as the System routines of the same numbers |
 

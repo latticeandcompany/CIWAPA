@@ -1,0 +1,4 @@
+	DO .1 <- #200
+	DO .2 <- #200
+	DO (4140) NEXT
+	PLEASE GIVE UP

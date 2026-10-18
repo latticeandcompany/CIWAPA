@@ -1,0 +1,4 @@
+	DO ::1 <- #2
+	DO ::2 <- #64
+	DO (4600) NEXT
+	PLEASE GIVE UP

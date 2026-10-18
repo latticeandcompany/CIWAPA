@@ -4,6 +4,7 @@ const runtimeSource = r'''
 // the conformance suite keeps the two byte-for-byte identical in behavior.
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show sqrt;
 import 'dart:typed_data';
 
 class IckMessage {
@@ -2527,7 +2528,7 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       _setScalar(scalars[0], dims[n - 1]);
     case 6003 || 6103:
       _setString(arrays[0], '');
-    case 807 || 808 || 809:
+    case 807 || 808 || 809 || 813:
       ickFatal(service, next);
     default:
       ickFatal(801, next);
@@ -2738,6 +2739,8 @@ void ickLibrary(
         arrays[0],
         String.fromCharCodes(_utf8Decode(bytes, nextOf(808))),
       );
+    case >= 4000 && < 5000:
+      _mathLibrary(label, scalars, nextOf(813));
     case 6020 || 6120:
       final list = _listAt(arrays[0], nextOf(809));
       list.fillRange(0, list.length, _scalarAt(scalars[0]));
@@ -2753,6 +2756,88 @@ void ickLibrary(
       final at = _listAt(arrays[0], nextOf(809)).indexOf(_scalarAt(scalars[0]));
       if (at >= 0) _setScalar(scalars[1], at + 1);
       _setScalar(scalars[2], at >= 0 ? 1 : 2);
+  }
+}
+
+// ---- EXTRACAL's Math block (R6, R10) -----------------------------------------------------------
+// A routine's width and operation come from its number: (4000)-(4099) are unsigned 64-bit,
+// (4100), (4200) and (4300) signed 16, 32 and 64-bit, and (4500) and (4600) power, square root,
+// modulo and gcd at 32 and 64 bits. Results are stored as their width's bit patterns.
+
+void _mathLibrary(int label, List<int> scalars, int overflowNext) {
+  final group = label ~/ 100, op = label % 100;
+  final bits = switch (group) {
+    41 => 16,
+    42 || 45 => 32,
+    _ => 64,
+  };
+  final signed = group >= 41 && group <= 43;
+  final modulus = BigInt.one << bits;
+  BigInt arg(int i) {
+    final v = BigInt.from(_scalarAt(scalars[i]));
+    return signed ? v.toSigned(bits) : v.toUnsigned(bits);
+  }
+
+  void store(int i, BigInt v) =>
+      _setScalar(scalars[i], v.toUnsigned(bits).toSigned(64).toInt());
+  bool fits(BigInt v) =>
+      signed ? v.toSigned(bits) == v : v.toUnsigned(bits) == v;
+  void finish(BigInt exact, {bool overflow = false}) {
+    overflow |= !fits(exact);
+    if (op % 10 == 9) {
+      store(2, exact);
+      _setScalar(scalars[3], overflow ? 2 : 1);
+    } else {
+      if (overflow) ickFatal(813, overflowNext);
+      store(2, exact);
+    }
+  }
+
+  BigInt order(BigInt a, BigInt b) => BigInt.from(a < b ? 1 : (a == b ? 2 : 3));
+
+  if (label == 4020 || label == 4030) {
+    final a = BigInt.from(_scalarAt(scalars[0]));
+    final b = BigInt.from(_scalarAt(scalars[1]));
+    store(2, label == 4020 ? a << 32 | b : a * b);
+    return;
+  }
+  final a = arg(0), b = arg(1);
+  if (group == 45 || group == 46) {
+    switch (op) {
+      case 0 || 9:
+        final overflow =
+            a > BigInt.one &&
+            (b >= BigInt.from(bits) || a.pow(b.toInt()) >= modulus);
+        finish(a.modPow(b, modulus), overflow: overflow);
+      case 10:
+        var root = BigInt.from(sqrt(a.toDouble()));
+        while (root * root > a) {
+          root -= BigInt.one;
+        }
+        while ((root + BigInt.one) * (root + BigInt.one) <= a) {
+          root += BigInt.one;
+        }
+        store(1, root);
+      case 20:
+        store(2, b == BigInt.zero ? a : a % b);
+      case 30:
+        store(2, a.gcd(b));
+    }
+    return;
+  }
+  switch (op) {
+    case 0 || 9:
+      finish(a + b);
+    case 10 when !signed:
+      store(2, a - b);
+    case 10 || 19:
+      finish(a - b);
+    case 40 || 49:
+      finish(a * b);
+    case 50:
+      finish(b == BigInt.zero ? BigInt.zero : a ~/ b);
+    case 60 || 70:
+      store(2, order(a, b));
   }
 }
 

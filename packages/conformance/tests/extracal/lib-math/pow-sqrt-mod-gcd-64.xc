@@ -1,0 +1,254 @@
+	DO ::1 <- #0
+	DO ::2 <- #0
+	DO (4609) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::9 <- ::4
+	DO (22) NEXT
+	PLEASE ::1 <- #0
+	DO ::2 <- #5
+	DO (4609) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::9 <- ::4
+	DO (22) NEXT
+	DO ::1 <- #2
+	PLEASE ::2 <- #10
+	DO (4609) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::9 <- ::4
+	DO (22) NEXT
+	DO ::1 <- #3
+	DO ::2 <- #20
+	PLEASE (4609) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::9 <- ::4
+	PLEASE (22) NEXT
+	DO ::1 <- #2
+	DO ::2 <- #63
+	DO (4609) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::9 <- ::4
+	DO (22) NEXT
+	PLEASE ::1 <- #2
+	DO ::2 <- #64
+	DO (4609) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::9 <- ::4
+	DO (22) NEXT
+	DO ::1 <- #10
+	PLEASE ::2 <- #9
+	DO (4609) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::9 <- ::4
+	DO (22) NEXT
+	DO ::1 <- #7
+	DO ::2 <- #0
+	PLEASE (4609) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::9 <- ::4
+	PLEASE (22) NEXT
+	DO ::1 <- #1
+	DO ::2 <- ####18446744073709551615
+	DO (4609) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::9 <- ::4
+	DO (22) NEXT
+	PLEASE ::1 <- #2
+	DO ::2 <- ####18446744073709551615
+	DO (4609) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::9 <- ::4
+	DO (22) NEXT
+	DO ::1 <- #65535
+	PLEASE ::2 <- #2
+	DO (4609) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::9 <- ::4
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	DO ::2 <- #2
+	PLEASE (4609) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::9 <- ::4
+	PLEASE (22) NEXT
+	DO ::1 <- #3
+	DO ::2 <- #4
+	DO (4600) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- #0
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #1
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #2
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #3
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #4
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #15
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #16
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #17
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #99
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #65535
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- ##65536
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551614
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- ##12345678
+	DO (4610) NEXT
+	PLEASE ::9 <- ::2
+	DO (22) NEXT
+	DO ::1 <- #17
+	DO ::2 <- #5
+	PLEASE (4620) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- #17
+	PLEASE ::2 <- #5
+	DO (4630) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::1 <- #5
+	DO ::2 <- #17
+	DO (4620) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::1 <- #5
+	DO ::2 <- #17
+	DO (4630) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- #0
+	DO ::2 <- #3
+	PLEASE (4620) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- #0
+	PLEASE ::2 <- #3
+	DO (4630) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::1 <- #9
+	DO ::2 <- #0
+	DO (4620) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::1 <- #9
+	DO ::2 <- #0
+	DO (4630) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	DO ::2 <- #10
+	PLEASE (4620) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	PLEASE ::2 <- #10
+	DO (4630) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::1 <- #100
+	DO ::2 <- #10
+	DO (4620) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::1 <- #100
+	DO ::2 <- #10
+	DO (4630) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	DO ::2 <- ####18446744073709551615
+	PLEASE (4620) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	PLEASE ::2 <- ####18446744073709551615
+	DO (4630) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE ::1 <- #0
+	DO ::2 <- #0
+	DO (4630) NEXT
+	DO ::9 <- ::3
+	PLEASE (22) NEXT
+	DO ::1 <- #48
+	DO ::2 <- #18
+	DO (4630) NEXT
+	PLEASE ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- ####18446744073709551615
+	DO ::2 <- ####18446744073709551614
+	PLEASE (4630) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	DO ::1 <- ####9223372036854775808
+	PLEASE ::2 <- ####2305843009213693952
+	DO (4630) NEXT
+	DO ::9 <- ::3
+	DO (22) NEXT
+	PLEASE GIVE UP
+(20)	DO STASH .1 + .2 + .3
+	DO .1 <- #1
+	DO (2110) NEXT
+	PLEASE .2 <- #10
+	DO (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3
+	DO RESUME #1
+(22)	PLEASE STASH :1
+	DO :1 <- ::9~####18446744069414584320
+	DO (20) NEXT
+	DO :1 <- ::9~##4294967295
+	PLEASE (20) NEXT
+	DO RETRIEVE :1
+	DO RESUME #1

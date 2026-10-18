@@ -1338,6 +1338,13 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/lib-arrays/e812.xc`, `packages/conformance/tests/extracal/lib-arrays/e812-hybrid.xc`, `packages/conformance/tests/extracal/lib-arrays/e812-zero.xc` and their `-no-opt` twins
 - **Date:** 2026-10-18
 
+### E813: an arithmetic result too big for its variable
+- **Text:** `AN ARITHMETIC RESULT HAS BEEN TOO BIG FOR ITS VARIABLE.`
+- **Joke:** `THE ANSWER WAS CORRECT. IT JUST DID NOT FIT.`
+- **Source:** R6, R10, R11, Q139, L32's lean. A new code. The Math block's error variants raise it when the true result doesn't fit its width: unsigned for (4000)–(4099) and the (4500)/(4600) powers, two's complement for the signed routines, including the most negative value divided by −1. The flag variants store the wrapped result and #2 instead. Syslib keeps its own E000 for its own routines.
+- **Tests:** `packages/conformance/tests/extracal/lib-math/e813-add64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sub64.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul16.xc`, `packages/conformance/tests/extracal/lib-math/e813-div32.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow64.xc`, each with a `-no-opt` twin
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

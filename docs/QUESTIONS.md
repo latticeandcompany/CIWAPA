@@ -213,3 +213,13 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items.
 - **Raised:** 2026-10-18
 
+## L32: How do the Math block's routines fail?
+
+- **Context:** R6 and R10 put signed arithmetic at all three widths, 64-bit arithmetic, and power, square root, modulo and gcd in the Math block. Neither says what a result too big for its variable, or a division by zero, does. Syslib (§7.2, goal 1) has an error variant and a flag variant of each operation that can overflow, and gives #0 for a division by zero.
+- **Options:**
+  - (a) Follow syslib's shape. An error variant raises a new code, E813 (R11), and a flag variant (its number ending in 9) stores the wrapped result and #1 or #2 in the next variable. Division by zero gives #0, so modulo by zero gives the dividend. Signed division truncates toward zero, and the most negative value divided by −1 is E813.
+  - (b) Status flags only, with no error variants.
+  - (c) Errors only, including a new code for division by zero.
+- **Lean:** (a). It matches what syslib's users already know, and Q139 makes a result that doesn't fit a programming error. The Math block does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18

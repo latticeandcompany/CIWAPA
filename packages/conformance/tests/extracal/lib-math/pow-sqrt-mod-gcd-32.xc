@@ -1,0 +1,254 @@
+	DO :1 <- #0
+	DO :2 <- #0
+	DO (4509) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- #0
+	DO :2 <- #5
+	DO (4509) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #2
+	PLEASE :2 <- #10
+	DO (4509) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #3
+	DO :2 <- #20
+	PLEASE (4509) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- #2
+	DO :2 <- #31
+	DO (4509) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- #2
+	DO :2 <- #32
+	DO (4509) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #10
+	PLEASE :2 <- #9
+	DO (4509) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #7
+	DO :2 <- #0
+	PLEASE (4509) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- #1
+	DO :2 <- ##4294967295
+	DO (4509) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	PLEASE :1 <- #2
+	DO :2 <- ##4294967295
+	DO (4509) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- :4
+	DO (20) NEXT
+	DO :1 <- #65535
+	PLEASE :2 <- #2
+	DO (4509) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- :4
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	DO :2 <- #2
+	PLEASE (4509) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- :4
+	PLEASE (20) NEXT
+	DO :1 <- #3
+	DO :2 <- #4
+	DO (4500) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #0
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #1
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #2
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #3
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #4
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #15
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #16
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #17
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #99
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #65535
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- ##65536
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- ##4294967294
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- ##12345678
+	DO (4510) NEXT
+	PLEASE :1 <- :2
+	DO (20) NEXT
+	DO :1 <- #17
+	DO :2 <- #5
+	PLEASE (4520) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #17
+	PLEASE :2 <- #5
+	DO (4530) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- #5
+	DO :2 <- #17
+	DO (4520) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- #5
+	DO :2 <- #17
+	DO (4530) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #0
+	DO :2 <- #3
+	PLEASE (4520) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- #0
+	PLEASE :2 <- #3
+	DO (4530) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- #9
+	DO :2 <- #0
+	DO (4520) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- #9
+	DO :2 <- #0
+	DO (4530) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	DO :2 <- #10
+	PLEASE (4520) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	PLEASE :2 <- #10
+	DO (4530) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- #100
+	DO :2 <- #10
+	DO (4520) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- #100
+	DO :2 <- #10
+	DO (4530) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	DO :2 <- ##4294967295
+	PLEASE (4520) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	PLEASE :2 <- ##4294967295
+	DO (4530) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE :1 <- #0
+	DO :2 <- #0
+	DO (4530) NEXT
+	DO :1 <- :3
+	PLEASE (20) NEXT
+	DO :1 <- #48
+	DO :2 <- #18
+	DO (4530) NEXT
+	PLEASE :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##4294967295
+	DO :2 <- ##4294967294
+	PLEASE (4530) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	DO :1 <- ##2147483648
+	PLEASE :2 <- ##536870912
+	DO (4530) NEXT
+	DO :1 <- :3
+	DO (20) NEXT
+	PLEASE GIVE UP
+(20)	DO STASH .1 + .2 + .3
+	DO .1 <- #1
+	DO (2110) NEXT
+	PLEASE .2 <- #10
+	DO (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3
+	DO RESUME #1
+(22)	PLEASE STASH :1
+	DO :1 <- ::9~####18446744069414584320
+	DO (20) NEXT
+	DO :1 <- ::9~##4294967295
+	PLEASE (20) NEXT
+	DO RETRIEVE :1
+	DO RESUME #1
