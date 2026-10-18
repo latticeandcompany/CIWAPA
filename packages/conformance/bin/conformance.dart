@@ -192,6 +192,13 @@ String? _compare(String stem, Outcome actual, {required bool superset}) {
   final differs =
       superset &&
       ['out', 'err', 'exit'].any((e) => File('$stem.xc.$e').existsSync());
+  // R1 lets EXTRACAL differ only where Mode 1 rejects the program or ends in an error.
+  if (differs &&
+      !File('$stem.err').existsSync() &&
+      !File('$stem.exit').existsSync()) {
+    return 'R1: a .xc override is only allowed where Mode 1 ends in an error, '
+        'but $stem has no .err or .exit';
+  }
   final prefix = differs ? '$stem.xc' : stem;
   List<int> expected(String extension) {
     final f = File('$prefix.$extension');

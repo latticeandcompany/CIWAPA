@@ -26,7 +26,7 @@ class Program {
     this.base,
     this.statements,
     this.userStatements, {
-    this.extracal = false,
+    required this.extracal,
   });
 
   final Source source;

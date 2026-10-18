@@ -392,7 +392,7 @@ class IrProgram {
     this.scalars,
     this.arrays,
     this.userStatements, {
-    this.extracal = false,
+    required this.extracal,
   });
 
   final int base;
