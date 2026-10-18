@@ -1293,7 +1293,7 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Text:** `A FILE HANDLE THAT IS NOT OPEN THAT WAY HAS BEEN USED.`
 - **Joke:** `YOU CANNOT READ FROM A LETTERBOX OR POST INTO A NEWSPAPER.`
 - **Source:** R10, R11, Q139. A new code. Reading from a handle that isn't open for reading, writing to one that isn't open for writing, or closing one that isn't an open file, is a programming error.
-- **Tests:** `packages/conformance/tests/extracal/lib-io/e804.xc`, `packages/conformance/tests/extracal/lib-io/e804-no-opt.xc`
+- **Tests:** `packages/conformance/tests/extracal/lib-io/e804.xc`, `packages/conformance/tests/extracal/lib-io/e804-no-opt.xc`, `packages/conformance/tests/extracal/lib-network/e804-listener.xc`
 - **Date:** 2026-10-18
 
 ### E805: a byte above 255

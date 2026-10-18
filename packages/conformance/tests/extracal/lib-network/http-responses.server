@@ -1,0 +1,211 @@
+	DO .1 <- #0
+	DO (9010) NEXT
+	DO .4 <- .2
+	PLEASE .1 <- .4
+	DO (9030) NEXT
+	DO :1 <- .2
+	DO (20) NEXT
+	PLEASE .1 <- .4
+	DO (9020) NEXT
+	DO .5 <- .2
+	DO .1 <- .5
+	PLEASE (9200) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	DO (10) NEXT
+	PLEASE ,1 <- #46
+	DO ,1 SUB #1 <- #72
+	DO ,1 SUB #2 <- #84
+	DO ,1 SUB #3 <- #84
+	PLEASE ,1 SUB #4 <- #80
+	DO ,1 SUB #5 <- #47
+	DO ,1 SUB #6 <- #49
+	DO ,1 SUB #7 <- #46
+	PLEASE ,1 SUB #8 <- #49
+	DO ,1 SUB #9 <- #32
+	DO ,1 SUB #10 <- #50
+	DO ,1 SUB #11 <- #48
+	PLEASE ,1 SUB #12 <- #48
+	DO ,1 SUB #13 <- #32
+	DO ,1 SUB #14 <- #79
+	DO ,1 SUB #15 <- #75
+	PLEASE ,1 SUB #16 <- #13
+	DO ,1 SUB #17 <- #10
+	DO ,1 SUB #18 <- #99
+	DO ,1 SUB #19 <- #111
+	PLEASE ,1 SUB #20 <- #110
+	DO ,1 SUB #21 <- #116
+	DO ,1 SUB #22 <- #101
+	DO ,1 SUB #23 <- #110
+	PLEASE ,1 SUB #24 <- #116
+	DO ,1 SUB #25 <- #45
+	DO ,1 SUB #26 <- #76
+	DO ,1 SUB #27 <- #69
+	PLEASE ,1 SUB #28 <- #78
+	DO ,1 SUB #29 <- #71
+	DO ,1 SUB #30 <- #84
+	DO ,1 SUB #31 <- #72
+	PLEASE ,1 SUB #32 <- #58
+	DO ,1 SUB #33 <- #32
+	DO ,1 SUB #34 <- #50
+	DO ,1 SUB #35 <- #13
+	PLEASE ,1 SUB #36 <- #10
+	DO ,1 SUB #37 <- #13
+	DO ,1 SUB #38 <- #10
+	DO ,1 SUB #39 <- #104
+	PLEASE ,1 SUB #40 <- #105
+	DO ,1 SUB #41 <- #32
+	DO ,1 SUB #42 <- #116
+	DO ,1 SUB #43 <- #104
+	PLEASE ,1 SUB #44 <- #101
+	DO ,1 SUB #45 <- #114
+	DO ,1 SUB #46 <- #101
+	DO .1 <- .5
+	PLEASE (2300) NEXT
+	DO (2030) NEXT
+	DO .1 <- .4
+	DO (9020) NEXT
+	PLEASE .5 <- .2
+	DO .1 <- .5
+	DO (9200) NEXT
+	DO :1 <- .3
+	PLEASE (20) NEXT
+	DO (10) NEXT
+	DO ,1 <- #33
+	DO ,1 SUB #1 <- #72
+	PLEASE ,1 SUB #2 <- #84
+	DO ,1 SUB #3 <- #84
+	DO ,1 SUB #4 <- #80
+	DO ,1 SUB #5 <- #47
+	PLEASE ,1 SUB #6 <- #49
+	DO ,1 SUB #7 <- #46
+	DO ,1 SUB #8 <- #48
+	DO ,1 SUB #9 <- #32
+	PLEASE ,1 SUB #10 <- #52
+	DO ,1 SUB #11 <- #48
+	DO ,1 SUB #12 <- #52
+	DO ,1 SUB #13 <- #32
+	PLEASE ,1 SUB #14 <- #78
+	DO ,1 SUB #15 <- #111
+	DO ,1 SUB #16 <- #116
+	DO ,1 SUB #17 <- #32
+	PLEASE ,1 SUB #18 <- #70
+	DO ,1 SUB #19 <- #111
+	DO ,1 SUB #20 <- #117
+	DO ,1 SUB #21 <- #110
+	PLEASE ,1 SUB #22 <- #100
+	DO ,1 SUB #23 <- #10
+	DO ,1 SUB #24 <- #10
+	DO ,1 SUB #25 <- #110
+	PLEASE ,1 SUB #26 <- #111
+	DO ,1 SUB #27 <- #32
+	DO ,1 SUB #28 <- #108
+	DO ,1 SUB #29 <- #101
+	PLEASE ,1 SUB #30 <- #110
+	DO ,1 SUB #31 <- #103
+	DO ,1 SUB #32 <- #116
+	DO ,1 SUB #33 <- #104
+	PLEASE .1 <- .5
+	DO (2300) NEXT
+	DO (2030) NEXT
+	DO .1 <- .4
+	PLEASE (9020) NEXT
+	DO .5 <- .2
+	DO .1 <- .5
+	DO (9200) NEXT
+	PLEASE :1 <- .3
+	DO (20) NEXT
+	DO (10) NEXT
+	DO ,1 <- #42
+	PLEASE ,1 SUB #1 <- #72
+	DO ,1 SUB #2 <- #84
+	DO ,1 SUB #3 <- #84
+	DO ,1 SUB #4 <- #80
+	PLEASE ,1 SUB #5 <- #47
+	DO ,1 SUB #6 <- #49
+	DO ,1 SUB #7 <- #46
+	DO ,1 SUB #8 <- #49
+	PLEASE ,1 SUB #9 <- #32
+	DO ,1 SUB #10 <- #50
+	DO ,1 SUB #11 <- #48
+	DO ,1 SUB #12 <- #48
+	PLEASE ,1 SUB #13 <- #32
+	DO ,1 SUB #14 <- #79
+	DO ,1 SUB #15 <- #75
+	DO ,1 SUB #16 <- #13
+	PLEASE ,1 SUB #17 <- #10
+	DO ,1 SUB #18 <- #67
+	DO ,1 SUB #19 <- #111
+	DO ,1 SUB #20 <- #110
+	PLEASE ,1 SUB #21 <- #116
+	DO ,1 SUB #22 <- #101
+	DO ,1 SUB #23 <- #110
+	DO ,1 SUB #24 <- #116
+	PLEASE ,1 SUB #25 <- #45
+	DO ,1 SUB #26 <- #76
+	DO ,1 SUB #27 <- #101
+	DO ,1 SUB #28 <- #110
+	PLEASE ,1 SUB #29 <- #103
+	DO ,1 SUB #30 <- #116
+	DO ,1 SUB #31 <- #104
+	DO ,1 SUB #32 <- #58
+	PLEASE ,1 SUB #33 <- #32
+	DO ,1 SUB #34 <- #49
+	DO ,1 SUB #35 <- #48
+	DO ,1 SUB #36 <- #13
+	PLEASE ,1 SUB #37 <- #10
+	DO ,1 SUB #38 <- #13
+	DO ,1 SUB #39 <- #10
+	DO ,1 SUB #40 <- #97
+	PLEASE ,1 SUB #41 <- #98
+	DO ,1 SUB #42 <- #99
+	DO .1 <- .5
+	DO (2300) NEXT
+	PLEASE (2030) NEXT
+	DO .1 <- .4
+	DO (9020) NEXT
+	DO .5 <- .2
+	PLEASE .1 <- .5
+	DO (9200) NEXT
+	DO :1 <- .3
+	DO (20) NEXT
+	PLEASE (10) NEXT
+	DO ,1 <- #20
+	DO ,1 SUB #1 <- #72
+	DO ,1 SUB #2 <- #84
+	PLEASE ,1 SUB #3 <- #84
+	DO ,1 SUB #4 <- #80
+	DO ,1 SUB #5 <- #47
+	DO ,1 SUB #6 <- #49
+	PLEASE ,1 SUB #7 <- #46
+	DO ,1 SUB #8 <- #49
+	DO ,1 SUB #9 <- #32
+	DO ,1 SUB #10 <- #50
+	PLEASE ,1 SUB #11 <- #48
+	DO ,1 SUB #12 <- #48
+	DO ,1 SUB #13 <- #48
+	DO ,1 SUB #14 <- #32
+	PLEASE ,1 SUB #15 <- #79
+	DO ,1 SUB #16 <- #75
+	DO ,1 SUB #17 <- #13
+	DO ,1 SUB #18 <- #10
+	PLEASE ,1 SUB #19 <- #13
+	DO ,1 SUB #20 <- #10
+	DO .1 <- .5
+	DO (2300) NEXT
+	PLEASE (2030) NEXT
+	DO .1 <- .4
+	DO (2030) NEXT
+	DO GIVE UP
+(10)	PLEASE STASH .1 + .3
+	DO .1 <- #1
+	DO (2310) NEXT
+	DO RETRIEVE .1 + .3
+	PLEASE RESUME #1
+(20)	DO STASH .1 + .2 + .3 + :1
+	DO .1 <- #1
+	DO (2110) NEXT
+	PLEASE .2 <- #10
+	DO (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3 + :1
+	DO RESUME #1

@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 class IckMessage {
@@ -174,6 +175,7 @@ int Function() ickReadByte = () {
 
 Never _error(int code, String? text, int next) {
   _flush();
+  _closeConnections();
   final message = _messages[code];
   stderr.add(
     utf8.encode(
@@ -197,6 +199,7 @@ Never ickUnknownOperator(int left, int right, String text, int next) =>
 
 Never ickGiveUp() {
   _flush();
+  _closeConnections();
   exit(0);
 }
 
@@ -2479,6 +2482,7 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       final status = _scalarAt(scalars[0]);
       if (status > 255) ickFatal(802, next);
       _flush();
+      _closeConnections();
       exit(status);
     case 8040:
       _setScalar(scalars[0], DateTime.now().millisecondsSinceEpoch);
@@ -2571,9 +2575,12 @@ class _File extends _Handle {
 }
 
 class _Connection extends _Handle {
-  _Connection(this.socket);
+  _Connection(this.socket, {this.proxied = false});
 
   final RawSynchronousSocket socket;
+
+  /// Whether this is an accepted connection, reached through the helper isolate's proxy.
+  final bool proxied;
 }
 
 /// A listening socket, which the helper isolate holds under [id].
@@ -2675,8 +2682,8 @@ bool _closeFile(int handle, int next) {
     switch (h) {
       case _File(:final file):
         file.closeSync();
-      case _Connection(:final socket):
-        socket.closeSync();
+      case _Connection():
+        _closeConnection(h);
       case _Listener(:final id):
         _askHelper('C $id');
     }
@@ -2691,11 +2698,15 @@ bool _closeFile(int handle, int next) {
 // byte at a time, and CLOSE closes either. Every call blocks. dart:io has no synchronous server
 // socket, so a helper isolate holds the listeners. The program asks it for things over a loopback
 // control connection, and reaches each accepted connection through a loopback connection to the
-// helper's proxy, which copies bytes both ways. runtime.c has the same, on the platform's sockets.
+// helper's proxy, which copies bytes both ways. Both loopback ports want a secret token first, so no
+// other process can talk to the helper. runtime.c has the same, on the platform's sockets, and
+// also turns Nagle's delay off, which RawSynchronousSocket can't.
 
 /// A connection to [host] on [port], or -1 if none can be made.
 int _connectTo(String host, int port) {
-  if (port == 0 || port > 65535 || host.contains('\u0000')) return -1;
+  if (port == 0 || port > 65535 || host.isEmpty || host.contains('\u0000')) {
+    return -1;
+  }
   try {
     return _newHandle(
       _Connection(RawSynchronousSocket.connectSync(host, port)),
@@ -2705,26 +2716,71 @@ int _connectTo(String host, int port) {
   }
 }
 
+/// Closes [connection]. An accepted one ends its output, then reads until the helper has passed
+/// everything on to the peer and closed its end, so nothing written is lost if the program ends
+/// straight after.
+void _closeConnection(_Connection connection) {
+  final socket = connection.socket;
+  if (connection.proxied) {
+    try {
+      socket.shutdown(SocketDirection.send);
+      while ((socket.readSync(4096) ?? const []).isNotEmpty) {}
+    } on SocketException {
+      // The helper has gone already; there is nothing left to wait for.
+    }
+  }
+  socket.closeSync();
+}
+
+/// Closes every accepted connection still open, before the program ends.
+void _closeConnections() {
+  for (final h in _handles.values) {
+    if (h is _Connection && h.proxied) {
+      try {
+        _closeConnection(h);
+      } on IOException {
+        // Already closed; the program is ending anyway.
+      }
+    }
+  }
+}
+
 RawSynchronousSocket? _helper;
 var _proxyPort = 0;
+var _token = '';
+
+/// Starts the helper isolate, if it isn't running: false if it doesn't start within 30 seconds.
+bool _startHelper() {
+  if (_helper != null) return true;
+  final dir = Directory.systemTemp.createTempSync('ciwapa-net');
+  final ports = File('${dir.path}${Platform.pathSeparator}ports');
+  final random = Random.secure();
+  _token = List.generate(
+    16,
+    (_) => random.nextInt(256).toRadixString(16),
+  ).join();
+  Isolate.spawn(_helperMain, (ports.path, _token));
+  final waited = Stopwatch()..start();
+  while (!ports.existsSync()) {
+    if (waited.elapsed > const Duration(seconds: 30)) return false;
+    sleep(const Duration(milliseconds: 1));
+  }
+  final [control, proxy] = ports.readAsStringSync().split(' ');
+  try {
+    dir.deleteSync(recursive: true);
+  } on FileSystemException {
+    // A virus scanner may hold the file a moment; the temporary directory can stay.
+  }
+  _helper = RawSynchronousSocket.connectSync(
+    InternetAddress.loopbackIPv4,
+    int.parse(control),
+  )..writeFromSync(ascii.encode('$_token\n'));
+  _proxyPort = int.parse(proxy);
+  return true;
+}
 
 /// Sends the helper one command and returns its one-line answer.
 String _askHelper(String command) {
-  if (_helper == null) {
-    final dir = Directory.systemTemp.createTempSync('ciwapa-net');
-    final ports = File('${dir.path}${Platform.pathSeparator}ports');
-    Isolate.spawn(_helperMain, ports.path);
-    while (!ports.existsSync()) {
-      sleep(const Duration(milliseconds: 1));
-    }
-    final [control, proxy] = ports.readAsStringSync().split(' ');
-    dir.deleteSync(recursive: true);
-    _helper = RawSynchronousSocket.connectSync(
-      InternetAddress.loopbackIPv4,
-      int.parse(control),
-    );
-    _proxyPort = int.parse(proxy);
-  }
   _helper!.writeFromSync(ascii.encode('$command\n'));
   final answer = <int>[];
   while (true) {
@@ -2737,7 +2793,7 @@ String _askHelper(String command) {
 
 /// A listener on [port] (0 for any free one) on every address, or -1 if it can't.
 int _listenOn(int port) {
-  if (port > 65535) return -1;
+  if (port > 65535 || !_startHelper()) return -1;
   final answer = _askHelper('L $port');
   if (answer == '-') return -1;
   final [id, actual] = answer.split(' ');
@@ -2756,8 +2812,8 @@ int _acceptOn(int listener, int next) {
       InternetAddress.loopbackIPv4,
       _proxyPort,
     );
-    socket.writeFromSync(ascii.encode('$answer\n'));
-    return _newHandle(_Connection(socket));
+    socket.writeFromSync(ascii.encode('$_token $answer\n'));
+    return _newHandle(_Connection(socket, proxied: true));
   } on SocketException {
     return -1;
   }
@@ -2770,54 +2826,78 @@ int _portOf(int listener, int next) {
   return h.port;
 }
 
-/// The helper isolate. It writes its control and proxy ports to [portsFile], then serves one
-/// control connection: `L port` listens, `A id` waits for a connection to listener `id`, and
-/// `C id` closes it. An accepted connection waits under its number until the program's proxy
-/// connection names it on its first line; the two then copy bytes both ways, each passing on the
-/// other's end of input.
-Future<void> _helperMain(String portsFile) async {
-  final listeners = <int, StreamIterator<Socket>>{};
+/// The helper isolate. It writes its control and proxy ports to a file, then serves the first
+/// control connection that gives the token: `L port` listens, `A id` waits for a connection to
+/// listener `id`, and `C id` closes it. An accepted connection waits under its number until a
+/// proxy connection names it after the token; the two then copy bytes both ways. When the program
+/// ends its side, the helper passes the end on to the peer, and only then closes the program's
+/// side. No error reaches the isolate's top, so it lives as long as the program.
+void _helperMain((String, String) setup) {
+  final (portsFile, token) = setup;
+  runZonedGuarded(() => _helperServe(portsFile, token), (_, _) {});
+}
+
+Future<void> _helperServe(String portsFile, String token) async {
+  final listeners = <int, (ServerSocket, StreamIterator<Socket>)>{};
   final waiting = <int, Socket>{};
   var count = 0;
 
+  /// Calls [use] with the rest of the first line [socket] sends, if it starts with the token, and
+  /// with everything it sends after that line; drops the connection otherwise. A socket can be
+  /// listened to only once, so this listener carries every byte that follows.
+  void greet(Socket socket, void Function(String, Stream<List<int>>) use) {
+    final line = <int>[];
+    StreamController<List<int>>? rest;
+    socket.listen(
+      (data) {
+        if (rest != null) return rest!.add(data);
+        final end = data.indexOf(10);
+        line.addAll(end < 0 ? data : data.sublist(0, end));
+        if (end < 0) {
+          if (line.length > 200) socket.destroy();
+          return;
+        }
+        final text = ascii.decode(line, allowInvalid: true);
+        if (!text.startsWith(token)) return socket.destroy();
+        final more = rest = StreamController();
+        if (end + 1 < data.length) more.add(data.sublist(end + 1));
+        use(text.substring(token.length).trim(), more.stream);
+      },
+      onDone: () => rest?.close(),
+      onError: (Object error) {
+        rest?.addError(error);
+        rest?.close();
+        socket.destroy();
+      },
+      cancelOnError: true,
+    );
+  }
+
   final proxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   proxy.listen((inside) {
-    final name = <int>[];
-    Socket? outside;
-    inside.listen(
-      (data) {
-        if (outside != null) return outside!.add(data);
-        final end = data.indexOf(10);
-        if (end < 0) return name.addAll(data);
-        name.addAll(data.sublist(0, end));
-        final joined = outside = waiting.remove(int.parse(ascii.decode(name)))!;
-        if (end + 1 < data.length) joined.add(data.sublist(end + 1));
-        joined.listen(
-          inside.add,
-          onDone: () => inside.close(),
-          onError: (_) {
-            joined.destroy();
-            inside.destroy();
-          },
-        );
-      },
-      onDone: () => outside?.close(),
-      onError: (_) {
+    greet(inside, (name, input) {
+      final outside = waiting.remove(int.tryParse(name));
+      if (outside == null) {
         inside.destroy();
-        outside?.destroy();
-      },
-    );
+        return;
+      }
+      _join(inside, input, outside);
+    });
   });
 
   final control = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   final temporary = File('$portsFile.tmp')
     ..writeAsStringSync('${control.port} ${proxy.port}');
   temporary.renameSync(portsFile);
-  final program = await control.first;
-  final lines = program
-      .cast<List<int>>()
-      .transform(ascii.decoder)
-      .transform(const LineSplitter());
+  final program = Completer<(Socket, Stream<List<int>>)>();
+  control.listen((socket) {
+    if (program.isCompleted) return socket.destroy();
+    greet(socket, (_, input) {
+      if (!program.isCompleted) program.complete((socket, input));
+    });
+  });
+  final (socket, input) = await program.future;
+  final lines = input.transform(ascii.decoder).transform(const LineSplitter());
   await for (final line in lines) {
     final [command, argument] = line.split(' ');
     final n = int.parse(argument);
@@ -2825,24 +2905,64 @@ Future<void> _helperMain(String portsFile) async {
       case 'L':
         try {
           final server = await _bindEverywhere(n);
-          listeners[++count] = StreamIterator(server);
-          program.add(ascii.encode('$count ${server.port}\n'));
+          listeners[++count] = (server, StreamIterator(server));
+          socket.add(ascii.encode('$count ${server.port}\n'));
         } on SocketException {
-          program.add(ascii.encode('-\n'));
+          socket.add(ascii.encode('-\n'));
         }
       case 'A':
         final listener = listeners[n];
-        if (listener != null && await listener.moveNext()) {
-          waiting[++count] = listener.current;
-          program.add(ascii.encode('$count\n'));
+        if (listener != null && await listener.$2.moveNext()) {
+          waiting[++count] = listener.$2.current;
+          socket.add(ascii.encode('$count\n'));
         } else {
-          program.add(ascii.encode('-\n'));
+          socket.add(ascii.encode('-\n'));
         }
       case 'C':
-        await listeners.remove(n)?.cancel();
-        program.add(ascii.encode('ok\n'));
+        final listener = listeners.remove(n);
+        await listener?.$1.close();
+        await listener?.$2.cancel();
+        socket.add(ascii.encode('ok\n'));
     }
   }
+}
+
+/// Copies bytes both ways between the program's proxy connection, [inside] (whose bytes come from
+/// [input]), and [outside], the accepted one. When the program ends its output, the end goes to
+/// the peer once everything before it has; then the program's side closes, and the peer's input is
+/// read and dropped for a second, so the peer sees an orderly close rather than a reset.
+void _join(Socket inside, Stream<List<int>> input, Socket outside) {
+  var open = true;
+  outside.listen(
+    (data) {
+      if (open) inside.add(data);
+    },
+    onDone: () {
+      if (open) inside.close();
+    },
+    onError: (_) {
+      outside.destroy();
+      inside.destroy();
+    },
+  );
+  input.listen(
+    outside.add,
+    onDone: () async {
+      try {
+        await outside.flush();
+        await outside.close();
+      } on Object {
+        // The peer has gone; there is nothing more to deliver.
+      }
+      open = false;
+      inside.destroy();
+      Timer(const Duration(seconds: 1), outside.destroy);
+    },
+    onError: (_) {
+      inside.destroy();
+      outside.destroy();
+    },
+  );
 }
 
 /// IPv6 and IPv4 where the host has both, else IPv4 alone, as runtime.c binds.

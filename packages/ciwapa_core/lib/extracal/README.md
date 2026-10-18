@@ -187,7 +187,10 @@ Each is a single PETITION of the same number.
 ## Network, (9000)–(9999)
 
 Connections and listening sockets are I/O-block handles (L34): (2000)–(2310) read and write a
-connection, and (2030) closes either kind. Every call blocks, and there are no timeouts.
+connection, and (2030) closes either kind. Every call blocks, and there are no timeouts. CLOSE of
+a connection ends its output first and then reads and drops what the peer sent that the program
+didn't read, for up to a second, since closing with unread input would reset the connection and
+could cost the peer the end of what it was sent.
 
 | Entry | Inputs | Results | Notes |
 |---|---|---|---|
@@ -203,13 +206,15 @@ connection, and (2030) closes either kind. Every call blocks, and there are no t
 Reading from a listener, or accepting on a connection, is E804.
 
 - **URLs** are `http://host[:port][/path]`: `http` in lower case, a port from 0 to 65535 (80 when it
-  is missing), and the path, or `/`, sent as it is. Anything else is E817. There is no HTTPS (Q110).
+  is missing), and the path, or `/`, sent as it is. Anything else is E817, including a bracketed
+  IPv6 address; a name that resolves to IPv6 works. There is no HTTPS (Q110).
 - **The client** sends `Host` and `Connection: close` (and `Content-Length` for POST), reads the
-  three-digit status from the status line, and takes the body from `Content-Length`, or up to the
+  status from the status line (three digits after the first space, then a space or the line's
+  end), and takes the body from `Content-Length`, or up to the
   end of input when there is none. Header names are matched without regard to case. Chunked
   transfer and redirects aren't handled. When no connection can be made, or the status line or a
   `Content-Length` body is cut short, .3 is #2, .1 is #0 and ,1 is the empty string.
-- **The server helpers:** (9200) reads the request line and headers, and a body of the request's
+- **The server helpers:** (9200) skips empty lines, then reads the request line and headers, and a body of the request's
   `Content-Length` (none without one). For a request cut short, or a request line without two
   spaces, .3 is #2 and all three strings are empty. (9210) writes the status line, the reason
   phrase, `Content-Length` and the body; .3 is #2 if any byte couldn't be written.
@@ -219,6 +224,7 @@ Reading from a listener, or accepting on a connection, is E804.
   INTERCAL, on top of the I/O and Strings routines' natives; their time goes to the network.
 - **ciwapa-dart programs** hold listening sockets in a helper isolate, since `dart:io` can't accept
   connections synchronously, and reach each accepted connection through it over loopback (L34).
+  Their connections can't turn off Nagle's delay, as ciwapa-llvm programs' do.
 
 The INTERCAL versions use the system library, the I/O, Strings and Arrays blocks, and these labels
 of their own: (9300)–(9374), (9800), (9900), (9920), (9930), (9940), (9950), (9960), (9990),

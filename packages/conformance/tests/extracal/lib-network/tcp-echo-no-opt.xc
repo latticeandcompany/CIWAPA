@@ -53,10 +53,15 @@
 	DO :1 <- .3
 	DO (20) NEXT
 	DO GIVE UP
-(20)	PLEASE STASH .1 + .2 + .3 + :1
+(10)	PLEASE STASH .1 + .3
+	DO .1 <- #1
+	DO (2310) NEXT
+	DO RETRIEVE .1 + .3
+	PLEASE RESUME #1
+(20)	DO STASH .1 + .2 + .3 + :1
 	DO .1 <- #1
 	DO (2110) NEXT
-	DO .2 <- #10
-	PLEASE (2010) NEXT
+	PLEASE .2 <- #10
+	DO (2010) NEXT
 	DO RETRIEVE .1 + .2 + .3 + :1
 	DO RESUME #1

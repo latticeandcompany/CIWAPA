@@ -2582,11 +2582,32 @@ static uint32_t open_file(const uint32_t *units, size_t length, uint64_t mode, u
   return new_handle(mode == 1 ? HANDLE_READ : HANDLE_WRITE, file, ICK_NO_SOCKET);
 }
 
+/* Ends a connection without losing what the peer has still to read. A close with unread input
+ * resets the connection, and a reset can throw away data the peer has received but not read, so
+ * the end of output goes first, then input is read and dropped until the peer closes or a tenth
+ * of a second passes without any, for at most a second. */
+static int close_connection(ick_socket s) {
+#ifdef _WIN32
+  shutdown(s, SD_SEND);
+  DWORD wait = 100;
+#else
+  shutdown(s, SHUT_WR);
+  struct timeval wait = {0, 100000};
+#endif
+  setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&wait, sizeof wait);
+  char sink[4096];
+  for (int i = 0; i < 10 && recv(s, sink, sizeof sink, 0) > 0; i++) {
+  }
+  return close_socket(s) == 0;
+}
+
 /* Closes a file, connection or listener: 1 if that went cleanly. */
 static int close_file(uint64_t handle, uint32_t next) {
   ick_handle *h = handle_at(handle);
   if (!h) ick_fatal(804, next);
-  int ok = h->file ? fclose(h->file) == 0 : close_socket(h->socket) == 0;
+  int ok = h->file                         ? fclose(h->file) == 0
+           : h->kind == HANDLE_CONNECTION ? close_connection(h->socket)
+                                          : close_socket(h->socket) == 0;
   *h = (ick_handle){HANDLE_FREE, NULL, ICK_NO_SOCKET};
   return ok;
 }
@@ -2594,7 +2615,7 @@ static int close_file(uint64_t handle, uint32_t next) {
 /* ---- EXTRACAL's Network block (R10, L34) ------------------------------------------------ */
 /* Connections and listeners are I/O-block handles: (2000) and (2010) read and write connections a
  * byte at a time, and CLOSE closes either. Every call blocks; Nagle's delay is off, since the
- * bytes go one at a time. runtime.dart has the same. */
+ * bytes go one at a time. runtime.dart has the same, apart from Nagle. */
 
 static void network_start(void) {
   static int started;
@@ -2612,7 +2633,7 @@ static void network_start(void) {
  * none answers. */
 static uint32_t connect_to(const uint32_t *units, size_t length, uint64_t port) {
   network_start();
-  if (port == 0 || port > 65535) return 0;
+  if (port == 0 || port > 65535 || length == 0) return 0;
   for (size_t i = 0; i < length; i++) {
     if (!units[i]) return 0;
   }

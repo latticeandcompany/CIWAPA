@@ -1,34 +1,10 @@
-	DO ,1 <- #16
-	DO ,1 SUB #1 <- #67
-	DO ,1 SUB #2 <- #73
-	PLEASE ,1 SUB #3 <- #87
-	DO ,1 SUB #4 <- #65
-	DO ,1 SUB #5 <- #80
-	DO ,1 SUB #6 <- #65
-	PLEASE ,1 SUB #7 <- #95
-	DO ,1 SUB #8 <- #84
-	DO ,1 SUB #9 <- #69
-	DO ,1 SUB #10 <- #83
-	PLEASE ,1 SUB #11 <- #84
-	DO ,1 SUB #12 <- #95
-	DO ,1 SUB #13 <- #80
-	DO ,1 SUB #14 <- #79
-	PLEASE ,1 SUB #15 <- #82
-	DO ,1 SUB #16 <- #84
-	DO (8020) NEXT
-	DO PETITION #3001
-	PLEASE (3010) NEXT
-	DO (3060) NEXT
-	DO .1 <- :1
+	DO .1 <- #0
 	DO (9010) NEXT
-	PLEASE .4 <- .2
-	DO ,1 <- #5
-	DO ,1 SUB #1 <- #114
-	DO ,1 SUB #2 <- #101
-	PLEASE ,1 SUB #3 <- #97
-	DO ,1 SUB #4 <- #100
-	DO ,1 SUB #5 <- #121
-	DO (10) NEXT
+	DO .4 <- .2
+	PLEASE .1 <- .4
+	DO (9030) NEXT
+	DO :1 <- .2
+	DO (20) NEXT
 	PLEASE .1 <- .4
 	DO (9020) NEXT
 	DO .5 <- .2
