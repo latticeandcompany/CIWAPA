@@ -140,7 +140,7 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### Arrays (6000)–(6999)
 
-- [ ] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-arrays`
+- [x] R10 — reference, native paths, auto-inclusion and agreement tests. Tests: `packages/conformance/tests/extracal/lib-arrays`
 
 ### Math (4000)–(4999)
 

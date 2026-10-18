@@ -16,6 +16,7 @@ class LibraryBlock {
 const libraryBlocks = [
   LibraryBlock('io', 2000, 2999),
   LibraryBlock('strings', 3000, 3999),
+  LibraryBlock('arrays', 6000, 6999),
   LibraryBlock('system', 8000, 8999),
 ];
 
@@ -37,6 +38,13 @@ const petitionServices = <int, ({List<String> scalars, List<String> arrays})>{
   3000: (scalars: [':1'], arrays: [',1']),
   3001: (scalars: [], arrays: [',1']),
   3002: (scalars: [':2'], arrays: [',2']),
+  6000: (scalars: [':1'], arrays: [',1']),
+  6010: (scalars: [':1'], arrays: [',1']),
+  6003: (scalars: [], arrays: [',2']),
+  6100: (scalars: [':1'], arrays: [';1']),
+  6110: (scalars: [':1'], arrays: [';1']),
+  6103: (scalars: [], arrays: [';2']),
   807: (scalars: [], arrays: []),
   808: (scalars: [], arrays: []),
+  809: (scalars: [], arrays: []),
 };

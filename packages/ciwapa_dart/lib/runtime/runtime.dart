@@ -2439,6 +2439,13 @@ String _stringAt(int array, int next) {
   return String.fromCharCodes(shape.data);
 }
 
+/// A list argument: E809 unless the array is undimensioned (empty) or has one dimension.
+Uint32List _listAt(int array, int next) {
+  final shape = _arrays[array].shape;
+  if (shape.rank > 1) ickFatal(809, next);
+  return shape.data;
+}
+
 void _setString(int array, String value) {
   final a = _arrays[array];
   if (a.ignored) return;
@@ -2509,7 +2516,16 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
       _setString(arrays[0], '');
     case 3002:
       _setScalar(scalars[0], _stringAt(arrays[0], next).length);
-    case 807 || 808:
+    case 6000 || 6100:
+      _setScalar(scalars[0], _arrays[arrays[0]].shape.rank);
+    case 6010 || 6110:
+      final dims = _arrays[arrays[0]].shape.dims;
+      final n = _scalarAt(scalars[0]);
+      if (n == 0 || n > dims.length) ickFatal(812, next);
+      _setScalar(scalars[0], dims[n - 1]);
+    case 6003 || 6103:
+      _setString(arrays[0], '');
+    case 807 || 808 || 809:
       ickFatal(service, next);
     default:
       ickFatal(801, next);
@@ -2720,6 +2736,21 @@ void ickLibrary(
         arrays[0],
         String.fromCharCodes(_utf8Decode(bytes, nextOf(808))),
       );
+    case 6020 || 6120:
+      final list = _listAt(arrays[0], nextOf(809));
+      list.fillRange(0, list.length, _scalarAt(scalars[0]));
+    case 6030 || 6130:
+      final list = _listAt(arrays[0], nextOf(809));
+      _arrays[arrays[1]].shape = _Shape(
+        Uint32List.fromList(list.isEmpty ? const [] : [list.length]),
+        Uint32List.fromList(list),
+      );
+    case 6040 || 6140:
+      _listAt(arrays[0], nextOf(809)).sort();
+    case 6050 || 6150:
+      final at = _listAt(arrays[0], nextOf(809)).indexOf(_scalarAt(scalars[0]));
+      if (at >= 0) _setScalar(scalars[1], at + 1);
+      _setScalar(scalars[2], at >= 0 ? 1 : 2);
   }
 }
 

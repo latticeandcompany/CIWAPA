@@ -1,0 +1,15 @@
+	DO ,1 <- #2 BY #2
+	DO (6040) NEXT
+	DO GIVE UP
+(20)	PLEASE STASH .1 + .2 + .3 + :1
+	DO .1 <- #1
+	DO (2110) NEXT
+	DO .2 <- #10
+	PLEASE (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3 + :1
+	DO RESUME #1
+(21)	DO STASH :1
+	PLEASE :1 <- .2
+	DO (20) NEXT
+	DO RETRIEVE :1
+	DO RESUME #1

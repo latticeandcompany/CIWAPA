@@ -1324,6 +1324,20 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Tests:** `packages/conformance/tests/extracal/lib-strings/e808.xc`, `packages/conformance/tests/extracal/lib-strings/e808-no-opt.xc`
 - **Date:** 2026-10-18
 
+### E809: a list with more than one dimension
+- **Text:** `A LIST HAS BEEN GIVEN AS AN ARRAY OF MORE THAN ONE DIMENSION.`
+- **Joke:** `A SHOPPING LIST DOES NOT HAVE COLUMNS.`
+- **Source:** R10, R11, Q139. A new code, the Arrays block's version of E803. FILL, COPY, SORT and FIND (6020)–(6050) and (6120)–(6150) work on lists: arrays with one dimension, or none for the empty list. Anything else is a programming error. 810 and 811 are `ick`'s own (its debugger), so the block's codes skip them.
+- **Tests:** `packages/conformance/tests/extracal/lib-arrays/e809.xc`, `packages/conformance/tests/extracal/lib-arrays/e809-no-opt.xc`
+- **Date:** 2026-10-18
+
+### E812: asking about a dimension the array doesn't have
+- **Text:** `A DIMENSION THAT THE ARRAY DOES NOT HAVE HAS BEEN ASKED ABOUT.`
+- **Joke:** `THE FOURTH DIMENSION IS NOT AVAILABLE AT THIS TIME.`
+- **Source:** R10, R11, Q139. A new code. DIMENSION (6010)/(6110) takes a dimension number from #1 to the array's rank; #0, or one past the rank (any dimension at all of an undimensioned array), is a programming error.
+- **Tests:** `packages/conformance/tests/extracal/lib-arrays/e812.xc`, `packages/conformance/tests/extracal/lib-arrays/e812-hybrid.xc` and their `-no-opt` twins
+- **Date:** 2026-10-18
+
 ### E993: a statement after TRY AGAIN
 - **Text:** `A STATEMENT FOLLOWS TRY AGAIN, WHICH MUST BE THE LAST STATEMENT OF THE PROGRAM.`
 - **Joke:** `THERE IS NO AFTER. THERE IS ONLY AGAIN.`

@@ -2239,20 +2239,41 @@ static const uint32_t *string_at(uint32_t array, size_t *length, uint32_t next) 
   return shape->data;
 }
 
-static void set_string(uint32_t array, const uint16_t *units, size_t length) {
+/* A list argument: E809 unless the array is undimensioned (empty) or has one dimension. */
+static uint32_t *list_at(uint32_t array, size_t *length, uint32_t next) {
+  ick_shape *shape = &arrays[array].shape;
+  if (shape->rank > 1) ick_fatal(809, next);
+  *length = shape->rank ? shape->size : 0;
+  return shape->data;
+}
+
+/* Makes [array] a list of [length] elements, undimensioned for none, and returns them to be
+ * filled in; NULL if it is IGNOREd or empty. */
+static uint32_t *resize_list(uint32_t array, size_t length) {
   ick_array *a = &arrays[array];
-  if (a->ignored) return;
+  if (a->ignored) return NULL;
   free(a->shape.dims);
   free(a->shape.data);
   a->shape = (ick_shape){0, NULL, NULL, 0};
-  if (!length) return;
+  if (!length) return NULL;
   a->shape.rank = 1;
   a->shape.size = length;
   a->shape.dims = malloc(sizeof(uint32_t));
   a->shape.data = malloc(length * sizeof(uint32_t));
   if (!a->shape.dims || !a->shape.data) ick_fatal(778, 1);
   a->shape.dims[0] = (uint32_t)length;
-  for (size_t i = 0; i < length; i++) a->shape.data[i] = units[i];
+  return a->shape.data;
+}
+
+static void set_string(uint32_t array, const uint16_t *units, size_t length) {
+  uint32_t *data = resize_list(array, length);
+  if (!data) return;
+  for (size_t i = 0; i < length; i++) data[i] = units[i];
+}
+
+static int compare_elements(const void *a, const void *b) {
+  uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
+  return (x > y) - (x < y);
 }
 
 /* UTF-8 to UTF-16, with U+FFFD for anything malformed. As in Dart, an encoded surrogate stays a
@@ -2630,8 +2651,21 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
     set_scalar(s0, length);
     break;
   }
+  case 6000:
+  case 6100: set_scalar(s0, arrays[a0].shape.rank); break;
+  case 6010:
+  case 6110: {
+    ick_shape *shape = &arrays[a0].shape;
+    uint64_t n = scalar_at(s0);
+    if (n == 0 || n > shape->rank) ick_fatal(812, next);
+    set_scalar(s0, shape->dims[n - 1]);
+    break;
+  }
+  case 6003:
+  case 6103: set_string(a0, NULL, 0); break;
   case 807:
-  case 808: ick_fatal(service, next); break;
+  case 808:
+  case 809: ick_fatal(service, next); break;
   default: ick_fatal(801, next);
   }
 }
@@ -2892,6 +2926,44 @@ void ick_library(uint32_t label, const uint32_t *scalars, const uint32_t *arrays
     if (!units) ick_fatal(778, 1);
     set_string(arrays[0], units, utf8_decode(bytes, length, units, next_of(nexts, next_count, 808, 0)));
     free(units);
+    return;
+  }
+  case 6020:
+  case 6120: {
+    size_t length;
+    uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    uint32_t value = (uint32_t)scalar_at(scalars[0]);
+    for (size_t i = 0; i < length; i++) list[i] = value;
+    return;
+  }
+  case 6030:
+  case 6130: {
+    size_t length;
+    const uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    uint32_t *copy = resize_list(arrays[1], length);
+    if (copy) memcpy(copy, list, length * sizeof(uint32_t));
+    return;
+  }
+  case 6040:
+  case 6140: {
+    size_t length;
+    uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    if (length) qsort(list, length, sizeof(uint32_t), compare_elements);
+    return;
+  }
+  case 6050:
+  case 6150: {
+    size_t length;
+    const uint32_t *list = list_at(arrays[0], &length, next_of(nexts, next_count, 809, 0));
+    uint32_t value = (uint32_t)scalar_at(scalars[0]);
+    for (size_t i = 0; i < length; i++) {
+      if (list[i] == value) {
+        set_scalar(scalars[1], i + 1);
+        set_scalar(scalars[2], 1);
+        return;
+      }
+    }
+    set_scalar(scalars[2], 2);
     return;
   }
   }

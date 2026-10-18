@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_core/src/extracal/blocks.dart';
+import 'package:ciwapa_core/src/syslib/native.dart' show libraryRoutines;
 import 'package:test/test.dart';
 
 import '../tool/embed_extracal.dart';
@@ -79,6 +80,13 @@ void main() {
       expect(found[2200]!.petition, isNull);
       expect(found[8000]!.petition, isNotNull);
       expect(found[2200]!.nexts.map((n) => n.$1), contains(2000));
+    });
+
+    test('every routine with a native version gets it', () {
+      for (final label in libraryRoutines.keys) {
+        final found = natives('DO ($label) NEXT\nPLEASE GIVE UP\n');
+        expect(found.keys, contains(label), reason: '($label)');
+      }
     });
 
     test('they watch what the INTERCAL touches that IGNORE can reach', () {

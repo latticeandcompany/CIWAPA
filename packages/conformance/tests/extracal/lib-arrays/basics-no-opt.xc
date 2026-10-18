@@ -1,0 +1,73 @@
+	DO STASH ,1
+	DO ,1 <- #5
+	DO ,1 SUB #1 <- #30
+	PLEASE ,1 SUB #2 <- #10
+	DO ,1 SUB #3 <- #20
+	DO ,1 SUB #4 <- #10
+	DO ,1 SUB #5 <- #40
+	PLEASE (6000) NEXT
+	DO (20) NEXT
+	DO :1 <- #1
+	DO (6010) NEXT
+	PLEASE (20) NEXT
+	DO (6040) NEXT
+	DO :1 <- ,1 SUB #1
+	DO (20) NEXT
+	PLEASE :1 <- ,1 SUB #2
+	DO (20) NEXT
+	DO :1 <- ,1 SUB #3
+	DO (20) NEXT
+	PLEASE :1 <- ,1 SUB #4
+	DO (20) NEXT
+	DO :1 <- ,1 SUB #5
+	DO (20) NEXT
+	PLEASE .1 <- #20
+	DO (6050) NEXT
+	DO (20) NEXT
+	DO (21) NEXT
+	PLEASE :1 <- #7
+	DO .1 <- #99
+	DO (6050) NEXT
+	DO (20) NEXT
+	PLEASE (21) NEXT
+	DO ,2 <- #1 BY #1
+	DO (6030) NEXT
+	DO ,1 SUB #1 <- #5
+	PLEASE :1 <- ,2 SUB #1
+	DO (20) NEXT
+	DO :1 <- ,2 SUB #5
+	DO (20) NEXT
+	PLEASE .1 <- #9
+	DO (6020) NEXT
+	DO :1 <- ,1 SUB #3
+	DO (20) NEXT
+	PLEASE :1 <- ,2 SUB #3
+	DO (20) NEXT
+	DO ,1 <- #2 BY #3
+	DO (6000) NEXT
+	PLEASE (20) NEXT
+	DO :1 <- #2
+	DO (6010) NEXT
+	DO (20) NEXT
+	PLEASE RETRIEVE ,1
+	DO (6000) NEXT
+	DO (20) NEXT
+	DO (6040) NEXT
+	PLEASE .1 <- #9
+	DO (6020) NEXT
+	DO :1 <- #7
+	DO (6050) NEXT
+	PLEASE (21) NEXT
+	DO GIVE UP
+(20)	DO STASH .1 + .2 + .3 + :1
+	DO .1 <- #1
+	PLEASE (2110) NEXT
+	DO .2 <- #10
+	DO (2010) NEXT
+	DO RETRIEVE .1 + .2 + .3 + :1
+	PLEASE RESUME #1
+(21)	DO STASH :1
+	DO :1 <- .2
+	DO (20) NEXT
+	PLEASE RETRIEVE :1
+	DO RESUME #1

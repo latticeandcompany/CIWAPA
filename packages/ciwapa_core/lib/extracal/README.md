@@ -86,6 +86,26 @@ its bytes.
 
 The INTERCAL versions use the system library and the labels from (3100) on.
 
+## Arrays, (6000)–(6999)
+
+The routines from (6000) work on tail arrays and 16-bit values; the same routines from (6100) work
+on hybrid arrays, with ;1 and ;2 for ,1 and ,2 and :2 for .1. FILL, COPY, SORT and FIND work on
+lists: arrays with one dimension, or none for the empty list. Anything else is E809.
+
+| Entry | Inputs | Results | Notes |
+|---|---|---|---|
+| (6000), (6100) | ,1 | :1 = its number of dimensions | #0 for an array with none |
+| (6010), (6110) | ,1, :1 = n | :1 = the size of dimension n | n from #1 to the number of dimensions, or it is E812 |
+| (6020), (6120) | ,1, .1 | every element of ,1 = .1 | |
+| (6030), (6130) | ,1 | ,2 = a copy of ,1 | replaces what was in ,2 |
+| (6040), (6140) | ,1 | ,1 in ascending order | |
+| (6050), (6150) | ,1, .1 | :1 = where .1 first is in ,1; .2 = #1, or #2 if it isn't, leaving :1 alone | |
+
+INTERCAL can make an array with no dimensions only by never dimensioning it, or by RETRIEVEing
+one stashed before it was; COPY of an empty list makes one too.
+
+The INTERCAL versions use the system library and the labels from (6200) on.
+
 ## System, (8000)–(8999)
 
 | Entry | Inputs | Results | Notes |
@@ -125,6 +145,9 @@ Each is a single PETITION of the same number.
 | #3000 | ,1 | :1 | a string's length; E803 for an array with more than one dimension |
 | #3001 | | ,1 | makes ,1 the empty string |
 | #3002 | ,2 | :2 | ,2's length, as #3000 |
-| #807, #808 | | | raise E807 and E808 for the INTERCAL versions |
+| #6000, #6100 | ,1 or ;1 | :1 | its number of dimensions |
+| #6010, #6110 | ,1 or ;1, :1 | :1 | the size of one dimension; E812 for one it doesn't have |
+| #6003, #6103 | | ,2 or ;2 | makes it an array with no dimensions |
+| #807, #808, #809 | | | raise E807, E808 and E809 for the INTERCAL versions |
 | #8000–#8060 | | | as the System routines of the same numbers |
 
