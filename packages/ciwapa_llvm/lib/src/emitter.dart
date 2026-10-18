@@ -18,7 +18,10 @@ class LlvmEmitter {
       : const <int, NativeCall>{};
 
   final _globals = StringBuffer();
-  final _body = StringBuffer();
+  var _body = StringBuffer();
+
+  /// The control engine's callbacks, for a program it runs (R3).
+  final _engineFunctions = StringBuffer();
   final _strings = <String, String>{};
   var _temp = 0;
   var _maxSubscripts = 1;
@@ -160,10 +163,13 @@ declare void @ick_xmingle(ptr, i32, i64, i64, i32, i64, i64, i32)
 declare void @ick_xselect(ptr, i32, i64, i64, i32, i64, i64)
 declare void @ick_xunary(ptr, i32, i32, i64, i64, i32)
 declare i64 @ick_write_in_signed(i32, i32)
+declare void @ick_x_run(ptr, i32, ptr, ptr, ptr, i32, ptr, ptr, ptr)
+declare i32 @ick_x_clear(i32)
 declare void @ick_read_out_signed(i64, i32)
 ''';
 
   String emit() {
+    if (program.engine) return _emitEngine();
     for (final s in program.statements) {
       _statement(s);
     }
@@ -192,6 +198,202 @@ declare void @ick_read_out_signed(i64, i32)
       _line('switch i32 %return.id, label %unreachable [${returns.join(' ')}]');
     }
 
+    final statements = program.statements.length;
+    final out = _module()
+      ..writeln('define i32 @main(i32 %argc, ptr %argv) {')
+      ..writeln('entry:')
+      ..writeln('  %subs = alloca [$_maxSubscripts x i32]')
+      ..write(
+        program.extracal
+            ? '  %dims64 = alloca [$_maxSubscripts x i64]\n'
+                  '  %xout = alloca [3 x i64]\n'
+            : '',
+      )
+      ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
+      ..write(
+        program.extracal
+            ? '  call void @ick_init_wide(ptr @v64, ptr @igw, i32 ${program.wideScalars.length}, '
+                  'i32 ${program.wideArrays.length})\n'
+            : '',
+      )
+      ..writeln('  br label %${statements == 0 ? 'fell' : 's1'}')
+      ..write(_body)
+      ..writeln('}');
+    return out.toString();
+  }
+
+  /// The program on EXTRACAL's control engine (R3): the engine runs the control flow from a table,
+  /// and calls back into compiled functions for the bodies of the other statements, FORGET and
+  /// RESUME counts, and native library routines.
+  String _emitEngine() {
+    final table = EngineTable(program);
+    final count = program.statements.length;
+
+    _engineFunction('void @x_body(i32 %ordinal)', 'ret void', () {
+      final cases = <String>[];
+      for (final s in program.statements) {
+        if (!_plainBody(s.op)) continue;
+        cases.add('i32 ${s.ordinal}, label %b${s.ordinal}');
+      }
+      _line('switch i32 %ordinal, label %done [${cases.join(' ')}]');
+      for (final s in program.statements) {
+        if (!_plainBody(s.op)) continue;
+        _block('b${s.ordinal}');
+        _statementBody(s);
+        _line('br label %done');
+      }
+    });
+    _engineFunction('i64 @x_expr(i32 %ordinal)', 'ret i64 0', () {
+      final counts = [
+        for (final s in program.statements)
+          if (s.op case IrForget(:final count) || IrResume(:final count))
+            (s, count),
+      ];
+      _line(
+        'switch i32 %ordinal, label %done [${counts.map((c) => 'i32 ${c.$1.ordinal}, label %e${c.$1.ordinal}').join(' ')}]',
+      );
+      for (final (s, count) in counts) {
+        _block('e${s.ordinal}');
+        _line('ret i64 ${_as64(count, s.next)}');
+      }
+    });
+    _engineFunction('i32 @x_native(i32 %ordinal)', 'ret i32 0', () {
+      final calls = [
+        for (final s in program.statements)
+          if (s.op case IrNext(:final target) when _natives.containsKey(target))
+            (s, _natives[target]!),
+      ];
+      _line(
+        'switch i32 %ordinal, label %done [${calls.map((c) => 'i32 ${c.$1.ordinal}, label %n${c.$1.ordinal}').join(' ')}]',
+      );
+      for (final (s, call) in calls) {
+        _block('n${s.ordinal}');
+        final free = _fresh(), room = _fresh(), native = _newBlock('native');
+        _line('$free = call i32 @ick_next_free()');
+        _line('$room = icmp uge i32 $free, ${call.depth}');
+        _line('br i1 $room, label %$native, label %done');
+        _block(native);
+        final clear = [
+          for (final w in call.watched)
+            () {
+              final flag = _fresh(), ok = _fresh();
+              _line('$flag = load i8, ptr ${_ignoredFlag(w)}');
+              _line('$ok = icmp eq i8 $flag, 0');
+              return ok;
+            }(),
+          for (final o in call.abstainable)
+            () {
+              final flag = _fresh(), ok = _fresh();
+              _line('$flag = call i32 @ick_x_clear(i32 $o)');
+              _line('$ok = icmp ne i32 $flag, 0');
+              return ok;
+            }(),
+        ];
+        for (final ok in clear) {
+          final next = _newBlock('native');
+          _line('br i1 $ok, label %$next, label %done');
+          _block(next);
+        }
+        final args = [
+          for (final a in call.args) _expr(IrScalar(a), s.next),
+          if (call.args.length == 1) '0',
+        ];
+        final r = _fresh(), ran = _fresh(), store = _newBlock('native');
+        _line(
+          '$r = call i64 @ick_syslib(i32 ${call.label}, ${args.map((a) => 'i32 $a').join(', ')})',
+        );
+        _line('$ran = icmp sge i64 $r, 0');
+        _line('br i1 $ran, label %$store, label %done');
+        _block(store);
+        final result = _fresh();
+        _line('$result = trunc i64 $r to i32');
+        _line('store i32 $result, ptr ${_scalarPointer(call.result)}');
+        if (call.flag case final flag?) {
+          final high = _fresh(), overflowed = _fresh(), value = _fresh();
+          _line('$high = lshr i64 $r, 32');
+          _line('$overflowed = icmp ne i64 $high, 0');
+          _line('$value = select i1 $overflowed, i32 2, i32 1');
+          _line('store i32 $value, ptr ${_scalarPointer(flag)}');
+        }
+        _line('ret i32 1');
+      }
+    });
+
+    final texts = [
+      for (var o = 0; o <= count; o++)
+        table.texts[o] == null
+            ? 'ptr null'
+            : 'ptr ${_stringGlobal(table.texts[o]!)}',
+    ];
+    final lengths = [
+      for (var o = 0; o <= count; o++)
+        'i32 ${table.texts[o] == null ? 0 : utf8.encode(table.texts[o]!).length}',
+    ];
+    final lists = table.lists.isEmpty ? [0] : table.lists;
+    _globals
+      ..writeln(
+        '@x_table = internal constant [${table.rows.length} x i32] [${table.rows.map((v) => 'i32 $v').join(', ')}]',
+      )
+      ..writeln(
+        '@x_lists = internal constant [${lists.length} x i32] [${lists.map((v) => 'i32 $v').join(', ')}]',
+      )
+      ..writeln(
+        '@x_texts = internal constant [${count + 1} x ptr] [${texts.join(', ')}]',
+      )
+      ..writeln(
+        '@x_text_lengths = internal constant [${count + 1} x i32] [${lengths.join(', ')}]',
+      );
+    final out = _module()
+      ..write(_engineFunctions)
+      ..writeln('define i32 @main(i32 %argc, ptr %argv) {')
+      ..writeln('entry:')
+      ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
+      ..writeln(
+        '  call void @ick_init_wide(ptr @v64, ptr @igw, i32 ${program.wideScalars.length}, '
+        'i32 ${program.wideArrays.length})',
+      )
+      ..writeln(
+        '  call void @ick_x_run(ptr @x_table, i32 $count, ptr @x_lists, ptr @x_texts, '
+        'ptr @x_text_lengths, i32 ${program.userStatements}, ptr @x_body, ptr @x_expr, ptr @x_native)',
+      )
+      ..writeln('  unreachable')
+      ..writeln('}');
+    return out.toString();
+  }
+
+  /// Emits one of the engine's callbacks: [emit] writes its body, which ends at `done` unless it
+  /// returns.
+  void _engineFunction(String signature, String done, void Function() emit) {
+    _body = StringBuffer();
+    _maxSubscripts = 1;
+    emit();
+    _block('done');
+    _line(done);
+    _engineFunctions
+      ..writeln('define internal $signature {')
+      ..writeln('entry:')
+      ..writeln('  %subs = alloca [$_maxSubscripts x i32]')
+      ..writeln('  %dims64 = alloca [$_maxSubscripts x i64]')
+      ..writeln('  %xout = alloca [3 x i64]')
+      ..writeln('  br label %body')
+      ..writeln('body:')
+      ..write(_body)
+      ..writeln('}')
+      ..writeln();
+  }
+
+  /// The statements whose bodies are compiled for the control engine; it runs the rest itself.
+  static bool _plainBody(IrOp op) => switch (op) {
+    IrAssign() ||
+    IrDimension() ||
+    IrVarList() ||
+    IrWriteIn() ||
+    IrReadOut() => true,
+    _ => false,
+  };
+
+  /// Everything before main: globals, declarations and helpers.
+  StringBuffer _module() {
     final scalars = program.scalars.length;
     final statements = program.statements.length;
     final abstained = [
@@ -202,8 +404,7 @@ declare void @ick_read_out_signed(i64, i32)
       for (final m in IclError.all)
         '%ick_message { i32 ${m.code}, ptr ${_stringGlobal(m.text)}, ptr ${_stringGlobal(m.joke)} }',
     ];
-
-    final out = StringBuffer()
+    return StringBuffer()
       ..writeln(
         '; Generated by ciwapa-llvm from ${options.sourceName}. Do not edit.',
       )
@@ -249,27 +450,7 @@ declare void @ick_read_out_signed(i64, i32)
       ..writeln('fits:')
       ..writeln('  ret i32 %value')
       ..writeln('}')
-      ..writeln()
-      ..writeln('define i32 @main(i32 %argc, ptr %argv) {')
-      ..writeln('entry:')
-      ..writeln('  %subs = alloca [$_maxSubscripts x i32]')
-      ..write(
-        program.extracal
-            ? '  %dims64 = alloca [$_maxSubscripts x i64]\n'
-                  '  %xout = alloca [3 x i64]\n'
-            : '',
-      )
-      ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
-      ..write(
-        program.extracal
-            ? '  call void @ick_init_wide(ptr @v64, ptr @igw, i32 ${program.wideScalars.length}, '
-                  'i32 ${program.wideArrays.length})\n'
-            : '',
-      )
-      ..writeln('  br label %${statements == 0 ? 'fell' : 's1'}')
-      ..write(_body)
-      ..writeln('}');
-    return out.toString();
+      ..writeln();
   }
 
   void _block(String name) => _body.writeln('$name:');

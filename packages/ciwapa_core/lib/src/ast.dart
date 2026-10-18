@@ -237,13 +237,15 @@ class GiveUp extends Body {
   Gerund? get gerund => null;
 }
 
+/// COME FROM, or EXTRACAL's NEXT FROM, which also pushes a NEXT stack entry (R3).
 class ComeFrom extends Body {
-  const ComeFrom(this.label);
+  const ComeFrom(this.label, {this.nexting = false});
 
   final int label;
+  final bool nexting;
 
   @override
-  Gerund get gerund => Gerund.comingFrom;
+  Gerund get gerund => nexting ? Gerund.nextingFrom : Gerund.comingFrom;
 }
 
 /// A statement the compiler can't decode (§4.5). It raises E000 if it executes.

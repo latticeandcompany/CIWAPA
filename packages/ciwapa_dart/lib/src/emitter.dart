@@ -100,6 +100,75 @@ class DartEmitter {
         'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages'
         '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}' : ''});',
       );
+    if (program.engine) {
+      _emitEngine();
+    } else {
+      _emitStraight();
+    }
+    for (final MapEntry(key: mask, value: name) in _selectFunctions64.entries) {
+      final parts = [
+        for (final run in selectRuns(mask, bits: 64))
+          '((x >>> ${run.from}) & ${_literal(run.width == 64 ? -1 : (1 << run.width) - 1)}) << ${run.to}',
+      ];
+      _out
+        ..writeln()
+        ..writeln(
+          'int $name(int x) => ${parts.isEmpty ? '0' : parts.join(' | ')};',
+        );
+    }
+    for (final MapEntry(key: mask, value: name) in _selectFunctions.entries) {
+      final steps = compressSteps(mask);
+      if (steps.length < selectRuns(mask).length) {
+        _out
+          ..writeln()
+          ..writeln('int $name(int x) {')
+          ..writeln('  x &= $mask;');
+        for (final step in steps) {
+          _out
+            ..writeln('  final moving${step.shift} = x & ${step.moving};')
+            ..writeln(
+              '  x = x ^ moving${step.shift} | moving${step.shift} >> ${step.shift};',
+            );
+        }
+        _out
+          ..writeln('  return x;')
+          ..writeln('}');
+        continue;
+      }
+      final parts = [
+        for (final run in selectRuns(mask))
+          '((x >> ${run.from}) & ${(1 << run.width) - 1}) << ${run.to}',
+      ];
+      _out
+        ..writeln()
+        ..writeln(
+          'int $name(int x) => ${parts.isEmpty ? '0' : parts.join(' | ')};',
+        );
+    }
+    if (_sharedGuard) {
+      _out
+        ..writeln()
+        ..writeln("@pragma('vm:never-inline')")
+        ..writeln('bool _unabstained(int ordinal, int gerund) =>')
+        ..writeln(
+          '    (_abT[ordinal] >= _gerT[gerund] ? _ab[ordinal] : _ger[gerund]) == 0;',
+        );
+    }
+    _out
+      ..writeln()
+      ..writeln('const _messages = {');
+    for (final m in IclError.all) {
+      _out.writeln(
+        '  ${m.code}: IckMessage(${_string(m.text)}, ${_string(m.joke)}),',
+      );
+    }
+    _out.writeln('};');
+    return _out.toString();
+  }
+
+  /// The program as straight-line code: every Mode 1 program, and EXTRACAL programs that use none
+  /// of `ick`'s control extensions.
+  void _emitStraight() {
     for (final s in program.statements) {
       if (s.initiallyAbstained) _out.writeln('  _ab[${s.ordinal}] = 1;');
     }
@@ -164,66 +233,122 @@ class DartEmitter {
         ..writeln('  }')
         ..writeln('}');
     }
-    for (final MapEntry(key: mask, value: name) in _selectFunctions64.entries) {
-      final parts = [
-        for (final run in selectRuns(mask, bits: 64))
-          '((x >>> ${run.from}) & ${_literal(run.width == 64 ? -1 : (1 << run.width) - 1)}) << ${run.to}',
-      ];
-      _out
-        ..writeln()
-        ..writeln(
-          'int $name(int x) => ${parts.isEmpty ? '0' : parts.join(' | ')};',
-        );
-    }
-    for (final MapEntry(key: mask, value: name) in _selectFunctions.entries) {
-      final steps = compressSteps(mask);
-      if (steps.length < selectRuns(mask).length) {
-        _out
-          ..writeln()
-          ..writeln('int $name(int x) {')
-          ..writeln('  x &= $mask;');
-        for (final step in steps) {
-          _out
-            ..writeln('  final moving${step.shift} = x & ${step.moving};')
-            ..writeln(
-              '  x = x ^ moving${step.shift} | moving${step.shift} >> ${step.shift};',
-            );
-        }
-        _out
-          ..writeln('  return x;')
-          ..writeln('}');
-        continue;
-      }
-      final parts = [
-        for (final run in selectRuns(mask))
-          '((x >> ${run.from}) & ${(1 << run.width) - 1}) << ${run.to}',
-      ];
-      _out
-        ..writeln()
-        ..writeln(
-          'int $name(int x) => ${parts.isEmpty ? '0' : parts.join(' | ')};',
-        );
-    }
-    if (_sharedGuard) {
-      _out
-        ..writeln()
-        ..writeln("@pragma('vm:never-inline')")
-        ..writeln('bool _unabstained(int ordinal, int gerund) =>')
-        ..writeln(
-          '    (_abT[ordinal] >= _gerT[gerund] ? _ab[ordinal] : _ger[gerund]) == 0;',
-        );
-    }
+  }
+
+  /// The program on EXTRACAL's control engine (R3): the engine runs the control flow from a table,
+  /// and calls back into the compiled bodies of the other statements.
+  void _emitEngine() {
+    final table = EngineTable(program);
     _out
+      ..writeln(
+        '  ickXRun(XProgram(table: _xTable, lists: _xLists, texts: _xTexts, '
+        'userStatements: ${program.userStatements}, body: _xBody, expr: _xExpr, native: _xNative));',
+      )
+      ..writeln('}')
       ..writeln()
-      ..writeln('const _messages = {');
-    for (final m in IclError.all) {
-      _out.writeln(
-        '  ${m.code}: IckMessage(${_string(m.text)}, ${_string(m.joke)}),',
-      );
+      ..writeln('const _xTable = <int>[${table.rows.join(', ')}];')
+      ..writeln('const _xLists = <int>[${table.lists.join(', ')}];')
+      ..writeln('const _xTexts = <int, String>{');
+    for (final MapEntry(:key, :value) in table.texts.entries) {
+      _out.writeln('  $key: ${_string(value)},');
     }
     _out.writeln('};');
-    return _out.toString();
+
+    final plain = [
+      for (final s in program.statements)
+        if (_plainBody(s.op)) s,
+    ];
+    final chunks = (plain.length + chunkSize - 1) ~/ chunkSize;
+    _out
+      ..writeln()
+      ..writeln('void _xBody(int ordinal) {');
+    for (var c = 0; c < chunks; c++) {
+      final last =
+          plain[(c + 1) * chunkSize - 1 < plain.length
+              ? (c + 1) * chunkSize - 1
+              : plain.length - 1];
+      _out.writeln(
+        '  if (ordinal <= ${last.ordinal}) return _xBody$c(ordinal);',
+      );
+    }
+    _out.writeln('}');
+    for (var c = 0; c < chunks; c++) {
+      _out
+        ..writeln()
+        ..writeln("@pragma('vm:unsafe:no-bounds-checks')")
+        ..writeln('void _xBody$c(int ordinal) {')
+        ..writeln(
+          '  final v = _v, ig = _ig${program.extracal ? ', w = _w, igw = _igw' : ''};',
+        )
+        ..writeln('  switch (ordinal) {');
+      for (final s in plain.skip(c * chunkSize).take(chunkSize)) {
+        _out.writeln('    case ${s.ordinal}:');
+        _line('{');
+        _body(s);
+        _line('}');
+      }
+      _out
+        ..writeln('  }')
+        ..writeln('}');
+    }
+
+    _out
+      ..writeln()
+      ..writeln('int _xExpr(int ordinal) {')
+      ..writeln('  final v = _v${program.extracal ? ', w = _w' : ''};')
+      ..writeln('  switch (ordinal) {');
+    for (final s in program.statements) {
+      if (s.op case IrForget(:final count) || IrResume(:final count)) {
+        _out.writeln('    case ${s.ordinal}:');
+        _line('return ${_count(count, s.next)};');
+      }
+    }
+    _out
+      ..writeln('  }')
+      ..writeln('  return 0;')
+      ..writeln('}')
+      ..writeln()
+      ..writeln('bool _xNative(int ordinal) {')
+      ..writeln('  final v = _v, ig = _ig;')
+      ..writeln('  switch (ordinal) {');
+    for (final s in program.statements) {
+      if (s.op case IrNext(:final target) when _natives.containsKey(target)) {
+        final call = _natives[target]!;
+        final guard = [
+          'ickNextFree() >= ${call.depth}',
+          for (final w in call.watched) 'ig[${w.index}] == 0',
+          for (final o in call.abstainable) 'ickXClear($o)',
+        ];
+        final args = [for (final a in call.args) 'v[${a.index}]'];
+        if (args.length == 1) args.add('0');
+        _out.writeln('    case ${s.ordinal}:');
+        _line('if (${guard.join(' && ')}) {');
+        _line('  final r = ickSyslib(${call.label}, ${args.join(', ')});');
+        _line('  if (r >= 0) {');
+        _line('    v[${call.result.index}] = r;');
+        if (call.flag case final flag?) {
+          _line('    v[${flag.index}] = r >> 32 == 0 ? 1 : 2;');
+        }
+        _line('    return true;');
+        _line('  }');
+        _line('}');
+      }
+    }
+    _out
+      ..writeln('  }')
+      ..writeln('  return false;')
+      ..writeln('}');
   }
+
+  /// The statements whose bodies are compiled for the control engine; it runs the rest itself.
+  static bool _plainBody(IrOp op) => switch (op) {
+    IrAssign() ||
+    IrDimension() ||
+    IrVarList() ||
+    IrWriteIn() ||
+    IrReadOut() => true,
+    _ => false,
+  };
 
   static String _string(String s) {
     final escaped = s

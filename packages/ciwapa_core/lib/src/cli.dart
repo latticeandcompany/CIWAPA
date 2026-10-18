@@ -218,6 +218,7 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
           randomBug: !args.flag('no-random-bug'),
           seed: seed == null ? null : int.tryParse(seed),
           memoryLimit: memoryLimit,
+          forceEngine: Platform.environment['CIWAPA_TEST_ENGINE'] == '1',
         ),
       );
     } on OutOfMemoryError {

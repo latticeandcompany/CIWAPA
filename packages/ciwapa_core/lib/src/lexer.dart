@@ -35,6 +35,7 @@ enum TokenKind {
   readOut,
   writeIn,
   comeFrom,
+  nextFrom,
   giveUp,
   gerund,
   signed,
@@ -71,6 +72,7 @@ enum Gerund {
   readingOut,
   writingIn,
   comingFrom,
+  nextingFrom,
 }
 
 class Token {
@@ -113,7 +115,8 @@ class Token {
 /// starts no token becomes a [TokenKind.badChar], which is how a statement identifier is found even
 /// in the middle of a word (§4.5, decision T8).
 class Lexer {
-  Lexer(this.source, {this.wide = false}) : _text = source.runes;
+  Lexer(this.source, {this.wide = false, this.extensions = false})
+    : _text = source.runes;
 
   static const numberCap = 1 << 40;
 
@@ -124,10 +127,15 @@ class Lexer {
   /// Whether EXTRACAL's 64-bit sigils and SIGNED are tokens (R4, R6). They are only in binary
   /// EXTRACAL; in Mode 1, and in EXTRACAL's bases 3–7 (L17), they are the separate characters.
   final bool wide;
+
+  /// Whether the keywords of `ick`'s extensions are tokens (R3): in EXTRACAL, in every base.
+  final bool extensions;
   final List<int> _text;
-  late final _activePatterns = wide
-      ? [..._patterns, ..._widePatterns]
-      : _patterns;
+  late final _activePatterns = [
+    ..._patterns,
+    if (wide) ..._widePatterns,
+    if (extensions) ..._extensionPatterns,
+  ];
 
   List<Token> tokenize() {
     final tokens = <Token>[];
@@ -330,6 +338,11 @@ class Lexer {
     ('COMING FROM', _gerund(Gerund.comingFrom)),
     ('GIVE UP', _kind(TokenKind.giveUp)),
     ('+', _kind(TokenKind.intersection)),
+  ];
+
+  static final _extensionPatterns = <(String, Token Function(int, int))>[
+    ('NEXT FROM', _kind(TokenKind.nextFrom)),
+    ('NEXTING FROM', _gerund(Gerund.nextingFrom)),
   ];
 
   static final _widePatterns = <(String, Token Function(int, int))>[

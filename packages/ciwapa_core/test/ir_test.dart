@@ -354,4 +354,47 @@ void main() {
       }
     });
   });
+
+  group('the control engine (R3)', () {
+    test('only EXTRACAL programs that use a control extension need it', () {
+      expect(build('DO GIVE UP', path: 't.xc').engine, isFalse);
+      expect(
+        build('(1) DO GIVE UP\nDO NEXT FROM (1)', path: 't.xc').engine,
+        isTrue,
+      );
+      expect(
+        build('(1) DO GIVE UP\nDO COME FROM (1)', path: 't.xc').engine,
+        isFalse,
+      );
+      expect(
+        lower(
+          analyze(Source('t.xc', 'DO GIVE UP')),
+          options: const IrOptions(randomBug: false, forceEngine: true),
+        ).engine,
+        isTrue,
+      );
+      expect(
+        lower(
+          analyze(Source('t.i', 'DO GIVE UP')),
+          options: const IrOptions(randomBug: false, forceEngine: true),
+        ).engine,
+        isFalse,
+      );
+    });
+
+    test('its table lists the COME FROMs aimed at each statement', () {
+      final ir = build(
+        '(1) DO .1 <- #1\nDO NEXT FROM (1)\nPLEASE GIVE UP',
+        path: 't.xc',
+      );
+      final table = EngineTable(ir);
+      int field(int ordinal, EngineField f) =>
+          table.rows[ordinal * EngineField.values.length + f.index];
+      expect(field(1, EngineField.kind), EngineKind.plain.index);
+      expect(field(2, EngineField.kind), EngineKind.nextFrom.index);
+      expect(field(1, EngineField.comeFromLength), 1);
+      expect(table.lists[field(1, EngineField.comeFromStart)], 2);
+      expect(field(1, EngineField.label), 1);
+    });
+  });
 }

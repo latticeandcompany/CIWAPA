@@ -1,7 +1,7 @@
 // Runs the golden conformance suite through one flavor's compiler.
 //
 //   dart run bin/conformance.dart --compiler <ciwapa-dart or ciwapa-llvm executable>
-//       [--results results.json] [--jobs n] [name filters...]
+//       [--results results.json] [--jobs n] [--extracal-only] [name filters...]
 //
 // Each test is tests/<group>/<name>.i (or .2i–.7i, .xc, .2xc–.7xc, or .bad for a bad extension)
 // with optional siblings:
@@ -42,7 +42,11 @@ Future<void> main(List<String> arguments) async {
   final parser = ArgParser()
     ..addOption('compiler', mandatory: true)
     ..addOption('results')
-    ..addOption('jobs', defaultsTo: '${Platform.numberOfProcessors}');
+    ..addOption('jobs', defaultsTo: '${Platform.numberOfProcessors}')
+    ..addFlag(
+      'extracal-only',
+      help: 'Run only the EXTRACAL runs: the .xc tests and the superset runs.',
+    );
   final args = parser.parse(arguments);
   final compiler = File(args.option('compiler')!).absolute.path;
   final root = Directory.fromUri(
@@ -66,7 +70,8 @@ Future<void> main(List<String> arguments) async {
         ..sort();
   final tests = [
     for (final path in sources) ...[
-      (path: path, superset: false),
+      if (!args.flag('extracal-only') || _extracal.hasMatch(path))
+        (path: path, superset: false),
       if (_mode1.hasMatch(path)) (path: path, superset: true),
     ],
   ];

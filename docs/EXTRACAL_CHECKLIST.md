@@ -27,10 +27,12 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 1. NEXT FROM
 
-- [ ] R3.1 — `NEXT FROM (n)` takes control after statement (n) like COME FROM, and pushes a NEXT stack entry that returns to the statement after (n). Tests: `packages/conformance/tests/extracal/next-from/basic.xc`
-- [ ] R3.1 — a NEXT FROM aimed at a NEXT fires when the NEXT is RESUMEd to. Tests: `packages/conformance/tests/extracal/next-from/at-next.xc`
-- [ ] R3.1 — a NEXT FROM that would make the 80th entry is E123. Tests: `packages/conformance/tests/extracal/next-from/e123.xc`
-- [ ] R3.1 — a NEXT FROM aimed at a missing label is a compile-time E444. Tests: `packages/conformance/tests/extracal/next-from/e444.xc`
+- [x] R3.1 — `NEXT FROM (n)` takes control after statement (n) like COME FROM, and pushes a NEXT stack entry that returns to the statement after (n). Tests: `packages/conformance/tests/extracal/next-from/basic.xc`
+- [x] R3.1 — a NEXT FROM aimed at a NEXT fires when the NEXT is RESUMEd to. Tests: `packages/conformance/tests/extracal/next-from/at-next.xc`
+- [x] R3.1 — a NEXT FROM that would make the 80th entry is E123. Tests: `packages/conformance/tests/extracal/next-from/e123.xc`
+- [x] R3.1 — a NEXT FROM aimed at a missing label is a compile-time E444. Tests: `packages/conformance/tests/extracal/next-from/e444.xc`
+- [x] R3.1 — `NEXTING FROM` is its gerund, and `--traditional` rejects it with E111. Tests: `packages/conformance/tests/extracal/next-from/gerund.xc`, `packages/conformance/tests/extracal/next-from/traditional.xc`
+- [x] R3 — the control engine that runs `ick`'s control extensions behaves exactly like Mode 1: CI reruns every `.xc` program on it. Tests: `.github/scripts/ci-check.sh`
 
 ### 2. Computed COME FROM and NEXT FROM
 

@@ -58,6 +58,7 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
     source,
     memoryLimit: memoryLimit,
     wide: dialect.extracal && base == 2,
+    extensions: dialect.extracal,
   ).parse();
   if (traditional) {
     for (final (i, s) in statements.indexed) {

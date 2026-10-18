@@ -1298,4 +1298,259 @@ int ickXValue(XValue a, int next) {
   if (a.$1 == 128) ickFatal(534, next);
   return a.$3;
 }
+
+// ---- EXTRACAL's control engine (R3) -----------------------------------------------------------
+// Programs that use `ick`'s control extensions run here instead of as straight-line code. The
+// engine follows the code C-INTERCAL 0.35 generates for each statement, step for step, because
+// with threads the order of every step is visible: the start (guard and body), then the tail
+// (ONCE/AGAIN, then the COME FROMs aimed at the statement, then the computed COME FROMs), then a
+// turn for the next thread. The program supplies each statement's attributes as a flat table and
+// compiles the bodies of the statements the engine doesn't run itself.
+
+/// A statement's attributes in [XProgram.table], [xStride] ints each.
+const xKind = 0,
+    xLabel = 1,
+    xGerund = 2,
+    xFlags = 3,
+    xPercent = 4,
+    xOnceAgain = 5,
+    xFault = 6,
+    xNext = 7,
+    xTarget = 8,
+    xListStart = 9,
+    xListLength = 10,
+    xComeFromStart = 11,
+    xComeFromLength = 12,
+    xStride = 13;
+
+/// Statement kinds. A plain one has its body compiled into [XProgram.body].
+const xPlain = 0,
+    xNextKind = 1,
+    xForget = 2,
+    xResume = 3,
+    xGiveUp = 4,
+    xAbstain = 5,
+    xReinstate = 6,
+    xComeFromKind = 7,
+    xNextFromKind = 8,
+    xUndecodable = 9;
+
+/// [xFlags] bits.
+const xInitiallyAbstained = 1, xBug = 2;
+
+/// [xOnceAgain]: what a statement does to its own abstention when it is reached, after `ick`'s swap
+/// for initially abstained statements: abstain itself, or reinstate itself.
+const xNoOnceAgain = 0, xAbstainAfter = 1, xReinstateAfter = 2;
+
+class XProgram {
+  const XProgram({
+    required this.table,
+    required this.lists,
+    required this.texts,
+    required this.userStatements,
+    required this.body,
+    required this.expr,
+    required this.native,
+  });
+
+  final List<int> table;
+
+  /// The target lists of ABSTAIN and REINSTATE, and the COME FROMs aimed at each statement.
+  final List<int> lists;
+
+  /// The source text of each undecodable statement, for E000.
+  final Map<int, String> texts;
+  final int userStatements;
+  final void Function(int ordinal) body;
+
+  /// A FORGET or RESUME count, by its statement's ordinal.
+  final int Function(int ordinal) expr;
+
+  /// Runs a NEXT into the system library natively, when the routine would behave the same; true
+  /// if it did (decision Q37).
+  final bool Function(int ordinal) native;
+}
+
+// Positions within a statement, as in `ick`'s generated code. A position is ordinal * 8 + phase.
+const _start = 0, _tail = 1, _end = 2, _landing = 3;
+
+/// One thread's registers. Its variables, stashes and NEXT stack are the runtime's own while it
+/// runs.
+class _XThread {
+  int position = 1 * 8 + _start;
+
+  /// The number of COME FROMs that matched the statement being finished, and where the last one
+  /// lands (`ick_ccfc`, `ick_cjb`).
+  int candidates = 0, chosen = 0;
+
+  /// The statement being finished, which a NEXT FROM returns to (`truelineno`).
+  int finishing = 0;
+
+  /// Where an executed RESUME goes once its tail has found no COME FROM, or -1.
+  int resumeTo = -1;
+}
+
+late XProgram _x;
+late Int32List _xAbstained;
+final _xThread = _XThread();
+
+int _xGet(int ordinal, int field) => _x.table[ordinal * xStride + field];
+
+/// Runs [program] on the engine until it gives up or fails.
+Never ickXRun(XProgram program) {
+  _x = program;
+  final count = program.table.length ~/ xStride - 1;
+  _xAbstained = Int32List(count + 1);
+  for (var s = 1; s <= count; s++) {
+    if (_xGet(s, xFlags) & xInitiallyAbstained != 0) _xAbstained[s] = 1;
+  }
+  final t = _xThread;
+  while (true) {
+    final ordinal = t.position >> 3;
+    if (ordinal > count || ordinal == 0) ickFatal(633, count + 1);
+    switch (t.position & 7) {
+      case _start:
+        _xStart(t, ordinal);
+      case _tail:
+        _xTail(t, ordinal);
+      case _end:
+        t.position = _xFallThrough(ordinal);
+      case _landing:
+        _xLanding(t, ordinal);
+    }
+  }
+}
+
+/// The statement after [ordinal]'s, or E633 off the end of the user's program or the library
+/// (decision T37).
+int _xFallThrough(int ordinal) {
+  if (ordinal == _x.userStatements) ickFatal(633, ordinal + 1);
+  return (ordinal + 1) * 8 + _start;
+}
+
+/// Updates a statement's abstention for its ONCE or AGAIN, and returns the abstention before.
+int _xOnceAgain(int ordinal) {
+  final old = _xAbstained[ordinal];
+  switch (_xGet(ordinal, xOnceAgain)) {
+    case xAbstainAfter:
+      _xAbstained[ordinal] = old != 0 ? old : 1;
+    case xReinstateAfter:
+      _xAbstained[ordinal] = 0;
+  }
+  return old;
+}
+
+/// The guard: the `%` roll first (decision T22), then the abstention.
+bool _xRuns(int ordinal, int abstained) {
+  final percent = _xGet(ordinal, xPercent);
+  return (percent >= 100 || ickRoll(percent)) && abstained == 0;
+}
+
+void _xStart(_XThread t, int ordinal) {
+  final next = _xGet(ordinal, xNext);
+  if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, next);
+  final kind = _xGet(ordinal, xKind);
+  if (kind == xComeFromKind || kind == xNextFromKind) {
+    t.position = ordinal * 8 + _tail;
+    return;
+  }
+  final abstained = kind == xNextKind || kind == xUndecodable
+      ? _xOnceAgain(ordinal)
+      : _xAbstained[ordinal];
+  t.position = ordinal * 8 + _tail;
+  if (!_xRuns(ordinal, abstained)) return;
+  final fault = _xGet(ordinal, xFault);
+  if (fault != 0) ickFatal(fault, next);
+  switch (kind) {
+    case xPlain:
+      _x.body(ordinal);
+    case xNextKind:
+      final target = _xGet(ordinal, xTarget);
+      if (_x.native(ordinal)) return;
+      ickNextPush(ordinal, target);
+      t.position = target * 8 + _start;
+    case xForget:
+      ickForget(_x.expr(ordinal));
+    case xResume:
+      // Unlike `ick`, an executed RESUME still springs a COME FROM aimed at it, as in Mode 1
+      // (§4.4.14.2), so it returns only after its tail.
+      t.resumeTo = _xReturn(ickResume(_x.expr(ordinal), next));
+    case xGiveUp:
+      ickGiveUp();
+    case xAbstain:
+      _xEachTarget(ordinal, (t) {
+        if (_xAbstained[t] == 0) _xAbstained[t] = 1;
+      });
+    case xReinstate:
+      _xEachTarget(ordinal, (t) {
+        if (_xAbstained[t] != 0) _xAbstained[t]--;
+      });
+    case xUndecodable:
+      ickUndecodable(_x.texts[ordinal]!, next);
+  }
+}
+
+void _xEachTarget(int ordinal, void Function(int target) action) {
+  final start = _xGet(ordinal, xListStart);
+  for (var i = 0; i < _xGet(ordinal, xListLength); i++) {
+    action(_x.lists[start + i]);
+  }
+}
+
+/// Where a RESUME to [ordinal] lands: a NEXT's own return point, before its tail, or the end of a
+/// statement a NEXT FROM took control from.
+int _xReturn(int ordinal) =>
+    ordinal * 8 + (_xGet(ordinal, xKind) == xNextKind ? _tail : _end);
+
+void _xTail(_XThread t, int ordinal) {
+  final kind = _xGet(ordinal, xKind);
+  if (kind != xNextKind &&
+      kind != xUndecodable &&
+      kind != xComeFromKind &&
+      kind != xNextFromKind) {
+    _xOnceAgain(ordinal);
+  }
+  t.candidates = 0;
+  t.finishing = ordinal;
+  // `ick` tries the COME FROMs aimed here in reverse program order, so the first in the program is
+  // the one this thread follows.
+  final start = _xGet(ordinal, xComeFromStart);
+  for (var i = _xGet(ordinal, xComeFromLength) - 1; i >= 0; i--) {
+    final from = _x.lists[start + i];
+    final abstained = _xGet(from, xOnceAgain) != xNoOnceAgain
+        ? _xOnceAgain(from)
+        : _xAbstained[from];
+    if (!_xRuns(from, abstained)) continue;
+    // A COME FROM's own faults fire in place of its jump, unless a bug planted on it fires first
+    // at its landing (decisions L2, T23).
+    final fault = _xGet(from, xFault);
+    if (fault != 0 && _xGet(from, xFlags) & xBug == 0) {
+      ickFatal(fault, _xGet(from, xNext));
+    }
+    _xCandidate(t, from * 8 + _landing);
+  }
+  t.position = t.candidates > 0
+      ? t.chosen
+      : t.resumeTo >= 0
+      ? t.resumeTo
+      : ordinal * 8 + _end;
+  t.resumeTo = -1;
+}
+
+/// One more COME FROM wants control. A second one would start a thread.
+void _xCandidate(_XThread t, int landing) {
+  if (++t.candidates > 1) ickFatal(555, landing >> 3);
+  t.chosen = landing;
+}
+
+void _xLanding(_XThread t, int ordinal) {
+  if (_xGet(ordinal, xFlags) & xBug != 0) ickFatal(774, _xGet(ordinal, xNext));
+  if (_xGet(ordinal, xKind) == xNextFromKind) {
+    ickNextPush(t.finishing, ordinal);
+  }
+  t.position = ordinal * 8 + _tail;
+}
+
+/// Whether statement [ordinal] isn't abstained, for the native library guards.
+bool ickXClear(int ordinal) => _xAbstained[ordinal] == 0;
 ''';
