@@ -144,7 +144,7 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### Math (4000)–(4999)
 
-- [ ] R6, R10 — reference, native paths, auto-inclusion and agreement tests, including signed arithmetic at all three widths. Tests: `packages/conformance/tests/extracal/lib-math`
+- [x] R6, R10 — reference, native paths, auto-inclusion and agreement tests, including signed arithmetic at all three widths. Tests: `packages/conformance/tests/extracal/lib-math`
 
 ### Floats (7000)–(7999)
 
@@ -158,13 +158,13 @@ Every block has its INTERCAL reference version, native fast paths in both runtim
 
 ### Auto-inclusion
 
-- [ ] R10 — a program that defines any label in a block doesn't get that block (T36). Tests: `packages/ciwapa_core/test/extracal_library_test.dart`
+- [x] R10 — a program that defines any label in a block doesn't get that block (T36). Tests: `packages/ciwapa_core/test/extracal_library_test.dart`
 
 ## Error codes (R11)
 
 Each new code is listed under "EXTRACAL error codes" in [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) and has a test here.
 
-- [ ] R11 — every new error code has official text and a joke line, an entry in `SPEC_DECISIONS.md`, and a test. Tests: `packages/ciwapa_core/test/errors_test.dart`
+- [x] R11 — every new error code has official text and a joke line, an entry in `SPEC_DECISIONS.md`, and a test. Tests: `packages/ciwapa_core/test/errors_test.dart`
 
 ## Mode 1 is unchanged (Q111)
 
