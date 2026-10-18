@@ -1,7 +1,7 @@
 // Runs the golden conformance suite through one flavor's compiler.
 //
 //   dart run bin/conformance.dart --compiler <ciwapa-dart or ciwapa-llvm executable>
-//       [--results results.json] [--jobs n] [name filters...]
+//       [--results results.json] [--jobs n] [--extracal-only] [name filters...]
 //
 // Each test is tests/<group>/<name>.i (or .2i–.7i, .xc, .2xc–.7xc, or .bad for a bad extension)
 // with optional siblings:
@@ -20,7 +20,8 @@
 // Every Mode 1 test also runs a second time as EXTRACAL, copied to <name>.xc (or .2xc–.7xc), and
 // must give the same results: the superset rule (R1). Where EXTRACAL deliberately differs, the
 // test has .xc.out, .xc.err or .xc.exit files, and the EXTRACAL run is compared with those instead
-// (each missing one counts as empty, or 0).
+// (each missing one counts as empty, or 0). R1 only allows that where the Mode 1 run ends in an
+// error, unless a .xc.reason file says which decision or open question allows it.
 // When the build fails, its own stdout, stderr and exit status are what gets compared, so
 // compile-time errors are tested the same way as run-time ones.
 import 'dart:convert';
@@ -42,7 +43,11 @@ Future<void> main(List<String> arguments) async {
   final parser = ArgParser()
     ..addOption('compiler', mandatory: true)
     ..addOption('results')
-    ..addOption('jobs', defaultsTo: '${Platform.numberOfProcessors}');
+    ..addOption('jobs', defaultsTo: '${Platform.numberOfProcessors}')
+    ..addFlag(
+      'extracal-only',
+      help: 'Run only the EXTRACAL runs: the .xc tests and the superset runs.',
+    );
   final args = parser.parse(arguments);
   final compiler = File(args.option('compiler')!).absolute.path;
   final root = Directory.fromUri(
@@ -66,7 +71,8 @@ Future<void> main(List<String> arguments) async {
         ..sort();
   final tests = [
     for (final path in sources) ...[
-      (path: path, superset: false),
+      if (!args.flag('extracal-only') || _extracal.hasMatch(path))
+        (path: path, superset: false),
       if (_mode1.hasMatch(path)) (path: path, superset: true),
     ],
   ];
@@ -209,7 +215,8 @@ String? _compare(String stem, Outcome actual, {required bool superset}) {
   // R1 lets EXTRACAL differ only where Mode 1 rejects the program or ends in an error.
   if (differs &&
       !File('$stem.err').existsSync() &&
-      !File('$stem.exit').existsSync()) {
+      !File('$stem.exit').existsSync() &&
+      !File('$stem.xc.reason').existsSync()) {
     return 'R1: a .xc override is only allowed where Mode 1 ends in an error, '
         'but $stem has no .err or .exit';
   }

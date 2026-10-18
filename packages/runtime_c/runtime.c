@@ -1153,3 +1153,211 @@ void ick_xunary(uint64_t *out, uint32_t op, uint32_t aw, uint64_t ahi, uint64_t 
   out[1] = 0;
   out[2] = op == 0 ? alo & rotated : op == 1 ? alo | rotated : alo ^ rotated;
 }
+
+/* ---- EXTRACAL's control engine (R3) ------------------------------------------------------ */
+/* Programs that use `ick`'s control extensions run here instead of as straight-line code. The
+ * engine follows the code C-INTERCAL 0.35 generates for each statement, step for step, because
+ * with threads the order of every step is visible: the start (guard and body), then the tail
+ * (ONCE/AGAIN, then the COME FROMs aimed at the statement, then the computed COME FROMs), then a
+ * turn for the next thread. The program supplies each statement's attributes as a flat table and
+ * compiles the bodies of the statements the engine doesn't run itself. runtime.dart's engine is
+ * its twin. */
+
+enum {
+  X_KIND, X_LABEL, X_GERUND, X_FLAGS, X_PERCENT, X_ONCE_AGAIN, X_FAULT, X_NEXT, X_TARGET,
+  X_LIST_START, X_LIST_LENGTH, X_COME_FROM_START, X_COME_FROM_LENGTH, X_STRIDE
+};
+
+enum {
+  X_PLAIN, X_NEXT_KIND, X_FORGET, X_RESUME, X_GIVE_UP, X_ABSTAIN, X_REINSTATE, X_COME_FROM,
+  X_NEXT_FROM, X_UNDECODABLE
+};
+
+enum { X_INITIALLY_ABSTAINED = 1, X_BUG = 2 };
+enum { X_NO_ONCE_AGAIN, X_ABSTAIN_AFTER, X_REINSTATE_AFTER };
+
+/* Positions within a statement, as in `ick`'s generated code: ordinal * 8 + phase. */
+enum { X_START, X_TAIL, X_END, X_LANDING };
+
+typedef struct {
+  const int32_t *table;
+  const int32_t *lists;
+  const char *const *texts;
+  const uint32_t *text_lengths;
+  uint32_t count;
+  uint32_t user_statements;
+  void (*body)(uint32_t ordinal);
+  uint64_t (*expr)(uint32_t ordinal);
+  uint32_t (*native)(uint32_t ordinal);
+} ick_x_program;
+
+/* One thread's registers. Its variables, stashes and NEXT stack are the runtime's own while it
+ * runs. candidates and chosen are `ick_ccfc` and `ick_cjb`; finishing is `truelineno`. */
+typedef struct {
+  uint32_t position, candidates, chosen, finishing;
+  int64_t resume_to;
+} ick_x_thread;
+
+static ick_x_program x;
+static int32_t *x_abstained;
+static ick_x_thread x_thread = {1 * 8 + X_START, 0, 0, 0, -1};
+
+static int32_t x_get(uint32_t ordinal, int field) { return x.table[ordinal * X_STRIDE + field]; }
+
+static void x_next_push(uint32_t id, uint32_t target) {
+  if (ick_next_depth == NEXT_DEPTH) ick_fatal(123, target);
+  ick_next_stack[ick_next_depth++] = id;
+}
+
+static uint32_t x_resume(uint64_t count, uint32_t next) {
+  if (count == 0) ick_fatal(621, next);
+  if (count > ick_next_depth) ick_fatal(632, next);
+  ick_next_depth -= (uint32_t)count;
+  return ick_next_stack[ick_next_depth];
+}
+
+static void x_forget(uint64_t count) {
+  ick_next_depth = count >= ick_next_depth ? 0 : ick_next_depth - (uint32_t)count;
+}
+
+/* The statement after [ordinal]'s, or E633 off the end of the user's program or the library
+ * (decision T37). */
+static uint32_t x_fall_through(uint32_t ordinal) {
+  if (ordinal == x.user_statements) ick_fatal(633, ordinal + 1);
+  return (ordinal + 1) * 8 + X_START;
+}
+
+/* Updates a statement's abstention for its ONCE or AGAIN, and returns the abstention before. */
+static int32_t x_once_again(uint32_t ordinal) {
+  int32_t old = x_abstained[ordinal];
+  switch (x_get(ordinal, X_ONCE_AGAIN)) {
+  case X_ABSTAIN_AFTER: x_abstained[ordinal] = old ? old : 1; break;
+  case X_REINSTATE_AFTER: x_abstained[ordinal] = 0; break;
+  }
+  return old;
+}
+
+/* The guard: the `%` roll first (decision T22), then the abstention. */
+static int x_runs(uint32_t ordinal, int32_t abstained) {
+  int32_t percent = x_get(ordinal, X_PERCENT);
+  return (percent >= 100 || ick_roll((uint32_t)percent)) && abstained == 0;
+}
+
+/* Where a RESUME to [ordinal] lands: a NEXT's own return point, before its tail, or the end of a
+ * statement a NEXT FROM took control from. */
+static uint32_t x_return(uint32_t ordinal) {
+  return ordinal * 8 + (x_get(ordinal, X_KIND) == X_NEXT_KIND ? X_TAIL : X_END);
+}
+
+static void x_start(ick_x_thread *t, uint32_t ordinal) {
+  uint32_t next = (uint32_t)x_get(ordinal, X_NEXT);
+  if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, next);
+  int32_t kind = x_get(ordinal, X_KIND);
+  t->position = ordinal * 8 + X_TAIL;
+  if (kind == X_COME_FROM || kind == X_NEXT_FROM) return;
+  int32_t abstained =
+      kind == X_NEXT_KIND || kind == X_UNDECODABLE ? x_once_again(ordinal) : x_abstained[ordinal];
+  if (!x_runs(ordinal, abstained)) return;
+  int32_t fault = x_get(ordinal, X_FAULT);
+  if (fault) ick_fatal((uint32_t)fault, next);
+  int32_t start = x_get(ordinal, X_LIST_START), length = x_get(ordinal, X_LIST_LENGTH);
+  switch (kind) {
+  case X_PLAIN: x.body(ordinal); break;
+  case X_NEXT_KIND: {
+    uint32_t target = (uint32_t)x_get(ordinal, X_TARGET);
+    if (x.native(ordinal)) return;
+    x_next_push(ordinal, target);
+    t->position = target * 8 + X_START;
+    break;
+  }
+  case X_FORGET: x_forget(x.expr(ordinal)); break;
+  case X_RESUME:
+    /* Unlike `ick`, an executed RESUME still springs a COME FROM aimed at it, as in Mode 1
+     * (§4.4.14.2), so it returns only after its tail. */
+    t->resume_to = x_return(x_resume(x.expr(ordinal), next));
+    break;
+  case X_GIVE_UP: ick_give_up();
+  case X_ABSTAIN:
+    for (int32_t i = 0; i < length; i++) {
+      int32_t target = x.lists[start + i];
+      if (!x_abstained[target]) x_abstained[target] = 1;
+    }
+    break;
+  case X_REINSTATE:
+    for (int32_t i = 0; i < length; i++) {
+      int32_t target = x.lists[start + i];
+      if (x_abstained[target]) x_abstained[target]--;
+    }
+    break;
+  case X_UNDECODABLE: ick_undecodable(x.texts[ordinal], x.text_lengths[ordinal], next);
+  }
+}
+
+/* One more COME FROM wants control. A second one would start a thread. */
+static void x_candidate(ick_x_thread *t, uint32_t landing) {
+  if (++t->candidates > 1) ick_fatal(555, landing >> 3);
+  t->chosen = landing;
+}
+
+static void x_tail(ick_x_thread *t, uint32_t ordinal) {
+  int32_t kind = x_get(ordinal, X_KIND);
+  if (kind != X_NEXT_KIND && kind != X_UNDECODABLE && kind != X_COME_FROM && kind != X_NEXT_FROM) {
+    x_once_again(ordinal);
+  }
+  t->candidates = 0;
+  t->finishing = ordinal;
+  /* `ick` tries the COME FROMs aimed here in reverse program order, so the first in the program
+   * is the one this thread follows. */
+  /* An executed RESUME springs only a plain COME FROM, by Mode 1's rule; in `ick` it springs
+   * nothing, and so it is for the extensions. */
+  int resuming = t->resume_to >= 0;
+  int32_t start = x_get(ordinal, X_COME_FROM_START);
+  for (int32_t i = x_get(ordinal, X_COME_FROM_LENGTH) - 1; i >= 0; i--) {
+    uint32_t from = (uint32_t)x.lists[start + i];
+    if (resuming && x_get(from, X_KIND) != X_COME_FROM) continue;
+    int32_t abstained =
+        x_get(from, X_ONCE_AGAIN) != X_NO_ONCE_AGAIN ? x_once_again(from) : x_abstained[from];
+    if (!x_runs(from, abstained)) continue;
+    /* A COME FROM's own faults fire in place of its jump, unless a bug planted on it fires
+     * first at its landing (decisions L2, T23). */
+    int32_t fault = x_get(from, X_FAULT);
+    if (fault && !(x_get(from, X_FLAGS) & X_BUG)) ick_fatal((uint32_t)fault, (uint32_t)x_get(from, X_NEXT));
+    x_candidate(t, from * 8 + X_LANDING);
+  }
+  t->position = t->candidates     ? t->chosen
+                : t->resume_to >= 0 ? (uint32_t)t->resume_to
+                                    : ordinal * 8 + X_END;
+  t->resume_to = -1;
+}
+
+static void x_landing(ick_x_thread *t, uint32_t ordinal) {
+  if (x_get(ordinal, X_FLAGS) & X_BUG) ick_fatal(774, (uint32_t)x_get(ordinal, X_NEXT));
+  if (x_get(ordinal, X_KIND) == X_NEXT_FROM) x_next_push(t->finishing, ordinal);
+  t->position = ordinal * 8 + X_TAIL;
+}
+
+/* Runs a program on the engine until it gives up or fails. [table] has [count] + 1 rows. */
+void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const char *const *texts,
+               const uint32_t *text_lengths, uint32_t user_statements, void (*body)(uint32_t),
+               uint64_t (*expr)(uint32_t), uint32_t (*native)(uint32_t)) {
+  x = (ick_x_program){table, lists, texts, text_lengths, count, user_statements, body, expr, native};
+  x_abstained = calloc(count + 1, sizeof(int32_t));
+  if (!x_abstained) ick_fatal(778, 1);
+  for (uint32_t s = 1; s <= count; s++) {
+    if (x_get(s, X_FLAGS) & X_INITIALLY_ABSTAINED) x_abstained[s] = 1;
+  }
+  ick_x_thread *t = &x_thread;
+  for (;;) {
+    uint32_t ordinal = t->position >> 3;
+    if (ordinal > count || ordinal == 0) ick_fatal(633, count + 1);
+    switch (t->position & 7) {
+    case X_START: x_start(t, ordinal); break;
+    case X_TAIL: x_tail(t, ordinal); break;
+    case X_END: t->position = x_fall_through(ordinal); break;
+    case X_LANDING: x_landing(t, ordinal); break;
+    }
+  }
+}
+
+/* Whether statement [ordinal] isn't abstained, for the native library guards. */
+uint32_t ick_x_clear(uint32_t ordinal) { return x_abstained[ordinal] == 0; }

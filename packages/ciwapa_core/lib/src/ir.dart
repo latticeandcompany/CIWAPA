@@ -340,11 +340,14 @@ class IrGiveUp extends IrOp {
 }
 
 /// A COME FROM does nothing when reached; its jumps live on its target's [IrStatement.comeFrom].
+/// EXTRACAL's NEXT FROM is one that also pushes a NEXT stack entry (R3).
 class IrComeFrom extends IrOp {
-  const IrComeFrom();
+  const IrComeFrom({this.nexting = false});
+
+  final bool nexting;
 
   @override
-  String toString() => 'COME FROM';
+  String toString() => nexting ? 'NEXT FROM' : 'COME FROM';
 }
 
 /// An undecodable statement: E000 with [text] as the message (decision T10).
@@ -390,6 +393,10 @@ class IrStatement {
   /// The ordinal of the COME FROM aimed at this statement.
   int? comeFrom;
 
+  /// Every COME FROM and NEXT FROM aimed at this statement by label, in program order. Mode 1
+  /// allows one (E555); EXTRACAL's control engine handles more.
+  final comeFroms = <int>[];
+
   /// Whether anything can ever set this statement's abstention flag.
   bool abstainable = false;
 
@@ -425,9 +432,14 @@ class IrProgram {
     required this.extracal,
     this.wideScalars = const [],
     this.wideArrays = const [],
+    this.engine = false,
   });
 
   final int base;
+
+  /// Whether the program runs on EXTRACAL's control engine, which every program using one of
+  /// `ick`'s control extensions needs (R3). Each statement's body is still compiled.
+  final bool engine;
 
   /// Whether the program is EXTRACAL rather than Mode 1.
   final bool extracal;
@@ -466,7 +478,16 @@ class IrProgram {
 }
 
 class IrOptions {
-  const IrOptions({this.randomBug = true, this.seed, this.memoryLimit});
+  const IrOptions({
+    this.randomBug = true,
+    this.seed,
+    this.memoryLimit,
+    this.forceEngine = false,
+  });
+
+  /// Test-only: runs every EXTRACAL program on the control engine, so the superset suite checks the
+  /// engine against all of Mode 1.
+  final bool forceEngine;
 
   /// Test-only: laying out more variables than this fails as if memory ran out (decision L7).
   final int? memoryLimit;
@@ -529,7 +550,8 @@ class _Lowering {
       if (s.op case IrComeFrom()) {
         final target =
             _labels[(statements[s.ordinal - 1].body as ComeFrom).label]!;
-        ir[target - 1].comeFrom = s.ordinal;
+        ir[target - 1].comeFrom ??= s.ordinal;
+        ir[target - 1].comeFroms.add(s.ordinal);
       }
     }
     for (final s in ir) {
@@ -565,8 +587,17 @@ class _Lowering {
       extracal: program.extracal,
       wideScalars: _wideScalars.values.toList(),
       wideArrays: _wideArrays.values.toList(),
+      engine:
+          program.extracal &&
+          (options.forceEngine || ir.any((s) => _needsEngine(s.op))),
     );
   }
+
+  /// The `ick` control extensions, which only the control engine runs (R3).
+  static bool _needsEngine(IrOp op) => switch (op) {
+    IrComeFrom(nexting: true) => true,
+    _ => false,
+  };
 
   IrOp _op(Statement s) {
     final body = s.body;
@@ -600,7 +631,7 @@ class _Lowering {
         for (final i in items) _expr(i),
       ], signed: signed),
       GiveUp() => const IrGiveUp(),
-      ComeFrom() => const IrComeFrom(),
+      ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       Undecodable() => IrUndecodable(_text(s)),
     };
   }

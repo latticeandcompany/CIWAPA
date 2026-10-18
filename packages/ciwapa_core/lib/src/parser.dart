@@ -16,8 +16,12 @@ class _Fail implements Exception {
 /// runs up to the next `DO`, `PLEASE` or label token. Garbage before the first statement is a
 /// statement of its own, with no identifier.
 class Parser {
-  Parser(this.source, {this.memoryLimit, bool wide = false})
-    : _tokens = Lexer(source, wide: wide).tokenize();
+  Parser(
+    this.source, {
+    this.memoryLimit,
+    bool wide = false,
+    bool extensions = false,
+  }) : _tokens = Lexer(source, wide: wide, extensions: extensions).tokenize();
 
   final Source source;
 
@@ -215,10 +219,13 @@ class Parser {
       case TokenKind.giveUp:
         _pos++;
         return const GiveUp();
-      case TokenKind.comeFrom:
+      case TokenKind.comeFrom || TokenKind.nextFrom:
         _pos++;
         if (_tok.kind != TokenKind.label) _fail();
-        return ComeFrom(_tokens[_pos++].value);
+        return ComeFrom(
+          _tokens[_pos++].value,
+          nexting: kind == TokenKind.nextFrom,
+        );
       default:
         _fail();
     }

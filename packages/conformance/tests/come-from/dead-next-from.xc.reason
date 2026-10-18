@@ -1,0 +1,1 @@
+L15 (lean (a)): in .xc the never-executed text "DO NEXT FROM (5)" is a NEXT FROM, so it traps (5).
