@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# TEMPORARY (goal 2's cleanup removes it): the bench-build contract for a CIWAPA flavor.
-exec "$CIWAPA" build --no-random-bug "$1" -o "$2"

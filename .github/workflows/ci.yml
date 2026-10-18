@@ -58,29 +58,6 @@ jobs:
         if: matrix.platform.os != 'linux'
         run: .github/scripts/ci-check.sh ${{ matrix.platform.name }} ${{ matrix.flavor }}
 
-      # TEMPORARY (goal 2's cleanup removes it): the loose performance-regression check (Q34),
-      # on the platform tools/bench/results.json was recorded on.
-      - name: Cache the C-INTERCAL tarball pit/ comes from
-        if: matrix.platform.name == 'linux-arm64'
-        uses: actions/cache@v6
-        with:
-          path: .cache/intercal-0.35.tar.gz
-          key: intercal-0.35-b55e8edc
-
-      - name: Benchmark regression check
-        if: matrix.platform.name == 'linux-arm64'
-        run: |
-          tools/oracle/fetch-pit
-          tools/in-docker tools/bench/regression ${{ matrix.flavor }}
-
-      - name: Upload benchmark results
-        if: matrix.platform.name == 'linux-arm64' && always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: bench-${{ matrix.flavor }}
-          path: .cache/bench/regression.jsonl
-          if-no-files-found: ignore
-
       - name: Upload conformance results
         if: always()
         uses: actions/upload-artifact@v7

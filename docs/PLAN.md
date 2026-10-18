@@ -293,37 +293,8 @@ Work in this order, because each stage builds on the ones before it.
 8. **Oracle and differential testing** (Q36, temporary). Run the conformance suite and `pit/` through `ick` 0.35 (and 0.15, if it built) and through both flavors. Triage every difference: a CIWAPA bug gets fixed, and an intended difference is recorded under Divergences in `SPEC_CHECKLIST.md`.
 9. **CI matrix.** Lint, test and conformance for all 10 combinations on every PR, plus a cross-check of the LLVM IR against both Apple clang and the bundled LLVM.
 10. **Release archives.** CI builds `ciwapa-dart-<ver>-<os>-<arch>` and `ciwapa-llvm-<ver>-<os>-<arch>`, each with its bundled toolchain and license notices: Dart BSD-3, LLVM Apache-2.0 with the LLVM exception, musl MIT, mingw-w64. Each archive passes a smoke test of `doctor`, then building and running hello world. Nothing is published.
-11. **Performance guardrails** (temporary). Build the benchmark harness and the baseline images, then optimize until the [guardrails](#performance-guardrails-temporary) are met.
+11. **Performance guardrails** (temporary). Build the benchmark harness and the baseline images, then optimize until the guardrails were met. (Their targets lived in a section goal 2's cleanup removed, Q140.)
 12. **Final verification** (Q140). Remove nothing: the [temporary scaffolding](#temporary-scaffolding) stays for goal 2. Run `lattice run goal-status` on the `mega` HEAD and confirm that it ends in `GOAL: MET` and that CI is green.
-
-## Performance guardrails (temporary)
-
-These are build-time guardrails, not permanent CI gates (Q34). They stay through goal 2, which reuses them for its no-regression check, and goal 2's cleanup deletes them (Q140).
-
-**Baselines** (Q30). Each runs in its own Docker image:
-
-| Baseline | How it's built |
-|---|---|
-| C-INTERCAL 0.35, `ick -O`, gcc `-O2` | from source |
-| rick, compiled mode | built from source |
-| INTERCAL-64 | built with the .NET 10 SDK, since there's no linux-arm64 prebuilt |
-| CLC-INTERCAL | apt |
-
-**Benchmarks** (Q31):
-- From `pit/`: `primes`, `pi`, `fft`, `tpk`, `unlambda`, `beer`, `life` with the glider input, and `hail_mary.3i`. `hail_mary.3i` is TriINTERCAL, so only `ick` can be compared on it.
-- Plus one or two of our own programs that stress NEXT/RESUME and ABSTAIN.
-
-**Targets** (Q32, Q33). Runtime is wall-clock time of the compiled program, summarized as a geometric mean over the benchmark set.
-
-| Measure | LLVM flavor | Dart flavor |
-|---|---|---|
-| Runtime | geometric mean ≥ 1.5× faster than the fastest baseline, **and** never slower than any baseline on any program | geometric mean at least as fast as `ick -O`, **and** faster than INTERCAL-64 and CLC-INTERCAL on every program |
-| Front end + emission | ≤ 100 ms for every `pit/` program | ≤ 100 ms for every `pit/` program |
-| End to end (`.i` → executable) | no slower than `ick` + gcc end to end | ≤ 1.5× the time of `dart compile exe` on an empty Dart program |
-
-**Where they're measured** (Q34):
-- The guardrails are checked with an on-demand benchmark script, locally in Docker on Linux arm64.
-- CI only runs a loose regression check: it fails if a benchmark becomes more than 2× slower than the last recorded result.
 
 ## Temporary scaffolding
 
@@ -335,7 +306,7 @@ Goal 1 removes **none** of this (Q140). It is kept until goal 2's cleanup, which
 | the `pit/` download script and its gitignored download directory | unit tests in every package |
 | `tools/bench/`: the benchmark harness and the rick / INTERCAL-64 / CLC images | the CI matrix (lint, test, conformance) |
 | the CI performance-regression check | the release-archive pipeline |
-| the performance targets in the docs (the section above) | `tools/in-docker`, `Dockerfile`, Dependabot, the toolchain-bump workflow |
+| the performance targets in the docs (removed by goal 2's cleanup) | `tools/in-docker`, `Dockerfile`, Dependabot, the toolchain-bump workflow |
 | `tools/goal/` and the `goal-status` Lattice task | `docs/QUESTIONS.md`, if anything is still in it |
 | every Docker image the loop built, including `ciwapa-toolchain` | the README banner, which Ryan removes |
 

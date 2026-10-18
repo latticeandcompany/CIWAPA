@@ -38,5 +38,3 @@ doc/api/
 # The spec PDF is downloaded locally, never committed (see spec/README.md)
 spec/*.pdf
 
-# The GPL pit/ corpus, downloaded by tools/oracle/fetch-pit, never committed (Q39)
-/pit/

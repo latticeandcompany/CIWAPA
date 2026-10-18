@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# TEMPORARY (goal 2's cleanup removes it): builds the named, versioned benchmark baseline images.
-# The ick image builds FROM ciwapa-oracle-ick:0.35, so run tools/oracle/build-images first.
-set -euo pipefail
-here="$(cd "$(dirname "$0")" && pwd)"
-docker build --tag ciwapa-bench-ick:0.35 "$here/ick"
-docker build --tag ciwapa-bench-rick:1d62fae "$here/rick"
-docker build --tag ciwapa-bench-intercal64:2.0.3 "$here/intercal64"
-docker build --tag ciwapa-bench-clc:1.00 "$here/clc"
