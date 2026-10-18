@@ -249,7 +249,7 @@ These apply to every turn of the loop.
   - Dart: `test` (dev), `args`, and the existing `lints`
   - toolchain downloads: Dart SDK zips, LLVM release binaries (cut down to clang + lld), llvm-mingw, and musl (to build the sysroot)
   - CI: `dart-lang/setup-dart` and the standard `actions/*`
-  - temporary-scaffolding downloads: the oracle and benchmark baselines listed below
+  - temporary-scaffolding downloads: the oracle and benchmark baselines (gone since goal 2's cleanup, Q140)
 
   Anything else goes to `QUESTIONS.md`. That is never catastrophic: carry on without it.
 - **Toolchains come from Docker** (Q48, Q68). Nothing is installed on the host. Docker images are named and versioned. Goal 1 removes none of them; goal 2's cleanup removes every image the loops created (Q140).
@@ -293,7 +293,7 @@ Work in this order, because each stage builds on the ones before it.
 8. **Oracle and differential testing** (Q36, temporary). Run the conformance suite and `pit/` through `ick` 0.35 (and 0.15, if it built) and through both flavors. Triage every difference: a CIWAPA bug gets fixed, and an intended difference is recorded under Divergences in `SPEC_CHECKLIST.md`.
 9. **CI matrix.** Lint, test and conformance for all 10 combinations on every PR, plus a cross-check of the LLVM IR against both Apple clang and the bundled LLVM.
 10. **Release archives.** CI builds `ciwapa-dart-<ver>-<os>-<arch>` and `ciwapa-llvm-<ver>-<os>-<arch>`, each with its bundled toolchain and license notices: Dart BSD-3, LLVM Apache-2.0 with the LLVM exception, musl MIT, mingw-w64. Each archive passes a smoke test of `doctor`, then building and running hello world. Nothing is published.
-11. **Performance guardrails** (temporary). Build the benchmark harness and the baseline images, then optimize until the guardrails were met. (Their targets lived in a section goal 2's cleanup removed, Q140.)
+11. **Performance guardrails** (temporary). Build the benchmark harness and the baseline images, then optimize until the guardrails are met. Their targets were in a section of this plan that goal 2's cleanup removed (Q140).
 12. **Final verification** (Q140). Remove nothing: the [temporary scaffolding](#temporary-scaffolding) stays for goal 2. Run `lattice run goal-status` on the `mega` HEAD and confirm that it ends in `GOAL: MET` and that CI is green.
 
 ## Temporary scaffolding
