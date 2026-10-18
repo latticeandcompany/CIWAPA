@@ -98,7 +98,7 @@ class DartEmitter {
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
         'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages'
-        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}' : ''});',
+        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}, latin: true' : ''});',
       );
     if (program.engine) {
       _emitEngine();

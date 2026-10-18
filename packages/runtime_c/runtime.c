@@ -583,11 +583,25 @@ static const struct { const char *word; uint32_t digit; } numerals[] = {
   {"Z\xC3""\x9C""L", 9},
 };
 
+/* `ick`'s Latin number words, which only EXTRACAL reads (R3 item 12; Mode 1 has none, T29). */
+static const struct { const char *word; uint32_t digit; } latin_numerals[] = {
+  {"NIL", 0}, {"NIHIL", 0}, {"UNUS", 1}, {"UNA", 1}, {"UNUM", 1}, {"DUO", 2}, {"DUAE", 2},
+  {"TRES", 3}, {"QUATTUOR", 4}, {"QUATUOR", 4}, {"QUINQUE", 5}, {"SEX", 6}, {"SEPTEM", 7},
+  {"OCTO", 8}, {"NOVEM", 9},
+};
+
+static int latin;
+
 /* The digit a number word stands for, or -1. */
 static int numeral_digit(const char *word, size_t size) {
   for (size_t k = 0; k < sizeof numerals / sizeof numerals[0]; k++) {
     if (strlen(numerals[k].word) == size && memcmp(numerals[k].word, word, size) == 0) {
       return (int)numerals[k].digit;
+    }
+  }
+  for (size_t k = 0; latin && k < sizeof latin_numerals / sizeof latin_numerals[0]; k++) {
+    if (strlen(latin_numerals[k].word) == size && memcmp(latin_numerals[k].word, word, size) == 0) {
+      return (int)latin_numerals[k].digit;
     }
   }
   return -1;
@@ -906,7 +920,9 @@ static void parse_options(int argc, char **argv) {
 
 /* ---- EXTRACAL's 64-bit types (R4, Q107, Q123) ---------------------------------------- */
 
+/* EXTRACAL's own setup: its 64-bit storage, and the Latin number words (R3 item 12). */
 void ick_init_wide(uint64_t *values, uint8_t *ignored, uint32_t count, uint32_t array_count) {
+  latin = 1;
   wide_values = values;
   wide_ignored = ignored;
   wide_stashes = calloc(count ? count : 1, sizeof(ick_wide_stash));

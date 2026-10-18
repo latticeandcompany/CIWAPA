@@ -204,8 +204,16 @@ class Parser {
         };
         return VarListBody(op, vars);
       case TokenKind.abstain:
-        // `ick`'s computed ABSTAIN adds the expression's value to the abstention count (R3).
         _pos++;
+        // The Latin ABSTINERE comes before a separate FROM.
+        if (_tok.kind == TokenKind.from) {
+          _pos++;
+          if (_tok.kind == TokenKind.label) {
+            return AbstainBody(abstain: true, label: _tokens[_pos++].value);
+          }
+          return AbstainBody(abstain: true, gerunds: _gerunds());
+        }
+        // `ick`'s computed ABSTAIN adds the expression's value to the abstention count (R3).
         final count = _expr();
         _expect(TokenKind.from);
         if (_tok.kind == TokenKind.label) {

@@ -86,9 +86,9 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ### 12. Latin keywords
 
-- [ ] R3.12 — `PLACET`, `FAC` and the other Latin statement identifiers. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/latin/identifiers.xc`
-- [ ] R3.12 — the Latin statements, `NON`, `QUONDAM`/`ITERUM` and gerunds. Tests: `packages/conformance/tests/extracal/latin/statements.xc`
-- [ ] R3.12 — Latin number words in WRITE IN. Tests: `packages/conformance/tests/extracal/latin/write-in.xc`
+- [ ] R3.12 — `PLACET`, `FAC` and `PLACET FACERE` are statement identifiers, recognized anywhere as `ick` does. **BLOCKED** (L15) Tests: `packages/conformance/tests/extracal/latin/identifiers.xc`
+- [x] R3.12 — the Latin statements, `NON`, `QUONDAM`/`ITERUM`, `MULTIPLICATUS A` and gerunds. Tests: `packages/conformance/tests/extracal/latin/statements.xc`, `packages/conformance/tests/extracal/latin/come-from.xc`, `packages/conformance/tests/extracal/latin/try-again.xc`
+- [x] R3.12 — Latin number words in WRITE IN, in EXTRACAL only (Mode 1's E579 stays, T29). Tests: `packages/conformance/tests/extracal/latin/write-in.xc`, `packages/conformance/tests/io/e579-latin.xc.out`
 
 ## 64-bit types (R4)
 

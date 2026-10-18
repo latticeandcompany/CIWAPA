@@ -89,7 +89,9 @@ void ickInit(
   Uint64List? wideValues,
   Uint8List? wideIgnored,
   int wideArrayCount = 0,
+  bool latin = false,
 }) {
+  _latin = latin;
   _messages = messages;
   _values = values;
   _ignored = ignored;
@@ -671,6 +673,31 @@ const _numerals = {
   'ZÜL': 9,
 };
 
+/// `ick`'s Latin number words, which only EXTRACAL reads (R3 item 12; Mode 1 has none, T29).
+const _latinNumerals = {
+  'NIL': 0,
+  'NIHIL': 0,
+  'UNUS': 1,
+  'UNA': 1,
+  'UNUM': 1,
+  'DUO': 2,
+  'DUAE': 2,
+  'TRES': 3,
+  'QUATTUOR': 4,
+  'QUATUOR': 4,
+  'QUINQUE': 5,
+  'SEX': 6,
+  'SEPTEM': 7,
+  'OCTO': 8,
+  'NOVEM': 9,
+};
+
+var _latin = false;
+
+/// The digit a number word stands for, or null.
+int? _digitOf(String word) =>
+    _numeralBytes[word] ?? (_latin ? _latinNumerals[word] : null);
+
 /// The number words as raw UTF-8 bytes (one char per byte), so input is matched byte for byte.
 final _numeralBytes = {
   for (final MapEntry(:key, :value) in _numerals.entries)
@@ -744,7 +771,7 @@ int ickWriteIn(int next) {
     while (i < line.length && line[i] != 0x20) {
       i++;
     }
-    final digit = _numeralBytes[String.fromCharCodes(line, start, i)];
+    final digit = _digitOf(String.fromCharCodes(line, start, i));
     if (digit == null) ickFatal(579, next);
     result = result * 10 + digit;
     if (result > 0xFFFFFFFF) ickFatal(533, next);
@@ -921,7 +948,7 @@ int ickWriteInSigned(int width, int next) {
         negative = true;
         continue;
       }
-      final digit = _numeralBytes[word];
+      final digit = _digitOf(word);
       if (digit == null) ickFatal(579, next);
       value = value * BigInt.from(10) + BigInt.from(digit);
       if (value > limit) ickFatal(536, next);
@@ -1175,7 +1202,7 @@ int ickWriteIn64(int next) {
     while (i < line.length && line[i] != 0x20) {
       i++;
     }
-    final digit = _numeralBytes[String.fromCharCodes(line, start, i)];
+    final digit = _digitOf(String.fromCharCodes(line, start, i));
     if (digit == null) ickFatal(579, next);
     result = result * BigInt.from(10) + BigInt.from(digit);
     if (result > _bits64Max) ickFatal(535, next);
