@@ -63,7 +63,18 @@ void main() {
         expect(run.stdout, '   \nIII\n');
       });
 
-      test('R1: -s takes only binary .xc files (E998)', () async {
+      test('R1, L35: without -s it takes only EXTRACAL files (E998)', () async {
+        final (status, err) = await build(
+          backend,
+          'plain.i',
+          'DO GIVE UP\n',
+          [],
+        );
+        expect(err, IclError.of(998).format(1));
+        expect(status, 998 % 256);
+      });
+
+      test('R1, L35: -s takes only binary .xc files (E998)', () async {
         for (final name in ['states.i', 'states.3xc']) {
           final (status, err) = await build(backend, name, 'DO GIVE UP\n', [
             '-s',
@@ -73,7 +84,7 @@ void main() {
         }
       });
 
-      test('R1: -s is a C-INTERCAL extension, so --traditional rejects it '
+      test('R1, L35: -s is a C-INTERCAL extension, so --traditional rejects it '
           '(E111)', () async {
         final (status, err) = await build(
           backend,

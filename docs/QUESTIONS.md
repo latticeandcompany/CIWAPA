@@ -202,3 +202,14 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a) for both. It keeps to the plan's written approach.
 - **Blocks:** no checklist items. The Network block is built on (a) until this is answered.
 - **Raised:** 2026-10-18
+
+## L35: Which source files do the ioi-* CLIs take?
+
+- **Context:** R1 says "Without `-s`, the `ioi-*` CLIs compile plain EXTRACAL" and Q112 says "Source files are `.xc`". Neither says what happens to a Mode 1 `.i` file, or to `.3xc`–`.7xc` with `-s`, which is built on binary-only pieces: the library blocks (L9, L17) and the 32-bit string machinery. It also isn't said whether `-s --traditional` is allowed, given that `--traditional` turns off every C-INTERCAL extension (E111).
+- **Options:**
+  - (a) Without `-s`, any EXTRACAL extension (`.xc`, `.2xc`–`.7xc`), and anything else (including `.i`) is E998. With `-s`, binary EXTRACAL only (`.xc`, `.2xc`), and anything else is E998. `-s --traditional` is E111.
+  - (b) Without `-s`, everything CIWAPA takes, Mode 1 included. With `-s`, as in (a).
+  - (c) Let `-s` work in bases 3–7 as well, with the Interstates extensions but no library.
+- **Lean:** (a). The CLIs then do what R1 says, and nothing more. E998's text names `.I`, because it is CIWAPA's message; a code of Interstates' own could replace it if Ryan prefers. The CLIs do (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/cli_test.dart` pins (a).
+- **Raised:** 2026-10-18

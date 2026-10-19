@@ -23,14 +23,14 @@ class InterstatesFrontend implements Frontend {
     required bool traditional,
     int? memoryLimit,
   }) {
-    if (args.flag('states')) {
-      // Interstates programs are binary EXTRACAL, and its extensions are C-INTERCAL ones.
-      final dialect = Source.dialectOf(source.path);
-      if (dialect == null || !dialect.extracal || dialect.base != 2) {
-        throw CompileError(998, 1);
-      }
-      if (traditional) throw CompileError(111, 1);
+    // The ioi-* CLIs compile EXTRACAL; with -s, binary EXTRACAL with C-INTERCAL-style extensions
+    // on top (L35).
+    final dialect = Source.dialectOf(source.path);
+    final states = args.flag('states');
+    if (dialect == null || !dialect.extracal || (states && dialect.base != 2)) {
+      throw CompileError(998, 1);
     }
+    if (states && traditional) throw CompileError(111, 1);
     return const CiwapaFrontend().analyze(
       source,
       args,
