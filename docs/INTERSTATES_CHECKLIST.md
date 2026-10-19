@@ -17,7 +17,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 ## Punchlines
 
 - [ ] Punchline 1 — `gross`, the General READ OUT Server System, listens on port 10585 by default.
-- [ ] Punchline 2 — `-s` turns on the Interstates extensions; without it the `ioi-*` CLIs compile plain EXTRACAL.
+- [x] Punchline 2 — `-s` turns on the Interstates extensions; without it the `ioi-*` CLIs compile plain EXTRACAL. Tests: `apps/interstates/test/cli_test.dart`, `apps/interstates/test/syntax_test.dart`
 - [ ] Punchline 3 — the database layer is ActiveCassette.
 - [ ] Punchline 4 — templates use `{{ }}` double grumpies.
 - [ ] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward.
@@ -25,11 +25,11 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Language (R1, R5, Q141, Q147)
 
-- [ ] R1 — `ioi-dart` and `ioi-llvm` have CIWAPA's `build`, `run` and `doctor` commands, and `-s` takes the source rules recorded for it.
+- [x] R1 — `ioi-dart` and `ioi-llvm` have CIWAPA's `build`, `run` and `doctor` commands, and `-s` takes the source rules recorded for it (L35). Tests: `apps/interstates/test/cli_test.dart`
 - [ ] R1 — CIWAPA's own packages and CLIs never learn about Interstates: nothing under `packages/` names it.
-- [ ] Q141 — under `-s` only, text before the first statement identifier is a comment and a bare `GIVE UP` is `DO GIVE UP`; nothing else from the site's other examples is accepted.
-- [ ] R5 — `"…"` string literals are allowed only right after `WITH ROUTE` and `WITH TEMPLATE`; anywhere else `"` is rabbit ears.
-- [ ] Q147 — politeness is checked on Interstates programs too.
+- [x] Q141 — under `-s` only, text before the first statement identifier is a comment and a bare `GIVE UP` is `DO GIVE UP`; nothing else from the site's other examples is accepted. Tests: `apps/interstates/test/syntax_test.dart`
+- [x] R5 — `"…"` string literals are allowed only right after `WITH ROUTE` and `WITH TEMPLATE`; anywhere else `"` is rabbit ears. Tests: `apps/interstates/test/syntax_test.dart`
+- [x] Q147 — politeness is checked on Interstates programs too. Tests: `apps/interstates/test/syntax_test.dart`
 
 ## gross (R2, Q120, Q144)
 

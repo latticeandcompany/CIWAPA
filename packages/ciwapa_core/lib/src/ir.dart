@@ -401,16 +401,24 @@ class IrTryAgain extends IrOp {
 }
 
 /// `PETITION #n` (R10, L29): host service [service], on the variables [petitionServices] lists
-/// for it, as [scalars] and [arrays].
+/// for it, as [scalars] and [arrays]. A [HostCall] is one with [values] too, which are evaluated in
+/// order before the service runs.
 class IrPetition extends IrOp {
-  const IrPetition(this.service, this.scalars, this.arrays);
+  const IrPetition(
+    this.service,
+    this.scalars,
+    this.arrays, {
+    this.values = const [],
+  });
 
   final int service;
   final List<Slot> scalars;
   final List<Slot> arrays;
+  final List<IrExpr> values;
 
   @override
-  String toString() => 'PETITION #$service';
+  String toString() =>
+      'PETITION #$service${values.isEmpty ? '' : ' (${values.join(', ')})'}';
 }
 
 /// A statement of `ick`'s WHILE expansion that does nothing (R3).
@@ -608,7 +616,25 @@ class IrProgram {
     this.engine = false,
     this.overloads = const [],
     this.signatures = const [],
+    this.entries = const [],
+    this.host = false,
+    this.errors = const [],
+    this.extension,
   });
+
+  /// The statements a host may start the program at instead of the first, which a language built
+  /// on CIWAPA's declares (see [lower]).
+  final List<int> entries;
+
+  /// Whether the program runs with a host: the services and hooks a language built on CIWAPA's
+  /// adds to the runtime, which its backend supplies.
+  final bool host;
+
+  /// The language's own errors, which its programs can raise besides [IclError.all].
+  final List<IclError> errors;
+
+  /// Whatever else the language's backend needs about the program. CIWAPA never reads it.
+  final Object? extension;
 
   /// The signatures of the CREATE templates, unknown statements and created operators (R3),
   /// numbered from 1. Empty when the program has no CREATE.
@@ -685,14 +711,48 @@ class IrOptions {
 }
 
 /// Lowers a checked [Program] to the IR both emitters consume.
-IrProgram lower(Program program, {IrOptions options = const IrOptions()}) =>
-    _Lowering(program, options.memoryLimit).build(options);
+///
+/// A language built on CIWAPA's passes the rest: the ordinals of its [entries], its own PETITION
+/// [services] (and their variables, as in [petitionServices]), whether the program needs its
+/// [host], its own [errors], and its backend's [extension].
+IrProgram lower(
+  Program program, {
+  IrOptions options = const IrOptions(),
+  List<int> entries = const [],
+  Map<int, ({List<String> scalars, List<String> arrays})> services = const {},
+  bool host = false,
+  List<IclError> errors = const [],
+  Object? extension,
+}) {
+  final lowered = _Lowering(program, options.memoryLimit, {
+    ...petitionServices,
+    ...services,
+  }).build(options);
+  return IrProgram(
+    lowered.base,
+    lowered.statements,
+    lowered.scalars,
+    lowered.arrays,
+    lowered.userStatements,
+    extracal: lowered.extracal,
+    wideScalars: lowered.wideScalars,
+    wideArrays: lowered.wideArrays,
+    engine: lowered.engine,
+    overloads: lowered.overloads,
+    signatures: lowered.signatures,
+    entries: entries,
+    host: host,
+    errors: errors,
+    extension: extension,
+  );
+}
 
 class _Lowering {
-  _Lowering(this.program, this.memoryLimit);
+  _Lowering(this.program, this.memoryLimit, this.services);
 
   final Program program;
   final int? memoryLimit;
+  final Map<int, ({List<String> scalars, List<String> arrays})> services;
   final _scalars = <VarRef, Slot>{};
   final _arrays = <VarRef, Slot>{};
   final _wideScalars = <VarRef, Slot>{};
@@ -859,6 +919,12 @@ class _Lowering {
       GoAhead() => const IrGoAhead(),
       Nothing() => const IrNothing(),
       Petition(:final service) => _petition(service),
+      HostCall(:final service, :final values, :final arrays) => IrPetition(
+        service,
+        const [],
+        [for (final a in arrays) _array(a)],
+        values: [for (final v in values) _expr(v)],
+      ),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
         _expr(label),
@@ -884,7 +950,7 @@ class _Lowering {
 
   /// An unknown service is a fault of its statement, E801.
   IrOp _petition(int service) {
-    final registers = petitionServices[service];
+    final registers = services[service];
     if (registers == null) {
       _faults.add(const Fault(801));
       return IrPetition(service, const [], const []);

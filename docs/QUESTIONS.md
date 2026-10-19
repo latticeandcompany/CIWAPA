@@ -213,3 +213,34 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The CLIs then do what R1 says, and nothing more. E998's text names `.I`, because it is CIWAPA's message; a code of Interstates' own could replace it if Ryan prefers. The CLIs do (a) until this is answered.
 - **Blocks:** no checklist items; `apps/interstates/test/cli_test.dart` pins (a).
 - **Raised:** 2026-10-18
+
+## L36: How do Interstates statements reach the emitters without CIWAPA learning about them?
+
+- **Context:** The plan's Technical Approach has `apps/interstates` emit "the same IR plus a small set of Interstates IR nodes, lowered by both emitters". R1 says CIWAPA's own packages never learn about Interstates, and Affected Areas allows only generic hooks in them. CIWAPA's AST and IR node types are sealed, so another package can't add nodes that the emitters would have to understand.
+- **Options:**
+  - (a) Add generic hooks, and no Interstates nodes at all. A `HostCall` statement lowers to a PETITION carrying computed values. The runtimes hand unknown services, a start point and output hooks to a "host" that the embedding backend supplies, in Dart and in C. Interstates' statements become host calls, its routes become entry points, and its runtime is the host.
+  - (b) A generic emitter-plugin hook, through which `apps/interstates` emits Dart and LLVM IR for its own nodes. It would have to know each emitter's internals.
+- **Lean:** (a). The emitters stay unaware of anything outside CIWAPA, and each Interstates feature is one place in each host runtime. The code does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+
+## L37: What exactly is the syntax of the string and database statements?
+
+- **Context:** R5 and R7 give a statement's shape, not its grammar. These are the readings the parser takes:
+  - **String literals** (R5): `"…"` runs to the next `"` on the same line, with no escapes. An unterminated one leaves the statement undecodable.
+  - **Moving strings** (R5):
+    - These are the only allowed forms:
+      - `,a <- ;4400 SUB e` and `,a <- ;49221 SUB e`
+      - `;49221 SUB e <- ,a`
+      - `;49221 SUB e <- ;4400 SUB f` and `;49221 SUB e <- ;49221 SUB f`
+    - `;4400` can't be written to.
+    - Any other use of either array raises E822 when the statement runs, Q80 style. That includes a string in a number's place, STASH, READ OUT, and a hybrid target.
+  - **Table and column numbers** (R7) are `#n` constants, because `~` and `$` there are list separators rather than operators.
+  - **`HAVING`** pairs are `#column value`, joined with `+`. A value is either a string (a whole tail array, or a `;4400`/`;49221` element) or a number (any other expression).
+  - **A read** can only be the whole of `;49221 <- '…'`. With more than one matching row, `'FROM DATABASE …' SUB r` picks row r. Without `SUB` it is row 1. The SUB goes before `HAVING`, because after a HAVING value it would read as that value's subscript, as in example D's position.
+  - **`INTO DATABASE #t~#c$… <- item + item`** takes one item per column, or E827 at compile time. A trailing `HAVING` makes it an update.
+  - **`FORGET DATABASE #t`** takes an optional `HAVING`. Without one, it deletes every row of the table.
+- **Options:** (a) as above; (b) other spellings, which would change the parser and its tests.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/syntax_test.dart` pins (a).
+- **Raised:** 2026-10-18

@@ -1413,3 +1413,21 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Source:** R3 item 8, with `ick` 0.35 semantics. `ick`'s own code for `ick`'s own condition, so it keeps the number; the text is CIWAPA's. Assigning to an overloaded variable works backwards through its expression, and fails with E277 at a constant, at a unary operator whose result can't be produced (found the way `ick` does, by building one candidate and checking it), and in bases 3–7 at any mingle, select or unary operator (L23).
 - **Tests:** `packages/conformance/tests/extracal/overloading/e277.xc`, `packages/conformance/tests/extracal/overloading/e277-unary.xc`
 - **Date:** 2026-10-18
+
+## INTERCAL on Interstates error codes
+
+Conditions that only Interstates programs can meet get codes of their own, which neither C-INTERCAL nor CIWAPA uses. They live in `apps/interstates/lib/src/errors.dart`, so CIWAPA itself never knows them (R1). Each has official text written for Interstates and a joke line. Conditions that are the same as CIWAPA's keep CIWAPA's code.
+
+### E822: a string where a number belongs, or the other way round
+- **Text:** `STRINGS AND NUMBERS DO NOT MIX.`
+- **Joke:** `A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.`
+- **Source:** R5 and L37. `;4400` and `;49221` hold whole strings, which only the forms in R5 and ActiveCassette's statements move. Any other use is E822: a string in a number's place, a number stored into `;49221`, a write to `;4400`, STASH, READ OUT, or a hybrid target. It fires when the statement executes (Q80).
+- **Tests:** `apps/interstates/test/syntax_test.dart`
+- **Date:** 2026-10-18
+
+### E827: an INTO DATABASE whose values don't match its columns
+- **Text:** `AN INTO DATABASE HAS THE WRONG NUMBER OF VALUES.`
+- **Joke:** `THE CASSETTE HAS A SLOT FOR EACH COLUMN. COUNT THEM.`
+- **Source:** R7, Q145 and L37. `INTO DATABASE #t~#c$… <- item + item` needs one item per column. The columns and items are both known when the program compiles, so this is a compile-time error, reported at the statement.
+- **Tests:** `apps/interstates/test/syntax_test.dart`
+- **Date:** 2026-10-18

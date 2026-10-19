@@ -1,5 +1,9 @@
 import 'package:args/args.dart';
 import 'package:ciwapa_core/ciwapa_core.dart';
+import 'package:ciwapa_core/ciwapa_core.dart' as core show analyze, lower;
+
+import 'errors.dart';
+import 'syntax.dart';
 
 /// The `ioi-*` front end: plain EXTRACAL, or with `-s` ('States) the Interstates extensions
 /// (R1, punchline 2).
@@ -31,15 +35,50 @@ class InterstatesFrontend implements Frontend {
       throw CompileError(998, 1);
     }
     if (states && traditional) throw CompileError(111, 1);
-    return const CiwapaFrontend().analyze(
-      source,
-      args,
-      traditional: traditional,
-      memoryLimit: memoryLimit,
-    );
+    if (!states) {
+      return const CiwapaFrontend().analyze(
+        source,
+        args,
+        traditional: traditional,
+        memoryLimit: memoryLimit,
+      );
+    }
+    return analyzeInterstates(source, memoryLimit: memoryLimit);
   }
 
   @override
-  IrProgram lower(Program program, ArgResults args, IrOptions options) =>
-      const CiwapaFrontend().lower(program, args, options);
+  IrProgram lower(Program program, ArgResults args, IrOptions options) {
+    if (!args.flag('states')) {
+      return const CiwapaFrontend().lower(program, args, options);
+    }
+    return core.lower(program, options: options, errors: interstatesErrors);
+  }
 }
+
+/// Parses an Interstates program and runs CIWAPA's whole-program checks, then its own.
+Program analyzeInterstates(Source source, {int? memoryLimit}) {
+  final program = core.analyze(
+    source,
+    memoryLimit: memoryLimit,
+    parser: (source, {required wide, required extensions}) =>
+        InterstatesParser(source, memoryLimit: memoryLimit),
+  );
+  for (final (i, s)
+      in program.statements.take(program.userStatements).indexed) {
+    if (s.data case DatabaseWrite(:final columns, :final items)
+        when columns != items) {
+      throw interstatesCompileError(827, i + 1);
+    }
+    // ;4400 and ;49221 hold strings, which only the Interstates statements can move (R5).
+    if (s.body is! HostCall && _usesStrings(s.body)) {
+      s.body = InterstatesParser.fault(822);
+    }
+  }
+  return program;
+}
+
+bool _usesStrings(Body body) => switch (body) {
+  Dimension(:final array) when isStringArray(array) => true,
+  VarListBody(:final vars) => vars.any(isStringArray),
+  _ => expressionsOf(body).any(mentionsStrings),
+};

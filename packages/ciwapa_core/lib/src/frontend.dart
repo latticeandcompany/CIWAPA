@@ -10,6 +10,9 @@ import 'syslib/syslib.g.dart';
 class CompileError implements Exception {
   CompileError(int code, this.statement) : error = IclError.of(code);
 
+  /// An error of a language built on CIWAPA's, which isn't in [IclError.all].
+  CompileError.of(this.error, this.statement);
+
   final IclError error;
 
   /// The offending statement's ordinal. Errors with no offending statement report statement 1, the
@@ -49,18 +52,36 @@ bool isValidLabel(int label) => label >= 1 && label <= 65535;
 
 /// Parses [source] and runs the whole-program checks, in C-INTERCAL 0.15's order.
 /// [memoryLimit] is test-only (decision L7): see [Parser.memoryLimit].
-Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
+///
+/// A language built on CIWAPA's passes its own [parser], and [libraries]: blocks of its own that
+/// EXTRACAL programs get in the same way as the standard library's.
+Program analyze(
+  Source source, {
+  bool traditional = false,
+  int? memoryLimit,
+  Parser Function(
+    Source source, {
+    required bool wide,
+    required bool extensions,
+  })?
+  parser,
+  List<LibraryBlock> libraries = const [],
+}) {
   final dialect = Source.dialectOf(source.path);
   if (dialect == null) throw CompileError(998, 1);
   final base = dialect.base;
   if (traditional && base != 2) throw CompileError(111, 1);
 
-  final statements = Parser(
-    source,
-    memoryLimit: memoryLimit,
-    wide: dialect.extracal && base == 2,
-    extensions: dialect.extracal,
-  ).parse();
+  final wide = dialect.extracal && base == 2;
+  final statements =
+      (parser?.call(source, wide: wide, extensions: dialect.extracal) ??
+              Parser(
+                source,
+                memoryLimit: memoryLimit,
+                wide: wide,
+                extensions: dialect.extracal,
+              ))
+          .parse();
   if (traditional) {
     for (final (i, s) in statements.indexed) {
       final gerund = s.body.gerund;
@@ -76,6 +97,7 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
           s.maybe ||
           s.whileBody != null ||
           body is Petition ||
+          body is HostCall ||
           (body is IoBody && body.baudot)) {
         throw CompileError(111, i + 1);
       }
@@ -94,6 +116,7 @@ Program analyze(Source source, {bool traditional = false, int? memoryLimit}) {
     statements,
     base,
     extracal: dialect.extracal && !traditional,
+    libraries: libraries,
   );
   _checkLabels(statements, extracal: dialect.extracal);
   _checkOperators(statements, base);
@@ -210,14 +233,15 @@ void _includeLibraries(
   List<Statement> statements,
   int base, {
   required bool extracal,
+  required List<LibraryBlock> libraries,
 }) {
   if (base != 2) return;
   final user = statements.length;
   final blocks = [
     (name: 'syslib.i', first: 1000, last: 1999, source: syslibSource),
     if (extracal)
-      for (final b in libraryBlocks)
-        (name: '${b.name}.xc', first: b.first, last: b.last, source: b.source),
+      for (final b in [...libraryBlocks, ...libraries])
+        (name: b.name, first: b.first, last: b.last, source: b.source),
   ];
   final included = <String>{};
   var changed = true;
@@ -332,6 +356,7 @@ Iterable<Expr> expressionsOf(Body body) => switch (body) {
   AbstainBody(:final count?) => [count],
   Create(:final target?) => [target],
   IoBody(:final items) => items,
+  HostCall(:final values) => values,
   _ => const [],
 };
 

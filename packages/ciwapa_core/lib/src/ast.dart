@@ -314,7 +314,27 @@ class Petition extends Body {
   Gerund get gerund => Gerund.petitioning;
 }
 
-/// A statement that does nothing, which only `ick`'s WHILE expansion makes (R3).
+/// A statement that a language built on CIWAPA's adds: it evaluates [values] in order, then asks
+/// the host for [service] with their values and with [arrays] (by number). It counts as a statement
+/// of [gerund]'s kind. Only such a language's own parser makes one.
+class HostCall extends Body {
+  const HostCall(
+    this.service, {
+    this.values = const [],
+    this.arrays = const [],
+    this.gerund,
+  });
+
+  final int service;
+  final List<Expr> values;
+  final List<VarRef> arrays;
+
+  @override
+  final Gerund? gerund;
+}
+
+/// A statement that does nothing, which `ick`'s WHILE expansion makes (R3), as can a language built
+/// on CIWAPA's.
 class Nothing extends Body {
   const Nothing();
 
@@ -467,4 +487,7 @@ class Statement {
 
   /// Whether the statement has an identifier at all. Garbage before the first statement doesn't.
   bool hasIdentifier = true;
+
+  /// What a language built on CIWAPA's knows about the statement. CIWAPA never reads it.
+  Object? data;
 }
