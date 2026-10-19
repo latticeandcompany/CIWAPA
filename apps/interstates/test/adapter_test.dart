@@ -74,13 +74,19 @@ void main() {
         run.stdout,
         'Status: 200 OK\nContent-Type: text/html; charset=utf-8\n\nremember me\n \nI\n',
       );
-      expect((run.stderr as String).split('\n').where((l) => l.isNotEmpty), [
-        'loud: connect ./notes.db',
-        'loud: CREATE TABLE notes (body TEXT) (0 parameters)',
-        'loud: INSERT INTO "notes" ("body") VALUES (?) (1 parameters)',
-        'loud: SELECT "body" FROM "notes" WHERE "body" = ? (1 parameters)',
-        'loud: DROP TABLE "notes" (0 parameters)',
-      ]);
+      // A DLL's stderr is in text mode on Windows, so its lines end in \r\n.
+      expect(
+        (run.stderr as String)
+            .split(RegExp(r'\r?\n'))
+            .where((l) => l.isNotEmpty),
+        [
+          'loud: connect ./notes.db',
+          'loud: CREATE TABLE notes (body TEXT) (0 parameters)',
+          'loud: INSERT INTO "notes" ("body") VALUES (?) (1 parameters)',
+          'loud: SELECT "body" FROM "notes" WHERE "body" = ? (1 parameters)',
+          'loud: DROP TABLE "notes" (0 parameters)',
+        ],
+      );
     });
   }
 }
