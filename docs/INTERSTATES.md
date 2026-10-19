@@ -35,7 +35,8 @@ ioi-llvm build prog.xc                              # plain EXTRACAL, as ciwapa-
 
 `--no-random-bug` turns off CIWAPA's random compiler bug. Without it, each statement has a 1 in 128
 chance of an E774 planted at build time. In a site of any size, that means some route answers 500
-until the next build moves the bug somewhere else. Leave the flag off for the authentic experience.
+until the next build moves the bug somewhere else. Leave the flag off for the authentic
+experience.
 
 `-s` turns on everything in this guide. It takes binary EXTRACAL files only (`.xc`, `.2xc`), and
 it can't be combined with `--traditional` (E111).
