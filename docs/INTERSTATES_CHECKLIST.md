@@ -12,7 +12,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## The site's hello world
 
-- [ ] Punchline 7 — the site's hello world (Appendix A) compiles with `ioi-dart` and `ioi-llvm` exactly as written and serves its page through `gross`.
+- [x] Punchline 7 — the site's hello world (Appendix A) compiles with `ioi-dart` and `ioi-llvm` exactly as written and serves its page through `gross`. Tests: `apps/interstates/test/golden/hello/hello.xc`, `apps/interstates/test/hello_test.dart`
 
 ## Punchlines
 
