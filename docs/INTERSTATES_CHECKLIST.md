@@ -21,7 +21,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [ ] Punchline 3 — the database layer is ActiveCassette.
 - [ ] Punchline 4 — templates use `{{ }}` double grumpies.
 - [ ] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward.
-- [ ] Punchline 6 — `(16000)` is the implicit entry label that no program defines.
+- [x] Punchline 6 — `(16000)` is the implicit entry label that no program defines. Tests: `apps/interstates/test/golden/routes/catch-all.xc`, `apps/interstates/test/golden/routes/param.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`
 
 ## Language (R1, R5, Q141, Q147)
 
@@ -44,17 +44,17 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Routes
 
-- [ ] R3 — a `COME FROM (16000) WITH ROUTE` is a public route, and a bare `COME FROM (16000)` is the catch-all.
-- [ ] R3 — fixed segments beat `:param` segments, and two equally specific routes fail at compile time.
-- [ ] R3 — no matching route and no catch-all is a 404 page.
-- [ ] R3 — `COME FROM (L) WITH ROUTE` fails the build unless `L` is a `READ OUT … WITH TEMPLATE` whose template links the route.
-- [ ] R3 — a restricted route answers 403 unless the `Referer` is a page that line `L` could have rendered.
+- [x] R3 — a `COME FROM (16000) WITH ROUTE` is a public route, and a bare `COME FROM (16000)` is the catch-all. Tests: `apps/interstates/test/golden/routes/param.xc`, `apps/interstates/test/golden/routes/catch-all.xc`, `apps/interstates/test/golden/routes/root-is-catch-all.xc`
+- [x] R3 — fixed segments beat `:param` segments, and two equally specific routes fail at compile time. Tests: `apps/interstates/test/golden/routes/fixed-beats-param.xc`, `apps/interstates/test/golden/routes/three-params.xc`, `apps/interstates/test/golden/routes/e441-tie.xc`, `apps/interstates/test/golden/routes/e441-two-catch-alls.xc`
+- [x] R3 — no matching route and no catch-all is a 404 page. Tests: `apps/interstates/test/golden/routes/no-route.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`, `apps/interstates/test/gross_test.dart`
+- [x] R3 — `COME FROM (L) WITH ROUTE` fails the build unless `L` is a `READ OUT … WITH TEMPLATE` whose template links the route. Tests: `apps/interstates/test/golden/routes/e443-not-a-template.xc`, `apps/interstates/test/golden/routes/e443-unlinked.xc`, `apps/interstates/test/golden/routes/e444-route-label.xc`, `apps/interstates/test/golden/routes/e777-missing-template.xc`, `apps/interstates/test/golden/routes/e442-no-slash.xc`
+- [x] R3 — a restricted route answers 403 unless the `Referer` is a page that line `L` could have rendered. Tests: `apps/interstates/test/golden/routes/restricted-ok.xc`, `apps/interstates/test/golden/routes/restricted-dynamic-link.xc`, `apps/interstates/test/golden/routes/restricted-no-referer.xc`, `apps/interstates/test/golden/routes/restricted-wrong-referer.xc`, `apps/interstates/test/golden/routes/restricted-other-host.xc`, `apps/interstates/test/gross_test.dart`
 - [ ] R3 — a `WITH ROUTE` COME FROM never fires as an ordinary COME FROM, and many may share a label without E555.
-- [ ] Edge cases — empty, percent-encoded (`%2F`) and non-ASCII `:param` values.
+- [x] Edge cases — empty, percent-encoded (`%2F`) and non-ASCII `:param` values. Tests: `apps/interstates/test/golden/routes/empty-param.xc`, `apps/interstates/test/golden/routes/encoded-slash.xc`, `apps/interstates/test/golden/routes/encoded-utf8.xc`, `apps/interstates/test/golden/routes/raw-utf8.xc`, `apps/interstates/test/golden/routes/malformed-utf8.xc`
 
 ## Request and response
 
-- [ ] R4, R5 — `;4400 SUB n` copies the nth route parameter into a tail array, which is resized to fit.
+- [x] R4, R5 — `;4400 SUB n` copies the nth route parameter into a tail array, which is resized to fit. Tests: `apps/interstates/test/golden/routes/param.xc`, `apps/interstates/test/golden/routes/three-params.xc`, `apps/interstates/test/golden/routes/param-past-the-end.xc`
 - [x] R5 — `;49221 SUB n` stores a string in either direction. Tests: `apps/interstates/test/golden/cgi/strings.xc`
 - [x] R4 — every `(16001)`+ routine: the method, query string, headers, cookies, status, headers, cookies and redirects (L38). Tests: `apps/interstates/test/golden/cgi/method.xc`, `apps/interstates/test/golden/cgi/query.xc`, `apps/interstates/test/golden/cgi/header.xc`, `apps/interstates/test/golden/cgi/cookie.xc`, `apps/interstates/test/golden/cgi/form.xc`, `apps/interstates/test/golden/cgi/form-not-a-form.xc`, `apps/interstates/test/golden/cgi/body.xc`, `apps/interstates/test/golden/cgi/status-headers-cookies.xc`, `apps/interstates/test/golden/cgi/content-type.xc`, `apps/interstates/test/golden/cgi/redirect.xc`, `apps/interstates/test/golden/cgi/form-raw-utf8.xc`, `apps/interstates/test/golden/cgi/body-to-end.xc`
 - [x] R4 — `WRITE IN` reads the request body. Tests: `apps/interstates/test/golden/cgi/write-in.xc`

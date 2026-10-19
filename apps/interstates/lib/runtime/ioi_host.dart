@@ -6,9 +6,27 @@ import 'dart:io';
 
 import 'package:ciwapa_dart/runtime/runtime.dart';
 
+/// A route, as the compiler ordered them, most specific first and the catch-all last (R3).
+class IoiRoute {
+  const IoiRoute(this.entry, this.segments, this.allowed);
+
+  /// The ordinal of its `WITH ROUTE` COME FROM, where the program starts for it.
+  final int entry;
+
+  /// Its pattern's segments, with null for a `:param`; null for the catch-all.
+  final List<String?>? segments;
+
+  /// For a restricted route, the routes (by index) whose pages may link to it; null for a public
+  /// one.
+  final List<int>? allowed;
+}
+
 /// A request, read the CGI/1.1 way from the environment and stdin, and the response the program
 /// builds for it (R2, R4).
 class IoiHost extends IckHost {
+  IoiHost({this.routes = const []});
+
+  final List<IoiRoute> routes;
   final Map<String, String> _env = Platform.environment;
 
   /// The route parameters, `;4400`, and the template arguments, `;49221` (R5).
@@ -93,6 +111,83 @@ class IoiHost extends IckHost {
         return false;
     }
     return true;
+  }
+
+  /// Where the request's route starts the program (R3, Q113, Q114): no route is E440 (a 404
+  /// page), and a restricted route whose `Referer` isn't a page that may link to it is E403.
+  @override
+  int start() {
+    final matched = _match(_requestPath());
+    if (matched == null) ickFatal(440, 1);
+    final (index, values) = matched;
+    final route = routes[index];
+    if (route.allowed case final allowed?) {
+      final referer = _refererPath();
+      final from = referer == null ? null : _match(referer)?.$1;
+      if (from == null || !allowed.contains(from)) ickFatal(403, route.entry);
+    }
+    _params.addAll(values);
+    return route.entry;
+  }
+
+  /// The route [segments] lead to, and its parameters' values.
+  (int, List<String>)? _match(List<String>? segments) {
+    if (segments == null) return null;
+    for (final (i, route) in routes.indexed) {
+      final pattern = route.segments;
+      if (pattern == null) return (i, const []);
+      if (pattern.length != segments.length) continue;
+      final values = <String>[];
+      var fits = true;
+      for (var j = 0; j < pattern.length && fits; j++) {
+        if (pattern[j] == null) {
+          values.add(segments[j]);
+        } else {
+          fits = pattern[j] == segments[j];
+        }
+      }
+      if (fits) return (i, values);
+    }
+    return null;
+  }
+
+  /// The request's path segments, decoded: from REQUEST_URI as sent, so that `%2F` stays inside
+  /// its segment, or failing that from PATH_INFO.
+  List<String>? _requestPath() {
+    if (_env['REQUEST_URI'] case final uri?) {
+      return _segments(
+        uri.replaceFirst(RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://[^/]*'), ''),
+      );
+    }
+    final info = _env['PATH_INFO'] ?? '';
+    return (info.isEmpty ? '/' : info).substring(1).split('/');
+  }
+
+  /// The `Referer`'s path, when it is a page of this same host.
+  List<String>? _refererPath() {
+    final referer = _env['HTTP_REFERER'];
+    final host = _env['HTTP_HOST'];
+    if (referer == null || host == null) return null;
+    final m = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]*)(.*)$')
+        .firstMatch(referer);
+    if (m == null || _asciiLower(m.group(1)!) != _asciiLower(host)) return null;
+    final path = m.group(2)!;
+    return _segments(path.isEmpty || !path.startsWith('/') ? '/$path' : path);
+  }
+
+  static String _asciiLower(String s) => String.fromCharCodes([
+    for (final c in s.codeUnits) c >= 0x41 && c <= 0x5A ? c + 32 : c,
+  ]);
+
+  /// A raw path's segments, up to any `?` or `#`, each percent-decoded; null unless it starts
+  /// with `/`.
+  static List<String>? _segments(String raw) {
+    final end = raw.indexOf(RegExp('[?#]'));
+    final path = end < 0 ? raw : raw.substring(0, end);
+    if (!path.startsWith('/')) return null;
+    return [
+      for (final s in path.substring(1).split('/')) urlDecode(utf8.encode(s)),
+    ];
   }
 
   /// The CGI response's headers, before the first byte of its body (R2).
@@ -223,10 +318,6 @@ class IoiHost extends IckHost {
     if (!type.startsWith('application/x-www-form-urlencoded')) return const [];
     return _requestBody();
   }
-
-  static String _asciiLower(String s) => String.fromCharCodes([
-    for (final c in s.codeUnits) c >= 0x41 && c <= 0x5A ? c + 32 : c,
-  ]);
 
   /// The request body, read once from stdin: CONTENT_LENGTH bytes, or up to the end of input.
   List<int> _requestBody() {

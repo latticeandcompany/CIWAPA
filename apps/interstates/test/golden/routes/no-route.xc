@@ -1,0 +1,9 @@
+PLEASE COME FROM (16000) WITH ROUTE "/blog/:id"
+DO ,1 <- #4
+DO ,1 SUB #1 <- #112
+DO ,1 SUB #2 <- #111
+PLEASE ,1 SUB #3 <- #115
+DO ,1 SUB #4 <- #116
+DO .1 <- #1
+DO (2310) NEXT
+DO GIVE UP

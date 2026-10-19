@@ -9,9 +9,27 @@ import 'dart:io';
 
 import 'runtime.dart';
 
+/// A route, as the compiler ordered them, most specific first and the catch-all last (R3).
+class IoiRoute {
+  const IoiRoute(this.entry, this.segments, this.allowed);
+
+  /// The ordinal of its `WITH ROUTE` COME FROM, where the program starts for it.
+  final int entry;
+
+  /// Its pattern's segments, with null for a `:param`; null for the catch-all.
+  final List<String?>? segments;
+
+  /// For a restricted route, the routes (by index) whose pages may link to it; null for a public
+  /// one.
+  final List<int>? allowed;
+}
+
 /// A request, read the CGI/1.1 way from the environment and stdin, and the response the program
 /// builds for it (R2, R4).
 class IoiHost extends IckHost {
+  IoiHost({this.routes = const []});
+
+  final List<IoiRoute> routes;
   final Map<String, String> _env = Platform.environment;
 
   /// The route parameters, `;4400`, and the template arguments, `;49221` (R5).
@@ -96,6 +114,83 @@ class IoiHost extends IckHost {
         return false;
     }
     return true;
+  }
+
+  /// Where the request's route starts the program (R3, Q113, Q114): no route is E440 (a 404
+  /// page), and a restricted route whose `Referer` isn't a page that may link to it is E403.
+  @override
+  int start() {
+    final matched = _match(_requestPath());
+    if (matched == null) ickFatal(440, 1);
+    final (index, values) = matched;
+    final route = routes[index];
+    if (route.allowed case final allowed?) {
+      final referer = _refererPath();
+      final from = referer == null ? null : _match(referer)?.$1;
+      if (from == null || !allowed.contains(from)) ickFatal(403, route.entry);
+    }
+    _params.addAll(values);
+    return route.entry;
+  }
+
+  /// The route [segments] lead to, and its parameters' values.
+  (int, List<String>)? _match(List<String>? segments) {
+    if (segments == null) return null;
+    for (final (i, route) in routes.indexed) {
+      final pattern = route.segments;
+      if (pattern == null) return (i, const []);
+      if (pattern.length != segments.length) continue;
+      final values = <String>[];
+      var fits = true;
+      for (var j = 0; j < pattern.length && fits; j++) {
+        if (pattern[j] == null) {
+          values.add(segments[j]);
+        } else {
+          fits = pattern[j] == segments[j];
+        }
+      }
+      if (fits) return (i, values);
+    }
+    return null;
+  }
+
+  /// The request's path segments, decoded: from REQUEST_URI as sent, so that `%2F` stays inside
+  /// its segment, or failing that from PATH_INFO.
+  List<String>? _requestPath() {
+    if (_env['REQUEST_URI'] case final uri?) {
+      return _segments(
+        uri.replaceFirst(RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://[^/]*'), ''),
+      );
+    }
+    final info = _env['PATH_INFO'] ?? '';
+    return (info.isEmpty ? '/' : info).substring(1).split('/');
+  }
+
+  /// The `Referer`'s path, when it is a page of this same host.
+  List<String>? _refererPath() {
+    final referer = _env['HTTP_REFERER'];
+    final host = _env['HTTP_HOST'];
+    if (referer == null || host == null) return null;
+    final m = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]*)(.*)$')
+        .firstMatch(referer);
+    if (m == null || _asciiLower(m.group(1)!) != _asciiLower(host)) return null;
+    final path = m.group(2)!;
+    return _segments(path.isEmpty || !path.startsWith('/') ? '/$path' : path);
+  }
+
+  static String _asciiLower(String s) => String.fromCharCodes([
+    for (final c in s.codeUnits) c >= 0x41 && c <= 0x5A ? c + 32 : c,
+  ]);
+
+  /// A raw path's segments, up to any `?` or `#`, each percent-decoded; null unless it starts
+  /// with `/`.
+  static List<String>? _segments(String raw) {
+    final end = raw.indexOf(RegExp('[?#]'));
+    final path = end < 0 ? raw : raw.substring(0, end);
+    if (!path.startsWith('/')) return null;
+    return [
+      for (final s in path.substring(1).split('/')) urlDecode(utf8.encode(s)),
+    ];
   }
 
   /// The CGI response's headers, before the first byte of its body (R2).
@@ -226,10 +321,6 @@ class IoiHost extends IckHost {
     if (!type.startsWith('application/x-www-form-urlencoded')) return const [];
     return _requestBody();
   }
-
-  static String _asciiLower(String s) => String.fromCharCodes([
-    for (final c in s.codeUnits) c >= 0x41 && c <= 0x5A ? c + 32 : c,
-  ]);
 
   /// The request body, read once from stdin: CONTENT_LENGTH bytes, or up to the end of input.
   List<int> _requestBody() {
@@ -366,6 +457,26 @@ const uint32_t *ick_string(uint32_t array, size_t *length, uint32_t next);
 void ick_set_string(uint32_t array, const uint16_t *units, size_t length);
 void ick_output(const char *bytes, size_t length);
 int ick_numeral_rows(uint64_t value, char rows[3][96]);
+
+/* ---- The program's own data, which ioi-llvm appends to this file ----------------------- */
+
+/* A route segment: fixed text, or a :param (length -1). */
+typedef struct {
+  const uint16_t *units;
+  int32_t length;
+} ioi_segment;
+
+/* A route, as the compiler ordered them, most specific first and the catch-all last (R3). */
+typedef struct {
+  const ioi_segment *segments;
+  int32_t segment_count; /* -1 for the catch-all */
+  uint32_t entry;        /* the ordinal of its WITH ROUTE COME FROM */
+  int32_t allowed_count; /* -1 for a public route */
+  const uint32_t *allowed;
+} ioi_route;
+
+extern const ioi_route ioi_routes[];
+extern const uint32_t ioi_route_count;
 
 /* ---- Strings: UTF-16 code units, as the runtime keeps them ------------------------------- */
 
@@ -981,7 +1092,167 @@ static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_c
   return 1;
 }
 
-static uint32_t start(void) { return 0; }
+/* ---- Routes (R3, Q113, Q114) ------------------------------------------------------------- */
+
+typedef struct {
+  ioi_string *items;
+  size_t count;
+} ioi_strings;
+
+static void strings_free(ioi_strings *list) {
+  for (size_t i = 0; i < list->count; i++) str_free(&list->items[i]);
+  free(list->items);
+  list->items = NULL;
+  list->count = 0;
+}
+
+/* A raw path's segments, up to any ? or #, each percent-decoded; 0 unless it starts with /. */
+static int segments_of(ioi_string raw, size_t from, ioi_strings *out) {
+  size_t end = from;
+  while (end < raw.length && raw.units[end] != '?' && raw.units[end] != '#') end++;
+  if (from >= end || raw.units[from] != '/') return 0;
+  size_t count = 1;
+  for (size_t i = from + 1; i < end; i++) count += raw.units[i] == '/';
+  out->items = checked(malloc(count * sizeof(ioi_string)));
+  out->count = 0;
+  size_t start = from + 1;
+  for (size_t i = from + 1; i <= end; i++) {
+    if (i < end && raw.units[i] != '/') continue;
+    size_t length;
+    char *bytes = str_utf8((ioi_string){raw.units + start, i - start}, &length);
+    out->items[out->count++] = url_decode((const uint8_t *)bytes, length, 0);
+    free(bytes);
+    start = i + 1;
+  }
+  return 1;
+}
+
+static int scheme_char(uint16_t c, int first) {
+  uint16_t lower = c | 32;
+  if (lower >= 'a' && lower <= 'z') return 1;
+  return !first && ((c >= '0' && c <= '9') || c == '+' || c == '.' || c == '-');
+}
+
+/* Where the scheme and authority of an absolute URL end (scheme://authority), or 0 if it has
+ * none; [authority] is where the authority starts. */
+static size_t after_authority(ioi_string s, size_t *authority) {
+  size_t i = 0;
+  while (i < s.length && scheme_char(s.units[i], i == 0)) i++;
+  if (i == 0 || i + 3 > s.length || s.units[i] != ':' || s.units[i + 1] != '/' || s.units[i + 2] != '/') return 0;
+  *authority = i + 3;
+  for (i += 3; i < s.length && s.units[i] != '/' && s.units[i] != '?' && s.units[i] != '#'; i++) {
+  }
+  return i;
+}
+
+/* The request's path segments, decoded: from REQUEST_URI as sent, so that %2F stays inside its
+ * segment, or failing that from PATH_INFO. */
+static int request_path(ioi_strings *out) {
+  ioi_string uri;
+  if (env("REQUEST_URI", &uri)) {
+    size_t authority, from = after_authority(uri, &authority);
+    int ok = segments_of(uri, from, out);
+    str_free(&uri);
+    return ok;
+  }
+  ioi_string info = env_or_empty("PATH_INFO");
+  size_t count = 1, start = 1;
+  if (!info.length) {
+    str_free(&info);
+    info = str_ascii("/");
+  }
+  for (size_t i = 1; i < info.length; i++) count += info.units[i] == '/';
+  out->items = checked(malloc(count * sizeof(ioi_string)));
+  out->count = 0;
+  for (size_t i = 1; i <= info.length; i++) {
+    if (i < info.length && info.units[i] != '/') continue;
+    ioi_string segment = str_new(i - start);
+    memcpy(segment.units, info.units + start, (i - start) * sizeof(uint16_t));
+    segment.length = i - start;
+    out->items[out->count++] = segment;
+    start = i + 1;
+  }
+  str_free(&info);
+  return 1;
+}
+
+static uint16_t ascii_lower(uint16_t c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
+
+/* The Referer's path, when it is a page of this same host. */
+static int referer_path(ioi_strings *out) {
+  ioi_string referer, host;
+  if (!env("HTTP_REFERER", &referer)) return 0;
+  if (!env("HTTP_HOST", &host)) {
+    str_free(&referer);
+    return 0;
+  }
+  size_t authority = 0, end = after_authority(referer, &authority);
+  int same = end && end - authority == host.length;
+  for (size_t i = 0; same && i < host.length; i++) {
+    same = ascii_lower(referer.units[authority + i]) == ascii_lower(host.units[i]);
+  }
+  int ok = 0;
+  if (same) {
+    if (end < referer.length && referer.units[end] == '/') {
+      ok = segments_of(referer, end, out);
+    } else {
+      ioi_string root = str_ascii("/");
+      ok = segments_of(root, 0, out);
+      str_free(&root);
+    }
+  }
+  str_free(&referer);
+  str_free(&host);
+  return ok;
+}
+
+/* The index of the route [segments] lead to, filling [values] with its parameters, or -1. */
+static int32_t match(ioi_strings segments, ioi_strings *values) {
+  for (uint32_t i = 0; i < ioi_route_count; i++) {
+    const ioi_route *r = &ioi_routes[i];
+    values->items = NULL;
+    values->count = 0;
+    if (r->segment_count < 0) return (int32_t)i;
+    if ((size_t)r->segment_count != segments.count) continue;
+    int fits = 1;
+    for (int32_t j = 0; j < r->segment_count && fits; j++) {
+      const ioi_segment *p = &r->segments[j];
+      if (p->length >= 0) {
+        fits = (size_t)p->length == segments.items[j].length &&
+               (p->length == 0 || !memcmp(p->units, segments.items[j].units, (size_t)p->length * sizeof(uint16_t)));
+      }
+    }
+    if (!fits) continue;
+    values->items = checked(malloc((segments.count ? segments.count : 1) * sizeof(ioi_string)));
+    for (int32_t j = 0; j < r->segment_count; j++) {
+      if (r->segments[j].length < 0) values->items[values->count++] = str_copy(segments.items[j]);
+    }
+    return (int32_t)i;
+  }
+  return -1;
+}
+
+/* Where the request's route starts the program: no route is E440 (a 404 page), and a restricted
+ * route whose Referer isn't a page that may link to it is E403. */
+static uint32_t start(void) {
+  ioi_strings path = {NULL, 0}, values = {NULL, 0};
+  int32_t index = request_path(&path) ? match(path, &values) : -1;
+  strings_free(&path);
+  if (index < 0) ick_fatal(440, 1);
+  const ioi_route *route = &ioi_routes[index];
+  if (route->allowed_count >= 0) {
+    ioi_strings referer = {NULL, 0}, ignored = {NULL, 0};
+    int32_t from = referer_path(&referer) ? match(referer, &ignored) : -1;
+    strings_free(&referer);
+    strings_free(&ignored);
+    int allowed = 0;
+    for (int32_t i = 0; i < route->allowed_count && from >= 0; i++) allowed |= route->allowed[i] == (uint32_t)from;
+    if (!allowed) ick_fatal(403, route->entry);
+  }
+  params = values.items;
+  param_count = values.count;
+  return route->entry;
+}
 
 static const ick_host ioi_host = {start, petition, prologue};
 

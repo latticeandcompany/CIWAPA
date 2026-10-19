@@ -156,13 +156,18 @@ void main() {
       });
 
       Future<Gross> serve(
-        String source, {
+        String body, {
         bool states = true,
         String? staticDir,
         String? database,
         Duration timeout = const Duration(seconds: 30),
         Map<String, String>? environment,
+        bool catchAll = true,
       }) async {
+        // Every request needs a route: a program without one answers 404 (L40).
+        final source = states && catchAll
+            ? 'DO COME FROM (16000)\n$body'
+            : body;
         final exe = await build(backend, temp, source, states: states);
         final gross = await Gross.start(
           GrossConfig(
@@ -398,6 +403,51 @@ void main() {
         expect(log, contains(endsWith(': complaint')));
       });
 
+      test('no route is a 404 ICL page, and a restricted route without its page a 403', () async {
+        Directory('${temp.path}/pages').createSync();
+        File('${temp.path}/pages/home.html')
+            .writeAsStringSync('<a href="/secret">s</a>');
+        final gross = await serve(
+          program([
+            'COME FROM (16000) WITH ROUTE "/"',
+            'L(10) READ OUT #0 WITH TEMPLATE "pages/home.html"',
+            'GIVE UP',
+            'COME FROM (10) WITH ROUTE "/secret"',
+            ...string(',1', 'secret'),
+            ...writeLine,
+            'GIVE UP',
+          ]),
+          catchAll: false,
+        );
+        final missing = await request(gross.port, '/nowhere/at/all');
+        expect(missing.status, 404);
+        expect(
+          missing.body,
+          contains(
+            '<pre>ICL440I NO ROUTE MATCHES THE REQUESTED PATH.\n'
+            '        THIS ROAD IS NOT ON THE MAP. RECALCULATING. RECALCULATING.\n'
+            '\tON THE WAY TO STATEMENT 1\n'
+            '        CORRECT SOURCE AND RESUBMIT\n</pre>',
+          ),
+        );
+        final forbidden = await request(gross.port, '/secret');
+        expect(forbidden.status, 403);
+        expect(
+          forbidden.body,
+          contains(
+            '<pre>ICL403I THIS ROUTE CAN ONLY BE REACHED FROM A PAGE THAT LINKS TO IT.\n',
+          ),
+        );
+        expect(forbidden.body, contains('\tON THE WAY TO STATEMENT 4\n'));
+        final linked = await request(
+          gross.port,
+          '/secret',
+          headers: {'Referer': 'http://127.0.0.1:${gross.port}/'},
+        );
+        expect(linked.status, 200);
+        expect(linked.body, 'secret\n');
+      });
+
       test('an ICL error inside the program is a 500 ICL page', () async {
         final gross = await serve(
           program(['.1 <- #1', '.2 <- ;49221 SUB #1', 'GIVE UP']),
@@ -410,7 +460,7 @@ void main() {
           contains(
             '<pre>ICL822I STRINGS AND NUMBERS DO NOT MIX.\n'
             '        A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.\n'
-            '\tON THE WAY TO STATEMENT 3\n'
+            '\tON THE WAY TO STATEMENT 4\n'
             '        CORRECT SOURCE AND RESUBMIT\n</pre>',
           ),
         );
@@ -649,7 +699,7 @@ void main() {
   test('punchline 1: the gross command serves on http://127.0.0.1:10585, logging to stderr', () async {
     final temp = Directory.systemTemp.createTempSync('gross-cli-');
     addTearDown(() => temp.deleteSync(recursive: true));
-    final exe = await build(ioiDart(), temp, echo);
+    final exe = await build(ioiDart(), temp, 'DO COME FROM (16000)\n$echo');
     final gross = await Process.start(Platform.resolvedExecutable, [
       'run',
       'bin/gross.dart',

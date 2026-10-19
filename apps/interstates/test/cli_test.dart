@@ -54,7 +54,7 @@ void main() {
         final (status, err) = await build(
           backend,
           'states.xc',
-          'DO .1 <- #3\nPLEASE READ OUT .1\nDO GIVE UP\n',
+          'DO COME FROM (16000)\nDO .1 <- #3\nPLEASE READ OUT .1\nDO GIVE UP\n',
           ['-s'],
         );
         expect(err, '');

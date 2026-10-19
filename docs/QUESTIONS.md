@@ -349,3 +349,31 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items; `apps/interstates/test/gross_test.dart` pins (a).
 - **Raised:** 2026-10-18
 
+
+## L40: How are routes written, matched and checked?
+
+- **Context:** R3, Q113 and Q114 give the meaning of routes, not every detail. These are the readings the compiler and the hosts take:
+  - **The entry:**
+    - Under `-s`, `(16000)` is a program's only entry, so a program with no routes answers every request with E440 (404), as does a request no route matches when there is no catch-all.
+    - A bare `COME FROM (L)` for any other L keeps its ordinary meaning.
+  - **Patterns** start with `/`, hold no `?` or `#`, and each `:name` segment names its parameter (E442). Fixed segments are literal text, compared with the request's segments after those are percent-decoded.
+  - **Segments:**
+    - The raw path (REQUEST_URI, or PATH_INFO without it) is split on `/`, keeping empty segments. So `/blog/` has an empty second segment, matches `/blog/:id` with an empty parameter, and doesn't match `/blog`.
+    - Each segment is then percent-decoded as UTF-8, with malformed bytes becoming U+FFFD, so `%2F` stays inside its parameter.
+    - An absolute-form REQUEST_URI loses its `scheme://authority`. The query and fragment are ignored.
+  - **Specificity:**
+    - Routes are compared segment by segment from the left, and at the first difference a fixed segment beats a parameter.
+    - Routes of different lengths, or with different fixed text at the same place, never match the same path.
+    - Two routes tie (E441) only when they have the same shape, as do two catch-alls. The catch-all comes last.
+  - **The link check:**
+    - L must be a `READ OUT … WITH TEMPLATE` (E443), and its template must hold a link that matches the route. A link is the value of an `href`, `action`, `src` or `formaction` attribute starting with a single `/`, up to a `?` or `#` outside a grumpy.
+    - The link matches when it has as many segments as the route, each fixed one equal to the route's or in a parameter's place, and each segment holding a `{{ }}` in a parameter's place.
+    - A missing label is E444. An unreadable template is E777. A template's path is relative to the source file's folder.
+  - **The `Referer` check:**
+    - The `Referer` must be an absolute URL whose authority equals the `Host` header (ignoring ASCII case). Its path must match a route, catch-all included, whose entry can reach line L.
+    - Reachability is a conservative pass over every way control can go: running on, NEXTs, the return points of every NEXT for a RESUME, COME FROM traps (threads included), and TRY AGAIN. A program with computed or gerund COME FROMs or CREATE lets every route reach everything.
+    - A failed check is E403, reported at the route's own statement. E440 is reported at statement 1.
+- **Options:** (a) as above; (b) other specificity rules, such as counting fixed segments, which would make more pairs ties; (c) trailing slashes ignored.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/routes` pins (a).
+- **Raised:** 2026-10-18

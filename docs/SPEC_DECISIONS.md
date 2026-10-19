@@ -1418,6 +1418,41 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 
 Conditions that only Interstates programs can meet get codes of their own, which neither C-INTERCAL nor CIWAPA uses. They live in `apps/interstates/lib/src/errors.dart`, so CIWAPA itself never knows them (R1). Each has official text written for Interstates and a joke line. Conditions that are the same as CIWAPA's keep CIWAPA's code.
 
+### E403: a restricted route requested from a page that doesn't link to it
+- **Text:** `THIS ROUTE CAN ONLY BE REACHED FROM A PAGE THAT LINKS TO IT.`
+- **Joke:** `NO TELEPORTING ON THE INTERSTATES. TAKE THE EXIT RAMP LIKE EVERYONE ELSE.`
+- **Source:** R3 and Q113's run-time check. A `COME FROM (L) WITH ROUTE` is reachable only when the request's `Referer` is a page of the same host whose route can reach line L. Otherwise the host raises E403 before the program starts, at the route's own statement, and `gross` answers 403 with its page (L39, L40).
+- **Tests:** `apps/interstates/test/golden/routes/restricted-no-referer.xc`, `apps/interstates/test/golden/routes/restricted-wrong-referer.xc`
+- **Date:** 2026-10-18
+
+### E440: no route for the request
+- **Text:** `NO ROUTE MATCHES THE REQUESTED PATH.`
+- **Joke:** `THIS ROAD IS NOT ON THE MAP. RECALCULATING. RECALCULATING.`
+- **Source:** R3 and Q114. A request that no route matches, in a program with no bare `COME FROM (16000)`, gets E440 before the program starts, at statement 1 (T33), and `gross` answers 404 with its page. A program with no routes at all answers every request so, since `(16000)` is its only entry (L40). E404, the number one would expect, is `ick`'s "no choicepoint" already.
+- **Tests:** `apps/interstates/test/golden/routes/no-route.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`
+- **Date:** 2026-10-18
+
+### E441: two routes equally specific
+- **Text:** `TWO ROUTES ARE EQUALLY SPECIFIC.`
+- **Joke:** `THE ROAD FORKS, AND BOTH SIGNS SAY THE SAME THING.`
+- **Source:** R3 and Q114: "A genuine tie fails at compile time." Two routes tie when their patterns have the same shape, fixed text for fixed text and a parameter for a parameter, whatever their parameters are called, or when there are two catch-alls (L40). Reported at the later of the two.
+- **Tests:** `apps/interstates/test/golden/routes/e441-tie.xc`, `apps/interstates/test/golden/routes/e441-two-catch-alls.xc`
+- **Date:** 2026-10-18
+
+### E442: a route pattern that isn't a path
+- **Text:** `A ROUTE IS NOT A PATH.`
+- **Joke:** `A ROUTE STARTS WITH A SLASH AND NAMES ITS PARAMETERS. THIS ONE DOES NEITHER.`
+- **Source:** R3. A pattern must start with `/`, may not hold `?` or `#`, and each `:` segment must name its parameter. Otherwise the build fails at the route (L40).
+- **Tests:** `apps/interstates/test/golden/routes/e442-no-slash.xc`, `apps/interstates/test/golden/routes/e442-unnamed.xc`
+- **Date:** 2026-10-18
+
+### E443: a restricted route that its page doesn't link
+- **Text:** `A RESTRICTED ROUTE IS NOT LINKED FROM ITS PAGE.`
+- **Joke:** `AN ON-RAMP WITH NO ROAD LEADING TO IT IS JUST A RAMP.`
+- **Source:** R3 and Q113's compile-time check, the site's "static link checking". For `COME FROM (L) WITH ROUTE "/x"`, L must be a `READ OUT … WITH TEMPLATE`, and its template must link a path matching `/x` (L40). A missing label is E444, and a template that can't be read is E777, as for a source file that can't be.
+- **Tests:** `apps/interstates/test/golden/routes/e443-not-a-template.xc`, `apps/interstates/test/golden/routes/e443-unlinked.xc`
+- **Date:** 2026-10-18
+
 ### E504: a request that runs past gross's timeout
 - **Text:** `THE PROGRAM DID NOT GIVE UP IN TIME.`
 - **Joke:** `GROSS WAITED, AND WAITED. GROSS IS NOT A PATIENT SERVER.`

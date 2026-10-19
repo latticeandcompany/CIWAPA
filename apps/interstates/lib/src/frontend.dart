@@ -3,6 +3,7 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_core/ciwapa_core.dart' as core show analyze, lower;
 
 import 'errors.dart';
+import 'routes.dart';
 import 'runtime_sources.g.dart';
 import 'services.dart';
 import 'syntax.dart';
@@ -53,13 +54,18 @@ class InterstatesFrontend implements Frontend {
     if (!args.flag('states')) {
       return const CiwapaFrontend().lower(program, args, options);
     }
-    return core.lower(
+    final routes = _routes[program] ?? RouteTable(const []);
+    final ir = core.lower(
       program,
       options: options,
+      entries: routes.entries,
       services: libraryServices,
       host: true,
       errors: interstatesErrors,
+      extension: InterstatesProgram(routes),
     );
+    allowReferers(routes, ir);
+    return ir;
   }
 }
 
@@ -90,7 +96,18 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
       s.body = InterstatesParser.fault(822, s.body.gerund);
     }
   }
+  _routes[program] = routeTable(program);
   return program;
+}
+
+/// What the front end found in each program, for its lowering.
+final _routes = Expando<RouteTable>();
+
+/// What the ioi-* backends need about a program beyond its IR.
+class InterstatesProgram {
+  InterstatesProgram(this.routes);
+
+  final RouteTable routes;
 }
 
 bool _usesStrings(Body body) => switch (body) {

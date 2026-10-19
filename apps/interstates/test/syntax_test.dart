@@ -35,11 +35,18 @@ void main() {
     });
 
     test('a route on another label keeps its label, and is no trap door', () {
-      final statements = parse(
-        '(5) PLEASE READ OUT #0 WITH TEMPLATE "a.html"\n'
-        'DO COME FROM (5) WITH ROUTE "/a"\n'
-        'DO COME FROM (5) WITH ROUTE "/b"\n',
-      );
+      final dir = Directory.systemTemp.createTempSync('ioi-routes-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      File('${dir.path}/a.html')
+          .writeAsStringSync('<a href="/a">a</a><a href="/b">b</a>');
+      final statements = analyzeInterstates(
+        Source(
+          '${dir.path}/t.xc',
+          '(5) PLEASE READ OUT #0 WITH TEMPLATE "a.html"\n'
+              'DO COME FROM (5) WITH ROUTE "/a"\n'
+              'DO COME FROM (5) WITH ROUTE "/b"\n',
+        ),
+      ).statements;
       for (final s in statements.skip(1)) {
         expect(s.body, isA<Nothing>());
         expect((s.data as RouteDecl).label, 5);
@@ -320,7 +327,7 @@ void main() {
       }
 
       const program =
-          'NOTE says hello\nDO .1 <- #2\nPLEASE READ OUT .1\nGIVE UP\n';
+          'NOTE says hello\nDO COME FROM (16000)\nDO .1 <- #2\nPLEASE READ OUT .1\nGIVE UP\n';
 
       test('Q141: under -s, a leading NOTE and a bare GIVE UP work', () async {
         final run = await build(program, ['-s']);
@@ -335,7 +342,10 @@ void main() {
 
       test('Q141: without -s they are what they always were', () async {
         // The NOTE is statement 1, undecodable, and the bare GIVE UP splatters the READ OUT.
-        final run = await build(program, []);
+        final run = await build(
+          program.replaceFirst('DO COME FROM (16000)\n', ''),
+          [],
+        );
         expect(run.stderr, startsWith('ICL000I NOTE says hello'));
       });
 
