@@ -95,7 +95,6 @@ if [[ "$product" == ioi ]]; then
     dart-*) built=(- - clang) ;;
   esac
   "$repo_root/apps/interstates/tool/activecassette.sh" "$root/lib" "${built[@]}" >&2
-  rm -rf "$root/lib/sqlite"
   cp "$repo_root/.github/release/SQLite-public-domain.txt" "$root/licenses/"
   cp "$repo_root/.github/release/ioi-README.txt" "$root/README.txt"
 else

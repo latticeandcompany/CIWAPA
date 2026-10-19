@@ -40,8 +40,8 @@ if [[ "$clang" != - ]]; then
 fi
 if [[ "$cc" != - ]]; then
   case "$(uname -s)" in
-    Darwin) library=libioi_sqlite.dylib flags=(-dynamiclib) ;;
-    MINGW* | MSYS* | CYGWIN*) library=ioi_sqlite.dll flags=(-shared) ;;
+    Darwin) library=libioi_sqlite.dylib flags=(-dynamiclib -mmacosx-version-min=11.0) ;;
+    MINGW* | MSYS* | CYGWIN* | *_NT*) library=ioi_sqlite.dll flags=(-shared) ;;
     *) library=libioi_sqlite.so flags=(-shared -fPIC) ;;
   esac
   "$cc" -O2 -w "${flags[@]}" "${defines[@]}" "${includes[@]}" "$runtime/activecassette.c" -o "$out/$library"

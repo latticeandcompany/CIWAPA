@@ -9,7 +9,7 @@ void main() {
         if (f is File &&
             !f.path.contains('${Platform.pathSeparator}.dart_tool') &&
             RegExp(
-              'interstates|ioi-',
+              'interstates|ioi[-_]',
               caseSensitive: false,
             ).hasMatch(String.fromCharCodes(f.readAsBytesSync())))
           f.path,
