@@ -251,11 +251,12 @@ PLEASE DO AMNESIA
   - With `HAVING`, it updates instead.
   - `FORGET DATABASE` deletes the matching rows, or all of them without `HAVING`.
 - **Wiping.** `AMNESIA` drops every table.
-- **Raw SQL and counts.** (16200) runs raw parameterized SQL, and (16210) counts what the last
-  statement read or changed. See the [routine table](../apps/interstates/README.md#activecassette).
+- **Raw SQL and counts.** (16200) runs one statement of raw parameterized SQL, and (16210) counts
+  what the last statement read or changed. See the [routine table](../apps/interstates/README.md#activecassette).
 
 **Connecting.** The connection is `DATABASE_URL`, which `gross --database` sets. Without it, the
-connection is `sqlite:./app.db`, a file made on first use.
+connection is `sqlite:./app.db`, a file made on first use. Write an absolute path as
+`sqlite:/srv/app.db`; `sqlite://` is refused.
 
 - **SQLite** is built in.
 - **Other databases** need an adapter. That is a shared library implementing
