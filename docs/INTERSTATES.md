@@ -10,7 +10,7 @@ of EXTRACAL it adds:
 - **ActiveCassette**, a database layer where tables and columns are numbered rather than named.
 
 This guide shows how to use each part. The rules behind every detail are in
-[`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md) and the L35–L42 rulings in
+[`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md) and the loop's readings L35–L42 in
 [`QUESTIONS.md`](QUESTIONS.md). The library's routine tables are in
 [`apps/interstates/README.md`](../apps/interstates/README.md).
 
@@ -29,9 +29,13 @@ Its `README.txt` covers unpacking and unsigned binaries.
 `run` and `doctor` commands, plus one flag:
 
 ```
-ioi-llvm build -s site.xc -o site      # an Interstates site
-ioi-llvm build prog.xc                 # plain EXTRACAL, exactly as ciwapa-llvm builds it
+ioi-llvm build -s --no-random-bug site.xc -o site   # an Interstates site
+ioi-llvm build prog.xc                              # plain EXTRACAL, as ciwapa-llvm builds it
 ```
+
+`--no-random-bug` turns off CIWAPA's random compiler bug. Without it, each statement has a 1 in 128
+chance of an E774 planted at build time. In a site of any size, that means some route answers 500
+until the next build moves the bug somewhere else. Leave the flag off for the authentic experience.
 
 `-s` turns on everything in this guide. It takes binary EXTRACAL files only (`.xc`, `.2xc`), and
 it can't be combined with `--traditional` (E111).
@@ -59,7 +63,7 @@ GIVE UP
 ```
 
 ```
-ioi-llvm build -s hello.xc -o hello
+ioi-llvm build -s --no-random-bug hello.xc -o hello
 gross ./hello
 ```
 
@@ -70,7 +74,9 @@ Under `-s`, two of the site's habits are allowed:
 - text before the first statement is a comment, so the `NOTE` line needs no statement identifier;
 - a bare `GIVE UP` means `DO GIVE UP`.
 
-Politeness is still checked, so a long program needs its `PLEASE`s.
+Politeness is still checked. Between a fifth and a third of a program's statements must say
+`PLEASE` (E079 for too few, E099 for too many), so the fragments in this guide need a few more
+before they stand alone as programs.
 
 ## Routes
 
@@ -78,12 +84,13 @@ A program starts at `(16000)`, a label no program defines, so it starts at a `CO
 
 ```
 PLEASE COME FROM (16000) WITH ROUTE "/blog"
-DO COME FROM (16000) WITH ROUTE "/blog/post/:id"
+DO COME FROM (16000) WITH ROUTE "/blog/tag/:name"
 DO COME FROM (16000)
 ```
 
 - **A route** is a `COME FROM (16000) WITH ROUTE "pattern"`. A pattern starts with `/`, and a
-  `:name` segment is a parameter.
+  `:name` segment is a parameter. `?`, `#` and `%` can't appear in one (E442): fixed segments are
+  compared with the request's decoded segments, so write `/café`, not `/caf%C3%A9`.
 - **The catch-all** is a bare `COME FROM (16000)`. It handles any path no route matches.
 - **No match:** without a catch-all, a request no route matches gets a 404 (E440).
 
@@ -140,7 +147,8 @@ This renders a template with `n` arguments.
   compiled into the program, so the site doesn't need its templates at run time.
 - **Arguments.** The arguments are the strings in `;49221 SUB #1` to `SUB #n`. A template names
   them counting down from 144: `,144` is `;49221 SUB #1`, `,143` is `SUB #2`, and so on. `n` must
-  equal the highest argument the template names (E821). An argument the program never stored
+  be the number of arguments the template takes, which is set by the lowest `,m` it names: a
+  template that names only `,142` takes three (E821). An argument the program never stored
   prints as the empty string.
 
 ```html
@@ -159,8 +167,8 @@ A grumpy holds one of these:
 **Escaping.** `{{ }}` HTML-escapes strings, and `{{{ }}}` prints them as they are.
 
 **Numbers.** Numbers print as READ OUT's numerals. The overlines are CSS in text, and combining
-characters inside attribute values, `<title>` and `<textarea>`. In wimp mode they print in plain
-decimal.
+characters inside attribute values, `<title>` and `<textarea>`. A program run by hand in wimp mode
+(`+wimpmode`) prints them in plain decimal; gross never passes it.
 
 **Where a grumpy may go:**
 
@@ -180,8 +188,11 @@ element is a whole string, and a string is a tail array of code points everywher
 statements move strings:
 
 ```
-DO ,1 <- ;4400 SUB #1           DO ,1 <- ;49221 SUB #2
-DO ;49221 SUB #1 <- ,1          DO ;49221 SUB #1 <- ;4400 SUB #2
+DO ,1 <- ;4400 SUB #1
+DO ,1 <- ;49221 SUB #2
+DO ;49221 SUB #1 <- ,1
+DO ;49221 SUB #1 <- ;4400 SUB #2
+DO ;49221 SUB #1 <- ;49221 SUB #2
 ```
 
 Any other use of `;4400` or `;49221`, such as a string where a number belongs or a STASH, is E822
@@ -258,7 +269,9 @@ PLEASE DO AMNESIA
 connection is `sqlite:./app.db`, a file made on first use. Write an absolute path as
 `sqlite:/srv/app.db`; `sqlite://` is refused.
 
-- **SQLite** is built in.
+- **SQLite** comes with the compiler. `ioi-llvm` links it into the program. An `ioi-dart` program
+  loads it from where it was when the program was built, so move the compiler's folder or copy the
+  program to another machine and its database requests fail with E825 until you rebuild.
 - **Other databases** need an adapter. That is a shared library implementing
   [`ioi_adapter.h`](../apps/interstates/runtime/ioi_adapter.h), named by `IOI_ADAPTER_<SCHEME>`.
   Linux programs built by an `ioi-llvm` archive are static and can't load one.
@@ -284,7 +297,8 @@ There is no `public/` convention and no index file.
 - a run past `--timeout` is 504 (E504);
 - output that isn't a CGI response is 500 (E829).
 
-**Logs.** gross logs one line per request to stderr, with the program's own stderr lines after it.
+**Logs.** gross logs one line per request to stderr. Just before it come the program's own stderr
+lines, each prefixed with its name.
 
 gross speaks a small HTTP/1.1: one request per connection, and no chunked bodies. It is a
 development server. Don't put it on the internet. Nothing about this framework belongs there.
