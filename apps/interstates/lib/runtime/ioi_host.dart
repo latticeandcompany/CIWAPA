@@ -2,6 +2,7 @@
 // import pointing at the runtime.dart beside it). host.c is its twin; the Interstates suite keeps
 // the two identical in behavior.
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ciwapa_dart/runtime/runtime.dart';
@@ -41,10 +42,17 @@ class IoiPiece {
 /// A request, read the CGI/1.1 way from the environment and stdin, and the response the program
 /// builds for it (R2, R4).
 class IoiHost extends IckHost {
-  IoiHost({this.routes = const [], this.templates = const []});
+  IoiHost({
+    this.routes = const [],
+    this.templates = const [],
+    this.sqliteLibrary,
+  });
 
   final List<IoiRoute> routes;
   final List<List<IoiPiece>> templates;
+
+  /// The built-in SQLite adapter's library, for a program that uses a database.
+  final String? sqliteLibrary;
   final Map<String, String> _env = Platform.environment;
 
   /// The route parameters, `;4400`, and the template arguments, `;49221` (R5).
@@ -127,6 +135,8 @@ class IoiHost extends IckHost {
         ickFatal(values[0], next);
       case 16500:
         _render(templates[values[0]], values, next);
+      case 16200 || 16210 || 16600 || 16610 || 16620 || 16630 || 16640:
+        _database(service, scalars, arrays, values, next);
       default:
         return false;
     }
@@ -294,6 +304,384 @@ class IoiHost extends IckHost {
     }
     flush();
     return out.toString();
+  }
+
+  // ---- ActiveCassette (R7, Q95, Q99, Q119, Q145) ------------------------------------------
+
+  Pointer<_Adapter>? _adapter;
+  var _db = nullptr.cast<Void>();
+
+  /// Table and column names, by number from 1, read from the database when first needed.
+  List<String>? _tables;
+  final _columns = <int, List<String>>{};
+
+  /// What (16210) reports: rows the last read matched, or the last write changed.
+  var _lastCount = 0;
+
+  /// Writes ActiveCassette's reason to stderr, then raises [code].
+  Never _cassetteFail(int code, String? reason, int next) {
+    stderr.add(utf8.encode('ActiveCassette: ${reason ?? 'no reason given'}\n'));
+    ickFatal(code, next);
+  }
+
+  String? _adapterError(Pointer<Void> db) {
+    final p = _adapter!.ref.error
+        .asFunction<Pointer<Uint8> Function(Pointer<Void>)>()(db);
+    return p == nullptr ? null : _fromC(p);
+  }
+
+  void _forgetSchema() {
+    _tables = null;
+    _columns.clear();
+  }
+
+  Pointer<_Adapter> _loadAdapter(String scheme, int next) {
+    if (scheme.length > 64) {
+      _cassetteFail(825, "the DATABASE_URL's scheme is too long", next);
+    }
+    final name =
+        'IOI_ADAPTER_${String.fromCharCodes([for (final c in scheme.codeUnits) c >= 0x61 && c <= 0x7A ? c - 32 : c])}';
+    final path = _env[name];
+    if (path == null) {
+      _cassetteFail(
+        825,
+        'no adapter for $scheme: set $name to its library',
+        next,
+      );
+    }
+    try {
+      return DynamicLibrary.open(path).lookupFunction<
+        Pointer<_Adapter> Function(),
+        Pointer<_Adapter> Function()
+      >('ioi_adapter_entry')();
+    } on ArgumentError {
+      _cassetteFail(
+        825,
+        "the adapter's library can't be loaded, or has no ioi_adapter_entry",
+        next,
+      );
+    }
+  }
+
+  /// Connects to DATABASE_URL (sqlite:./app.db when it isn't set), the first time a program
+  /// needs to.
+  void _cassette(int next) {
+    if (_db != nullptr) return;
+    final url = _env['DATABASE_URL'] ?? 'sqlite:./app.db';
+    final colon = url.indexOf(':');
+    if (colon <= 0) _cassetteFail(825, 'the DATABASE_URL has no scheme', next);
+    final scheme = url.substring(0, colon);
+    Pointer<_Adapter>? adapter;
+    if (scheme == 'sqlite') {
+      try {
+        adapter = sqliteLibrary == null
+            ? null
+            : DynamicLibrary.open(sqliteLibrary!).lookupFunction<
+                Pointer<_Adapter> Function(),
+                Pointer<_Adapter> Function()
+              >('ioi_sqlite_adapter')();
+      } on ArgumentError {
+        adapter = null;
+      }
+      if (adapter == null) {
+        _cassetteFail(825, 'this program has no SQLite', next);
+      }
+    } else {
+      adapter = _loadAdapter(scheme, next);
+    }
+    if (adapter.ref.version != 1) {
+      _cassetteFail(825, 'the adapter is not version 1', next);
+    }
+    _adapter = adapter;
+    final text = _toC(utf8.encode(url));
+    _db = adapter.ref.connect
+        .asFunction<Pointer<Void> Function(Pointer<Uint8>)>()(text);
+    _free(text.cast());
+    if (_db == nullptr) _cassetteFail(825, _adapterError(nullptr), next);
+  }
+
+  /// A column's value as a string: its digits for an integer, its text decoded, and nothing for
+  /// NULL.
+  static String _valueString(_Value v) => switch (v.kind) {
+    1 => '${v.integer}',
+    2 => decodeUtf8(v.text.asTypedList(v.length)),
+    _ => '',
+  };
+
+  int _next(Pointer<Void> rows) =>
+      _adapter!.ref.next.asFunction<int Function(Pointer<Void>)>()(rows);
+
+  int _width(Pointer<Void> rows) =>
+      _adapter!.ref.width.asFunction<int Function(Pointer<Void>)>()(rows);
+
+  void _finish(Pointer<Void> rows) =>
+      _adapter!.ref.finish.asFunction<void Function(Pointer<Void>)>()(rows);
+
+  String _column(Pointer<Void> rows, int i) {
+    final out = _malloc(sizeOf<_Value>()).cast<_Value>();
+    _adapter!.ref.column
+        .asFunction<void Function(Pointer<Void>, int, Pointer<_Value>)>()(
+      rows,
+      i,
+      out,
+    );
+    final value = _valueString(out.ref);
+    _free(out.cast());
+    return value;
+  }
+
+  /// Every row's first column, from rows the adapter gave (or E826).
+  List<String> _firstColumns(Pointer<Void> rows, int next) {
+    if (rows == nullptr) _cassetteFail(826, _adapterError(_db), next);
+    final out = <String>[];
+    int status;
+    while ((status = _next(rows)) == 1) {
+      out.add(_width(rows) > 0 ? _column(rows, 0) : '');
+    }
+    _finish(rows);
+    if (status < 0) _cassetteFail(826, _adapterError(_db), next);
+    return out;
+  }
+
+  List<String> _knownTables(int next) => _tables ??= _firstColumns(
+    _adapter!.ref.tables.asFunction<Pointer<Void> Function(Pointer<Void>)>()(
+      _db,
+    ),
+    next,
+  );
+
+  /// Table [t] (from 1): E824 past the end of the schema.
+  String _tableName(int t, int next) {
+    final tables = _knownTables(next);
+    if (t < 1 || t > tables.length) _cassetteFail(824, 'no such table', next);
+    return tables[t - 1];
+  }
+
+  /// Column [c] (from 1) of table [t]: E824 past the end of the table.
+  String _columnName(int t, int c, int next) {
+    final table = _tableName(t, next);
+    final columns = _columns[t] ??= () {
+      final name = _toC(utf8.encode(table));
+      final rows = _adapter!.ref.columns
+          .asFunction<
+            Pointer<Void> Function(Pointer<Void>, Pointer<Uint8>)
+          >()(_db, name);
+      _free(name.cast());
+      return _firstColumns(rows, next);
+    }();
+    if (c < 1 || c > columns.length) _cassetteFail(824, 'no such column', next);
+    return columns[c - 1];
+  }
+
+  static String _identifier(String name) => '"${name.replaceAll('"', '""')}"';
+
+  /// An item's value as a parameter (services.dart's ItemKind): a number (as text past 2^63 - 1),
+  /// a tail array's string, or a `;4400` or `;49221` element's. Reads its two values at [at].
+  Object _item(List<int> arrays, List<int> values, List<int> at, int next) {
+    final kind = values[at[0]++], value = values[at[0]++];
+    return switch (kind) {
+      0 => value >= 0 ? value : BigInt.from(value).toUnsigned(64).toString(),
+      1 => ickString(arrays[value], next),
+      2 => _param(value, next),
+      _ => _arg(value, next),
+    };
+  }
+
+  /// ` WHERE "a" = ? AND "b" = ?` for a HAVING list at [at]: its count, then (column, item) pairs.
+  void _having(
+    StringBuffer sql,
+    List<Object> params,
+    int t,
+    List<int> arrays,
+    List<int> values,
+    List<int> at,
+    int next,
+  ) {
+    final pairs = values[at[0]++];
+    for (var i = 0; i < pairs; i++) {
+      sql
+        ..write(i == 0 ? ' WHERE ' : ' AND ')
+        ..write(_identifier(_columnName(t, values[at[0]++], next)))
+        ..write(' = ?');
+      params.add(_item(arrays, values, at, next));
+    }
+  }
+
+  /// Runs [sql] with [params] (ints and strings), and returns its rows.
+  Pointer<Void> _query(String sql, List<Object> params, int next) {
+    final text = _toC(utf8.encode(sql));
+    final array = _malloc(
+      sizeOf<_Value>() * (params.isEmpty ? 1 : params.length),
+    ).cast<_Value>();
+    final owned = <Pointer<Uint8>>[];
+    for (final (i, p) in params.indexed) {
+      final v = array[i];
+      if (p is int) {
+        v
+          ..kind = 1
+          ..integer = p
+          ..text = nullptr
+          ..length = 0;
+      } else {
+        final bytes = utf8.encode(p as String);
+        final copy = _toC(bytes);
+        owned.add(copy);
+        v
+          ..kind = 2
+          ..integer = 0
+          ..text = copy
+          ..length = bytes.length;
+      }
+    }
+    final rows = _adapter!.ref.query
+        .asFunction<
+          Pointer<Void> Function(
+            Pointer<Void>,
+            Pointer<Uint8>,
+            Pointer<_Value>,
+            int,
+          )
+        >()(_db, text, array, params.length);
+    for (final p in owned) {
+      _free(p.cast());
+    }
+    _free(array.cast());
+    _free(text.cast());
+    if (rows == nullptr) _cassetteFail(826, _adapterError(_db), next);
+    return rows;
+  }
+
+  int _changes() =>
+      _adapter!.ref.changes.asFunction<int Function(Pointer<Void>)>()(_db);
+
+  /// Runs a statement that returns no rows, and counts what it changed.
+  void _execute(StringBuffer sql, List<Object> params, int next) {
+    final rows = _query(sql.toString(), params, next);
+    int status;
+    while ((status = _next(rows)) == 1) {}
+    _finish(rows);
+    if (status < 0) _cassetteFail(826, _adapterError(_db), next);
+    _lastCount = _changes();
+  }
+
+  /// Runs a query, leaving row [row]'s columns (from 1) in `;49221` (which it empties first) and
+  /// how many rows there were in [_lastCount]; a statement with no columns counts its changes.
+  void _queryIntoArgs(
+    StringBuffer sql,
+    List<Object> params,
+    int row,
+    int next,
+  ) {
+    final rows = _query(sql.toString(), params, next);
+    _args.clear();
+    var count = 0;
+    int status;
+    final width = _width(rows);
+    while ((status = _next(rows)) == 1) {
+      if (++count != row) continue;
+      for (var i = 0; i < width; i++) {
+        _setArg(i + 1, _column(rows, i), next);
+      }
+    }
+    _finish(rows);
+    if (status < 0) _cassetteFail(826, _adapterError(_db), next);
+    _lastCount = width > 0 ? count : _changes();
+  }
+
+  /// The column list of a read or write at [at]: [t, columns, c...]; a read without columns gets
+  /// them all.
+  void _columnList(
+    StringBuffer sql,
+    int t,
+    List<int> values,
+    List<int> at,
+    bool star,
+    int next,
+  ) {
+    final count = values[at[0]++];
+    if (count == 0 && star) sql.write('*');
+    for (var i = 0; i < count; i++) {
+      if (i > 0) sql.write(', ');
+      sql.write(_identifier(_columnName(t, values[at[0]++], next)));
+    }
+  }
+
+  void _database(
+    int service,
+    List<int> scalars,
+    List<int> arrays,
+    List<int> values,
+    int next,
+  ) {
+    _cassette(next);
+    final sql = StringBuffer();
+    final params = <Object>[];
+    final at = [0];
+    switch (service) {
+      case 16600:
+        final t = values[at[0]++];
+        final table = _tableName(t, next);
+        sql.write('SELECT ');
+        _columnList(sql, t, values, at, true, next);
+        sql
+          ..write(' FROM ')
+          ..write(_identifier(table));
+        final row = values[at[0]++];
+        _having(sql, params, t, arrays, values, at, next);
+        _queryIntoArgs(sql, params, row, next);
+      case 16610:
+        final t = values[at[0]++];
+        final table = _tableName(t, next);
+        final count = values[at[0]];
+        sql.write('INSERT INTO ${_identifier(table)} (');
+        _columnList(sql, t, values, at, false, next);
+        sql.write(') VALUES (');
+        for (var i = 0; i < count; i++) {
+          sql.write(i == 0 ? '?' : ', ?');
+          params.add(_item(arrays, values, at, next));
+        }
+        sql.write(')');
+        _execute(sql, params, next);
+      case 16620:
+        final t = values[at[0]++];
+        final table = _tableName(t, next);
+        final count = values[at[0]];
+        final first = at[0] + 1;
+        sql.write('UPDATE ${_identifier(table)} SET ');
+        at[0] = first + count;
+        for (var i = 0; i < count; i++) {
+          if (i > 0) sql.write(', ');
+          sql
+            ..write(_identifier(_columnName(t, values[first + i], next)))
+            ..write(' = ?');
+          params.add(_item(arrays, values, at, next));
+        }
+        _having(sql, params, t, arrays, values, at, next);
+        _execute(sql, params, next);
+      case 16630:
+        final t = values[at[0]++];
+        sql.write('DELETE FROM ${_identifier(_tableName(t, next))}');
+        _having(sql, params, t, arrays, values, at, next);
+        _execute(sql, params, next);
+      case 16640:
+        final tables = _knownTables(next);
+        for (final table in tables) {
+          _execute(StringBuffer('DROP TABLE ${_identifier(table)}'), [], next);
+        }
+        _forgetSchema();
+        _lastCount = tables.length;
+      case 16200:
+        sql.write(ickString(arrays[0], next));
+        final count = ickScalar(scalars[0]);
+        for (var i = 1; i <= count; i++) {
+          params.add(_arg(i, next));
+        }
+        _queryIntoArgs(sql, params, ickScalar(scalars[1]), next);
+        _forgetSchema();
+        ickSetScalar(scalars[0], _lastCount);
+      default:
+        ickSetScalar(scalars[0], _lastCount);
+    }
   }
 
   /// The CGI response's headers, before the first byte of its body (R2).
@@ -530,4 +918,86 @@ String decodeUtf8(List<int> bytes) {
     }
   }
   return String.fromCharCodes(units);
+}
+
+// ---- ActiveCassette's adapter interface, ioi_adapter.h ------------------------------------------
+
+final class _Value extends Struct {
+  @Int32()
+  external int kind;
+
+  @Int64()
+  external int integer;
+
+  external Pointer<Uint8> text;
+
+  @Size()
+  external int length;
+}
+
+final class _Adapter extends Struct {
+  @Uint32()
+  external int version;
+
+  external Pointer<NativeFunction<Pointer<Void> Function(Pointer<Uint8>)>>
+  connect;
+  external Pointer<NativeFunction<Pointer<Uint8> Function(Pointer<Void>)>>
+  error;
+  external Pointer<NativeFunction<Void Function(Pointer<Void>)>> disconnect;
+  external Pointer<NativeFunction<Pointer<Void> Function(Pointer<Void>)>>
+  tables;
+  external Pointer<
+    NativeFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Uint8>)>
+  >
+  columns;
+  external Pointer<
+    NativeFunction<
+      Pointer<Void> Function(
+        Pointer<Void>,
+        Pointer<Uint8>,
+        Pointer<_Value>,
+        Size,
+      )
+    >
+  >
+  query;
+  external Pointer<NativeFunction<Int Function(Pointer<Void>)>> next;
+  external Pointer<NativeFunction<Size Function(Pointer<Void>)>> width;
+  external Pointer<
+    NativeFunction<Void Function(Pointer<Void>, Size, Pointer<_Value>)>
+  >
+  column;
+  external Pointer<NativeFunction<Void Function(Pointer<Void>)>> finish;
+  external Pointer<NativeFunction<Int64 Function(Pointer<Void>)>> changes;
+}
+
+/// The C library's own allocator, for the strings and arrays passed to an adapter.
+final _libc = Platform.isWindows
+    ? DynamicLibrary.open('ucrtbase.dll')
+    : DynamicLibrary.process();
+final _malloc = _libc
+    .lookupFunction<Pointer<Void> Function(Size), Pointer<Void> Function(int)>(
+      'malloc',
+    );
+final _free = _libc
+    .lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>(
+      'free',
+    );
+
+/// [bytes] as a NUL-terminated C string, which the caller frees.
+Pointer<Uint8> _toC(List<int> bytes) {
+  final p = _malloc(bytes.length + 1).cast<Uint8>();
+  p.asTypedList(bytes.length + 1)
+    ..setAll(0, bytes)
+    ..[bytes.length] = 0;
+  return p;
+}
+
+/// A NUL-terminated UTF-8 C string.
+String _fromC(Pointer<Uint8> p) {
+  var n = 0;
+  while (p[n] != 0) {
+    n++;
+  }
+  return decodeUtf8(p.asTypedList(n));
 }

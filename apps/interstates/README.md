@@ -44,3 +44,28 @@ sets `.1` to #1 when it finds something and #2 when it doesn't, leaving the resu
   break in one is E828.
 - **The body** is read once, `CONTENT_LENGTH` bytes from stdin. `WRITE IN` reads stdin too, so
   a program uses one or the other.
+
+## ActiveCassette
+
+Tables and columns are numbered, never named: table `#t` is the *t*-th in the database's own order
+and column `#c` the *c*-th of that table, both from #1.
+
+```
+DO ;49221 <- 'FROM DATABASE #1~#2$#3' SUB .5 HAVING #1 ,3 + #4 .2
+DO INTO DATABASE #1~#2$#3 <- ,1 + ,2
+DO INTO DATABASE #1~#2 <- ,1 HAVING #1 .7
+DO FORGET DATABASE #1 HAVING #1 .7
+PLEASE DO AMNESIA
+```
+
+| Entry | Inputs | Results | Notes |
+|---|---|---|---|
+| (16200) | ,1 = SQL, :1 = parameters, :2 = row | ;49221 = that row's columns, :1 = rows returned (or changed) | parameters are `;49221 SUB #1` to `SUB :1`, as text |
+| (16210) | | :1 = rows the last read matched, or the last write changed | |
+
+The connection comes from `DATABASE_URL` (`sqlite:./app.db` by default). SQLite is built in; any
+other scheme needs an adapter: a shared library implementing `runtime/ioi_adapter.h`, named by
+`IOI_ADAPTER_<SCHEME>`. ioi-* find SQLite in `IOI_LIB`, or in a release archive's `lib/`;
+`tool/activecassette.sh <dir> <clang> <triple> <cc>` makes it. ioi-llvm programs built by a release
+archive for Linux are static, so they can't load user adapters (L42).
+

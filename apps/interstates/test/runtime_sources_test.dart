@@ -11,6 +11,9 @@ void main() {
       embed(
         hostDart: File('lib/runtime/ioi_host.dart').readAsStringSync(),
         hostC: File('runtime/host.c').readAsStringSync(),
+        adapterHeader: File('runtime/ioi_adapter.h').readAsStringSync(),
+        sqliteAdapter: File('runtime/sqlite_adapter.c').readAsStringSync(),
+        activecassette: File('runtime/activecassette.c').readAsStringSync(),
         library: File('runtime/interstates.xc').readAsStringSync(),
       ),
       reason: 'run `dart run tool/embed_runtime.dart`',

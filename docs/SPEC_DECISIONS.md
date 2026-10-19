@@ -1499,6 +1499,27 @@ Conditions that only Interstates programs can meet get codes of their own, which
 - **Tests:** `apps/interstates/test/golden/cgi/e823-headers-sent.xc`
 - **Date:** 2026-10-18
 
+### E824: a table or column past the end of the schema
+- **Text:** `ACTIVECASSETTE HAS NO SUCH TABLE OR COLUMN.`
+- **Joke:** `THE TAPE RAN OUT BEFORE THE TRACK YOU ASKED FOR.`
+- **Source:** R7, Q119 and L42. Tables and columns are numbered from #1, in the database's own order. A number past the end of the schema (or #0) raises E824 when the statement runs, after `ActiveCassette: no such table` (or `column`) on stderr.
+- **Tests:** `apps/interstates/test/golden/activecassette/e824-table.xc`, `apps/interstates/test/golden/activecassette/e824-column.xc`, `apps/interstates/test/golden/activecassette/amnesia.xc`
+- **Date:** 2026-10-19
+
+### E825: a database ActiveCassette can't reach
+- **Text:** `ACTIVECASSETTE COULD NOT LOAD THE DATABASE.`
+- **Joke:** `THE CASSETTE IS JAMMED. HAVE YOU TRIED A PENCIL?`
+- **Source:** R7, Q99, Q146 and L42. The connection is made when a program first uses the database. A `DATABASE_URL` without a scheme, a scheme with no adapter (no `IOI_ADAPTER_SCHEME`, a library that can't be loaded, or one of the wrong version), or a database that won't open raises E825. The adapter's reason goes to stderr first.
+- **Tests:** `apps/interstates/test/golden/activecassette/e825-no-scheme.xc`, `apps/interstates/test/golden/activecassette/e825-no-adapter.xc`, `apps/interstates/test/golden/activecassette/e825-cannot-open.xc`
+- **Date:** 2026-10-19
+
+### E826: a statement the database refuses
+- **Text:** `THE DATABASE REFUSED THE STATEMENT.`
+- **Joke:** `THE DECK PRESSED STOP. IT DID NOT SAY WHY. IT NEVER DOES.`
+- **Source:** R7 and Q139. A statement the database rejects is a programming error rather than a recoverable failure, so it raises E826 when it runs. Examples are a broken raw SQL statement and a broken constraint, such as a duplicate key. The database's own reason goes to stderr first, after `ActiveCassette: `.
+- **Tests:** `apps/interstates/test/golden/activecassette/e826-refused.xc`, `apps/interstates/test/golden/activecassette/e826-bad-sql.xc`
+- **Date:** 2026-10-19
+
 ### E827: an INTO DATABASE whose values don't match its columns
 - **Text:** `AN INTO DATABASE HAS THE WRONG NUMBER OF VALUES.`
 - **Joke:** `THE CASSETTE HAS A SLOT FOR EACH COLUMN. COUNT THEM.`

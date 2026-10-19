@@ -69,4 +69,9 @@ const libraryServices = <int, ({List<String> scalars, List<String> arrays})>{
   16110: (scalars: [], arrays: [',1', ',2']),
   16120: (scalars: [], arrays: [',1', ',2']),
   16130: (scalars: [], arrays: [',1']),
+  16200: (scalars: [':1', ':2'], arrays: [',1']),
+  16210: (scalars: [':1'], arrays: []),
 };
+
+/// The services that reach the database, which a program that uses any of needs ActiveCassette for.
+const databaseServices = {16200, 16210, 16600, 16610, 16620, 16630, 16640};

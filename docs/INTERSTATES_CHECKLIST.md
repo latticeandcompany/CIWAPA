@@ -18,7 +18,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 - [x] Punchline 1 — `gross`, the General READ OUT Server System, listens on port 10585 by default. Tests: `apps/interstates/test/gross_test.dart`
 - [x] Punchline 2 — `-s` turns on the Interstates extensions; without it the `ioi-*` CLIs compile plain EXTRACAL. Tests: `apps/interstates/test/cli_test.dart`, `apps/interstates/test/syntax_test.dart`
-- [ ] Punchline 3 — the database layer is ActiveCassette.
+- [x] Punchline 3 — the database layer is ActiveCassette. Tests: `apps/interstates/test/golden/activecassette/read-and-having.xc`, `apps/interstates/test/golden/activecassette/e825-no-adapter.xc`
 - [x] Punchline 4 — templates use `{{ }}` double grumpies. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/numbers.xc`
 - [x] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/string-values.xc`, `apps/interstates/test/golden/routes/param.xc`
 - [x] Punchline 6 — `(16000)` is the implicit entry label that no program defines. Tests: `apps/interstates/test/golden/routes/catch-all.xc`, `apps/interstates/test/golden/routes/param.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`
@@ -69,17 +69,17 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## ActiveCassette
 
-- [ ] R7 — `FROM DATABASE` reads columns by table and column number, with `HAVING`.
-- [ ] R7 — `INTO DATABASE` inserts, `INTO DATABASE … HAVING` updates and `FORGET DATABASE … HAVING` deletes.
-- [ ] R7 — every value is a bound parameter.
-- [ ] R7 — the raw parameterized SQL routine.
-- [ ] R7 — SQLite is built in and is the default.
-- [ ] R7 — an adapter loads through the C ABI.
-- [ ] Edge cases — a table or column past the end of the schema, no rows, many rows, NULLs, and a database file that doesn't exist yet.
+- [x] R7 — `FROM DATABASE` reads columns by table and column number, with `HAVING`. Tests: `apps/interstates/test/golden/activecassette/read-and-having.xc`, `apps/interstates/test/golden/activecassette/rows.xc`
+- [x] R7 — `INTO DATABASE` inserts, `INTO DATABASE … HAVING` updates and `FORGET DATABASE … HAVING` deletes. Tests: `apps/interstates/test/golden/activecassette/update-and-delete.xc`, `apps/interstates/test/golden/activecassette/read-and-having.xc`
+- [x] R7 — every value is a bound parameter. Tests: `apps/interstates/test/golden/activecassette/bound-parameters.xc`, `apps/interstates/test/adapter_test.dart`
+- [x] R7 — the raw parameterized SQL routine. Tests: `apps/interstates/test/golden/activecassette/raw-sql.xc`, `apps/interstates/test/golden/activecassette/e826-bad-sql.xc`
+- [x] R7 — SQLite is built in and is the default. Tests: `apps/interstates/test/golden/activecassette/default-database.xc`, `apps/interstates/test/golden/activecassette/e825-cannot-open.xc`
+- [x] R7 — an adapter loads through the C ABI. Tests: `apps/interstates/test/adapter_test.dart`
+- [x] Edge cases — a table or column past the end of the schema, no rows, many rows, NULLs, and a database file that doesn't exist yet. Tests: `apps/interstates/test/golden/activecassette/e824-table.xc`, `apps/interstates/test/golden/activecassette/e824-column.xc`, `apps/interstates/test/golden/activecassette/no-rows-and-nulls.xc`, `apps/interstates/test/golden/activecassette/rows.xc`, `apps/interstates/test/golden/activecassette/default-database.xc`
 
 ## AMNESIA
 
-- [ ] R7 — `PLEASE DO AMNESIA` drops every table in the configured database, with SQLite and with a user adapter.
+- [x] R7 — `PLEASE DO AMNESIA` drops every table in the configured database, with SQLite and with a user adapter. Tests: `apps/interstates/test/golden/activecassette/amnesia.xc`, `apps/interstates/test/adapter_test.dart`
 
 ## The sample blog app
 

@@ -9,6 +9,21 @@ flavor="$2"
 
 dart --suppress-analytics pub get
 dart --suppress-analytics analyze --fatal-infos
+
+# ActiveCassette's SQLite, for the triple ioi-llvm targets with the clang on the PATH, and as the
+# library ioi-dart programs load.
+case "$platform" in
+  linux-x64) triple=x86_64-unknown-linux-gnu ;;
+  linux-arm64) triple=aarch64-unknown-linux-gnu ;;
+  macos-arm64) triple=arm64-apple-macosx11.0.0 ;;
+  windows-x64) triple=x86_64-w64-windows-gnu ;;
+  windows-arm64) triple=aarch64-w64-windows-gnu ;;
+esac
+apps/interstates/tool/activecassette.sh .cache/ioi-lib clang "$triple" clang
+IOI_LIB="$PWD/.cache/ioi-lib"
+# Git Bash's /d/a/... isn't a path the compilers or programs can open.
+[[ "$platform" == windows-* ]] && IOI_LIB="$(cygpath -m "$IOI_LIB")"
+export IOI_LIB
 dart --suppress-analytics format --output=none --set-exit-if-changed .
 
 for dir in packages/*/test apps/*/test tools/*/test; do

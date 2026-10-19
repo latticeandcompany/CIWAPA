@@ -414,3 +414,40 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Blocks:** no checklist items; `apps/interstates/test/golden/templates` pins (a).
 - **Raised:** 2026-10-18
 
+## L42: How does ActiveCassette number, read, write and connect?
+
+- **Context:** R7, Q119, Q145 and Q146 fix the shape of ActiveCassette. These are the readings the hosts take:
+  - **Numbers:**
+    - Tables and columns count from #1, in the database's own order: SQLite's is the order tables were made, then each table's columns in order. SQLite's internal tables don't count.
+    - #0, or a number past the end, is E824.
+  - **Reads:**
+    - `;49221 <- 'FROM DATABASE #t~#c$…'` runs `SELECT "c", … FROM "t" WHERE … ` with the database's own row order, and no `ORDER BY`.
+    - It empties `;49221`, then stores row 1's columns (or row r's, with `SUB r`) in `;49221 SUB #1` on. With no such row it stays empty.
+    - Without `~` columns, a read takes them all (`SELECT *`).
+    - An integer column becomes its decimal digits, text its characters, and NULL the empty string.
+  - **Writes:**
+    - INTO DATABASE inserts; with HAVING it updates every matching row.
+    - FORGET DATABASE deletes the matching rows, or every row without HAVING.
+    - AMNESIA drops every table, as the adapter lists them.
+  - **Parameters:**
+    - Every value is a `?` parameter: a number up to 2^63 − 1 as an integer, a larger one as its digits, and a string as UTF-8 text.
+    - Identifiers come from the schema, in double quotes. SQL text never holds a value.
+  - **The two routines:**
+    - **(16200)** runs raw SQL. `,1` is the statement, `:1` how many parameters to take from `;49221 SUB #1` on, as text, and `:2` which row's columns to put in `;49221`. Afterwards `:1` is how many rows it returned, or how many it changed.
+    - **(16210)** puts in `:1` what the last read matched, or what the last write, AMNESIA or raw statement changed (AMNESIA counts its tables).
+    - Raw SQL may change the schema, so the hosts read it again afterwards.
+  - **Connecting:**
+    - The connection is made when the program first uses the database: `DATABASE_URL`, or `sqlite:./app.db` without one, a file the run makes if it isn't there.
+    - `sqlite:path` uses the built-in adapter.
+    - Any other scheme uses the shared library that the environment variable `IOI_ADAPTER_` + the scheme in capitals names, through `ioi_adapter.h`'s ABI (version 1).
+    - Failures are E825, a refused statement E826, and the reason goes to stderr after `ActiveCassette: `.
+  - **Where SQLite comes from:**
+    - ioi-llvm links ActiveCassette's object for its target, or builds it from the amalgamation. ioi-dart programs load ActiveCassette's shared library through `dart:ffi`, from the absolute path the compiler found.
+    - Both come from the folder `IOI_LIB` names, or a release archive's `lib/`, and `tool/activecassette.sh` makes them from SQLite 3.54.1, checked by SHA-256.
+    - Only programs that use a database need them.
+  - **A limit on Linux:** ioi-llvm's release archives link programs statically against musl, whose `dlopen` can't load a library. A Linux program built from one can use SQLite but no user adapter; built with a system clang, it can.
+- **Options:** (a) as above; (b) other row orders, NULL spellings or routine shapes; (c) for static Linux programs, a build flag that links a user adapter in.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/activecassette` and `apps/interstates/test/adapter_test.dart` pin (a).
+- **Raised:** 2026-10-19
+

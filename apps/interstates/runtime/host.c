@@ -7,8 +7,14 @@
 #include <string.h>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <wchar.h>
+#include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
+
+#include "ioi_adapter.h"
 
 /* runtime.c's host interface, from its "Hosts" section. */
 typedef struct {
@@ -64,6 +70,9 @@ typedef struct {
 
 extern const ioi_template ioi_templates[];
 extern const uint32_t ioi_template_count;
+
+/* The built-in SQLite adapter, or NULL in a program that never uses a database. */
+extern const ioi_adapter *(*const ioi_builtin_sqlite)(void);
 
 /* ---- Strings: UTF-16 code units, as the runtime keeps them ------------------------------- */
 
@@ -188,6 +197,18 @@ static ioi_string str_decode(const uint8_t *bytes, size_t length) {
     }
   }
   return s;
+}
+
+typedef struct {
+  ioi_string *items;
+  size_t count;
+} ioi_strings;
+
+static void strings_free(ioi_strings *list) {
+  for (size_t i = 0; i < list->count; i++) str_free(&list->items[i]);
+  free(list->items);
+  list->items = NULL;
+  list->count = 0;
 }
 
 /* ---- The request ------------------------------------------------------------------------ */
@@ -675,6 +696,366 @@ static void render(const ioi_template *t, const uint64_t *values, uint32_t next)
   free(b.bytes);
 }
 
+/* ---- ActiveCassette (R7, Q95, Q99, Q119, Q145) -------------------------------------------- */
+
+static const ioi_adapter *adapter;
+static void *db;
+
+/* Table and column names, by number from 1, read from the database when first needed. */
+static ioi_strings tables;
+static int tables_known;
+static ioi_strings *columns; /* one list per table */
+static int *columns_known;
+
+/* What (16210) reports: rows the last read matched, or the last write changed. */
+static int64_t last_count;
+
+/* Writes ActiveCassette's reason to stderr, then raises [code]. */
+static void cassette_fail(uint32_t code, const char *reason, uint32_t next) {
+  fflush(stdout);
+  fprintf(stderr, "ActiveCassette: %s\n", reason ? reason : "no reason given");
+  fflush(stderr);
+  ick_fatal(code, next);
+}
+
+static void forget_schema(void) {
+  for (size_t i = 0; tables_known && i < tables.count; i++) strings_free(&columns[i]);
+  strings_free(&tables);
+  free(columns);
+  free(columns_known);
+  columns = NULL;
+  columns_known = NULL;
+  tables_known = 0;
+}
+
+static const ioi_adapter *load_adapter(const char *scheme, uint32_t next) {
+  char name[64 + 12] = "IOI_ADAPTER_";
+  size_t n = strlen(scheme);
+  if (n > 64) cassette_fail(825, "the DATABASE_URL's scheme is too long", next);
+  for (size_t i = 0; i <= n; i++) name[12 + i] = (char)(scheme[i] >= 'a' && scheme[i] <= 'z' ? scheme[i] - 32 : scheme[i]);
+  ioi_string path;
+  if (!env(name, &path)) {
+    char reason[200];
+    snprintf(reason, sizeof reason, "no adapter for %s: set %s to its library", scheme, name);
+    cassette_fail(825, reason, next);
+  }
+  const ioi_adapter *(*entry)(void) = NULL;
+#ifdef _WIN32
+  wchar_t *wide = checked(malloc((path.length + 1) * sizeof(wchar_t)));
+  for (size_t i = 0; i < path.length; i++) wide[i] = path.units[i];
+  wide[path.length] = 0;
+  HMODULE library = LoadLibraryW(wide);
+  free(wide);
+  if (library) entry = (const ioi_adapter *(*)(void))(void (*)(void))GetProcAddress(library, "ioi_adapter_entry");
+#else
+  char *file = str_utf8(path, NULL);
+  void *library = dlopen(file, RTLD_NOW | RTLD_LOCAL);
+  free(file);
+  if (library) *(void **)&entry = dlsym(library, "ioi_adapter_entry");
+#endif
+  str_free(&path);
+  if (!entry) cassette_fail(825, "the adapter's library can't be loaded, or has no ioi_adapter_entry", next);
+  return entry();
+}
+
+/* Connects to DATABASE_URL (sqlite:./app.db when it isn't set), the first time a program needs to. */
+static void cassette(uint32_t next) {
+  if (db) return;
+  ioi_string url_text;
+  if (!env("DATABASE_URL", &url_text)) url_text = str_ascii("sqlite:./app.db");
+  char *url = str_utf8(url_text, NULL);
+  str_free(&url_text);
+  char *colon = strchr(url, ':');
+  if (!colon || colon == url) cassette_fail(825, "the DATABASE_URL has no scheme", next);
+  *colon = 0;
+  if (!strcmp(url, "sqlite")) {
+    adapter = ioi_builtin_sqlite ? ioi_builtin_sqlite() : NULL;
+    if (!adapter) cassette_fail(825, "this program has no SQLite", next);
+  } else {
+    adapter = load_adapter(url, next);
+  }
+  *colon = ':';
+  if (!adapter || adapter->version != IOI_ADAPTER_VERSION) cassette_fail(825, "the adapter is not version 1", next);
+  db = adapter->connect(url);
+  if (!db) cassette_fail(825, adapter->error(NULL), next);
+  free(url);
+}
+
+/* A column's value as a string: its digits for an integer, its text decoded, and nothing for NULL. */
+static ioi_string value_string(ioi_value v) {
+  if (v.kind == IOI_INTEGER) {
+    char digits[24];
+    snprintf(digits, sizeof digits, "%lld", (long long)v.integer);
+    return str_ascii(digits);
+  }
+  if (v.kind == IOI_TEXT) return str_decode((const uint8_t *)v.text, v.length);
+  return str_new(0);
+}
+
+/* Every row's first column, from rows the adapter gave (or E826). */
+static ioi_strings first_columns(void *rows, uint32_t next) {
+  if (!rows) cassette_fail(826, adapter->error(db), next);
+  ioi_strings out = {NULL, 0};
+  size_t capacity = 0;
+  int status;
+  while ((status = adapter->next(rows)) == 1) {
+    if (out.count == capacity) {
+      capacity = capacity ? capacity * 2 : 8;
+      out.items = checked(realloc(out.items, capacity * sizeof(ioi_string)));
+    }
+    ioi_value v = {IOI_NULL, 0, NULL, 0};
+    if (adapter->width(rows) > 0) adapter->column(rows, 0, &v);
+    out.items[out.count++] = value_string(v);
+  }
+  adapter->finish(rows);
+  if (status < 0) cassette_fail(826, adapter->error(db), next);
+  return out;
+}
+
+static void know_tables(uint32_t next) {
+  if (tables_known) return;
+  tables = first_columns(adapter->tables(db), next);
+  columns = checked(calloc(tables.count ? tables.count : 1, sizeof(ioi_strings)));
+  columns_known = checked(calloc(tables.count ? tables.count : 1, sizeof(int)));
+  tables_known = 1;
+}
+
+/* Table [t] (from 1): E824 past the end of the schema. */
+static ioi_string table_name(uint64_t t, uint32_t next) {
+  know_tables(next);
+  if (t < 1 || t > tables.count) cassette_fail(824, "no such table", next);
+  return tables.items[t - 1];
+}
+
+/* Column [c] (from 1) of table [t]: E824 past the end of the table. */
+static ioi_string column_name(uint64_t t, uint64_t c, uint32_t next) {
+  ioi_string table = table_name(t, next);
+  if (!columns_known[t - 1]) {
+    char *name = str_utf8(table, NULL);
+    columns[t - 1] = first_columns(adapter->columns(db, name), next);
+    free(name);
+    columns_known[t - 1] = 1;
+  }
+  if (c < 1 || c > columns[t - 1].count) cassette_fail(824, "no such column", next);
+  return columns[t - 1].items[c - 1];
+}
+
+/* A statement's SQL, being built. */
+static void put_identifier(ioi_buffer *b, ioi_string name) {
+  size_t length;
+  char *utf8 = str_utf8(name, &length);
+  put(b, "\"", 1);
+  for (size_t i = 0; i < length; i++) {
+    if (utf8[i] == '"') put(b, "\"", 1);
+    put(b, utf8 + i, 1);
+  }
+  put(b, "\"", 1);
+  free(utf8);
+}
+
+/* A statement's parameters: each owns its text. */
+typedef struct {
+  ioi_value *items;
+  size_t count, capacity;
+} ioi_params;
+
+static void add_param(ioi_params *p, ioi_value v) {
+  if (p->count == p->capacity) {
+    p->capacity = p->capacity ? p->capacity * 2 : 8;
+    p->items = checked(realloc(p->items, p->capacity * sizeof(ioi_value)));
+  }
+  p->items[p->count++] = v;
+}
+
+static void add_text_param(ioi_params *p, ioi_string s) {
+  size_t length;
+  char *text = str_utf8(s, &length);
+  add_param(p, (ioi_value){IOI_TEXT, 0, text, length});
+  str_free(&s);
+}
+
+static void params_free(ioi_params *p) {
+  for (size_t i = 0; i < p->count; i++) free((char *)p->items[i].text);
+  free(p->items);
+}
+
+/* An item's value as a parameter (services.dart's ItemKind): a number (as text past 2^63 - 1), a
+ * tail array's string, or a ;4400 or ;49221 element's. Reads its two values at [*at]. */
+static void add_item(ioi_params *p, const uint32_t *arrays, const uint64_t *values, size_t *at, uint32_t next) {
+  uint64_t kind = values[(*at)++], value = values[(*at)++];
+  switch (kind) {
+  case 0:
+    if (value <= (uint64_t)INT64_MAX) {
+      add_param(p, (ioi_value){IOI_INTEGER, (int64_t)value, NULL, 0});
+    } else {
+      char digits[24];
+      snprintf(digits, sizeof digits, "%llu", (unsigned long long)value);
+      add_text_param(p, str_ascii(digits));
+    }
+    break;
+  case 1: add_text_param(p, str_array(arrays[value], next)); break;
+  case 2: add_text_param(p, param(value, next)); break;
+  default: add_text_param(p, arg(value, next)); break;
+  }
+}
+
+/* ` WHERE "a" = ? AND "b" = ?` for a HAVING list at [*at]: its count, then (column, item) pairs. */
+static void put_having(ioi_buffer *sql, ioi_params *p, uint64_t t, const uint32_t *arrays, const uint64_t *values,
+                       size_t *at, uint32_t next) {
+  uint64_t pairs = values[(*at)++];
+  for (uint64_t i = 0; i < pairs; i++) {
+    put_text(sql, i ? " AND " : " WHERE ");
+    put_identifier(sql, column_name(t, values[(*at)++], next));
+    put_text(sql, " = ?");
+    add_item(p, arrays, values, at, next);
+  }
+}
+
+/* Runs a statement that returns no rows, and counts what it changed. */
+static void execute(ioi_buffer *sql, ioi_params *p, uint32_t next) {
+  put(sql, "", 1);
+  void *rows = adapter->query(db, sql->bytes, p->items, p->count);
+  if (!rows) cassette_fail(826, adapter->error(db), next);
+  int status;
+  while ((status = adapter->next(rows)) == 1) {
+  }
+  adapter->finish(rows);
+  if (status < 0) cassette_fail(826, adapter->error(db), next);
+  last_count = adapter->changes(db);
+  free(sql->bytes);
+  params_free(p);
+}
+
+/* Runs a query, leaving row [row]'s columns (from 1) in ;49221 (which it empties first) and how
+ * many rows there were in last_count; a statement with no columns counts its changes. */
+static void query_into_args(ioi_buffer *sql, ioi_params *p, uint64_t row, uint32_t next) {
+  put(sql, "", 1);
+  void *rows = adapter->query(db, sql->bytes, p->items, p->count);
+  if (!rows) cassette_fail(826, adapter->error(db), next);
+  for (size_t i = 0; i < arg_count; i++) str_free(&args[i].value);
+  arg_count = 0;
+  int64_t count = 0;
+  int status;
+  size_t width = adapter->width(rows);
+  while ((status = adapter->next(rows)) == 1) {
+    if ((uint64_t)++count != row) continue;
+    for (size_t i = 0; i < width; i++) {
+      ioi_value v;
+      adapter->column(rows, i, &v);
+      set_arg(i + 1, value_string(v), next);
+    }
+  }
+  adapter->finish(rows);
+  if (status < 0) cassette_fail(826, adapter->error(db), next);
+  last_count = width ? count : adapter->changes(db);
+  free(sql->bytes);
+  params_free(p);
+}
+
+/* The column list of a read or write at [*at]: [t, columns, c...]; a read without columns gets
+ * them all. */
+static void put_columns(ioi_buffer *sql, uint64_t t, const uint64_t *values, size_t *at, int star, uint32_t next) {
+  uint64_t count = values[(*at)++];
+  if (!count && star) put_text(sql, "*");
+  for (uint64_t i = 0; i < count; i++) {
+    if (i) put_text(sql, ", ");
+    put_identifier(sql, column_name(t, values[(*at)++], next));
+  }
+}
+
+static void database(uint32_t service, const uint32_t *scalars, const uint32_t *arrays, const uint64_t *values,
+                     uint32_t next) {
+  cassette(next);
+  ioi_buffer sql = {NULL, 0, 0};
+  ioi_params p = {NULL, 0, 0};
+  size_t at = 0;
+  switch (service) {
+  case 16600: {
+    uint64_t t = values[at++];
+    ioi_string table = table_name(t, next);
+    put_text(&sql, "SELECT ");
+    put_columns(&sql, t, values, &at, 1, next);
+    put_text(&sql, " FROM ");
+    put_identifier(&sql, table);
+    uint64_t row = values[at++];
+    put_having(&sql, &p, t, arrays, values, &at, next);
+    query_into_args(&sql, &p, row, next);
+    break;
+  }
+  case 16610:
+  case 16620: {
+    uint64_t t = values[at++];
+    ioi_string table = table_name(t, next);
+    uint64_t count = values[at];
+    size_t first = at + 1;
+    if (service == 16610) {
+      put_text(&sql, "INSERT INTO ");
+      put_identifier(&sql, table);
+      put_text(&sql, " (");
+      put_columns(&sql, t, values, &at, 0, next);
+      put_text(&sql, ") VALUES (");
+      for (uint64_t i = 0; i < count; i++) {
+        put_text(&sql, i ? ", ?" : "?");
+        add_item(&p, arrays, values, &at, next);
+      }
+      put_text(&sql, ")");
+    } else {
+      put_text(&sql, "UPDATE ");
+      put_identifier(&sql, table);
+      put_text(&sql, " SET ");
+      at = first + count;
+      for (uint64_t i = 0; i < count; i++) {
+        if (i) put_text(&sql, ", ");
+        put_identifier(&sql, column_name(t, values[first + i], next));
+        put_text(&sql, " = ?");
+        add_item(&p, arrays, values, &at, next);
+      }
+      put_having(&sql, &p, t, arrays, values, &at, next);
+    }
+    execute(&sql, &p, next);
+    break;
+  }
+  case 16630: {
+    uint64_t t = values[at++];
+    put_text(&sql, "DELETE FROM ");
+    put_identifier(&sql, table_name(t, next));
+    put_having(&sql, &p, t, arrays, values, &at, next);
+    execute(&sql, &p, next);
+    break;
+  }
+  case 16640: {
+    know_tables(next);
+    int64_t dropped = 0;
+    for (size_t i = 0; i < tables.count; i++) {
+      ioi_buffer drop = {NULL, 0, 0};
+      ioi_params none = {NULL, 0, 0};
+      put_text(&drop, "DROP TABLE ");
+      put_identifier(&drop, tables.items[i]);
+      execute(&drop, &none, next);
+      dropped++;
+    }
+    forget_schema();
+    last_count = dropped;
+    break;
+  }
+  case 16200: {
+    ioi_string text = str_array(arrays[0], next);
+    size_t length;
+    char *utf8 = str_utf8(text, &length);
+    str_free(&text);
+    put(&sql, utf8, length);
+    free(utf8);
+    uint64_t count = ick_scalar(scalars[0]);
+    for (uint64_t i = 1; i <= count; i++) add_text_param(&p, arg(i, next));
+    query_into_args(&sql, &p, ick_scalar(scalars[1]), next);
+    forget_schema();
+    ick_set_scalar(scalars[0], (uint64_t)last_count);
+    break;
+  }
+  default: ick_set_scalar(scalars[0], (uint64_t)last_count); break;
+  }
+}
+
 /* ---- Services ---------------------------------------------------------------------------- */
 
 static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_count, const uint32_t *arrays,
@@ -771,24 +1152,19 @@ static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_c
   case 16514: set_arg(values[0], arg(values[1], next), next); break;
   case 16520: ick_fatal((uint32_t)values[0], next); break;
   case 16500: render(&ioi_templates[values[0]], values, next); break;
+  case 16200:
+  case 16210:
+  case 16600:
+  case 16610:
+  case 16620:
+  case 16630:
+  case 16640: database(service, scalars, arrays, values, next); break;
   default: return 0;
   }
   return 1;
 }
 
 /* ---- Routes (R3, Q113, Q114) ------------------------------------------------------------- */
-
-typedef struct {
-  ioi_string *items;
-  size_t count;
-} ioi_strings;
-
-static void strings_free(ioi_strings *list) {
-  for (size_t i = 0; i < list->count; i++) str_free(&list->items[i]);
-  free(list->items);
-  list->items = NULL;
-  list->count = 0;
-}
 
 /* A raw path's segments, up to any ? or #, each percent-decoded; 0 unless it starts with /. */
 static int segments_of(ioi_string raw, size_t from, ioi_strings *out) {
