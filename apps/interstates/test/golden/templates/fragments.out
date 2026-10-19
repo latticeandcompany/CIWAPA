@@ -1,0 +1,7 @@
+Status: 200 OK
+Content-Type: text/html; charset=utf-8
+
+<ul>
+<li><a href="/post/1">First</a></li>
+<li><a href="/post/2">Second</a></li>
+</ul>

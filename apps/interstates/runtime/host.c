@@ -46,6 +46,25 @@ typedef struct {
 extern const ioi_route ioi_routes[];
 extern const uint32_t ioi_route_count;
 
+/* One piece of a compiled template (R6): text as it is (kind 0), template argument [index] (1),
+ * the route parameter (2) or template argument (3) a value names, or a value as a numeral (4). */
+typedef struct {
+  uint32_t kind;
+  const char *text;
+  uint32_t length;
+  uint32_t index;
+  uint8_t raw;       /* triple grumpies: a string isn't HTML-escaped */
+  uint8_t attribute; /* inside an attribute's value */
+} ioi_piece;
+
+typedef struct {
+  const ioi_piece *pieces;
+  uint32_t count;
+} ioi_template;
+
+extern const ioi_template ioi_templates[];
+extern const uint32_t ioi_template_count;
+
 /* ---- Strings: UTF-16 code units, as the runtime keeps them ------------------------------- */
 
 typedef struct {
@@ -560,6 +579,99 @@ static void prologue(void) {
   ick_output("\n", 1);
 }
 
+/* ---- Templates (R6) ---------------------------------------------------------------------- */
+
+typedef struct {
+  char *bytes;
+  size_t length, capacity;
+} ioi_buffer;
+
+static void put(ioi_buffer *b, const char *bytes, size_t length) {
+  if (b->length + length > b->capacity) {
+    while (b->length + length > b->capacity) b->capacity = b->capacity ? b->capacity * 2 : 256;
+    b->bytes = checked(realloc(b->bytes, b->capacity));
+  }
+  memcpy(b->bytes + b->length, bytes, length);
+  b->length += length;
+}
+
+static void put_text(ioi_buffer *b, const char *text) { put(b, text, strlen(text)); }
+
+/* [s] as UTF-8, escaped for HTML unless [raw]; the buffer takes the string. */
+static void put_html(ioi_buffer *b, ioi_string s, int raw) {
+  size_t length;
+  char *utf8 = str_utf8(s, &length);
+  for (size_t i = 0; i < length; i++) {
+    const char *entity = NULL;
+    if (!raw) {
+      switch (utf8[i]) {
+      case '&': entity = "&amp;"; break;
+      case '<': entity = "&lt;"; break;
+      case '>': entity = "&gt;"; break;
+      case '"': entity = "&quot;"; break;
+      case '\'': entity = "&#39;"; break;
+      }
+    }
+    if (entity) put_text(b, entity);
+    else put(b, utf8 + i, 1);
+  }
+  free(utf8);
+  str_free(&s);
+}
+
+/* A number as READ OUT's butchered Roman numeral, each letter's overlines as CSS
+ * (text-decoration: overline, or overline double for two), or in an attribute's value as
+ * combining overlines (U+0305, or U+033F for two). Zero is an overlined no-break space. In wimp
+ * mode it is plain decimal. */
+static void put_numeral(ioi_buffer *b, uint64_t value, int attribute) {
+  char rows[3][96];
+  int count = ick_numeral_rows(value, rows);
+  if (count == 1) {
+    put_text(b, rows[0]);
+    return;
+  }
+  const char *letters = rows[count - 1];
+  size_t width = strlen(letters);
+  for (int r = 0; r < count - 1; r++) {
+    if (strlen(rows[r]) > width) width = strlen(rows[r]);
+  }
+  int run_depth = -1;
+  for (size_t c = 0; c < width; c++) {
+    int depth = 0;
+    for (int r = 0; r < count - 1; r++) depth += c < strlen(rows[r]) && rows[r][c] == '_';
+    if (!attribute && depth != run_depth) {
+      if (run_depth > 0) put_text(b, "</span>");
+      if (depth == 1) put_text(b, "<span style=\"text-decoration: overline\">");
+      if (depth >= 2) put_text(b, "<span style=\"text-decoration: overline double\">");
+      run_depth = depth;
+    }
+    if (c < strlen(letters)) put(b, letters + c, 1);
+    else put_text(b, "\xC2\xA0");
+    if (attribute && depth == 1) put_text(b, "\xCC\x85");
+    if (attribute && depth >= 2) put_text(b, "\xCC\xBF");
+  }
+  if (!attribute && run_depth > 0) put_text(b, "</span>");
+}
+
+/* READ OUT #n WITH TEMPLATE (R6): the template's pieces, with values from [values] (after the
+ * template's number), written all at once. */
+static void render(const ioi_template *t, const uint64_t *values, uint32_t next) {
+  ioi_buffer b = {NULL, 0, 0};
+  uint32_t v = 1;
+  for (uint32_t i = 0; i < t->count; i++) {
+    const ioi_piece *p = &t->pieces[i];
+    switch (p->kind) {
+    case 0: put(&b, p->text, p->length); break;
+    case 1: put_html(&b, arg(p->index, next), p->raw); break;
+    case 2: put_html(&b, param(values[v++], next), p->raw); break;
+    case 3: put_html(&b, arg(values[v++], next), p->raw); break;
+    default: put_numeral(&b, values[v++], p->attribute); break;
+    }
+  }
+  if (b.length) ick_output(b.bytes, b.length);
+  free(b.bytes);
+}
+
 /* ---- Services ---------------------------------------------------------------------------- */
 
 static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_count, const uint32_t *arrays,
@@ -655,6 +767,7 @@ static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_c
   case 16513: set_arg(values[0], param(values[1], next), next); break;
   case 16514: set_arg(values[0], arg(values[1], next), next); break;
   case 16520: ick_fatal((uint32_t)values[0], next); break;
+  case 16500: render(&ioi_templates[values[0]], values, next); break;
   default: return 0;
   }
   return 1;

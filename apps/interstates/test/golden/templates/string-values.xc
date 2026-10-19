@@ -1,0 +1,13 @@
+PLEASE COME FROM (16000) WITH ROUTE "/p/:a/:b"
+DO .1 <- #3
+DO ,1 <- #7
+DO ,1 SUB #1 <- #34
+PLEASE ,1 SUB #2 <- #116
+DO ,1 SUB #3 <- #104
+DO ,1 SUB #4 <- #114
+DO ,1 SUB #5 <- #101
+PLEASE ,1 SUB #6 <- #101
+DO ,1 SUB #7 <- #34
+DO ;49221 SUB #3 <- ,1
+DO READ OUT #0 WITH TEMPLATE "t/values.html"
+DO GIVE UP

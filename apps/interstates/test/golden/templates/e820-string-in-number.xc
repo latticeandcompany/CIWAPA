@@ -1,0 +1,3 @@
+PLEASE COME FROM (16000)
+DO READ OUT #0 WITH TEMPLATE "t/e820-string-in-number.html"
+DO GIVE UP

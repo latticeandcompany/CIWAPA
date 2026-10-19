@@ -1,0 +1,34 @@
+PLEASE COME FROM (16000) WITH ROUTE "/"
+(10) DO READ OUT #0 WITH TEMPLATE "t/next.html"
+DO ,1 <- #14
+DO ,1 SUB #1 <- #97
+PLEASE ,1 SUB #2 <- #102
+DO ,1 SUB #3 <- #116
+DO ,1 SUB #4 <- #101
+DO ,1 SUB #5 <- #114
+PLEASE ,1 SUB #6 <- #32
+DO ,1 SUB #7 <- #116
+DO ,1 SUB #8 <- #104
+DO ,1 SUB #9 <- #101
+PLEASE ,1 SUB #10 <- #32
+DO ,1 SUB #11 <- #112
+DO ,1 SUB #12 <- #97
+DO ,1 SUB #13 <- #103
+DO ,1 SUB #14 <- #101
+PLEASE .1 <- #1
+DO (2310) NEXT
+DO GIVE UP
+DO COME FROM (10) WITH ROUTE "/next"
+PLEASE ,1 <- #9
+DO ,1 SUB #1 <- #110
+DO ,1 SUB #2 <- #101
+DO ,1 SUB #3 <- #120
+PLEASE ,1 SUB #4 <- #116
+DO ,1 SUB #5 <- #32
+DO ,1 SUB #6 <- #112
+DO ,1 SUB #7 <- #97
+PLEASE ,1 SUB #8 <- #103
+DO ,1 SUB #9 <- #101
+DO .1 <- #1
+DO (2310) NEXT
+DO GIVE UP

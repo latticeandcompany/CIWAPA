@@ -21,12 +21,30 @@ class IoiRoute {
   final List<int>? allowed;
 }
 
+/// One piece of a compiled template (R6): text as it is (kind 0), template argument [index]
+/// (1), the route parameter (2) or template argument (3) a value names, or a value as a numeral
+/// (4).
+class IoiPiece {
+  const IoiPiece(this.kind, this.text, this.index, this.raw, this.attribute);
+
+  final int kind;
+  final String text;
+  final int index;
+
+  /// Triple grumpies: a string isn't HTML-escaped.
+  final bool raw;
+
+  /// Inside an attribute's value, where a numeral's overlines can't be markup.
+  final bool attribute;
+}
+
 /// A request, read the CGI/1.1 way from the environment and stdin, and the response the program
 /// builds for it (R2, R4).
 class IoiHost extends IckHost {
-  IoiHost({this.routes = const []});
+  IoiHost({this.routes = const [], this.templates = const []});
 
   final List<IoiRoute> routes;
+  final List<List<IoiPiece>> templates;
   final Map<String, String> _env = Platform.environment;
 
   /// The route parameters, `;4400`, and the template arguments, `;49221` (R5).
@@ -107,6 +125,8 @@ class IoiHost extends IckHost {
         _setArg(values[0], _arg(values[1], next), next);
       case 16520:
         ickFatal(values[0], next);
+      case 16500:
+        _render(templates[values[0]], values, next);
       default:
         return false;
     }
@@ -190,6 +210,83 @@ class IoiHost extends IckHost {
     return [
       for (final s in path.substring(1).split('/')) urlDecode(utf8.encode(s)),
     ];
+  }
+
+  /// `READ OUT #n WITH TEMPLATE` (R6): the template's pieces, with values from [values] (after
+  /// the template's number), written all at once.
+  void _render(List<IoiPiece> pieces, List<int> values, int next) {
+    final out = <int>[];
+    var v = 1;
+    for (final p in pieces) {
+      switch (p.kind) {
+        case 0:
+          out.addAll(utf8.encode(p.text));
+        case 1:
+          out.addAll(_html(_args[p.index] ?? '', raw: p.raw));
+        case 2:
+          out.addAll(_html(_param(values[v++], next), raw: p.raw));
+        case 3:
+          out.addAll(_html(_arg(values[v++], next), raw: p.raw));
+        default:
+          out.addAll(utf8.encode(_numeral(values[v++], p.attribute)));
+      }
+    }
+    ickOutput(out);
+  }
+
+  /// [s] as UTF-8, escaped for HTML unless [raw].
+  static List<int> _html(String s, {required bool raw}) => utf8.encode(
+    raw
+        ? s
+        : s
+              .replaceAll('&', '&amp;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;')
+              .replaceAll('"', '&quot;')
+              .replaceAll("'", '&#39;'),
+  );
+
+  /// A number as READ OUT's butchered Roman numeral, each letter's overlines as CSS
+  /// (`text-decoration: overline`, or `overline double` for two), or in an attribute's value as
+  /// combining overlines (U+0305, or U+033F for two). Zero is an overlined no-break space. In wimp
+  /// mode it is plain decimal.
+  static String _numeral(int value, bool attribute) {
+    final rows = ickNumeralLines(value);
+    if (rows.length == 1) return rows.single;
+    final letters = rows.last;
+    final bars = rows.sublist(0, rows.length - 1);
+    final width = [
+      letters.length,
+      for (final r in bars) r.length,
+    ].reduce((a, b) => a > b ? a : b);
+    final out = StringBuffer();
+    var run = StringBuffer();
+    var runDepth = -1;
+    void flush() {
+      if (run.isEmpty) return;
+      out.write(switch (runDepth) {
+        0 => '$run',
+        1 => '<span style="text-decoration: overline">$run</span>',
+        _ => '<span style="text-decoration: overline double">$run</span>',
+      });
+      run = StringBuffer();
+    }
+
+    for (var c = 0; c < width; c++) {
+      final letter = c < letters.length ? letters[c] : '\u00A0';
+      final depth = bars.where((r) => c < r.length && r[c] == '_').length;
+      if (attribute) {
+        out.write(letter);
+        if (depth == 1) out.write('\u0305');
+        if (depth >= 2) out.write('\u033F');
+        continue;
+      }
+      if (depth != runDepth) flush();
+      runDepth = depth;
+      run.write(letter);
+    }
+    flush();
+    return out.toString();
   }
 
   /// The CGI response's headers, before the first byte of its body (R2).

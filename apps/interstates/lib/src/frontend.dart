@@ -4,6 +4,7 @@ import 'package:ciwapa_core/ciwapa_core.dart' as core show analyze, lower;
 
 import 'errors.dart';
 import 'routes.dart';
+import 'templates.dart';
 import 'runtime_sources.g.dart';
 import 'services.dart';
 import 'syntax.dart';
@@ -63,7 +64,7 @@ class InterstatesFrontend implements Frontend {
       services: libraryServices,
       host: true,
       errors: interstatesErrors,
-      extension: InterstatesProgram(routes),
+      extension: InterstatesProgram(routes, _templates[program] ?? const []),
     );
     allowReferers(routes, ir);
     return ir;
@@ -98,17 +99,34 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
     }
   }
   _routes[program] = routeTable(program);
+  final templates = <Template>[];
+  for (final (i, s)
+      in program.statements.take(program.userStatements).indexed) {
+    if (s.data case TemplateUse(:final count, :final path)) {
+      final template = compileTemplate(program.source, path, count, i + 1);
+      s.body = HostCall(
+        HostService.render,
+        values: [Constant(templates.length), ...template.values],
+        gerund: Gerund.readingOut,
+      );
+      templates.add(template);
+    }
+  }
+  _templates[program] = templates;
   return program;
 }
+
+final _templates = Expando<List<Template>>();
 
 /// What the front end found in each program, for its lowering.
 final _routes = Expando<RouteTable>();
 
 /// What the ioi-* backends need about a program beyond its IR.
 class InterstatesProgram {
-  InterstatesProgram(this.routes);
+  InterstatesProgram(this.routes, this.templates);
 
   final RouteTable routes;
+  final List<Template> templates;
 }
 
 bool _usesStrings(Body body) => switch (body) {

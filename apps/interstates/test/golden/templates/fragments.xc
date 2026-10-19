@@ -1,0 +1,27 @@
+PLEASE COME FROM (16000)
+DO READ OUT #0 WITH TEMPLATE "t/list.html"
+DO ,1 <- #1
+PLEASE ,1 SUB #1 <- #49
+DO ;49221 SUB #1 <- ,1
+DO ,1 <- #5
+DO ,1 SUB #1 <- #70
+PLEASE ,1 SUB #2 <- #105
+DO ,1 SUB #3 <- #114
+DO ,1 SUB #4 <- #115
+DO ,1 SUB #5 <- #116
+PLEASE ;49221 SUB #2 <- ,1
+DO READ OUT #2 WITH TEMPLATE "t/item.html"
+DO ,1 <- #1
+DO ,1 SUB #1 <- #50
+PLEASE ;49221 SUB #1 <- ,1
+DO ,1 <- #6
+DO ,1 SUB #1 <- #83
+DO ,1 SUB #2 <- #101
+PLEASE ,1 SUB #3 <- #99
+DO ,1 SUB #4 <- #111
+DO ,1 SUB #5 <- #110
+DO ,1 SUB #6 <- #100
+PLEASE ;49221 SUB #2 <- ,1
+DO READ OUT #2 WITH TEMPLATE "t/item.html"
+DO READ OUT #0 WITH TEMPLATE "t/end.html"
+DO GIVE UP

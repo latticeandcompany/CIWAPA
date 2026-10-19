@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'frontend.dart';
@@ -18,6 +20,16 @@ String dartHost(IrProgram program) {
         : '[${r.segments!.map((s) => s.text == null ? 'null' : _dartString(s.text!)).join(', ')}]';
     final allowed = r.restricted ? '[${r.allowed.join(', ')}]' : 'null';
     out.writeln('    IoiRoute(${r.ordinal}, $segments, $allowed),');
+  }
+  out.write('  ],\n  templates: const [\n');
+  for (final t in data.templates) {
+    out.writeln('    [');
+    for (final p in t.pieces) {
+      out.writeln(
+        '      IoiPiece(${p.kind.index}, ${_dartString(p.text)}, ${p.index}, ${p.raw}, ${p.attribute}),',
+      );
+    }
+    out.writeln('    ],');
   }
   out.write('  ],\n);\n');
   return out.toString();
@@ -80,5 +92,41 @@ String cHostData(IrProgram program) {
       'const ioi_route ioi_routes[] = {${routes.isEmpty ? '{0}' : routes.join(', ')}};',
     )
     ..writeln('const uint32_t ioi_route_count = ${routes.length};');
+  final templates = <String>[];
+  for (final (i, t) in data.templates.indexed) {
+    final pieces = [
+      for (final p in t.pieces)
+        '{${p.kind.index}, ${p.text.isEmpty ? 'NULL' : _cString(utf8.encode(p.text))}, '
+            '${utf8.encode(p.text).length}, ${p.index}, ${p.raw ? 1 : 0}, ${p.attribute ? 1 : 0}}',
+    ];
+    if (pieces.isEmpty) {
+      templates.add('{NULL, 0}');
+      continue;
+    }
+    out.writeln(
+      'static const ioi_piece ioi_template_$i[] = {${pieces.join(', ')}};',
+    );
+    templates.add('{ioi_template_$i, ${pieces.length}}');
+  }
+  out
+    ..writeln(
+      'const ioi_template ioi_templates[] = {${templates.isEmpty ? '{0}' : templates.join(', ')}};',
+    )
+    ..writeln('const uint32_t ioi_template_count = ${templates.length};');
+  return out.toString();
+}
+
+/// [bytes] as a C string literal, every byte that isn't plain ASCII as a three-digit octal escape
+/// (which can't run into the next character, as a hex escape can).
+String _cString(List<int> bytes) {
+  final out = StringBuffer('"');
+  for (final b in bytes) {
+    if (b >= 0x20 && b < 0x7F && b != 0x22 && b != 0x5C && b != 0x3F) {
+      out.writeCharCode(b);
+    } else {
+      out.write('\\${b.toRadixString(8).padLeft(3, '0')}');
+    }
+  }
+  out.write('"');
   return out.toString();
 }

@@ -1,0 +1,8 @@
+PLEASE COME FROM (16000)
+DO .1 <- #4
+DO .2 <- #1999
+DO :1 <- #4000
+PLEASE ::1 <- ####5000000004000
+DO .3 <- #0
+DO READ OUT #0 WITH TEMPLATE "t/numbers.html"
+DO GIVE UP

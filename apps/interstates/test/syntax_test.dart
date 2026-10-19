@@ -12,6 +12,10 @@ List<Statement> parse(String text) =>
 
 Statement only(String text) => parse(text).single;
 
+/// The parse alone, before the front end reads any template.
+List<Statement> parseOnly(String text) =>
+    InterstatesParser(Source('t.xc', text)).parse();
+
 /// The values of a HostCall, with each constant as its number and anything else as text.
 List<Object> values(Body body) => [
   for (final v in (body as HostCall).values)
@@ -100,7 +104,8 @@ void main() {
 
   group('templates (R6)', () {
     test('READ OUT #n WITH TEMPLATE records the template and its count', () {
-      final s = only('PLEASE READ OUT #3 WITH TEMPLATE "blog_post.html"\n');
+      final s = parseOnly('PLEASE READ OUT #3 WITH TEMPLATE "blog_post.html"\n')
+          .single;
       expect((s.body as HostCall).service, HostService.render);
       expect(s.body.gerund, Gerund.readingOut);
       final use = s.data as TemplateUse;
@@ -298,7 +303,7 @@ void main() {
     });
 
     test('a bare GIVE UP is DO GIVE UP', () {
-      final s = parse(
+      final s = parseOnly(
         'DO COME FROM (16000)\nPLEASE READ OUT #0 WITH TEMPLATE "hello.html"\nGIVE UP\n',
       );
       expect(s, hasLength(3));

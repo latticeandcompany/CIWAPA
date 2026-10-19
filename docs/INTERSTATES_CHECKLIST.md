@@ -19,8 +19,8 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [x] Punchline 1 — `gross`, the General READ OUT Server System, listens on port 10585 by default. Tests: `apps/interstates/test/gross_test.dart`
 - [x] Punchline 2 — `-s` turns on the Interstates extensions; without it the `ioi-*` CLIs compile plain EXTRACAL. Tests: `apps/interstates/test/cli_test.dart`, `apps/interstates/test/syntax_test.dart`
 - [ ] Punchline 3 — the database layer is ActiveCassette.
-- [ ] Punchline 4 — templates use `{{ }}` double grumpies.
-- [ ] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward.
+- [x] Punchline 4 — templates use `{{ }}` double grumpies. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/numbers.xc`
+- [x] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/string-values.xc`, `apps/interstates/test/golden/routes/param.xc`
 - [x] Punchline 6 — `(16000)` is the implicit entry label that no program defines. Tests: `apps/interstates/test/golden/routes/catch-all.xc`, `apps/interstates/test/golden/routes/param.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`
 
 ## Language (R1, R5, Q141, Q147)
@@ -49,7 +49,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [x] R3 — no matching route and no catch-all is a 404 page. Tests: `apps/interstates/test/golden/routes/no-route.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`, `apps/interstates/test/gross_test.dart`
 - [x] R3 — `COME FROM (L) WITH ROUTE` fails the build unless `L` is a `READ OUT … WITH TEMPLATE` whose template links the route. Tests: `apps/interstates/test/golden/routes/e443-not-a-template.xc`, `apps/interstates/test/golden/routes/e443-unlinked.xc`, `apps/interstates/test/golden/routes/e444-route-label.xc`, `apps/interstates/test/golden/routes/e777-missing-template.xc`, `apps/interstates/test/golden/routes/links-decoded.xc`, `apps/interstates/test/golden/routes/e443-commented.xc`, `apps/interstates/test/golden/routes/e443-data-attribute.xc`, `apps/interstates/test/golden/routes/e443-text.xc`, `apps/interstates/test/golden/routes/e443-dynamic-is-no-fixed.xc`
 - [x] R3 — a restricted route answers 403 unless the `Referer` is a page that line `L` could have rendered. Tests: `apps/interstates/test/golden/routes/restricted-ok.xc`, `apps/interstates/test/golden/routes/restricted-dynamic-link.xc`, `apps/interstates/test/golden/routes/restricted-no-referer.xc`, `apps/interstates/test/golden/routes/restricted-wrong-referer.xc`, `apps/interstates/test/golden/routes/restricted-other-host.xc`, `apps/interstates/test/golden/routes/restricted-unknown-referer.xc`, `apps/interstates/test/golden/routes/restricted-referer-line-separator.xc`, `apps/interstates/test/golden/routes/reach-next.xc`, `apps/interstates/test/golden/routes/reach-abstained-give-up.xc`, `apps/interstates/test/golden/routes/reach-come-from.xc`, `apps/interstates/test/golden/routes/reach-catch-all.xc`, `apps/interstates/test/golden/routes/reach-blocked.xc`, `apps/interstates/test/golden/routes/reach-unknowable.xc`, `apps/interstates/test/gross_test.dart`
-- [ ] R3 — a `WITH ROUTE` COME FROM never fires as an ordinary COME FROM, and many may share a label without E555.
+- [x] R3 — a `WITH ROUTE` COME FROM never fires as an ordinary COME FROM, and many may share a label without E555. Tests: `apps/interstates/test/golden/templates/route-is-no-trap-door.xc`, `apps/interstates/test/golden/routes/restricted-ok.xc`, `apps/interstates/test/golden/routes/restricted-dynamic-link.xc`
 - [x] Edge cases — empty, percent-encoded (`%2F`) and non-ASCII `:param` values. Tests: `apps/interstates/test/golden/routes/empty-param.xc`, `apps/interstates/test/golden/routes/encoded-slash.xc`, `apps/interstates/test/golden/routes/encoded-utf8.xc`, `apps/interstates/test/golden/routes/raw-utf8.xc`, `apps/interstates/test/golden/routes/malformed-utf8.xc`, `apps/interstates/test/golden/routes/absolute-form.xc`, `apps/interstates/test/golden/routes/absolute-form-query.xc`, `apps/interstates/test/golden/routes/query-ignored.xc`, `apps/interstates/test/golden/routes/path-info.xc`
 
 ## Request and response
@@ -62,10 +62,10 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Templates
 
-- [ ] R6 — templates are embedded at compile time, and `READ OUT #n` must match the template's argument count.
-- [ ] R6 — `{{ }}` escapes HTML and `{{{ }}}` prints raw.
-- [ ] R6 — numbers print as butchered Roman numerals with CSS overlines, including inside attribute values.
-- [ ] R6 — `;49221 SUB #1` appears in the template as `,144`, `SUB #2` as `,143`, and so on.
+- [x] R6 — templates are embedded at compile time, and `READ OUT #n` must match the template's argument count. Tests: `apps/interstates/test/golden/templates/e821-too-many.xc`, `apps/interstates/test/golden/templates/e821-none-given.xc`, `apps/interstates/test/golden/templates/gap-counts-to-the-highest.xc`, `apps/interstates/test/golden/templates/e777-missing.xc`, `apps/interstates/test/golden/templates/e820-unclosed.xc`
+- [x] R6 — `{{ }}` escapes HTML and `{{{ }}}` prints raw. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/string-values.xc`
+- [x] R6 — numbers print as butchered Roman numerals with CSS overlines, including inside attribute values. Tests: `apps/interstates/test/golden/templates/numbers.xc`, `apps/interstates/test/golden/templates/numbers-wimp.xc`
+- [x] R6 — `;49221 SUB #1` appears in the template as `,144`, `SUB #2` as `,143`, and so on. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/fragments.xc`, `apps/interstates/test/golden/templates/unset-argument-is-empty.xc`
 
 ## ActiveCassette
 

@@ -381,3 +381,29 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The code does (a) until this is answered.
 - **Blocks:** no checklist items; `apps/interstates/test/golden/routes` pins (a).
 - **Raised:** 2026-10-18
+
+## L41: How are templates written and rendered?
+
+- **Context:** R6 and Q117 give the shape of templates. These are the readings the compiler and the hosts take:
+  - **Files:** a template's path is relative to the source file's folder. Templates are read as UTF-8, with malformed bytes becoming U+FFFD, and compiled into the program. An unreadable one is E777.
+  - **Grumpies:** `{{ … }}` and `{{{ … }}}` hold one of these:
+    - `,m`, the template argument `;49221 SUB (145-m)`, a whole string
+    - `;4400 SUB e` or `;49221 SUB e` at the top, a string
+    - any other INTERCAL expression over the program's variables, a number
+    
+    Tail arrays mean only arguments there, so `,m SUB e` is E820. So is a string inside a number, a slat, or a created operator.
+  - **The argument count:** it is the highest k named as `,(145-k)`, so a template that names only `,142` takes three. It must equal `#n` (E821). An argument the program never stored prints as the empty string.
+  - **Strings** are HTML-escaped (`&`, `<`, `>`, `"`, `'`) between `{{ }}`, and printed as they are between `{{{ }}}`.
+  - **Numbers:**
+    - A number prints as READ OUT's numeral, the same between `{{{ }}}`.
+    - Overlines are CSS: a letter with one gets `<span style="text-decoration: overline">`, and one with two (64-bit values) `text-decoration: overline double`.
+    - Zero is an overlined no-break space.
+    - Inside an attribute's value, where markup can't go, each overline is a combining character instead: U+0305, or U+033F for two.
+    - In wimp mode, numbers print as plain decimal, as READ OUT does.
+  - **Attribute values** are told apart by following the HTML: a grumpy is in one when it follows `name=` inside a tag, quoted or not. HTML comments count as text.
+  - **Rendering:** a template's output is written all at once, so an error while rendering it, such as E241 for a parameter the route doesn't have, writes none of it.
+- **Options:** (a) as above; (b) other context rules, or numerals without overlines in attributes; (c) program tail arrays reachable from templates.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/templates` pins (a).
+- **Raised:** 2026-10-18
+

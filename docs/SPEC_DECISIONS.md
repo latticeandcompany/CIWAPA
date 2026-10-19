@@ -1460,6 +1460,29 @@ Conditions that only Interstates programs can meet get codes of their own, which
 - **Tests:** `apps/interstates/test/gross_test.dart`
 - **Date:** 2026-10-18
 
+### E820: a template that doesn't parse
+- **Text:** `A TEMPLATE CONTAINS A SYNTAX ERROR.`
+- **Joke:** `TWO CURLY BRACES WALK INTO A TEMPLATE. ONE OF THEM NEVER LEAVES.`
+- **Source:** R6, Q117 and L41. Templates are compiled with the program, so a template the compiler can't read is a compile-time error at the `READ OUT … WITH TEMPLATE`. That covers:
+  - a `{{` with no `}}`
+  - an empty grumpy
+  - an expression that isn't one
+  - an argument past `,144`
+  - `,m SUB …` (an argument is a whole string)
+  - a string used as a number
+  - a slat or a created operator
+
+  An operator binary lacks is E997, as anywhere else, and a missing template E777.
+- **Tests:** `apps/interstates/test/golden/templates/e820-unclosed.xc`, `apps/interstates/test/golden/templates/e820-bad-expression.xc`, `apps/interstates/test/golden/templates/e820-tail-element.xc`, `apps/interstates/test/golden/templates/e820-string-in-number.xc`, `apps/interstates/test/golden/templates/e820-empty.xc`, `apps/interstates/test/golden/templates/e820-past-145.xc`
+- **Date:** 2026-10-18
+
+### E821: a template given the wrong number of arguments
+- **Text:** `A TEMPLATE WAS GIVEN THE WRONG NUMBER OF ARGUMENTS.`
+- **Joke:** `THE TEMPLATE SET A TABLE FOR THIS MANY GUESTS. THIS MANY CAME.`
+- **Source:** R6 and Q117: "`#n` must equal the number of template arguments, and a mismatch is an error." The number a template takes is the highest k it names as `,(145-k)` (L41), and a mismatch fails the build at the statement.
+- **Tests:** `apps/interstates/test/golden/templates/e821-too-many.xc`, `apps/interstates/test/golden/templates/e821-none-given.xc`
+- **Date:** 2026-10-18
+
 ### E822: a string where a number belongs, or the other way round
 - **Text:** `STRINGS AND NUMBERS DO NOT MIX.`
 - **Joke:** `A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.`
