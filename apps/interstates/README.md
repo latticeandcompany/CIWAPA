@@ -1,6 +1,8 @@
 # INTERCAL on Interstates
 
 A web framework for INTERCAL (goal 3, [`docs/INTERSTATES_PLAN.md`](../../docs/INTERSTATES_PLAN.md)).
+The user guide is [`docs/INTERSTATES.md`](../../docs/INTERSTATES.md); this file is about how it's
+built, and the library's routine tables.
 `ioi-dart` and `ioi-llvm` compile EXTRACAL; with `-s` they add the Interstates statements, and
 the program becomes a CGI program that `gross` runs once per request.
 
