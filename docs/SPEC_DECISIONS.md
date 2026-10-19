@@ -1421,7 +1421,7 @@ Conditions that only Interstates programs can meet get codes of their own, which
 ### E504: a request that runs past gross's timeout
 - **Text:** `THE PROGRAM DID NOT GIVE UP IN TIME.`
 - **Joke:** `GROSS WAITED, AND WAITED. GROSS IS NOT A PATIENT SERVER.`
-- **Source:** Q144. `gross` kills a run that takes longer than `--timeout` (30 seconds by default) and answers 504 Gateway Timeout with this error's page. No program raises it; it is reported at statement 1, as T33 does for an error with no statement (L39).
+- **Source:** Q144. `gross` kills a run that takes longer than `--timeout` (30 seconds by default) and answers 504 Gateway Timeout with this error's page. No program raises it, and gross doesn't know where the run had got to, so it is reported at statement 1 (a ruling of L39's).
 - **Tests:** `apps/interstates/test/gross_test.dart`
 - **Date:** 2026-10-18
 
@@ -1459,6 +1459,12 @@ Conditions that only Interstates programs can meet get codes of their own, which
 ### E829: a program that doesn't answer in CGI
 - **Text:** `THE PROGRAM DID NOT ANSWER IN CGI.`
 - **Joke:** `GROSS ASKED A QUESTION AND GOT A SHRUG.`
-- **Source:** R2. `gross` answers 500 with this error's page when a run's stdout isn't a CGI response and its stderr ends in no ICL error. That covers headers with no empty line after them, a line that isn't `name: value`, a status outside 100–599, and a program `gross` can't start, such as one built without `-s`. Like E504, no program raises it, and it is reported at statement 1 (L39).
+- **Source:** R2 and L39. `gross` answers 500 with this error's page in four cases:
+  - The run's stdout isn't a CGI response, and its stderr ends in no ICL error. That covers headers with no empty line after them, a line that isn't `name: value` with a token for a name, a CR or NUL in a value, and a status outside 100–599. A program built without `-s` lands here, because it prints no headers.
+  - The run was killed by a signal.
+  - Its output passed 64 MiB.
+  - gross couldn't start it at all.
+
+  Like E504, no program raises it, and it is reported at statement 1.
 - **Tests:** `apps/interstates/test/gross_test.dart`
 - **Date:** 2026-10-18

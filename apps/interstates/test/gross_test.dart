@@ -62,8 +62,16 @@ const copy21 = [';49221 SUB #1 <- ,2', ',1 <- ;49221 SUB #1'];
 
 void main() {
   group('gross\'s options (R2, Q120, Q144)', () {
+    late Directory dir;
+    late String hello;
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('gross-options-');
+      hello = (File('${dir.path}/hello')..writeAsStringSync('')).path;
+    });
+    tearDown(() => dir.deleteSync(recursive: true));
+
     test('punchline 1: it listens on port 10585 of 127.0.0.1 by default', () {
-      final config = grossConfig(grossArguments().parse(['./hello']));
+      final config = grossConfig(grossArguments().parse([hello]));
       expect(config.port, 10585);
       expect(config.bind, '127.0.0.1');
       expect(config.staticDir, isNull);
@@ -72,8 +80,6 @@ void main() {
     });
 
     test('each option sets what it says', () {
-      final dir = Directory.systemTemp.createTempSync('gross-static-');
-      addTearDown(() => dir.deleteSync(recursive: true));
       final config = grossConfig(
         grossArguments().parse([
           '--port',
@@ -86,7 +92,7 @@ void main() {
           'sqlite:./blog.db',
           '--timeout',
           '5',
-          './blog',
+          hello,
         ]),
       );
       expect(config.port, 8080);
@@ -99,8 +105,15 @@ void main() {
     test('--static has to name a folder', () {
       expect(
         () => grossConfig(
-          grossArguments().parse(['--static', '/no/such/folder', './p']),
+          grossArguments().parse(['--static', '/no/such/folder', hello]),
         ),
+        throwsFormatException,
+      );
+    });
+
+    test('the program has to exist', () {
+      expect(
+        () => grossConfig(grossArguments().parse(['${dir.path}/hellp'])),
         throwsFormatException,
       );
     });
@@ -129,6 +142,7 @@ void main() {
         String? staticDir,
         String? database,
         Duration timeout = const Duration(seconds: 30),
+        Map<String, String>? environment,
       }) async {
         final exe = await build(backend, temp, source, states: states);
         final gross = await Gross.start(
@@ -138,6 +152,7 @@ void main() {
             staticDir: staticDir,
             database: database,
             timeout: timeout,
+            environment: environment,
           ),
           log: log.add,
         );
@@ -151,10 +166,103 @@ void main() {
         expect(got.status, 200);
         expect(got.headers.contentType?.mimeType, 'text/html');
         expect(got.body, 'GET\nAda Lovelace\n');
-        // Fresh every time: nothing carries over from the last run.
         final again = await request(gross.port, '/', method: 'POST');
         expect(again.body, 'POST\n\n');
       });
+
+      test('R2: every run starts fresh', () async {
+        final gross = await serve(
+          program(['.2 <- #0', 'READ OUT .1', '.1 <- #7', 'GIVE UP']),
+        );
+        for (var i = 0; i < 2; i++) {
+          expect((await request(gross.port, '/')).body, '_\n\n');
+        }
+      });
+
+      test('R2: the CGI/1.1 variables, and nothing of gross\'s own that looks like them', () async {
+        final names = [
+          'GATEWAY_INTERFACE',
+          'SERVER_PROTOCOL',
+          'SERVER_NAME',
+          'SERVER_PORT',
+          'REQUEST_URI',
+          'PATH_INFO',
+          'QUERY_STRING',
+          'REMOTE_ADDR',
+          'REMOTE_HOST',
+          'HTTP_X_TEST',
+          'HTTP_COOKIE',
+          'HTTP_PROXY',
+        ];
+        final gross = await serve(
+          program([
+            for (final n in names) ...[
+              ...string(',1', n),
+              '(8020) NEXT',
+              'READ OUT .1',
+              ...copy21,
+              ...writeLine,
+            ],
+            'GIVE UP',
+          ]),
+          environment: {
+            ...Platform.environment,
+            'HTTP_PROXY': 'http://evil.example',
+            'REQUEST_METHOD': 'FAKE',
+          },
+        );
+        final socket = await Socket.connect('127.0.0.1', gross.port);
+        socket.write(
+          'GET /a%20b/c?x=1 HTTP/1.1\r\nHost: example.test:8080\r\nX-Test: one\r\n'
+          'X-Test: two\r\nCookie: a=1\r\nCookie: b=2\r\n\r\n',
+        );
+        final reply = await utf8.decoder.bind(socket).join();
+        final body = reply.substring(reply.indexOf('\r\n\r\n') + 4);
+        final values = [
+          for (final (i, line) in body.split('\n').indexed)
+            if (i % 3 == 2) line,
+        ];
+        expect(values, [
+          'CGI/1.1',
+          'HTTP/1.1',
+          'example.test',
+          '${gross.port}',
+          '/a%20b/c?x=1',
+          '/a b/c',
+          'x=1',
+          '127.0.0.1',
+          '127.0.0.1',
+          'one, two',
+          'a=1; b=2',
+          // HTTP_PROXY isn't set, so ,2 still holds the cookies.
+          'a=1; b=2',
+        ]);
+        expect(body, endsWith('  \nII\na=1; b=2\n'));
+      });
+
+      test(
+        'R2: without --database, the inherited DATABASE_URL reaches each run',
+        () async {
+          final gross = await serve(
+            program([
+              ...string(',1', 'DATABASE_URL'),
+              '(8020) NEXT',
+              ...copy21,
+              '.1 <- #1',
+              '(2310) NEXT',
+              'GIVE UP',
+            ]),
+            environment: {
+              ...Platform.environment,
+              'DATABASE_URL': 'sqlite:./inherited.db',
+            },
+          );
+          expect(
+            (await request(gross.port, '/')).body,
+            'sqlite:./inherited.db\n',
+          );
+        },
+      );
 
       test('R2: the body reaches stdin', () async {
         final gross = await serve(
@@ -239,12 +347,17 @@ void main() {
           '/css',
           '/../secret.txt',
           '/%2e%2e/secret.txt',
+          '/..%5Csecret.txt',
+          '/..\\secret.txt',
+          '/C:%5Csecret.txt',
+          '/NUL.css',
+          '/con',
+          '/style.css%00.png',
         ]) {
-          expect(
-            (await request(gross.port, path)).body,
-            'GET\n\n',
-            reason: path,
-          );
+          final socket = await Socket.connect('127.0.0.1', gross.port);
+          socket.write('GET $path HTTP/1.1\r\n\r\n');
+          final reply = await utf8.decoder.bind(socket).join();
+          expect(reply, endsWith('\r\n\r\nGET\n\n'), reason: path);
         }
       });
 
@@ -365,6 +478,101 @@ void main() {
         },
       );
 
+      test(
+        'a chunked body streamed after its head still sees the 411',
+        () async {
+          final gross = await serve(echo);
+          final socket = await Socket.connect('127.0.0.1', gross.port);
+          final reply = utf8.decoder.bind(socket).join();
+          socket.write('POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n');
+          await socket.flush();
+          try {
+            for (var i = 0; i < 64; i++) {
+              socket.write('400\r\n${'x' * 1024}\r\n');
+              await socket.flush();
+            }
+          } on SocketException {
+            // gross has stopped reading; what matters is its answer.
+          }
+          expect(await reply, startsWith('HTTP/1.1 411 Length Required\r\n'));
+        },
+      );
+
+      test(
+        'a request that stops arriving gets a 408 after --timeout',
+        () async {
+          final gross = await serve(echo, timeout: const Duration(seconds: 1));
+          final socket = await Socket.connect('127.0.0.1', gross.port);
+          socket.write('GET / HTTP/1.1\r\n');
+          final reply = await utf8.decoder
+              .bind(socket)
+              .join()
+              .timeout(const Duration(seconds: 10));
+          expect(reply, startsWith('HTTP/1.1 408 Request Timeout\r\n'));
+        },
+      );
+
+      test('a body over the limit is a 413, a head over 64 KiB a 431, and other HTTP a 400', () async {
+        final gross = await serve(echo);
+        for (final (head, status) in [
+          (
+            'POST / HTTP/1.1\r\nContent-Length: ${Gross.bodyLimit + 1}\r\n\r\n',
+            '413',
+          ),
+          ('GET / HTTP/1.1\r\nX-Big: ${'x' * 70000}\r\n\r\n', '431'),
+          ('GET / HTTP/2.0\r\n\r\n', '400'),
+          ('GET http://example.test/ HTTP/1.1\r\n\r\n', '400'),
+        ]) {
+          final socket = await Socket.connect('127.0.0.1', gross.port);
+          socket.write(head);
+          final reply = await utf8.decoder.bind(socket).join();
+          expect(reply, startsWith('HTTP/1.1 $status '), reason: status);
+        }
+      });
+
+      test('Expect: 100-continue gets its interim answer', () async {
+        final gross = await serve(
+          program([
+            ...string(',1', 'a'),
+            '(16050) NEXT',
+            ...copy21,
+            ...writeLine,
+            'GIVE UP',
+          ]),
+        );
+        final socket = await Socket.connect('127.0.0.1', gross.port);
+        final replies = StreamIterator(utf8.decoder.bind(socket));
+        socket.write(
+          'POST / HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\n'
+          'Content-Length: 3\r\nExpect: 100-continue\r\n\r\n',
+        );
+        await socket.flush();
+        expect(await replies.moveNext(), isTrue);
+        expect(replies.current, startsWith('HTTP/1.1 100 Continue\r\n\r\n'));
+        socket.write('a=b');
+        var rest = replies.current;
+        while (await replies.moveNext()) {
+          rest += replies.current;
+        }
+        expect(rest, endsWith('\r\n\r\nb\n'));
+      });
+
+      test('headers about the connection don\'t pass through', () async {
+        final gross = await serve(
+          program([
+            ...string(',1', 'Transfer-Encoding'),
+            ...string(',2', 'chunked'),
+            '(16110) NEXT',
+            ...string(',1', 'body'),
+            ...writeLine,
+            'GIVE UP',
+          ]),
+        );
+        final got = await request(gross.port, '/');
+        expect(got.headers.value('transfer-encoding'), isNull);
+        expect(got.body, 'body\n');
+      });
+
       test('a request that isn\'t HTTP gets a 400', () async {
         final gross = await serve(echo);
         final socket = await Socket.connect('127.0.0.1', gross.port);
@@ -375,26 +583,91 @@ void main() {
     });
   }
 
-  test(
-    'punchline 1: the gross command serves on http://127.0.0.1:10585',
-    () async {
-      final temp = Directory.systemTemp.createTempSync('gross-cli-');
-      addTearDown(() => temp.deleteSync(recursive: true));
-      final exe = await build(ioiDart(), temp, echo);
-      final gross = await Process.start(Platform.resolvedExecutable, [
-        'run',
-        'bin/gross.dart',
-        exe,
-      ]);
-      addTearDown(gross.kill);
-      final lines = gross.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
-      final ready = await lines
-          .firstWhere((l) => l.startsWith('gross:'))
-          .timeout(const Duration(minutes: 2));
-      expect(ready, 'gross: serving $exe on http://127.0.0.1:10585');
-      expect((await request(10585, '/?name=gross')).body, 'GET\ngross\n');
-    },
-  );
+  group('reading a run', () {
+    const e822 =
+        'ICL822I STRINGS AND NUMBERS DO NOT MIX.\n'
+        '        A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.\n'
+        '\tON THE WAY TO STATEMENT 3\n'
+        '        CORRECT SOURCE AND RESUBMIT\n';
+
+    test('the ICL error is the one stderr ends with, whatever came before', () {
+      expect(iclError('ICL440I hi\n$e822', 822 % 256), (
+        822,
+        3,
+        'STRINGS AND NUMBERS DO NOT MIX.',
+      ));
+    });
+
+    test('an E000\'s statement runs on in tab-led lines', () {
+      const text = 'DO SAY\n\tTWO LINES';
+      expect(
+        iclError(
+          'ICL000I $text\n        JOKE\n\tON THE WAY TO STATEMENT 2\n        CORRECT SOURCE AND RESUBMIT\n',
+          0,
+        ),
+        (0, 2, text),
+      );
+    });
+
+    test('an error the exit status disagrees with is just text', () {
+      expect(iclError(e822, 0), isNull);
+    });
+
+    test('a CGI response keeps its reason, and refuses malformed headers', () {
+      final ok = cgiResponse(
+        utf8.encode('Status: 429 Too Many Requests\nX-A: b\n\nbody'),
+      )!;
+      expect(
+        (ok.status, ok.reason, utf8.decode(ok.body)),
+        (429, 'Too Many Requests', 'body'),
+      );
+      expect(ok.headers, [('X-A', 'b')]);
+      for (final bad in [
+        'X A: b\n\n',
+        'X-A: b\rc\n\n',
+        'Status: 99\n\n',
+        'X-A: b\n',
+        'nonsense\n\n',
+      ]) {
+        expect(cgiResponse(utf8.encode(bad)), isNull, reason: bad);
+      }
+      expect(cgiResponse(utf8.encode('Location: /x\r\n\r\n'))!.status, 302);
+    });
+  });
+
+  test('punchline 1: the gross command serves on http://127.0.0.1:10585, logging to stderr', () async {
+    final temp = Directory.systemTemp.createTempSync('gross-cli-');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    final exe = await build(ioiDart(), temp, echo);
+    final gross = await Process.start(Platform.resolvedExecutable, [
+      'run',
+      'bin/gross.dart',
+      exe,
+    ]);
+    addTearDown(gross.kill);
+    final seen = <String>[];
+    final more = StreamController<void>.broadcast();
+    gross.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(
+      (l) {
+        seen.add(l);
+        more.add(null);
+      },
+    );
+    Future<String> line(bool Function(String) test) async {
+      while (!seen.any(test)) {
+        await more.stream.first.timeout(const Duration(minutes: 2));
+      }
+      return seen.firstWhere(test);
+    }
+
+    expect(
+      await line((l) => l.startsWith('gross:')),
+      'gross: serving $exe on http://127.0.0.1:10585',
+    );
+    expect((await request(10585, '/?name=gross')).body, 'GET\ngross\n');
+    expect(
+      await line((l) => l.contains('"GET /?name=gross HTTP/1.1" 200')),
+      startsWith('127.0.0.1:'),
+    );
+  });
 }

@@ -16,6 +16,7 @@ class GrossConfig {
     this.staticDir,
     this.database,
     this.timeout = const Duration(seconds: 30),
+    this.environment,
   });
 
   /// Punchline 1: the General READ OUT Server System listens on 10585.
@@ -30,12 +31,17 @@ class GrossConfig {
 
   /// `--database`: the ActiveCassette connection each run gets as DATABASE_URL.
   final String? database;
+
+  /// How long a request may take to arrive, and how long its run may take.
   final Duration timeout;
+
+  /// The environment the program's runs start from; gross's own by default.
+  final Map<String, String>? environment;
 }
 
 /// The General READ OUT Server System: an HTTP/1.1 server that runs a CGI program once per
 /// request (R2). It speaks the same HTTP/1.1 as EXTRACAL's Network block: one request per
-/// connection, bodies by `Content-Length`, and `Connection: close` on every response.
+/// connection, bodies by `Content-Length`, and `Connection: close` on every response (L39).
 class Gross {
   Gross._(this.config, this._server, this._program, this._log);
 
@@ -43,6 +49,12 @@ class Gross {
   final ServerSocket _server;
   final String _program;
   final void Function(String line) _log;
+
+  /// The runs going on, which closing gross stops.
+  final _running = <Process>{};
+
+  /// The most a request body or a run's output may be.
+  static const bodyLimit = 16 * 1024 * 1024, outputLimit = 64 * 1024 * 1024;
 
   /// The port it listens on, which is the configured one unless that was 0.
   int get port => _server.port;
@@ -57,17 +69,23 @@ class Gross {
     final gross = Gross._(
       config,
       server,
-      _executable(config.program),
+      executable(config.program),
       log ?? stderr.writeln,
     );
     server.listen(gross._serve);
     return gross;
   }
 
-  Future<void> close() => _server.close();
+  /// Stops listening, and stops every run still going.
+  Future<void> close() async {
+    await _server.close();
+    for (final p in _running) {
+      p.kill(ProcessSignal.sigkill);
+    }
+  }
 
   /// The program to run, as an absolute path; on Windows `.exe` may be left off.
-  static String _executable(String program) {
+  static String executable(String program) {
     final file = File(program);
     if (!file.existsSync() &&
         Platform.isWindows &&
@@ -83,33 +101,47 @@ class Gross {
     var line = '-';
     var status = 0;
     try {
-      final request = await HttpRequest.read(socket);
-      if (request == null) {
-        status = 400;
-        await _write(socket, _plain(400, 'Bad Request'), head: false);
+      final HttpRequest request;
+      try {
+        request = await HttpRequest.read(socket).timeout(config.timeout);
+      } on TimeoutException {
+        status = 408;
+        await _refuse(socket, 408);
+        return;
+      } on HttpRefusal catch (e) {
+        status = e.status;
+        await _refuse(socket, e.status);
         return;
       }
       line = '${request.method} ${request.target} ${request.version}';
-      // Like EXTRACAL's Network block, gross reads only Content-Length bodies.
-      final encoding = request.header('transfer-encoding');
-      if (encoding != null && encoding.toLowerCase() != 'identity') {
-        status = 411;
-        await _write(socket, _plain(411, 'Length Required'), head: false);
-        return;
-      }
       final response =
           await _static(request) ??
           await _run(request, socket.remoteAddress, socket.remotePort);
       status = response.status;
       await _write(socket, response, head: request.method == 'HEAD');
-    } on Object {
+    } on SocketException {
       // The client went away.
+    } on Object catch (e) {
+      _log('gross: $e');
     } finally {
       socket.destroy();
       _log(
-        '$peer "$line" ${status == 0 ? '-' : status} ${started.elapsedMilliseconds}ms',
+        _printable(
+          '$peer "$line" ${status == 0 ? '-' : status} ${started.elapsedMilliseconds}ms',
+        ),
       );
     }
+  }
+
+  /// Answers a request gross won't read, then stops writing and drains what the client still
+  /// sends for a moment, so that the answer isn't lost to a reset.
+  Future<void> _refuse(Socket socket, int status) async {
+    await _write(socket, _plain(status, reasonPhrase(status)), head: false);
+    await socket.close();
+    await socket.drain<void>().timeout(
+      const Duration(seconds: 1),
+      onTimeout: () {},
+    );
   }
 
   /// A file under `--static` that the path names, if there is one (R2: no folder is served
@@ -129,15 +161,28 @@ class Gross {
           s.isEmpty ||
           s == '.' ||
           s == '..' ||
-          s.contains(RegExp(r'[/\\:\x00]')),
+          s.contains(RegExp(r'[/\\:\x00]')) ||
+          _windowsDevice.hasMatch(s),
     );
     if (unsafe) return null;
-    final file = File([dir, ...segments].join(Platform.pathSeparator));
-    if (!file.existsSync()) return null;
-    return HttpResponse(200, [
-      ('Content-Type', _contentType(file.path)),
-    ], await file.readAsBytes());
+    final path = [dir, ...segments].join(Platform.pathSeparator);
+    if (FileSystemEntity.typeSync(path) != FileSystemEntityType.file) {
+      return null;
+    }
+    try {
+      return HttpResponse(200, [
+        ('Content-Type', _contentType(path)),
+      ], await File(path).readAsBytes());
+    } on FileSystemException {
+      return null;
+    }
   }
+
+  /// Windows' reserved device names, which name a device in every folder.
+  static final _windowsDevice = RegExp(
+    r'^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$',
+    caseSensitive: false,
+  );
 
   Future<HttpResponse> _run(
     HttpRequest request,
@@ -156,8 +201,21 @@ class Gross {
       _log('gross: cannot run ${config.program}: ${e.message}');
       return _page(829, 1);
     }
-    final out = process.stdout.fold(BytesBuilder(), (b, d) => b..add(d));
-    final err = process.stderr.fold(BytesBuilder(), (b, d) => b..add(d));
+    _running.add(process);
+    var overflowed = false;
+    var size = 0;
+    Future<BytesBuilder> collect(Stream<List<int>> stream) =>
+        stream.fold(BytesBuilder(), (b, d) {
+          size += d.length;
+          if (size > outputLimit) {
+            overflowed = true;
+            process.kill(ProcessSignal.sigkill);
+            return b;
+          }
+          return b..add(d);
+        });
+    final out = collect(process.stdout);
+    final err = collect(process.stderr);
     process.stdin.add(request.body);
     unawaited(process.stdin.close().catchError((_) {}));
     final exited = await process.exitCode
@@ -170,19 +228,22 @@ class Gross {
           },
         );
     final errors = utf8.decode((await err).takeBytes(), allowMalformed: true);
-    if (errors.isNotEmpty) {
-      for (final l in const LineSplitter().convert(errors)) {
-        _log('${config.program}: $l');
-      }
+    final output = (await out).takeBytes();
+    await process.exitCode;
+    _running.remove(process);
+    for (final l in const LineSplitter().convert(errors)) {
+      _log(_printable('${config.program}: $l'));
     }
-    if (exited == null) {
-      await process.exitCode;
-      return _page(504, 1);
-    }
-    if (iclError(errors) case (final code, final statement, final text)) {
+    if (exited == null) return _page(504, 1);
+    if (overflowed || exited < 0) return _page(829, 1);
+    if (iclError(errors, exited) case (
+      final code,
+      final statement,
+      final text,
+    )) {
       return _page(code, statement, text: text);
     }
-    return cgiResponse((await out).takeBytes()) ?? _page(829, 1);
+    return cgiResponse(output) ?? _page(829, 1);
   }
 
   /// The CGI/1.1 variables for [request], over the environment gross was started with, less
@@ -193,7 +254,8 @@ class Gross {
     int remotePort,
   ) {
     final env = {
-      for (final MapEntry(:key, :value) in Platform.environment.entries)
+      for (final MapEntry(:key, :value)
+          in (config.environment ?? Platform.environment).entries)
         if (!key.toUpperCase().startsWith('HTTP_') &&
             !_cgiVariables.contains(key.toUpperCase()))
           key: value,
@@ -211,6 +273,7 @@ class Gross {
       'PATH_INFO': _percentDecode(request.path),
       'QUERY_STRING': request.query,
       'REMOTE_ADDR': remote.address,
+      'REMOTE_HOST': remote.address,
       'REMOTE_PORT': '$remotePort',
       if (request.body.isNotEmpty || request.header('content-length') != null)
         'CONTENT_LENGTH': '${request.body.length}',
@@ -241,6 +304,7 @@ class Gross {
     'PATH_INFO',
     'QUERY_STRING',
     'REMOTE_ADDR',
+    'REMOTE_HOST',
     'REMOTE_PORT',
     'CONTENT_LENGTH',
     'CONTENT_TYPE',
@@ -252,11 +316,10 @@ class Gross {
     required bool head,
   }) async {
     final out = StringBuffer(
-      'HTTP/1.1 ${response.status} ${reasonPhrase(response.status)}\r\n',
+      'HTTP/1.1 ${response.status} ${response.reason ?? reasonPhrase(response.status)}\r\n',
     );
     for (final (name, value) in response.headers) {
-      final lower = name.toLowerCase();
-      if (lower == 'content-length' || lower == 'connection') continue;
+      if (_hopByHop.contains(name.toLowerCase())) continue;
       out.write('$name: $value\r\n');
     }
     out
@@ -266,7 +329,25 @@ class Gross {
     if (!head) socket.add(response.body);
     await socket.flush();
   }
+
+  /// Headers about this one connection, which gross sets itself or leaves out.
+  static const _hopByHop = {
+    'connection',
+    'content-length',
+    'keep-alive',
+    'proxy-connection',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+  };
 }
+
+/// [line] with its control characters escaped, so it can't move the operator's cursor.
+String _printable(String line) => line.replaceAllMapped(
+  RegExp(r'[\x00-\x1f\x7f]'),
+  (m) => '\\x${m[0]!.codeUnitAt(0).toRadixString(16).padLeft(2, '0')}',
+);
 
 /// An ICL-style error page (Design & Behavior): the four lines of the error, as the program
 /// would have printed them. E403 is 403 Forbidden, E440 404 Not Found and E504 504 Gateway
@@ -311,24 +392,26 @@ IclError _error(int code) =>
       orElse: () => IclError(code, '', ''),
     );
 
-/// The ICL error a program's stderr ends with, as (code, statement, official text), or null.
-(int, int, String)? iclError(String stderr) {
+/// The ICL error a run ended with, as (code, statement, official text), or null: the four lines
+/// at the very end of its stderr, from the start of a line (E000's text runs on in lines that start
+/// with a tab), and an exit status that agrees with the code (T34).
+(int, int, String)? iclError(String stderr, int exitCode) {
   final match = RegExp(
-    r'ICL(\d{3})I ([\s\S]*?)\n {8}.*\n\tON THE WAY TO STATEMENT (\d+)\n {8}CORRECT SOURCE AND RESUBMIT\n?$',
-  ).allMatches(stderr).lastOrNull;
+    r'(?:^|\n)ICL(\d{3})I ([^\n]*(?:\n\t[^\n]*)*?)\n {8}[^\n]*\n\tON THE WAY TO STATEMENT (\d+)\n {8}CORRECT SOURCE AND RESUBMIT\n?$',
+  ).firstMatch(stderr);
   if (match == null) return null;
-  return (
-    int.parse(match.group(1)!),
-    int.parse(match.group(3)!),
-    match.group(2)!,
-  );
+  final code = int.parse(match.group(1)!);
+  if (code % 256 != exitCode) return null;
+  return (code, int.parse(match.group(3)!), match.group(2)!);
 }
 
-/// A CGI response turned into an HTTP one: its `Status`, or 302 for a bare `Location`, or 200;
-/// its other headers; and its body. Null if it isn't one: no empty line ends its headers, a line
-/// isn't `name: value`, or the status isn't three digits from 100 to 599.
+/// A CGI response turned into an HTTP one: its `Status` (and reason), or 302 for a bare
+/// `Location`, or 200; its other headers; and its body. Null if it isn't one: no empty line ends
+/// its headers, a line isn't `name: value` with a token for a name and no CR or NUL in the
+/// value, or the status isn't three digits from 100 to 599.
 HttpResponse? cgiResponse(List<int> output) {
   var status = 200;
+  String? reason;
   var located = false, statused = false;
   final headers = <(String, String)>[];
   var at = 0;
@@ -342,12 +425,17 @@ HttpResponse? cgiResponse(List<int> output) {
     if (line.isEmpty) break;
     final colon = line.indexOf(':');
     if (colon <= 0) return null;
-    final name = line.substring(0, colon).trim();
+    final name = line.substring(0, colon);
     final value = line.substring(colon + 1).trim();
+    if (!RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$").hasMatch(name) ||
+        value.contains(RegExp('[\r\x00]'))) {
+      return null;
+    }
     if (name.toLowerCase() == 'status') {
-      final code = int.tryParse(value.split(' ').first);
-      if (code == null || code < 100 || code > 599) return null;
-      status = code;
+      final m = RegExp(r'^([1-5][0-9]{2})(?: (.*))?$').firstMatch(value);
+      if (m == null) return null;
+      status = int.parse(m.group(1)!);
+      reason = m.group(2);
       statused = true;
     } else {
       if (name.toLowerCase() == 'location') located = true;
@@ -355,20 +443,30 @@ HttpResponse? cgiResponse(List<int> output) {
     }
   }
   if (located && !statused) status = 302;
-  return HttpResponse(status, headers, output.sublist(at));
+  return HttpResponse(status, headers, output.sublist(at), reason: reason);
 }
 
 class HttpResponse {
-  HttpResponse(this.status, this.headers, this.body);
+  HttpResponse(this.status, this.headers, this.body, {this.reason});
 
   final int status;
   final List<(String, String)> headers;
   final List<int> body;
+
+  /// The program's own reason phrase, if it gave one.
+  final String? reason;
 }
 
 HttpResponse _plain(int status, String text) => HttpResponse(status, [
   ('Content-Type', 'text/plain; charset=utf-8'),
 ], utf8.encode('$text\n'));
+
+/// A request gross won't read, and the status it answers instead (L39).
+class HttpRefusal implements Exception {
+  HttpRefusal(this.status);
+
+  final int status;
+}
 
 /// One HTTP/1.1 request, read as EXTRACAL's (9200) reads one: empty lines skipped, then the
 /// request line and headers, then a `Content-Length` body.
@@ -402,15 +500,18 @@ class HttpRequest {
 
   static const _headLimit = 64 * 1024;
 
-  /// The request on [socket], or null when it isn't one (or the client stops sending).
-  static Future<HttpRequest?> read(Socket socket) async {
+  /// The request on [socket]. Refuses one with [HttpRefusal]: 400 for one that isn't HTTP/1.0 or
+  /// 1.1 in origin form (or that stops short), 431 for a head over 64 KiB, 411 for a body sent with
+  /// a transfer encoding, and 413 for a body over [Gross.bodyLimit]. It answers
+  /// `Expect: 100-continue` before reading the body.
+  static Future<HttpRequest> read(Socket socket) async {
     final buffer = BytesBuilder(copy: false);
     final chunks = StreamIterator(socket);
     var bytes = Uint8List(0);
     var headEnd = -1;
     try {
       while (headEnd < 0) {
-        if (!await chunks.moveNext()) return null;
+        if (!await chunks.moveNext()) throw HttpRefusal(400);
         buffer.add(chunks.current);
         bytes = buffer.toBytes();
         // Empty lines before the request line are skipped.
@@ -420,21 +521,26 @@ class HttpRequest {
           start++;
         }
         headEnd = _blankLine(bytes, start);
-        if (headEnd < 0 && bytes.length > _headLimit) return null;
+        if (headEnd < 0 && bytes.length > _headLimit) throw HttpRefusal(431);
       }
-      final head = latin1.decode(bytes.sublist(0, headEnd));
+      if (headEnd > _headLimit) throw HttpRefusal(431);
+      final head = utf8.decode(bytes.sublist(0, headEnd), allowMalformed: true);
       final lines = head
           .split('\n')
           .map((l) => l.endsWith('\r') ? l.substring(0, l.length - 1) : l)
           .skipWhile((l) => l.isEmpty)
           .toList();
       final parts = lines.first.split(' ');
-      if (parts.length != 3 || !parts[1].startsWith('/')) return null;
+      if (parts.length != 3 ||
+          !parts[1].startsWith('/') ||
+          !RegExp(r'^HTTP/1\.[01]$').hasMatch(parts[2])) {
+        throw HttpRefusal(400);
+      }
       final headers = <(String, String)>[];
       for (final line in lines.skip(1)) {
         if (line.isEmpty) continue;
         final colon = line.indexOf(':');
-        if (colon <= 0) return null;
+        if (colon <= 0) throw HttpRefusal(400);
         headers.add((
           line.substring(0, colon).trim(),
           line.substring(colon + 1).trim(),
@@ -447,13 +553,28 @@ class HttpRequest {
         headers,
         Uint8List(0),
       );
+      // Like EXTRACAL's Network block, gross reads only Content-Length bodies.
+      final encoding = request.header('transfer-encoding');
+      if (encoding != null && encoding.toLowerCase() != 'identity') {
+        throw HttpRefusal(411);
+      }
       final lengthText = request.header('content-length');
-      final length = lengthText == null ? 0 : int.tryParse(lengthText);
-      if (length == null || length < 0) return null;
+      final length = lengthText == null
+          ? 0
+          : (RegExp(r'^[0-9]{1,18}$').hasMatch(lengthText)
+                ? int.parse(lengthText)
+                : null);
+      if (length == null) throw HttpRefusal(400);
+      if (length > Gross.bodyLimit) throw HttpRefusal(413);
       final bodyStart = bytes[headEnd + 1] == 0x0D ? headEnd + 3 : headEnd + 2;
       final body = BytesBuilder(copy: false)..add(bytes.sublist(bodyStart));
+      if (body.length < length &&
+          request.header('expect')?.toLowerCase() == '100-continue') {
+        socket.add(utf8.encode('HTTP/1.1 100 Continue\r\n\r\n'));
+        await socket.flush();
+      }
       while (body.length < length) {
-        if (!await chunks.moveNext()) return null;
+        if (!await chunks.moveNext()) throw HttpRefusal(400);
         body.add(chunks.current);
       }
       return HttpRequest(
@@ -521,6 +642,7 @@ String _contentType(String path) {
 }
 
 String reasonPhrase(int status) => switch (status) {
+  100 => 'Continue',
   200 => 'OK',
   201 => 'Created',
   204 => 'No Content',
@@ -535,11 +657,14 @@ String reasonPhrase(int status) => switch (status) {
   403 => 'Forbidden',
   404 => 'Not Found',
   405 => 'Method Not Allowed',
+  408 => 'Request Timeout',
   409 => 'Conflict',
   410 => 'Gone',
   411 => 'Length Required',
+  413 => 'Content Too Large',
   418 => "I'm a teapot",
   422 => 'Unprocessable Content',
+  431 => 'Request Header Fields Too Large',
   500 => 'Internal Server Error',
   501 => 'Not Implemented',
   503 => 'Service Unavailable',

@@ -307,25 +307,43 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Context:** R2, Q120, Q143 and Q144 fix gross's flags and its CGI model. The plan says it "uses the HTTP/1.1 and socket layer from EXTRACAL's runtime (Q89)", but the Network block's HTTP is INTERCAL (`network.xc`) with only its four socket services native, so a Dart program can't call it. These are the readings gross takes:
   - **HTTP:**
     - gross uses the same `dart:io` sockets as `runtime.dart`, and the Network block's HTTP/1.1: one request per connection, empty lines before it skipped, a `Content-Length` body, and `Connection: close` with a `Content-Length` on every response.
-    - A `Transfer-Encoding` body gets 411 Length Required. A request that isn't HTTP gets a plain 400. HEAD runs the program and drops the body.
+    - The head is read as UTF-8 (malformed bytes become U+FFFD).
+    - **Refused requests:**
+      - A request that is not `METHOD /origin-form HTTP/1.0|1.1` gets a plain 400, as does a bad `Content-Length` or one that stops short.
+      - A head over 64 KiB gets 431, a body over 16 MiB gets 413, and a `Transfer-Encoding` body gets 411.
+      - A request that hasn't fully arrived within `--timeout` gets 408.
+      - After any of these, gross stops writing and drains for a second, so the answer isn't lost to a reset.
+    - `Expect: 100-continue` gets its interim answer, and HEAD runs the program and drops the body.
   - **CGI:**
-    - The program runs with gross's environment, minus anything named like a CGI variable or `HTTP_…`, plus:
+    - The program runs with gross's environment, minus anything named like a CGI variable or `HTTP_…` (so an inherited `HTTP_PROXY` never reaches it), plus:
       - `GATEWAY_INTERFACE`, `SERVER_SOFTWARE`, `SERVER_PROTOCOL`, `SERVER_NAME`, `SERVER_PORT`
       - `REQUEST_METHOD`, `REQUEST_URI` (as sent), `SCRIPT_NAME` (empty), `PATH_INFO` (decoded), `QUERY_STRING`
-      - `REMOTE_ADDR`, `REMOTE_PORT`
+      - `REMOTE_ADDR`, `REMOTE_HOST` (the address, which RFC 3875 allows), `REMOTE_PORT`
       - `CONTENT_TYPE`, `CONTENT_LENGTH`
-      - `HTTP_…` for every other header. Repeats are joined with `, `, or `; ` for cookies.
+      - `HTTP_…` for every other header whose name maps onto `[A-Z0-9_]`. Others are dropped, and repeats are joined with `, `, or `; ` for cookies.
       - `DATABASE_URL` when `--database` is given. Otherwise the inherited one stays.
-    - The body goes to stdin. Its working folder is gross's.
+    - The body goes to stdin. The run's working folder is gross's.
+    - The program's path is resolved once, and the CLI refuses a program that isn't there.
   - **The answer:**
-    - gross keeps the whole of stdout until the run ends. If stderr ends in an ICL error, the page for it replaces whatever stdout had: E403 is 403, E440 404, any other code 500.
-    - Otherwise stdout must be a CGI response (E829 if not): `Status:`, or 302 for a bare `Location`, else 200.
-    - A run past `--timeout` is killed, and gets E504's page with 504.
-  - **Pages:** the error's four lines, exactly as the program printed them, in a `<pre>` (escaped). E504 and E829, which no program raises, are reported at statement 1 (T33).
+    - gross keeps all of stdout and stderr, up to 64 MiB together, until the run ends.
+    - If stderr ends in an ICL error, the page for it replaces whatever stdout had: E403 is 403, E440 404, any other code 500. The error must be the error's four lines, at the start of a line, at the very end of stderr, with an exit status that agrees with its code (T34).
+    - Otherwise stdout must be a CGI response (E829 if not): `Status:` and its reason phrase, or 302 for a bare `Location`, else 200.
+    - Headers about the connection (`Connection`, `Content-Length`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`, `Proxy-Connection`) are gross's own, and a program's are dropped.
+    - **Failures:**
+      - A run past `--timeout` gets E504's page with 504.
+      - A run killed by a signal, or one whose output passes 64 MiB, gets E829's.
+      - Other exit statuses don't matter, because (8030) can set them.
+  - **Pages:** the error's four lines, exactly as the program printed them, in a `<pre>` (escaped). E504 and E829, which no program raises, are reported at statement 1: gross doesn't know where the run had got to. This is a ruling of its own, not T33's.
   - **`--static`:**
-    - A GET or HEAD whose path names a file inside the folder gets that file, with a type by extension. A folder, a missing file, `.` or `..`, or a segment with `/`, `\`, `:` or NUL goes to the program instead.
-    - There is no index file. Files come before the program.
-  - **Logs:** one line per request on stderr (`peer "request line" status time`), and each line the program writes to stderr, prefixed with its name.
+    - A GET or HEAD whose path names a regular file inside the folder gets that file, with a type by extension.
+    - Anything else goes to the program instead: a folder, a missing or unreadable file, `.` or `..`, a segment with `/`, `\`, `:` or NUL, or a Windows device name such as `CON` or `NUL.css`.
+    - There is no index file, and files come before the program.
+  - **Logs:**
+    - one line per request on stderr (`peer "request line" status time`)
+    - each line the program writes to stderr, prefixed with its name
+    - control characters escaped
+    - any failure of gross's own
+  - **Shutdown:** closing gross kills the runs still going. There is no limit on concurrent runs.
 - **Options:** (a) as above; (b) gross on `dart:io`'s `HttpServer`, with keep-alive and chunked bodies; (c) other details.
 - **Lean:** (a). gross does (a) until this is answered.
 - **Blocks:** no checklist items; `apps/interstates/test/gross_test.dart` pins (a).

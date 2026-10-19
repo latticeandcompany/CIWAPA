@@ -100,8 +100,12 @@ GrossConfig grossConfig(ArgResults args) {
       '--static needs a folder, and "$staticDir" isn\'t one',
     );
   }
+  final program = args.rest.single;
+  if (!File(Gross.executable(program)).existsSync()) {
+    throw FormatException('there is no program at "$program"');
+  }
   return GrossConfig(
-    program: args.rest.single,
+    program: program,
     port: port,
     bind: args.option('bind')!,
     staticDir: staticDir,
