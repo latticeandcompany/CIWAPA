@@ -83,7 +83,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## The sample blog app
 
-- [ ] Step 10 — the blog lists posts, shows one at `/blog/post/:id`, and creates one with `INTO DATABASE`, in both flavors on every CI platform.
+- [x] Step 10 — the blog lists posts, shows one at `/blog/post/:id`, and creates one with `INTO DATABASE`, in both flavors on every CI platform. Tests: `apps/interstates/test/blog_test.dart`, `apps/interstates/examples/blog/blog.xc`
 
 ## New error codes
 
