@@ -7,7 +7,11 @@
  * environment variable IOI_ADAPTER_SCHEME (the scheme in capitals) names the library.
  *
  * ActiveCassette sends standard SQL: identifiers in double quotes, and each value a ? parameter, in
- * order. An adapter whose database spells either differently translates them. */
+ * order, one statement at a time. An adapter whose database spells either differently translates
+ * them.
+ *
+ * Every string and array ActiveCassette passes in (a url, sql, params and their text, a table) is
+ * borrowed for the length of the call only, so an adapter copies whatever it keeps. */
 #ifndef IOI_ADAPTER_H
 #define IOI_ADAPTER_H
 
@@ -39,18 +43,19 @@ typedef struct {
   void *(*tables)(void *db);
   /* Rows of one text column: [table]'s columns, in order. NULL on failure. */
   void *(*columns)(void *db, const char *table);
-  /* Runs [sql] with its [count] parameters. The rows it returns, if any, come from next; a
-   * statement that returns none gives rows with none. NULL on failure. */
+  /* Runs [sql], one statement, with its [count] parameters. The rows it returns, if any, come from
+   * next; a statement that returns none gives rows with none. NULL on failure. */
   void *(*query)(void *db, const char *sql, const ioi_value *params, size_t count);
   /* Moves to the next row: 1 for a row, 0 at the end, -1 on failure (error says why). */
   int (*next)(void *rows);
-  /* How many columns each row has. */
+  /* How many columns each row has, known before the first next. */
   size_t (*width)(void *rows);
   /* Column [i] of the current row, in [out], valid until the next call on [rows]. */
   void (*column)(void *rows, size_t i, ioi_value *out);
   /* Ends the rows, a query's or a statement's. */
   void (*finish)(void *rows);
-  /* How many rows the last statement on [db] inserted, changed or deleted. */
+  /* How many rows the last statement finished on [db] inserted, changed or deleted: 0 for one
+   * that changed no rows, such as a CREATE TABLE. */
   int64_t (*changes)(void *db);
 } ioi_adapter;
 

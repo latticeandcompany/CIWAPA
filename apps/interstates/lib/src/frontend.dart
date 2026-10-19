@@ -80,7 +80,9 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
     parser: (source, {required wide, required extensions}) =>
         parser = InterstatesParser(source, memoryLimit: memoryLimit),
     libraries: const [
-      LibraryBlock('interstates.xc', 16001, 16999, interstatesLibrary),
+      LibraryBlock('interstates.xc', 16001, 16199, interstatesLibrary),
+      // Apart, so that only programs that NEXT to them link SQLite.
+      LibraryBlock('activecassette.xc', 16200, 16999, activecassetteLibrary),
     ],
   );
   // A WHILE's body becomes a statement of its own, which gets its data here.

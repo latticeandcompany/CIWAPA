@@ -336,7 +336,7 @@ class IoiHost extends IckHost {
   }
 
   Pointer<_Adapter> _loadAdapter(String scheme, int next) {
-    if (scheme.length > 64) {
+    if (utf8.encode(scheme).length > 64) {
       _cassetteFail(825, "the DATABASE_URL's scheme is too long", next);
     }
     final name =
@@ -389,7 +389,7 @@ class IoiHost extends IckHost {
     } else {
       adapter = _loadAdapter(scheme, next);
     }
-    if (adapter.ref.version != 1) {
+    if (adapter == nullptr || adapter.ref.version != 1) {
       _cassetteFail(825, 'the adapter is not version 1', next);
     }
     _adapter = adapter;
@@ -438,8 +438,8 @@ class IoiHost extends IckHost {
     while ((status = _next(rows)) == 1) {
       out.add(_width(rows) > 0 ? _column(rows, 0) : '');
     }
-    _finish(rows);
     if (status < 0) _cassetteFail(826, _adapterError(_db), next);
+    _finish(rows);
     return out;
   }
 
@@ -559,8 +559,8 @@ class IoiHost extends IckHost {
     final rows = _query(sql.toString(), params, next);
     int status;
     while ((status = _next(rows)) == 1) {}
-    _finish(rows);
     if (status < 0) _cassetteFail(826, _adapterError(_db), next);
+    _finish(rows);
     _lastCount = _changes();
   }
 
@@ -583,8 +583,8 @@ class IoiHost extends IckHost {
         _setArg(i + 1, _column(rows, i), next);
       }
     }
-    _finish(rows);
     if (status < 0) _cassetteFail(826, _adapterError(_db), next);
+    _finish(rows);
     _lastCount = width > 0 ? count : _changes();
   }
 

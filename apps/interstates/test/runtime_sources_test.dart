@@ -15,6 +15,7 @@ void main() {
         sqliteAdapter: File('runtime/sqlite_adapter.c').readAsStringSync(),
         activecassette: File('runtime/activecassette.c').readAsStringSync(),
         library: File('runtime/interstates.xc').readAsStringSync(),
+        databaseLibrary: File('runtime/activecassette.xc').readAsStringSync(),
       ),
       reason: 'run `dart run tool/embed_runtime.dart`',
     );

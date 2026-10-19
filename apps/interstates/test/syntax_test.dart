@@ -194,6 +194,24 @@ void main() {
   });
 
   group('ActiveCassette (R7, Q145)', () {
+    test('a program without a database gets no database routines', () {
+      final request = parse(
+        'DO COME FROM (16000)\nDO (16100) NEXT\nPLEASE GIVE UP\n',
+      );
+      final database = parse(
+        'DO COME FROM (16000)\nDO (16210) NEXT\nPLEASE GIVE UP\n',
+      );
+      int petitions(List<Statement> statements, int from) => statements
+          .where(
+            (s) => s.body is Petition && (s.body as Petition).service >= from,
+          )
+          .length;
+      expect(petitions(request, 16200), 0);
+      expect(petitions(request, 16001), greaterThan(0));
+      expect(petitions(database, 16200), 2);
+      expect(petitions(database, 16001) - petitions(database, 16200), 0);
+    });
+
     test('a read names a table, columns, a row and HAVING pairs', () {
       final s = only(
         "DO ;49221 <- 'FROM DATABASE #1~#3\$#4\$#5' SUB .7 HAVING #1 ,3 + #2 ;4400 SUB #1\n",

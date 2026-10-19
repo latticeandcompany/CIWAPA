@@ -11,6 +11,7 @@ import 'support.dart';
 void main() {
   late Directory temp;
   late String library;
+  late String nullLibrary;
 
   setUpAll(() async {
     temp = Directory.systemTemp.createTempSync('ioi-adapter-');
@@ -36,6 +37,23 @@ void main() {
       library,
     ]);
     if (result.exitCode != 0) fail('${result.stdout}${result.stderr}');
+    nullLibrary = library.replaceFirst('loud', 'null');
+    final nothing = File('${temp.path}/null_adapter.c')
+      ..writeAsStringSync(
+        '#include "ioi_adapter.h"\n'
+        '${Platform.isWindows ? '__declspec(dllexport) ' : ''}'
+        'const ioi_adapter *ioi_adapter_entry(void) { return 0; }\n',
+      );
+    final built = await Process.run(Platform.environment['CC'] ?? 'clang', [
+      if (Platform.isMacOS) '-dynamiclib' else '-shared',
+      if (!Platform.isWindows && !Platform.isMacOS) '-fPIC',
+      '-w',
+      '-Iruntime',
+      nothing.path,
+      '-o',
+      nullLibrary,
+    ]);
+    if (built.exitCode != 0) fail('${built.stdout}${built.stderr}');
   });
   tearDownAll(() => temp.deleteSync(recursive: true));
 
@@ -88,5 +106,49 @@ void main() {
         ],
       );
     });
+  }
+
+  for (final backend in [ioiDart(), ioiLlvm()]) {
+    final amnesia = program(['COME FROM (16000)', 'AMNESIA', 'GIVE UP']);
+
+    Future<ProcessResult> run(
+      String name,
+      Map<String, String> environment,
+    ) async {
+      final dir = Directory('${temp.path}/${backend.name}-$name')..createSync();
+      final exe = await build(backend, dir, amnesia);
+      return Process.run(
+        exe,
+        const [],
+        workingDirectory: dir.path,
+        environment: environment,
+      );
+    }
+
+    test('${backend.name}: a file that isn\'t a database is E825', () async {
+      final dir = Directory('${temp.path}/${backend.name}-text')..createSync();
+      File('${dir.path}/notes.txt').writeAsStringSync('not a database\n' * 100);
+      final exe = await build(backend, dir, amnesia);
+      final result = await Process.run(
+        exe,
+        const [],
+        workingDirectory: dir.path,
+        environment: {'DATABASE_URL': 'sqlite:./notes.txt'},
+      );
+      expect(result.stderr, contains('ICL825I'));
+      expect(result.stderr, contains('ActiveCassette: file is not a database'));
+    });
+
+    test(
+      '${backend.name}: an adapter whose entry gives NULL is E825',
+      () async {
+        final result = await run('null', {
+          'DATABASE_URL': 'null:x',
+          'IOI_ADAPTER_NULL': nullLibrary,
+        });
+        expect(result.stderr, contains('ICL825I'));
+        expect(result.stderr, contains('the adapter is not version 1'));
+      },
+    );
   }
 }

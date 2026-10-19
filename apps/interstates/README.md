@@ -16,11 +16,14 @@ CIWAPA knows nothing about Interstates (R1, L36). `apps/interstates` uses CIWAPA
   `lib/runtime/ioi_host.dart` for ioi-dart and `runtime/host.c` for ioi-llvm, which are twins.
   The host picks where the program starts, runs the Interstates services, and writes the CGI
   headers just before the body. `tool/embed_runtime.dart` regenerates
-  `lib/src/runtime_sources.g.dart` from them and from `runtime/interstates.xc`.
+  `lib/src/runtime_sources.g.dart` from them and from the library blocks,
+  `runtime/interstates.xc` and `runtime/activecassette.xc`.
 
-## The library block, (16001)–(16999)
+## The library blocks, (16001)–(16999)
 
-A `-s` program gets it when it NEXTs to a label in the range, like the system library. Each
+A `-s` program gets each block when it NEXTs to a label in its range, like the system library:
+(16001)–(16199) for the request and response, and (16200)–(16999) for ActiveCassette, so only a
+program that uses a database needs SQLite. Each
 routine is a single PETITION of its own number. Strings are tail arrays of code points; a lookup
 sets `.1` to #1 when it finds something and #2 when it doesn't, leaving the result alone (Q139).
 

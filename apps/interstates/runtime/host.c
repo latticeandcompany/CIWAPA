@@ -729,7 +729,7 @@ static void forget_schema(void) {
 }
 
 static const ioi_adapter *load_adapter(const char *scheme, uint32_t next) {
-  char name[64 + 12] = "IOI_ADAPTER_";
+  char name[12 + 64 + 1] = "IOI_ADAPTER_";
   size_t n = strlen(scheme);
   if (n > 64) cassette_fail(825, "the DATABASE_URL's scheme is too long", next);
   for (size_t i = 0; i <= n; i++) name[12 + i] = (char)(scheme[i] >= 'a' && scheme[i] <= 'z' ? scheme[i] - 32 : scheme[i]);
@@ -807,8 +807,8 @@ static ioi_strings first_columns(void *rows, uint32_t next) {
     if (adapter->width(rows) > 0) adapter->column(rows, 0, &v);
     out.items[out.count++] = value_string(v);
   }
-  adapter->finish(rows);
   if (status < 0) cassette_fail(826, adapter->error(db), next);
+  adapter->finish(rows);
   return out;
 }
 
@@ -832,8 +832,9 @@ static ioi_string column_name(uint64_t t, uint64_t c, uint32_t next) {
   ioi_string table = table_name(t, next);
   if (!columns_known[t - 1]) {
     char *name = str_utf8(table, NULL);
-    columns[t - 1] = first_columns(adapter->columns(db, name), next);
+    void *rows = adapter->columns(db, name);
     free(name);
+    columns[t - 1] = first_columns(rows, next);
     columns_known[t - 1] = 1;
   }
   if (c < 1 || c > columns[t - 1].count) cassette_fail(824, "no such column", next);
@@ -915,15 +916,15 @@ static void put_having(ioi_buffer *sql, ioi_params *p, uint64_t t, const uint32_
 static void execute(ioi_buffer *sql, ioi_params *p, uint32_t next) {
   put(sql, "", 1);
   void *rows = adapter->query(db, sql->bytes, p->items, p->count);
+  free(sql->bytes);
+  params_free(p);
   if (!rows) cassette_fail(826, adapter->error(db), next);
   int status;
   while ((status = adapter->next(rows)) == 1) {
   }
-  adapter->finish(rows);
   if (status < 0) cassette_fail(826, adapter->error(db), next);
+  adapter->finish(rows);
   last_count = adapter->changes(db);
-  free(sql->bytes);
-  params_free(p);
 }
 
 /* Runs a query, leaving row [row]'s columns (from 1) in ;49221 (which it empties first) and how
@@ -931,6 +932,8 @@ static void execute(ioi_buffer *sql, ioi_params *p, uint32_t next) {
 static void query_into_args(ioi_buffer *sql, ioi_params *p, uint64_t row, uint32_t next) {
   put(sql, "", 1);
   void *rows = adapter->query(db, sql->bytes, p->items, p->count);
+  free(sql->bytes);
+  params_free(p);
   if (!rows) cassette_fail(826, adapter->error(db), next);
   for (size_t i = 0; i < arg_count; i++) str_free(&args[i].value);
   arg_count = 0;
@@ -945,11 +948,9 @@ static void query_into_args(ioi_buffer *sql, ioi_params *p, uint64_t row, uint32
       set_arg(i + 1, value_string(v), next);
     }
   }
-  adapter->finish(rows);
   if (status < 0) cassette_fail(826, adapter->error(db), next);
+  adapter->finish(rows);
   last_count = width ? count : adapter->changes(db);
-  free(sql->bytes);
-  params_free(p);
 }
 
 /* The column list of a read or write at [*at]: [t, columns, c...]; a read without columns gets

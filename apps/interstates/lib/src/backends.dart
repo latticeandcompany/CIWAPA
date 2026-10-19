@@ -69,7 +69,7 @@ bool _usesDatabase(IrProgram program) => program.statements.any(
       databaseServices.contains((s.op as IrPetition).service),
 );
 
-/// For an ioi-dart program that uses a database, the SQLite library it loads, if there is one.
+/// For an ioi-dart program that uses a database, the SQLite library it loads.
 String? _sqliteLibrary(IrProgram program) {
   if (!_usesDatabase(program)) return null;
   final name = Platform.isWindows
@@ -78,7 +78,8 @@ String? _sqliteLibrary(IrProgram program) {
       ? 'libioi_sqlite.dylib'
       : 'libioi_sqlite.so';
   final file = File('$_libraryFolder${Platform.pathSeparator}$name');
-  return file.existsSync() ? file.path : null;
+  if (!file.existsSync()) throw _noSqlite;
+  return file.path;
 }
 
 /// For an ioi-llvm program that uses a database, ActiveCassette's object for [triple], or failing
@@ -95,11 +96,13 @@ String? _sqliteLibrary(IrProgram program) {
   if (File('$sqlite${sep}sqlite3.c').existsSync()) {
     return (object: null, sqlite: sqlite);
   }
-  throw ToolchainException(
-    'ActiveCassette needs SQLite: set IOI_LIB to a folder that '
-    'apps/interstates/tool/activecassette.sh made, or use a release archive',
-  );
+  throw _noSqlite;
 }
+
+final _noSqlite = ToolchainException(
+  'ActiveCassette needs SQLite: set IOI_LIB to a folder that '
+  'apps/interstates/tool/activecassette.sh made, or use a release archive',
+);
 
 /// One of CIWAPA's backends, under the name of an `ioi-*` CLI: [plain] builds programs without
 /// `-s`, and [hosted] the backend for a `-s` one, with the [hostFiles] beside the generated code.

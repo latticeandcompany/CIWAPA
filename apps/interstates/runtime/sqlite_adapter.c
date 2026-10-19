@@ -16,12 +16,16 @@
 typedef struct {
   sqlite3 *db;
   char *error;
+  int64_t changes;
 } connection;
 
 typedef struct {
   connection *c;
   sqlite3_stmt *statement;
   int done;
+  /* Whether finishing it sets changes: only for the statements a program runs. */
+  int counts;
+  int64_t total;
 } rows;
 
 static char *connect_error;
@@ -37,8 +41,8 @@ static void set_error(char **slot, const char *message) {
 
 static void *sqlite_connect(const char *url) {
   set_error(&connect_error, NULL);
-  if (strncmp(url, "sqlite:", 7) != 0) {
-    set_error(&connect_error, "a sqlite URL is sqlite:path");
+  if (strncmp(url, "sqlite:", 7) != 0 || strncmp(url, "sqlite://", 9) == 0) {
+    set_error(&connect_error, "a sqlite URL is sqlite:path, such as sqlite:./app.db or sqlite:/srv/app.db");
     return NULL;
   }
   connection *c = calloc(1, sizeof *c);
@@ -50,6 +54,13 @@ static void *sqlite_connect(const char *url) {
     return NULL;
   }
   sqlite3_busy_timeout(c->db, 5000);
+  /* SQLite opens lazily, so a file that isn't a database would otherwise fail its first statement. */
+  if (sqlite3_exec(c->db, "SELECT 1 FROM sqlite_schema LIMIT 0", NULL, NULL, NULL) != SQLITE_OK) {
+    set_error(&connect_error, sqlite3_errmsg(c->db));
+    sqlite3_close(c->db);
+    free(c);
+    return NULL;
+  }
   return c;
 }
 
@@ -62,12 +73,18 @@ static void sqlite_disconnect(void *db) {
   free(c);
 }
 
-static void *sqlite_query(void *db, const char *sql, const ioi_value *params, size_t count) {
-  connection *c = db;
+static void *run(connection *c, const char *sql, const ioi_value *params, size_t count, int counts) {
   set_error(&c->error, NULL);
   sqlite3_stmt *statement;
-  if (sqlite3_prepare_v2(c->db, sql, -1, &statement, NULL) != SQLITE_OK) {
+  const char *tail;
+  if (sqlite3_prepare_v2(c->db, sql, -1, &statement, &tail) != SQLITE_OK) {
     set_error(&c->error, sqlite3_errmsg(c->db));
+    return NULL;
+  }
+  while (*tail == ' ' || *tail == '\t' || *tail == '\r' || *tail == '\n' || *tail == ';') tail++;
+  if (!statement || *tail) {
+    set_error(&c->error, statement ? "one statement at a time" : "no statement");
+    sqlite3_finalize(statement);
     return NULL;
   }
   for (size_t i = 0; i < count; i++) {
@@ -92,6 +109,8 @@ static void *sqlite_query(void *db, const char *sql, const ioi_value *params, si
   }
   r->c = c;
   r->statement = statement;
+  r->counts = counts;
+  r->total = sqlite3_total_changes64(c->db);
   /* A statement that returns no rows runs now, so its changes count even if nobody steps it. */
   if (sqlite3_column_count(statement) == 0) {
     int status = sqlite3_step(statement);
@@ -106,15 +125,20 @@ static void *sqlite_query(void *db, const char *sql, const ioi_value *params, si
   return r;
 }
 
-static void *sqlite_tables(void *db) {
-  return sqlite_query(
-      db, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY rowid",
-      NULL, 0);
+static void *sqlite_query(void *db, const char *sql, const ioi_value *params, size_t count) {
+  return run(db, sql, params, count, 1);
 }
 
+static void *sqlite_tables(void *db) {
+  return run(db,
+             "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY rowid",
+             NULL, 0, 0);
+}
+
+/* The columns SELECT * returns, generated ones included, in its order. */
 static void *sqlite_columns(void *db, const char *table) {
   ioi_value name = {IOI_TEXT, 0, table, strlen(table)};
-  return sqlite_query(db, "SELECT name FROM pragma_table_info(?) ORDER BY cid", &name, 1);
+  return run(db, "SELECT name FROM pragma_table_xinfo(?) WHERE hidden <> 1 ORDER BY cid", &name, 1, 0);
 }
 
 static int sqlite_next(void *handle) {
@@ -146,10 +170,14 @@ static void sqlite_column(void *handle, size_t i, ioi_value *out) {
 static void sqlite_finish(void *handle) {
   rows *r = handle;
   sqlite3_finalize(r->statement);
+  /* sqlite3_changes64 keeps the last INSERT, UPDATE or DELETE's count through any other statement. */
+  if (r->counts) {
+    r->c->changes = sqlite3_total_changes64(r->c->db) == r->total ? 0 : sqlite3_changes64(r->c->db);
+  }
   free(r);
 }
 
-static int64_t sqlite_changes(void *db) { return sqlite3_changes64(((connection *)db)->db); }
+static int64_t sqlite_changes(void *db) { return ((connection *)db)->changes; }
 
 static const ioi_adapter adapter = {
     IOI_ADAPTER_VERSION, sqlite_connect, sqlite_error,  sqlite_disconnect, sqlite_tables, sqlite_columns,

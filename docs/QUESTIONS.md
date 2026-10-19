@@ -418,7 +418,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 
 - **Context:** R7, Q119, Q145 and Q146 fix the shape of ActiveCassette. These are the readings the hosts take:
   - **Numbers:**
-    - Tables and columns count from #1, in the database's own order: SQLite's is the order tables were made, then each table's columns in order. SQLite's internal tables don't count.
+    - Tables and columns count from #1, in the database's own order: SQLite's is the order tables were made, then each table's columns in order, generated ones included, as `SELECT *` has them. SQLite's internal tables don't count.
     - #0, or a number past the end, is E824.
   - **Reads:**
     - `;49221 <- 'FROM DATABASE #t~#c$…'` runs `SELECT "c", … FROM "t" WHERE … ` with the database's own row order, and no `ORDER BY`.
@@ -433,18 +433,18 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
     - Every value is a `?` parameter: a number up to 2^63 − 1 as an integer, a larger one as its digits, and a string as UTF-8 text.
     - Identifiers come from the schema, in double quotes. SQL text never holds a value.
   - **The two routines:**
-    - **(16200)** runs raw SQL. `,1` is the statement, `:1` how many parameters to take from `;49221 SUB #1` on, as text, and `:2` which row's columns to put in `;49221`. Afterwards `:1` is how many rows it returned, or how many it changed.
-    - **(16210)** puts in `:1` what the last read matched, or what the last write, AMNESIA or raw statement changed (AMNESIA counts its tables).
+    - **(16200)** runs raw SQL. `,1` is one statement (a second after a `;` is E826), `:1` how many parameters to take from `;49221 SUB #1` on, as text, and `:2` which row's columns to put in `;49221`. Afterwards `:1` is how many rows it returned, or how many it changed.
+    - **(16210)** puts in `:1` what the last read matched, or what the last write, AMNESIA or raw statement changed (AMNESIA counts its tables). A statement that changes no rows, such as `CREATE TABLE`, changed 0.
     - Raw SQL may change the schema, so the hosts read it again afterwards.
   - **Connecting:**
     - The connection is made when the program first uses the database: `DATABASE_URL`, or `sqlite:./app.db` without one, a file the run makes if it isn't there.
-    - `sqlite:path` uses the built-in adapter.
-    - Any other scheme uses the shared library that the environment variable `IOI_ADAPTER_` + the scheme in capitals names, through `ioi_adapter.h`'s ABI (version 1).
+    - `sqlite:path` uses the built-in adapter. `sqlite://…` is E825 rather than a guess at what the slashes mean, and so is a file that isn't a database.
+    - Any other scheme uses the shared library that the environment variable `IOI_ADAPTER_` + the scheme in capitals names, through `ioi_adapter.h`'s ABI (version 1). A scheme is at most 64 bytes. Everything the hosts pass an adapter is borrowed for the call only.
     - Failures are E825, a refused statement E826, and the reason goes to stderr after `ActiveCassette: `.
   - **Where SQLite comes from:**
     - ioi-llvm links ActiveCassette's object for its target, or builds it from the amalgamation. ioi-dart programs load ActiveCassette's shared library through `dart:ffi`, from the absolute path the compiler found.
     - Both come from the folder `IOI_LIB` names, or a release archive's `lib/`, and `tool/activecassette.sh` makes them from SQLite 3.54.1, checked by SHA-256.
-    - Only programs that use a database need them.
+    - Only programs that use a database need them: (16200) and (16210) are a library block of their own, (16200)–(16999), apart from the request and response's (16001)–(16199). Either compiler refuses to build a program that uses a database without them (E778).
   - **A limit on Linux:** ioi-llvm's release archives link programs statically against musl, whose `dlopen` can't load a library. A Linux program built from one can use SQLite but no user adapter; built with a system clang, it can.
 - **Options:** (a) as above; (b) other row orders, NULL spellings or routine shapes; (c) for static Linux programs, a build flag that links a user adapter in.
 - **Lean:** (a). The code does (a) until this is answered.
