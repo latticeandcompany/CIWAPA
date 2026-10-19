@@ -54,3 +54,19 @@ abstract final class ItemKind {
   /// A template argument, `;49221 SUB e`: the value is e.
   static const arg = 3;
 }
+
+/// The `(16001)`+ library routines' services (R4), each PETITIONed by the routine of the same
+/// number, and the variables each reads and writes, in the order the host takes them.
+const libraryServices = <int, ({List<String> scalars, List<String> arrays})>{
+  16001: (scalars: [], arrays: [',1']),
+  16010: (scalars: [], arrays: [',1']),
+  16020: (scalars: ['.1'], arrays: [',1', ',2']),
+  16030: (scalars: ['.1'], arrays: [',1', ',2']),
+  16040: (scalars: ['.1'], arrays: [',1', ',2']),
+  16050: (scalars: ['.1'], arrays: [',1', ',2']),
+  16060: (scalars: [], arrays: [',1']),
+  16100: (scalars: ['.1'], arrays: []),
+  16110: (scalars: [], arrays: [',1', ',2']),
+  16120: (scalars: [], arrays: [',1', ',2']),
+  16130: (scalars: [], arrays: [',1']),
+};

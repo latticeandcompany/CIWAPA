@@ -255,3 +255,38 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a). The code does (a) until this is answered.
 - **Blocks:** no checklist items; `apps/interstates/test/syntax_test.dart` pins (a).
 - **Raised:** 2026-10-18
+
+## L38: What exactly do the request and response routines do?
+
+- **Context:** R4 lists what the `(16001)`+ block covers (the method, query string, headers, cookies, status, headers, cookies and redirects) and Q115 adds that `WRITE IN` reads the body. Neither gives the routines, their variables or the CGI details. These are the readings `apps/interstates/README.md` documents:
+  - **The routines:**
+    - (16001) method
+    - (16010) raw query string
+    - (16020) a header by name
+    - (16030) a cookie by name
+    - (16040) a query parameter
+    - (16050) a form field
+    - (16060) the raw body
+    - (16100) the status
+    - (16110) a header
+    - (16120) a cookie
+    - (16130) a redirect
+    
+    Each is one PETITION of its own number, as in the System block, so each gets its native fast path. Lookups set `.1` to #1 or #2 (Q139).
+  - **The response:**
+    - The response is `Status: n reason`, then `Content-Type: text/html; charset=utf-8` unless the program set one, then the program's headers in order, then an empty line. Lines end in LF, which CGI allows.
+    - These come just before the body's first byte, or at GIVE UP (or the exit service) if there is no body. After that, changing them is E823.
+    - A line break in a header is E828.
+  - **The details:**
+    - A redirect is 303 See Other with `Location`. A cookie is `Set-Cookie: name=value; Path=/`.
+    - A header name is ASCII letters, digits, `-` and `_`, matched without regard to case.
+    - Query parameters and form fields are `application/x-www-form-urlencoded`. `+` is a space and `%XX` a byte, the bytes are UTF-8, and a malformed sequence becomes U+FFFD as in the Strings block. The first match wins.
+    - A form field comes only from a body whose `Content-Type` is that type.
+    - The body is read once: `CONTENT_LENGTH` bytes (up to 18 digits), or to the end of stdin. A routine that reads it and `WRITE IN`, which reads stdin directly, share stdin, so a program uses one or the other.
+  - **The string arrays:**
+    - `;4400 SUB n` past the route's parameters is E241.
+    - `;49221 SUB n` never stored is the empty string, and n runs from 1 to 4294967295; anything else is E241.
+- **Options:** (a) as above; (b) other routines, numbers or formats.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/cgi` pins (a).
+- **Raised:** 2026-10-18

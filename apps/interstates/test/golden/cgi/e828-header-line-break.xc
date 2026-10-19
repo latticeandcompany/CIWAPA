@@ -1,0 +1,14 @@
+PLEASE ,1 <- #7
+DO ,1 SUB #1 <- #88
+DO ,1 SUB #2 <- #45
+PLEASE ,1 SUB #3 <- #83
+DO ,1 SUB #4 <- #112
+DO ,1 SUB #5 <- #108
+DO ,1 SUB #6 <- #105
+PLEASE ,1 SUB #7 <- #116
+DO ,2 <- #3
+DO ,2 SUB #1 <- #97
+PLEASE ,2 SUB #2 <- #10
+DO ,2 SUB #3 <- #98
+DO (16110) NEXT
+DO GIVE UP

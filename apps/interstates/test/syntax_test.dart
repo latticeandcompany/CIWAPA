@@ -324,7 +324,11 @@ void main() {
 
       test('Q141: under -s, a leading NOTE and a bare GIVE UP work', () async {
         final run = await build(program, ['-s']);
-        expect(run.stdout, '  \nII\n');
+        expect(
+          run.stdout,
+          'Status: 200 OK\nContent-Type: text/html; charset=utf-8\n\n'
+          '  \nII\n',
+        );
         expect(run.stderr, '');
         expect(run.exitCode, 0);
       });

@@ -28,6 +28,9 @@ class LlvmEmitter {
   final _strings = <String, String>{};
   var _temp = 0;
   var _maxSubscripts = 1;
+
+  /// The most values and arrays any host call in the function being emitted passes.
+  var _maxHostValues = 1, _maxHostArrays = 1;
   var _blockCount = 0;
 
   /// Every RESUME's popped return point and the block it comes from, for the one shared `resume`
@@ -227,6 +230,8 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
                   '  %xout = alloca [3 x i64]\n'
             : '',
       )
+      ..write(_hostAllocas())
+      ..write(_installHost())
       ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
       ..write(
         program.extracal
@@ -234,7 +239,14 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
                   'i32 ${program.wideArrays.length})\n'
             : '',
       )
-      ..writeln('  br label %${statements == 0 ? 'fell' : 's1'}')
+      ..writeln(
+        statements == 0
+            ? '  br label %fell'
+            : program.entries.isEmpty
+            ? '  br label %s1'
+            : '  %start = call i32 @ick_start_ordinal()\n'
+                  '  switch i32 %start, label %s1 [${program.entries.map((o) => 'i32 $o, label %s$o').join(' ')}]',
+      )
       ..write(_body)
       ..writeln('}');
     return out.toString();
@@ -461,6 +473,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       ..write(_engineFunctions)
       ..writeln('define i32 @main(i32 %argc, ptr %argv) {')
       ..writeln('entry:')
+      ..write(_installHost())
       ..writeln('  call void @ick_init(i32 %argc, ptr %argv, ptr @program)')
       ..writeln(
         '  call void @ick_init_wide(ptr @v64, ptr @igw, i32 ${program.wideScalars.length}, '
@@ -551,6 +564,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
   void _engineFunction(String signature, String done, void Function() emit) {
     _body = StringBuffer();
     _maxSubscripts = 1;
+    _maxHostValues = _maxHostArrays = 1;
     emit();
     _block('done');
     _line(done);
@@ -560,6 +574,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       ..writeln('  %subs = alloca [$_maxSubscripts x i32]')
       ..writeln('  %dims64 = alloca [$_maxSubscripts x i64]')
       ..writeln('  %xout = alloca [3 x i64]')
+      ..write(_hostAllocas())
       ..writeln('  br label %body')
       ..writeln('body:')
       ..write(_body)
@@ -587,7 +602,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       for (final s in program.statements) 'i8 ${s.initiallyAbstained ? 1 : 0}',
     ];
     final messages = [
-      for (final m in IclError.all)
+      for (final m in [...IclError.all, ...program.errors])
         '%ick_message { i32 ${m.code}, ptr ${_stringGlobal(m.text)}, ptr ${_stringGlobal(m.joke)} }',
     ];
     return StringBuffer()
@@ -624,6 +639,14 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       ..writeln()
       ..write(_declarations)
       ..write(program.extracal ? _wideDeclarations : '')
+      ..write(
+        program.host
+            ? 'declare ptr @ick_create_host()\n'
+                  'declare void @ick_set_host(ptr)\n'
+                  'declare i32 @ick_start_ordinal()\n'
+                  'declare void @ick_host_call(i32, ptr, i32, ptr, i32, i32)\n'
+            : '',
+      )
       ..writeln()
       ..writeln(
         'define internal i32 @check_small(i32 %value, i32 %next) alwaysinline {',
@@ -861,7 +884,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
             _line('call void @ick_read_out(i32 ${_expr(item, next)})');
           }
         }
-      case IrComeFrom():
+      case IrComeFrom() || IrNothing():
         break;
       case IrUndecodable(:final text):
         final length = utf8.encode(text).length;
@@ -1059,6 +1082,7 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
   /// A host service (R10, L29), given its variables' keys (64-bit scalars after the others) and
   /// array numbers, with -1 for the ones it doesn't use.
   void _petition(IrPetition p, Object next) {
+    if (p.host) return _hostCall(p, next);
     final scalars = [
       for (var i = 0; i < 4; i++)
         i < p.scalars.length ? '${_key(p.scalars[i])}' : '-1',
@@ -1071,6 +1095,38 @@ declare i32 @ick_x_operator(i32, i32, i32, i32, i32, i32, ptr, i32, i32)
       'call void @ick_petition(i32 ${p.service}, ${[...scalars, ...arrays].map((a) => 'i32 $a').join(', ')}, i32 $next)',
     );
   }
+
+  /// A host call: [IrPetition.values] are evaluated in order into `%hostv`, and the arrays' numbers
+  /// go in `%hosta`.
+  void _hostCall(IrPetition p, Object next) {
+    final values = [for (final v in p.values) _as64(v, next)];
+    if (values.length > _maxHostValues) _maxHostValues = values.length;
+    if (p.arrays.length > _maxHostArrays) _maxHostArrays = p.arrays.length;
+    for (final (i, v) in values.indexed) {
+      final slot = _fresh();
+      _line('$slot = getelementptr inbounds i64, ptr %hostv, i64 $i');
+      _line('store i64 $v, ptr $slot');
+    }
+    for (final (i, a) in p.arrays.indexed) {
+      final slot = _fresh();
+      _line('$slot = getelementptr inbounds i32, ptr %hosta, i64 $i');
+      _line('store i32 ${a.index}, ptr $slot');
+    }
+    _line(
+      'call void @ick_host_call(i32 ${p.service}, ptr %hosta, i32 ${p.arrays.length}, '
+      'ptr %hostv, i32 ${values.length}, i32 $next)',
+    );
+  }
+
+  String _hostAllocas() => program.host
+      ? '  %hostv = alloca [$_maxHostValues x i64]\n'
+            '  %hosta = alloca [$_maxHostArrays x i32]\n'
+      : '';
+
+  String _installHost() => program.host
+      ? '  %host = call ptr @ick_create_host()\n'
+            '  call void @ick_set_host(ptr %host)\n'
+      : '';
 
   /// Runs a native library routine in place of the NEXT [s] when it can stand in for its INTERCAL,
   /// and continues to the NEXT otherwise.

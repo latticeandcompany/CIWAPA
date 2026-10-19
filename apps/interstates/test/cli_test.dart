@@ -60,7 +60,11 @@ void main() {
         expect(err, '');
         expect(status, 0);
         final run = await Process.run(exe('prog'), const []);
-        expect(run.stdout, '   \nIII\n');
+        expect(
+          run.stdout,
+          'Status: 200 OK\nContent-Type: text/html; charset=utf-8\n\n'
+          '   \nIII\n',
+        );
       });
 
       test('R1, L35: without -s it takes only EXTRACAL files (E998)', () async {

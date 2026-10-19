@@ -55,10 +55,10 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 ## Request and response
 
 - [ ] R4, R5 — `;4400 SUB n` copies the nth route parameter into a tail array, which is resized to fit.
-- [ ] R5 — `;49221 SUB n` stores a string in either direction.
-- [ ] R4 — every `(16001)`+ routine: the method, query string, headers, cookies, status, headers, cookies and redirects.
-- [ ] R4 — `WRITE IN` reads the request body.
-- [ ] R4 — `GIVE UP` ends the response.
+- [x] R5 — `;49221 SUB n` stores a string in either direction. Tests: `apps/interstates/test/golden/cgi/strings.xc`
+- [x] R4 — every `(16001)`+ routine: the method, query string, headers, cookies, status, headers, cookies and redirects (L38). Tests: `apps/interstates/test/golden/cgi/method.xc`, `apps/interstates/test/golden/cgi/query.xc`, `apps/interstates/test/golden/cgi/header.xc`, `apps/interstates/test/golden/cgi/cookie.xc`, `apps/interstates/test/golden/cgi/form.xc`, `apps/interstates/test/golden/cgi/form-not-a-form.xc`, `apps/interstates/test/golden/cgi/body.xc`, `apps/interstates/test/golden/cgi/status-headers-cookies.xc`, `apps/interstates/test/golden/cgi/content-type.xc`, `apps/interstates/test/golden/cgi/redirect.xc`
+- [x] R4 — `WRITE IN` reads the request body. Tests: `apps/interstates/test/golden/cgi/write-in.xc`
+- [x] R4 — `GIVE UP` ends the response. Tests: `apps/interstates/test/golden/cgi/give-up.xc`, `apps/interstates/test/golden/cgi/method.xc`
 
 ## Templates
 

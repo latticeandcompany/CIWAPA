@@ -140,6 +140,7 @@ void main() {
     final shout = ir.at(1).op as IrPetition;
     expect(shout.service, 7);
     expect((shout.values.single as IrConst).value, 2);
+    expect(shout.host, isTrue);
     final petition = ir.at(2).op as IrPetition;
     expect(petition.scalars.single.ref, const VarRef(VarKind.spot, 1));
     expect(ir.at(2).faults, isEmpty);

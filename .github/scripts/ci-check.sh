@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lint, unit tests and (once it exists) conformance for one flavor. Runs on every CI job:
+# Lint, unit tests, conformance and the Interstates suite for one flavor. Runs on every CI job:
 # inside ciwapa-toolchain on Linux, and directly on the macOS and Windows runners.
 # Usage: ci-check.sh <platform> <dart|llvm>
 set -euo pipefail
@@ -25,6 +25,16 @@ dart --suppress-analytics compile exe "packages/ciwapa_$flavor/bin/ciwapa_$flavo
   cd packages/conformance
   dart --suppress-analytics run bin/conformance.dart \
     --compiler "../../.cache/build/ciwapa-$flavor$exe" --results ../../.cache/conformance/results.json
+)
+
+# INTERCAL on Interstates' own suite, through this flavor's ioi-* compiler.
+mkdir -p .cache/interstates
+dart --suppress-analytics compile exe "apps/interstates/bin/ioi_$flavor.dart" -o ".cache/build/ioi-$flavor$exe"
+(
+  cd packages/conformance
+  dart --suppress-analytics run bin/conformance.dart \
+    --compiler "../../.cache/build/ioi-$flavor$exe" --tests ../../apps/interstates/test/golden --flag -s \
+    --results ../../.cache/interstates/results.json
 )
 
 # Once per flavor, every .xc program runs again on the control engine, which then has to behave

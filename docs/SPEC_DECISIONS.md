@@ -1422,7 +1422,14 @@ Conditions that only Interstates programs can meet get codes of their own, which
 - **Text:** `STRINGS AND NUMBERS DO NOT MIX.`
 - **Joke:** `A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.`
 - **Source:** R5 and L37. `;4400` and `;49221` hold whole strings, which only the forms in R5 and ActiveCassette's statements move. Any other use is E822: a string in a number's place, a number stored into `;49221`, a write to `;4400`, STASH, READ OUT, or a hybrid target. It fires when the statement executes (Q80), and abstaining the statement's kind skips it.
-- **Tests:** `apps/interstates/test/syntax_test.dart` (which statements become it); the step 4 run-time test that fires it
+- **Tests:** `apps/interstates/test/syntax_test.dart` (which statements become it), `apps/interstates/test/golden/cgi/e822-when-it-runs.xc`
+- **Date:** 2026-10-18
+
+### E823: changing the response after its body has started
+- **Text:** `THE RESPONSE HEADERS HAVE ALREADY BEEN SENT.`
+- **Joke:** `THE TRUCK HAS LEFT THE DEPOT. YOUR PARCEL IS NOT ON IT.`
+- **Source:** R2 and R4. The program's stdout is a CGI response, whose status and headers come before the body. They are written just before the body's first byte (or at GIVE UP if there is none), so setting the status, a header, a cookie or a redirect after that is E823 when the routine runs.
+- **Tests:** `apps/interstates/test/golden/cgi/e823-headers-sent.xc`
 - **Date:** 2026-10-18
 
 ### E827: an INTO DATABASE whose values don't match its columns
@@ -1430,4 +1437,11 @@ Conditions that only Interstates programs can meet get codes of their own, which
 - **Joke:** `THE CASSETTE HAS A SLOT FOR EACH COLUMN. COUNT THEM.`
 - **Source:** R7, Q145 and L37. `INTO DATABASE #t~#c$… <- item + item` needs one item per column. The columns and items are both known when the program compiles, so this is a compile-time error, reported at the statement.
 - **Tests:** `apps/interstates/test/syntax_test.dart`
+- **Date:** 2026-10-18
+
+### E828: a response header with a line break in it
+- **Text:** `A RESPONSE HEADER CONTAINS A LINE BREAK.`
+- **Joke:** `ONE HEADER, ONE LINE. THIS IS NOT POETRY.`
+- **Source:** R4. A carriage return or line feed in a header's name or value, a cookie or a redirect's location would split the response into headers the program never asked for, so the routine raises E828 instead of writing it.
+- **Tests:** `apps/interstates/test/golden/cgi/e828-header-line-break.xc`
 - **Date:** 2026-10-18

@@ -3,6 +3,8 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_core/ciwapa_core.dart' as core show analyze, lower;
 
 import 'errors.dart';
+import 'runtime_sources.g.dart';
+import 'services.dart';
 import 'syntax.dart';
 
 /// The `ioi-*` front end: plain EXTRACAL, or with `-s` ('States) the Interstates extensions
@@ -51,7 +53,13 @@ class InterstatesFrontend implements Frontend {
     if (!args.flag('states')) {
       return const CiwapaFrontend().lower(program, args, options);
     }
-    return core.lower(program, options: options, errors: interstatesErrors);
+    return core.lower(
+      program,
+      options: options,
+      services: libraryServices,
+      host: true,
+      errors: interstatesErrors,
+    );
   }
 }
 
@@ -63,6 +71,9 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
     memoryLimit: memoryLimit,
     parser: (source, {required wide, required extensions}) =>
         parser = InterstatesParser(source, memoryLimit: memoryLimit),
+    libraries: const [
+      LibraryBlock('interstates.xc', 16001, 16999, interstatesLibrary),
+    ],
   );
   // A WHILE's body becomes a statement of its own, which gets its data here.
   for (final s in program.statements.take(program.userStatements)) {

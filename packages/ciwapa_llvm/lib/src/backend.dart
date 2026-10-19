@@ -89,9 +89,14 @@ class Toolchain {
 
 /// Builds programs by compiling the emitted IR together with runtime.c.
 class LlvmBackend implements Backend {
-  LlvmBackend() : toolchain = Toolchain.find();
+  /// A compiler built on CIWAPA's can compile more C [sources] (files its own emit writes beside
+  /// main.ll) into each program, and pass clang more [flags].
+  LlvmBackend({this.sources = const [], this.flags = const []})
+    : toolchain = Toolchain.find();
 
   final Toolchain toolchain;
+  final List<String> sources;
+  final List<String> flags;
 
   @override
   String get name => 'ciwapa-llvm';
@@ -129,6 +134,8 @@ class LlvmBackend implements Backend {
       '-w',
       'main.ll',
       prebuiltRuntime ?? 'runtime.c',
+      ...sources,
+      ...flags,
       // Winsock, for the Network block's sockets.
       if (toolchain.triple.contains('windows')) '-lws2_32',
       '-o',

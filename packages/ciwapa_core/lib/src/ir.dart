@@ -409,12 +409,16 @@ class IrPetition extends IrOp {
     this.scalars,
     this.arrays, {
     this.values = const [],
+    this.host = false,
   });
 
   final int service;
   final List<Slot> scalars;
   final List<Slot> arrays;
   final List<IrExpr> values;
+
+  /// Whether it is a [HostCall], which only the program's host runs.
+  final bool host;
 
   @override
   String toString() =>
@@ -924,6 +928,7 @@ class _Lowering {
         const [],
         [for (final a in arrays) _array(a)],
         values: [for (final v in values) _expr(v)],
+        host: true,
       ),
       ComeFrom(:final nexting) => IrComeFrom(nexting: nexting),
       ComputedComeFrom(:final label, :final nexting) => IrComputedComeFrom(
