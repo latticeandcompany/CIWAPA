@@ -1418,6 +1418,13 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 
 Conditions that only Interstates programs can meet get codes of their own, which neither C-INTERCAL nor CIWAPA uses. They live in `apps/interstates/lib/src/errors.dart`, so CIWAPA itself never knows them (R1). Each has official text written for Interstates and a joke line. Conditions that are the same as CIWAPA's keep CIWAPA's code.
 
+### E504: a request that runs past gross's timeout
+- **Text:** `THE PROGRAM DID NOT GIVE UP IN TIME.`
+- **Joke:** `GROSS WAITED, AND WAITED. GROSS IS NOT A PATIENT SERVER.`
+- **Source:** Q144. `gross` kills a run that takes longer than `--timeout` (30 seconds by default) and answers 504 Gateway Timeout with this error's page. No program raises it; it is reported at statement 1, as T33 does for an error with no statement (L39).
+- **Tests:** `apps/interstates/test/gross_test.dart`
+- **Date:** 2026-10-18
+
 ### E822: a string where a number belongs, or the other way round
 - **Text:** `STRINGS AND NUMBERS DO NOT MIX.`
 - **Joke:** `A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.`
@@ -1447,4 +1454,11 @@ Conditions that only Interstates programs can meet get codes of their own, which
   - A header value or redirect location with a control character other than a tab, such as CR, LF or NUL. That would split the response or confuse what reads it.
   - A cookie value with anything outside RFC 6265's cookie-octets. A `;` would add attributes the program never asked for.
 - **Tests:** `apps/interstates/test/golden/cgi/e828-header-line-break.xc`, `apps/interstates/test/golden/cgi/e828-header-nul.xc`, `apps/interstates/test/golden/cgi/e828-header-name.xc`, `apps/interstates/test/golden/cgi/e828-cookie-value.xc`, `apps/interstates/test/golden/cgi/e828-location.xc`
+- **Date:** 2026-10-18
+
+### E829: a program that doesn't answer in CGI
+- **Text:** `THE PROGRAM DID NOT ANSWER IN CGI.`
+- **Joke:** `GROSS ASKED A QUESTION AND GOT A SHRUG.`
+- **Source:** R2. `gross` answers 500 with this error's page when a run's stdout isn't a CGI response and its stderr ends in no ICL error. That covers headers with no empty line after them, a line that isn't `name: value`, a status outside 100–599, and a program `gross` can't start, such as one built without `-s`. Like E504, no program raises it, and it is reported at statement 1 (L39).
+- **Tests:** `apps/interstates/test/gross_test.dart`
 - **Date:** 2026-10-18

@@ -5,6 +5,11 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 /// docs/SPEC_DECISIONS.md.
 const interstatesErrors = <IclError>[
   IclError(
+    504,
+    'THE PROGRAM DID NOT GIVE UP IN TIME.',
+    'GROSS WAITED, AND WAITED. GROSS IS NOT A PATIENT SERVER.',
+  ),
+  IclError(
     822,
     'STRINGS AND NUMBERS DO NOT MIX.',
     'A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.',
@@ -23,6 +28,11 @@ const interstatesErrors = <IclError>[
     828,
     'A RESPONSE HEADER OR COOKIE IS MALFORMED.',
     'ONE HEADER, ONE LINE, NO SURPRISES. THIS IS NOT POETRY.',
+  ),
+  IclError(
+    829,
+    'THE PROGRAM DID NOT ANSWER IN CGI.',
+    'GROSS ASKED A QUESTION AND GOT A SHRUG.',
   ),
 ];
 

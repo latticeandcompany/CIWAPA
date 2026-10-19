@@ -16,7 +16,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## Punchlines
 
-- [ ] Punchline 1 — `gross`, the General READ OUT Server System, listens on port 10585 by default.
+- [x] Punchline 1 — `gross`, the General READ OUT Server System, listens on port 10585 by default. Tests: `apps/interstates/test/gross_test.dart`
 - [x] Punchline 2 — `-s` turns on the Interstates extensions; without it the `ioi-*` CLIs compile plain EXTRACAL. Tests: `apps/interstates/test/cli_test.dart`, `apps/interstates/test/syntax_test.dart`
 - [ ] Punchline 3 — the database layer is ActiveCassette.
 - [ ] Punchline 4 — templates use `{{ }}` double grumpies.
@@ -33,14 +33,14 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 ## gross (R2, Q120, Q144)
 
-- [ ] R2 — each request runs the program fresh, with the request in CGI/1.1 environment variables and stdin, and its stdout as the response.
-- [ ] R2 — `--port` (default 10585) and `--bind` (default 127.0.0.1).
-- [ ] R2 — `--static <dir>` serves files only when it names a folder; there is no `public/` convention.
-- [ ] R2 — `--database` or `DATABASE_URL` picks the ActiveCassette connection and reaches each run.
-- [ ] R2 — logs go to stderr.
-- [ ] Q144 — `--timeout` (default 30 s) answers 504 with an ICL-style page.
+- [x] R2 — each request runs the program fresh, with the request in CGI/1.1 environment variables and stdin, and its stdout as the response (L39). Tests: `apps/interstates/test/gross_test.dart`
+- [x] R2 — `--port` (default 10585) and `--bind` (default 127.0.0.1) (L39). Tests: `apps/interstates/test/gross_test.dart`
+- [x] R2 — `--static <dir>` serves files only when it names a folder; there is no `public/` convention (L39). Tests: `apps/interstates/test/gross_test.dart`
+- [x] R2 — `--database` or `DATABASE_URL` picks the ActiveCassette connection and reaches each run (L39). Tests: `apps/interstates/test/gross_test.dart`
+- [x] R2 — logs go to stderr (L39). Tests: `apps/interstates/test/gross_test.dart`
+- [x] Q144 — `--timeout` (default 30 s) answers 504 with an ICL-style page. Tests: `apps/interstates/test/gross_test.dart`
 - [ ] Design — 403, 404 and any ICL error render as an ICL-style page (official text, joke, `ON THE WAY TO STATEMENT n`, `CORRECT SOURCE AND RESUBMIT`), and an ICL error inside the program is HTTP 500.
-- [ ] Edge cases — an ICL error after part of the body was written, a program that never reaches `GIVE UP`, and Windows: a child process per request and `--static` paths.
+- [x] Edge cases — an ICL error after part of the body was written, a program that never reaches `GIVE UP`, and Windows: a child process per request and `--static` paths (L39). Tests: `apps/interstates/test/gross_test.dart`
 
 ## Routes
 
