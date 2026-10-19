@@ -8,15 +8,15 @@ import 'package:test/test.dart';
 
 import 'package:ciwapa_core/ciwapa_core.dart';
 
-const appendixA =
-    'NOTE At the start of the program, handle the default route.\n'
-    '\n'
-    'DO COME FROM (16000)\n'
-    'PLEASE READ OUT #0 WITH TEMPLATE "hello.html"\n'
-    'GIVE UP\n';
+import 'support.dart';
+
+/// Example A, from the first fenced block of the plan's Appendix A.
+final appendixA = RegExp(r'## Appendix A[\s\S]*?```\n([\s\S]*?)```')
+    .firstMatch(File('../../docs/INTERSTATES_PLAN.md').readAsStringSync())![1]!;
 
 void main() {
   test('the golden source is Appendix A, byte for byte', () {
+    expect(appendixA, startsWith('NOTE At the start of the program'));
     expect(File('test/golden/hello/hello.xc').readAsStringSync(), appendixA);
   });
 
@@ -25,14 +25,14 @@ void main() {
       '${backend.name} builds it, and gross serves it on any path',
       () async {
         final temp = Directory.systemTemp.createTempSync('ioi-hello-');
-        addTearDown(() => temp.deleteSync(recursive: true));
+        addTearDown(() => deleteSoon(temp));
         File('test/golden/hello/hello.html')
             .copySync('${temp.path}/hello.html');
         final source = File('${temp.path}/hello.xc')
           ..writeAsStringSync(appendixA);
         final exe = '${temp.path}/hello${Platform.isWindows ? '.exe' : ''}';
         final status = await runCli(
-          ['build', '-s', source.path, '-o', exe],
+          ['build', '--no-random-bug', '-s', source.path, '-o', exe],
           backend,
           frontend: InterstatesFrontend(),
         );

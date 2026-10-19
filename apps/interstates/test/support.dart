@@ -3,6 +3,20 @@ import 'dart:io';
 import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:interstates/interstates.dart';
 
+/// Deletes [dir], retrying for a while: on Windows a program that has just exited can still hold
+/// its executable.
+Future<void> deleteSoon(Directory dir) async {
+  for (var attempt = 0; ; attempt++) {
+    try {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+      return;
+    } on FileSystemException {
+      if (attempt == 20) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+}
+
 /// A program from statements without their identifiers: about a quarter of them get PLEASE,
 /// always within politeness's 1/5 to 1/3. `L(n) rest` is `rest` with label (n).
 String program(List<String> lines) {
