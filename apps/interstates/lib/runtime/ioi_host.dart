@@ -156,7 +156,7 @@ class IoiHost extends IckHost {
   List<String>? _requestPath() {
     if (_env['REQUEST_URI'] case final uri?) {
       return _segments(
-        uri.replaceFirst(RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://[^/]*'), ''),
+        uri.replaceFirst(RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*'), ''),
       );
     }
     final info = _env['PATH_INFO'] ?? '';
@@ -168,8 +168,10 @@ class IoiHost extends IckHost {
     final referer = _env['HTTP_REFERER'];
     final host = _env['HTTP_HOST'];
     if (referer == null || host == null) return null;
-    final m = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]*)(.*)$')
-        .firstMatch(referer);
+    final m = RegExp(
+      r'^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]*)(.*)$',
+      dotAll: true,
+    ).firstMatch(referer);
     if (m == null || _asciiLower(m.group(1)!) != _asciiLower(host)) return null;
     final path = m.group(2)!;
     return _segments(path.isEmpty || !path.startsWith('/') ? '/$path' : path);

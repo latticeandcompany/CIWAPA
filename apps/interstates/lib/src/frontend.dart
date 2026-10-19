@@ -54,7 +54,8 @@ class InterstatesFrontend implements Frontend {
     if (!args.flag('states')) {
       return const CiwapaFrontend().lower(program, args, options);
     }
-    final routes = _routes[program] ?? RouteTable(const []);
+    final routes = _routes[program];
+    if (routes == null) throw StateError('lower() needs analyze()\'s program');
     final ir = core.lower(
       program,
       options: options,

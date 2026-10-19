@@ -1,7 +1,6 @@
 import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'frontend.dart';
-import 'routes.dart';
 
 /// The generated host.dart: the program's own data, handed to the Interstates host.
 String dartHost(IrProgram program) {
@@ -83,7 +82,3 @@ String cHostData(IrProgram program) {
     ..writeln('const uint32_t ioi_route_count = ${routes.length};');
   return out.toString();
 }
-
-/// The routes of [table], for tests.
-List<Route> routesOf(IrProgram program) =>
-    (program.extension as InterstatesProgram).routes.routes;

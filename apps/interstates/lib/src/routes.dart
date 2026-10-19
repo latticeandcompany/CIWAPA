@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciwapa_core/ciwapa_core.dart';
@@ -99,9 +100,10 @@ String templatePath(Source source, String path) {
 }
 
 /// A route pattern's segments: it starts with `/`, `/` separates them, a `:name` segment is a
-/// parameter, and `?` and `#` don't belong (E442).
+/// parameter, and `?`, `#` and `%` don't belong (E442): fixed text is compared with the request's
+/// decoded segments, so a percent-encoded pattern could never match.
 List<Segment> _pattern(String pattern, int statement) {
-  if (!pattern.startsWith('/') || pattern.contains(RegExp('[?#]'))) {
+  if (!pattern.startsWith('/') || pattern.contains(RegExp('[?#%]'))) {
     throw interstatesCompileError(442, statement);
   }
   return [
@@ -138,28 +140,65 @@ int _bySpecificity(Route a, Route b) {
 /// dynamic (null).
 typedef Link = List<String?>;
 
-/// The links in [template]: the values of `href`, `action`, `src` and `formaction` attributes
-/// that start with a single `/`, up to any `?` or `#`.
+/// The links in [template]: inside each tag (comments aside), the values of `href`, `action`,
+/// `src` and `formaction` attributes that start with a single `/`, up to any `?` or `#` outside a
+/// grumpy, with character references and percent-encoding decoded in each fixed segment.
 List<Link> templateLinks(String template) {
   final links = <Link>[];
+  final uncommented = template.replaceAll(RegExp(r'<!--[\s\S]*?(-->|$)'), '');
   final attribute = RegExp(
-    r'''\b(?:href|action|src|formaction)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))''',
+    r"""\s(?:href|action|src|formaction)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))""",
     caseSensitive: false,
   );
-  for (final m in attribute.allMatches(template)) {
-    var value = m.group(1) ?? m.group(2) ?? m.group(3)!;
-    if (!value.startsWith('/') || value.startsWith('//')) continue;
-    // A grumpy can hold a ?, so the query starts at the first ? or # outside one.
-    final cut = RegExp(r'\{\{.*?\}\}|[?#]')
-        .allMatches(value)
-        .where((c) => !c[0]!.startsWith('{{'));
-    if (cut.isNotEmpty) value = value.substring(0, cut.first.start);
-    links.add([
-      for (final s in value.substring(1).split('/'))
-        s.contains('{{') ? null : s,
-    ]);
+  for (final tag in RegExp(r'<[A-Za-z][^<>]*>').allMatches(uncommented)) {
+    for (final m in attribute.allMatches(tag[0]!)) {
+      var value = m.group(1) ?? m.group(2) ?? m.group(3)!;
+      if (!value.startsWith('/') || value.startsWith('//')) continue;
+      // A grumpy can hold a ?, so the query starts at the first ? or # outside one.
+      final cut = RegExp(r'\{\{.*?\}\}|[?#]')
+          .allMatches(value)
+          .where((c) => !c[0]!.startsWith('{{'));
+      if (cut.isNotEmpty) value = value.substring(0, cut.first.start);
+      links.add([
+        for (final s in value.substring(1).split('/'))
+          s.contains('{{') ? null : _percentDecode(_unescape(s)),
+      ]);
+    }
   }
   return links;
+}
+
+/// HTML's character references for the characters a link might hold.
+String _unescape(String s) => s.replaceAllMapped(
+  RegExp(r'&(?:(amp|lt|gt|quot|apos)|#([0-9]+)|#[xX]([0-9A-Fa-f]+));'),
+  (m) => switch (m[1]) {
+    'amp' => '&',
+    'lt' => '<',
+    'gt' => '>',
+    'quot' => '"',
+    'apos' => "'",
+    _ => String.fromCharCode(
+      m[2] != null ? int.parse(m[2]!) : int.parse(m[3]!, radix: 16),
+    ),
+  },
+);
+
+/// `%XX` decoded, the bytes read as UTF-8.
+String _percentDecode(String s) {
+  final bytes = <int>[];
+  final units = utf8.encode(s);
+  for (var i = 0; i < units.length; i++) {
+    final hex = i + 2 < units.length
+        ? String.fromCharCodes(units, i + 1, i + 3)
+        : '';
+    if (units[i] == 0x25 && RegExp(r'^[0-9A-Fa-f]{2}$').hasMatch(hex)) {
+      bytes.add(int.parse(hex, radix: 16));
+      i += 2;
+    } else {
+      bytes.add(units[i]);
+    }
+  }
+  return utf8.decode(bytes, allowMalformed: true);
 }
 
 /// Whether [link] leads to a route of [pattern]: as many segments, each fixed one the same or in
