@@ -12,7 +12,11 @@ git -C "$repo_root" fetch --quiet origin mega
 sha="$(git -C "$repo_root" rev-parse origin/mega)"
 echo "$sha" >"$cache/mega-sha"
 git -C "$repo_root" rev-parse HEAD >"$cache/head-sha"
-git -C "$repo_root" grep -l 'TEMPORARY' -- ':!docs' >"$cache/temporary-files" || true
+git -C "$repo_root" grep -l 'TEMPORARY (removed' -- ':!docs' >"$cache/temporary-files" || true
+# R1: goal 2's goldens are frozen (new tests are fine), and CIWAPA's packages never name Interstates.
+git -C "$repo_root" diff --name-only --diff-filter=MDR 1dd0a73 "$sha" -- packages/conformance/tests \
+  >"$cache/changed-goldens"
+git -C "$repo_root" grep -il -e 'interstates' -e 'ioi-' "$sha" -- packages/ >"$cache/packages-naming-interstates" || true
 
 gh run list --commit "$sha" --limit 100 \
   --json databaseId,workflowName,status,conclusion,event,headBranch >"$cache/runs.json"

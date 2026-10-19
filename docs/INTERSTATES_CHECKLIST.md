@@ -23,6 +23,25 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [ ] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward.
 - [ ] Punchline 6 — `(16000)` is the implicit entry label that no program defines.
 
+## Language (R1, R5, Q141, Q147)
+
+- [ ] R1 — `ioi-dart` and `ioi-llvm` have CIWAPA's `build`, `run` and `doctor` commands, and `-s` takes the source rules recorded for it.
+- [ ] R1 — CIWAPA's own packages and CLIs never learn about Interstates: nothing under `packages/` names it.
+- [ ] Q141 — under `-s` only, text before the first statement identifier is a comment and a bare `GIVE UP` is `DO GIVE UP`; nothing else from the site's other examples is accepted.
+- [ ] R5 — `"…"` string literals are allowed only right after `WITH ROUTE` and `WITH TEMPLATE`; anywhere else `"` is rabbit ears.
+- [ ] Q147 — politeness is checked on Interstates programs too.
+
+## gross (R2, Q120, Q144)
+
+- [ ] R2 — each request runs the program fresh, with the request in CGI/1.1 environment variables and stdin, and its stdout as the response.
+- [ ] R2 — `--port` (default 10585) and `--bind` (default 127.0.0.1).
+- [ ] R2 — `--static <dir>` serves files only when it names a folder; there is no `public/` convention.
+- [ ] R2 — `--database` or `DATABASE_URL` picks the ActiveCassette connection and reaches each run.
+- [ ] R2 — logs go to stderr.
+- [ ] Q144 — `--timeout` (default 30 s) answers 504 with an ICL-style page.
+- [ ] Design — 403, 404 and any ICL error render as an ICL-style page (official text, joke, `ON THE WAY TO STATEMENT n`, `CORRECT SOURCE AND RESUBMIT`), and an ICL error inside the program is HTTP 500.
+- [ ] Edge cases — an ICL error after part of the body was written, a program that never reaches `GIVE UP`, and Windows: a child process per request and `--static` paths.
+
 ## Routes
 
 - [ ] R3 — a `COME FROM (16000) WITH ROUTE` is a public route, and a bare `COME FROM (16000)` is the catch-all.
@@ -40,7 +59,6 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [ ] R4 — every `(16001)`+ routine: the method, query string, headers, cookies, status, headers, cookies and redirects.
 - [ ] R4 — `WRITE IN` reads the request body.
 - [ ] R4 — `GIVE UP` ends the response.
-- [ ] R2 — the program gets the request through CGI/1.1 environment variables and stdin, and its stdout is the response.
 
 ## Templates
 

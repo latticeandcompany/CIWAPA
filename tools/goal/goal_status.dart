@@ -50,7 +50,9 @@ void main() {
       'The Mode 1 and EXTRACAL conformance suite passes unchanged in both flavors on every platform',
       'conformance',
       baseline: conformanceBaseline,
+      changed: _lines('$cache/changed-goldens'),
     ),
+    _separation(),
     _suite(
       'The Interstates suite passes in both flavors on every platform',
       'interstates',
@@ -194,7 +196,6 @@ Criterion _errorCodes(String title, List<String> items) {
   final entries = start < 0 ? '' : decisions.substring(start);
   final tested = _expectedMessages();
   final problems = <String>[
-    if (codes.isEmpty) 'apps/interstates/lib/src/errors.dart defines no codes',
     for (final code in codes) ...[
       if (!RegExp('^### E${_pad(code)}:', multiLine: true).hasMatch(entries))
         'E${_pad(code)} has no entry under "INTERCAL on Interstates error codes"',
@@ -222,8 +223,10 @@ Set<int> _expectedMessages() {
     } on FileSystemException {
       continue;
     }
-    for (final m in RegExp(r'ICL(\d{3})I').allMatches(text)) {
-      codes.add(int.parse(m.group(1)!));
+    for (final m in RegExp(
+      r'ICL(\d{3})I|IclError\.of\((\d+)\)|interstatesError\((\d+)\)',
+    ).allMatches(text)) {
+      codes.add(int.parse(m.group(1) ?? m.group(2) ?? m.group(3)!));
     }
   }
   return codes;
@@ -234,9 +237,12 @@ Criterion _suite(
   String title,
   String name, {
   ({int total, int superset})? baseline,
+  List<String> changed = const [],
 }) {
-  final details = <String>[];
-  var met = true;
+  final details = <String>[
+    for (final path in changed) 'goal 2 golden changed or removed: $path',
+  ];
+  var met = changed.isEmpty;
   final totals = <int>{};
   for (final platform in platforms) {
     for (final flavor in flavors) {
@@ -361,6 +367,24 @@ Criterion _scaffolding() {
       'still marked TEMPORARY: ${marked.take(5).join(', ')}${marked.length > 5 ? ', …' : ''}',
   ]);
 }
+
+/// R1: CIWAPA's own packages never learn about Interstates.
+Criterion _separation() {
+  final naming = _lines('$cache/packages-naming-interstates');
+  return Criterion(
+    'Nothing under packages/ names Interstates (R1)',
+    naming.isEmpty,
+    [
+      if (naming.isEmpty)
+        'no file under packages/ mentions interstates or ioi-'
+      else
+        'names it: ${naming.take(5).join(', ')}',
+    ],
+  );
+}
+
+List<String> _lines(String path) =>
+    _read(path).split('\n').where((l) => l.trim().isNotEmpty).toList();
 
 String _read(String path) {
   final file = File(path);
