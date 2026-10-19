@@ -8,7 +8,10 @@
       ]
     },
     "lint": {},
-    "format": {}
+    "format": {},
+    "goal-status": {
+      "cache": false
+    }
   },
   "workspaces": [
     {
@@ -18,7 +21,8 @@
       "scripts": {
         "lint": "tools/in-docker dart analyze --fatal-infos",
         "format": "tools/in-docker dart format --output=none --set-exit-if-changed .",
-        "test": ""
+        "test": "",
+        "goal-status": "tools/goal/goal-status"
       }
     },
     {
@@ -28,7 +32,8 @@
       "scripts": {
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
-        "format": ""
+        "format": "",
+        "goal-status": ""
       }
     },
     {
@@ -38,7 +43,8 @@
       "scripts": {
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
-        "format": ""
+        "format": "",
+        "goal-status": ""
       },
       "dependsOn": [
         "ciwapa_core"
@@ -51,7 +57,8 @@
       "scripts": {
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
-        "format": ""
+        "format": "",
+        "goal-status": ""
       },
       "dependsOn": [
         "ciwapa_core",
@@ -65,7 +72,8 @@
       "scripts": {
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
-        "format": ""
+        "format": "",
+        "goal-status": ""
       }
     },
     {
@@ -75,7 +83,8 @@
       "scripts": {
         "test": "",
         "lint": "",
-        "format": ""
+        "format": "",
+        "goal-status": ""
       }
     }
   ],

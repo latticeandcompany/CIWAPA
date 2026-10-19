@@ -1,0 +1,86 @@
+# INTERCAL on Interstates checklist
+
+This is the definition of done for INTERCAL on Interstates, goal 3 ([`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md)). Each item names the requirement it comes from and links at least one test that passes in **both** flavors. An item is checked only when its tests exist and pass. Items waiting on an answer in [`QUESTIONS.md`](QUESTIONS.md) are marked **BLOCKED** with the question's number.
+
+Format, as in [`EXTRACAL_CHECKLIST.md`](EXTRACAL_CHECKLIST.md):
+
+```markdown
+- [ ] R3 — rule, in one line. Tests: `apps/interstates/...`
+```
+
+The sections follow the plan's acceptance criteria. `lattice run goal-status` reads this file, together with the CI run and the release archives on the `mega` HEAD.
+
+## The site's hello world
+
+- [ ] Punchline 7 — the site's hello world (Appendix A) compiles with `ioi-dart` and `ioi-llvm` exactly as written and serves its page through `gross`.
+
+## Punchlines
+
+- [ ] Punchline 1 — `gross`, the General READ OUT Server System, listens on port 10585 by default.
+- [ ] Punchline 2 — `-s` turns on the Interstates extensions; without it the `ioi-*` CLIs compile plain EXTRACAL.
+- [ ] Punchline 3 — the database layer is ActiveCassette.
+- [ ] Punchline 4 — templates use `{{ }}` double grumpies.
+- [ ] Punchline 5 — `;4400` holds the route parameters and `;49221` the template arguments, which templates see as `,144` counting downward.
+- [ ] Punchline 6 — `(16000)` is the implicit entry label that no program defines.
+
+## Routes
+
+- [ ] R3 — a `COME FROM (16000) WITH ROUTE` is a public route, and a bare `COME FROM (16000)` is the catch-all.
+- [ ] R3 — fixed segments beat `:param` segments, and two equally specific routes fail at compile time.
+- [ ] R3 — no matching route and no catch-all is a 404 page.
+- [ ] R3 — `COME FROM (L) WITH ROUTE` fails the build unless `L` is a `READ OUT … WITH TEMPLATE` whose template links the route.
+- [ ] R3 — a restricted route answers 403 unless the `Referer` is a page that line `L` could have rendered.
+- [ ] R3 — a `WITH ROUTE` COME FROM never fires as an ordinary COME FROM, and many may share a label without E555.
+- [ ] Edge cases — empty, percent-encoded (`%2F`) and non-ASCII `:param` values.
+
+## Request and response
+
+- [ ] R4, R5 — `;4400 SUB n` copies the nth route parameter into a tail array, which is resized to fit.
+- [ ] R5 — `;49221 SUB n` stores a string in either direction.
+- [ ] R4 — every `(16001)`+ routine: the method, query string, headers, cookies, status, headers, cookies and redirects.
+- [ ] R4 — `WRITE IN` reads the request body.
+- [ ] R4 — `GIVE UP` ends the response.
+- [ ] R2 — the program gets the request through CGI/1.1 environment variables and stdin, and its stdout is the response.
+
+## Templates
+
+- [ ] R6 — templates are embedded at compile time, and `READ OUT #n` must match the template's argument count.
+- [ ] R6 — `{{ }}` escapes HTML and `{{{ }}}` prints raw.
+- [ ] R6 — numbers print as butchered Roman numerals with CSS overlines, including inside attribute values.
+- [ ] R6 — `;49221 SUB #1` appears in the template as `,144`, `SUB #2` as `,143`, and so on.
+
+## ActiveCassette
+
+- [ ] R7 — `FROM DATABASE` reads columns by table and column number, with `HAVING`.
+- [ ] R7 — `INTO DATABASE` inserts, `INTO DATABASE … HAVING` updates and `FORGET DATABASE … HAVING` deletes.
+- [ ] R7 — every value is a bound parameter.
+- [ ] R7 — the raw parameterized SQL routine.
+- [ ] R7 — SQLite is built in and is the default.
+- [ ] R7 — an adapter loads through the C ABI.
+- [ ] Edge cases — a table or column past the end of the schema, no rows, many rows, NULLs, and a database file that doesn't exist yet.
+
+## AMNESIA
+
+- [ ] R7 — `PLEASE DO AMNESIA` drops every table in the configured database, with SQLite and with a user adapter.
+
+## The sample blog app
+
+- [ ] Step 10 — the blog lists posts, shows one at `/blog/post/:id`, and creates one with `INTO DATABASE`, in both flavors on every CI platform.
+
+## New error codes
+
+Each new code is listed under "INTERCAL on Interstates error codes" in [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) and has a test.
+
+- [ ] Every code in `apps/interstates/lib/src/errors.dart` has its entry and a test.
+
+## EXTRACAL and Mode 1 are unchanged
+
+- [ ] The Mode 1 and EXTRACAL conformance suite passes unchanged in both flavors on every platform.
+
+## CI and release archives
+
+- [ ] R9 — CI builds the `ioi-<flavor>-<os>-<arch>` archives, each bundling the CIWAPA toolchain, the `ioi-*` CLI and `gross`, and smoke-tests them.
+
+## Temporary scaffolding
+
+- [ ] Step 13 — `tools/goal` is the only temporary scaffolding left, and it goes last.
