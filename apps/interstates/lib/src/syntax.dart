@@ -101,11 +101,20 @@ class InterstatesParser extends Parser {
     return body;
   }
 
+  /// The data the parser recorded for [body], which outlives a WHILE's expansion of it.
+  Object? dataOf(Body body) => _data[body];
+
   @override
   Body body() {
     _misuse = false;
     final body = _body();
-    return _misuse ? fault(822) : body;
+    return _misuse ? fault(822, body.gerund) : body;
+  }
+
+  /// Notes a string in [e], which is in a number's place.
+  Expr _number(Expr e) {
+    if (mentionsStrings(e)) _misuse = true;
+    return e;
   }
 
   Body _body() {
@@ -116,7 +125,7 @@ class InterstatesParser extends Parser {
         'INTO DATABASE' => _into(),
         'FORGET DATABASE' => HostCall(
           HostService.delete,
-          values: [..._table(), ..._having(take: true).values],
+          values: [..._table(named: false), ..._having().values],
           arrays: _arrays,
           gerund: Gerund.forgetting,
         ),
@@ -128,11 +137,11 @@ class InterstatesParser extends Parser {
       // The route parameters can't be changed.
       if (lookAhead(2).kind == TokenKind.sub) {
         final store = _storeArg();
-        return array == args ? store : fault(822);
+        return array == args ? store : fault(822, Gerund.calculating);
       }
       if (lookAhead(2).kind == TokenKind.gets) {
         final read = _wholeArgs();
-        return array == args ? read : fault(822);
+        return array == args ? read : fault(822, Gerund.calculating);
       }
     }
     final body = super.body();
@@ -145,7 +154,7 @@ class InterstatesParser extends Parser {
         when isStringArray(array)) {
       return HostCall(
         array == params ? HostService.paramToArray : HostService.argToArray,
-        values: [index],
+        values: [_number(index)],
         arrays: [target],
         gerund: Gerund.calculating,
       );
@@ -153,9 +162,10 @@ class InterstatesParser extends Parser {
     return body;
   }
 
-  /// A statement that raises Interstates error [code] when it runs.
-  static Body fault(int code) =>
-      HostCall(HostService.fault, values: [Constant(code)]);
+  /// A statement that raises Interstates error [code] when it runs. It keeps the [gerund] of the
+  /// statement it replaces, so abstaining that kind of statement skips it, as Q80's faults are.
+  static Body fault(int code, [Gerund? gerund]) =>
+      HostCall(HostService.fault, values: [Constant(code)], gerund: gerund);
 
   @override
   Body extendBody(Body body) {
@@ -210,9 +220,10 @@ class InterstatesParser extends Parser {
     take();
     final index = subscriptList();
     _expect(TokenKind.gets);
+    index.forEach(_number);
     if (index.length != 1) {
       _item();
-      return fault(822);
+      return fault(822, Gerund.calculating);
     }
     final source = _item();
     return switch (source.kind) {
@@ -229,7 +240,7 @@ class InterstatesParser extends Parser {
         values: [index.single, source.value!],
         gerund: Gerund.calculating,
       ),
-      _ => fault(822),
+      _ => fault(822, Gerund.calculating),
     };
   }
 
@@ -249,7 +260,7 @@ class InterstatesParser extends Parser {
         take();
         expression();
       }
-      return fault(822);
+      return fault(822, Gerund.calculating);
     }
     take();
     take();
@@ -258,7 +269,7 @@ class InterstatesParser extends Parser {
     Expr row = const Constant(1);
     if (current.kind == TokenKind.sub) {
       take();
-      row = expression();
+      row = _number(expression());
     }
     final having = _having();
     return HostCall(
@@ -297,32 +308,32 @@ class InterstatesParser extends Parser {
   var _arrays = <VarRef>[];
 
   /// `#t~#c$#c…` as values: the table, the number of columns, then the columns. A FORGET DATABASE
-  /// names only `#t`, and gets just the table. Starts the statement's [_arrays].
-  List<Expr> _table() {
+  /// names only `#t` ([named] false), and gets just the table. Starts the statement's [_arrays].
+  List<Expr> _table({bool named = true}) {
     _arrays = [];
-    final table = _number();
-    if (current.kind != TokenKind.select) return [table];
+    final table = _constantNumber();
+    if (!named) return [table];
+    if (current.kind != TokenKind.select) return [table, const Constant(0)];
     take();
-    final columns = [_number()];
+    final columns = [_constantNumber()];
     while (current.kind == TokenKind.mingle) {
       take();
-      columns.add(_number());
+      columns.add(_constantNumber());
     }
     return [table, Constant(columns.length), ...columns];
   }
 
-  /// `HAVING #c item + #c item …` as values: the number of pairs, then each column and item. With
-  /// [take] the HAVING is required.
-  ({int pairs, List<Expr> values}) _having({bool take = false}) {
+  /// `HAVING #c item + #c item …` as values: the number of pairs, then each column and item.
+  ({int pairs, List<Expr> values}) _having() {
     final having = current.kind == TokenKind.dialect && current.tag == 'HAVING';
     if (!having) return (pairs: 0, values: [const Constant(0)]);
-    this.take();
+    take();
     final values = <Expr>[];
     var pairs = 0;
     do {
-      if (pairs > 0) this.take();
+      if (pairs > 0) take();
       values
-        ..add(_number())
+        ..add(_constantNumber())
         ..addAll(_item().encode(_arrays));
       pairs++;
     } while (current.kind == TokenKind.intersection);
@@ -330,7 +341,7 @@ class InterstatesParser extends Parser {
   }
 
   /// `#n`, the way a table or column is named.
-  Expr _number() {
+  Expr _constantNumber() {
     if (current.kind != TokenKind.mesh) reject();
     take();
     return constant(16);
@@ -353,10 +364,12 @@ class InterstatesParser extends Parser {
     final e = expression();
     if (e case Element(:final array, subscripts: [final index])
         when isStringArray(array)) {
-      return _Item(array == params ? ItemKind.param : ItemKind.arg, index);
+      return _Item(
+        array == params ? ItemKind.param : ItemKind.arg,
+        _number(index),
+      );
     }
-    if (mentionsStrings(e)) _misuse = true;
-    return _Item(ItemKind.number, e);
+    return _Item(ItemKind.number, _number(e));
   }
 }
 

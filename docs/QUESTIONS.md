@@ -239,7 +239,18 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - **`HAVING`** pairs are `#column value`, joined with `+`. A value is either a string (a whole tail array, or a `;4400`/`;49221` element) or a number (any other expression).
   - **A read** can only be the whole of `;49221 <- '…'`. With more than one matching row, `'FROM DATABASE …' SUB r` picks row r. Without `SUB` it is row 1. The SUB goes before `HAVING`, because after a HAVING value it would read as that value's subscript, as in example D's position.
   - **`INTO DATABASE #t~#c$… <- item + item`** takes one item per column, or E827 at compile time. A trailing `HAVING` makes it an update.
-  - **`FORGET DATABASE #t`** takes an optional `HAVING`. Without one, it deletes every row of the table.
+  - **`FORGET DATABASE #t`** takes an optional `HAVING`. Without one, it deletes every row of the table. It names no columns, so `#t~#c` there is undecodable. `INTO DATABASE #t` with no columns is E827, like any other count that doesn't match.
+  - **Gerunds** (T21):
+    - FORGET DATABASE counts as FORGETTING.
+    - INTO DATABASE, a read and a string copy count as CALCULATING, being assignments.
+    - `READ OUT … WITH TEMPLATE` counts as READING OUT.
+    - AMNESIA has none, like GIVE UP.
+    - A statement made E822 keeps the gerund of the statement it was, so abstaining that kind of statement skips it, as with Q80's faults.
+  - **Routes:**
+    - A route is a statement that does nothing when it runs, so DON'T, `%`, ONCE, AGAIN and ABSTAIN on one change nothing about the route. The entry point is reached whatever they say.
+    - A NEXT FROM (16000) is an ordinary NEXT FROM, so E444, since no program has the label.
+    - A program may label a statement (16000), but no COME FROM can trap it, because any COME FROM (16000) is a route.
+  - **WHILE** (R3): a WHILE's body can be any statement body, Interstates' included, except the two that need a suffix (`WITH ROUTE`, `WITH TEMPLATE`). Those leave the statement undecodable there.
 - **Options:** (a) as above; (b) other spellings, which would change the parser and its tests.
 - **Lean:** (a). The code does (a) until this is answered.
 - **Blocks:** no checklist items; `apps/interstates/test/syntax_test.dart` pins (a).

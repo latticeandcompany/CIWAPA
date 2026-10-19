@@ -1421,8 +1421,8 @@ Conditions that only Interstates programs can meet get codes of their own, which
 ### E822: a string where a number belongs, or the other way round
 - **Text:** `STRINGS AND NUMBERS DO NOT MIX.`
 - **Joke:** `A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.`
-- **Source:** R5 and L37. `;4400` and `;49221` hold whole strings, which only the forms in R5 and ActiveCassette's statements move. Any other use is E822: a string in a number's place, a number stored into `;49221`, a write to `;4400`, STASH, READ OUT, or a hybrid target. It fires when the statement executes (Q80).
-- **Tests:** `apps/interstates/test/syntax_test.dart`
+- **Source:** R5 and L37. `;4400` and `;49221` hold whole strings, which only the forms in R5 and ActiveCassette's statements move. Any other use is E822: a string in a number's place, a number stored into `;49221`, a write to `;4400`, STASH, READ OUT, or a hybrid target. It fires when the statement executes (Q80), and abstaining the statement's kind skips it.
+- **Tests:** `apps/interstates/test/syntax_test.dart` (which statements become it); the step 4 run-time test that fires it
 - **Date:** 2026-10-18
 
 ### E827: an INTO DATABASE whose values don't match its columns

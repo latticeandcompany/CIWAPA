@@ -57,12 +57,17 @@ class InterstatesFrontend implements Frontend {
 
 /// Parses an Interstates program and runs CIWAPA's whole-program checks, then its own.
 Program analyzeInterstates(Source source, {int? memoryLimit}) {
+  late InterstatesParser parser;
   final program = core.analyze(
     source,
     memoryLimit: memoryLimit,
     parser: (source, {required wide, required extensions}) =>
-        InterstatesParser(source, memoryLimit: memoryLimit),
+        parser = InterstatesParser(source, memoryLimit: memoryLimit),
   );
+  // A WHILE's body becomes a statement of its own, which gets its data here.
+  for (final s in program.statements.take(program.userStatements)) {
+    s.data ??= parser.dataOf(s.body);
+  }
   for (final (i, s)
       in program.statements.take(program.userStatements).indexed) {
     if (s.data case DatabaseWrite(:final columns, :final items)
@@ -71,7 +76,7 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
     }
     // ;4400 and ;49221 hold strings, which only the Interstates statements can move (R5).
     if (s.body is! HostCall && _usesStrings(s.body)) {
-      s.body = InterstatesParser.fault(822);
+      s.body = InterstatesParser.fault(822, s.body.gerund);
     }
   }
   return program;

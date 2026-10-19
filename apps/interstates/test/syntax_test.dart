@@ -44,6 +44,10 @@ void main() {
         expect(s.body, isA<Nothing>());
         expect((s.data as RouteDecl).label, 5);
       }
+      expect(
+        [for (final s in statements.skip(1)) (s.data as RouteDecl).pattern],
+        ['/a', '/b'],
+      );
     });
 
     test('a plain COME FROM keeps its meaning', () {
@@ -149,6 +153,32 @@ void main() {
         expect((s.body as HostCall).service, HostService.fault);
       }
     });
+
+    test('a string as an index or row is E822 too', () {
+      for (final misuse in [
+        ',1 <- ;4400 SUB ;4400 SUB #1',
+        ';49221 SUB ;4400 SUB #1 <- ,1',
+        ';49221 SUB #1 <- ;49221 SUB ;4400 SUB #1',
+        ";49221 <- 'FROM DATABASE #1~#1' SUB ;4400 SUB #1",
+      ]) {
+        final s = parse('DO $misuse\nPLEASE GIVE UP\n').first;
+        expect(values(s.body), [822], reason: misuse);
+      }
+    });
+
+    test(
+      'E822 keeps the statement\'s gerund, so abstaining its kind skips it',
+      () {
+        expect(
+          parse('DO .1 <- ;4400 SUB #1\nPLEASE GIVE UP\n').first.body.gerund,
+          Gerund.calculating,
+        );
+        expect(
+          parse('DO STASH ;49221\nPLEASE GIVE UP\n').first.body.gerund,
+          Gerund.stashing,
+        );
+      },
+    );
   });
 
   group('ActiveCassette (R7, Q145)', () {
@@ -197,6 +227,26 @@ void main() {
       );
     });
 
+    test('FORGET DATABASE names only a table', () {
+      final s = parse(
+        'DO FORGET DATABASE #1~#2 HAVING #1 #1\nPLEASE GIVE UP\n',
+      );
+      expect(s.first.body, isA<Undecodable>());
+    });
+
+    test(
+      'a WHILE keeps what the front end needs to know (E827 still fires)',
+      () {
+        expect(
+          () => parse(
+            r'DO .1 <- #1 WHILE INTO DATABASE #1~#2$#3 <- ,1'
+            '\nPLEASE GIVE UP\n',
+          ),
+          throwsA(isA<CompileError>().having((e) => e.error.code, 'code', 827)),
+        );
+      },
+    );
+
     test('FORGET DATABASE deletes, and AMNESIA drops everything', () {
       final delete = only('DO FORGET DATABASE #4 HAVING #1 ,9\n');
       expect((delete.body as HostCall).service, HostService.delete);
@@ -221,6 +271,23 @@ void main() {
       );
       expect(s, hasLength(1));
       expect(s.single.data, isA<RouteDecl>());
+    });
+
+    test('a comment that mentions a label is still only a comment', () {
+      final s = parse('NOTE routes start at (16000).\nDO COME FROM (16000)\n');
+      expect(s, hasLength(1));
+    });
+
+    test('nothing else from the site\'s other examples is accepted', () {
+      // Example D's STASH with an assignment, and example B's bare READ OUT.
+      final d = parse(
+        "DO COME FROM (16000)\nPLEASE DO STASH ;49221 SUB #1 <- 'FROM DATABASE #0~#1' SUB #3\n",
+      );
+      expect(d.last.body, isA<Undecodable>());
+      final b = parse(
+        '(15) DO COME FROM (16000) WITH ROUTE "/home"\n(16) READ OUT #0 WITH TEMPLATE "home.html"\nPLEASE GIVE UP\n',
+      );
+      expect(b.first.body, isA<Undecodable>());
     });
 
     test('a bare GIVE UP is DO GIVE UP', () {

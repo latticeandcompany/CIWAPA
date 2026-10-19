@@ -81,7 +81,8 @@ class Parser {
       }
       if (!labelled && _tok.kind != TokenKind.identifier) {
         if (leadingComment && statements.isEmpty) {
-          _pos = _resync(_pos);
+          // A label with no identifier after it is part of the comment too.
+          _pos = _resync(_tok.kind == TokenKind.label ? _pos + 1 : _pos);
           continue;
         }
         _recoverAtCommandStart(statements, first);

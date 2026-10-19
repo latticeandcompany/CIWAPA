@@ -212,7 +212,7 @@ void _expandWhiles(List<Statement> statements) {
         chain: a.chain,
         onceAgain: a.onceAgain,
         maybe: a.maybe,
-      ),
+      )..data = a.data,
       added(
         AbstainBody(abstain: true, label: l1),
         label: l3,

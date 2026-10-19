@@ -74,6 +74,21 @@ void main() {
   test('leadingComment drops the text before the first statement', () {
     expect(parse('NOTE hi\nDO GIVE UP\n'), hasLength(2));
     expect(parse('NOTE hi\nDO GIVE UP\n', tolerant: true), hasLength(1));
+    // Labels with no identifier after them are part of it.
+    expect(parse('NOTE see (1)\nDO GIVE UP\n', tolerant: true), hasLength(1));
+    expect(parse('(1) GIVE UP\n', tolerant: true), isEmpty);
+  });
+
+  test('a WHILE keeps the statement\'s data', () {
+    final program = analyze(
+      Source('t.xc', 'DO .1 <- #1 WHILE .2 <- #2\nPLEASE GIVE UP\n'),
+      parser: (source, {required wide, required extensions}) =>
+          _Tagging(source),
+    );
+    final a = program.statements.firstWhere(
+      (s) => s.body is Calculate && '${(s.body as Calculate).target}' == '.1',
+    );
+    expect(a.data, 'tagged');
   });
 
   test('bareGiveUp makes a GIVE UP with no identifier a statement', () {
@@ -135,4 +150,14 @@ void main() {
     expect(reachable(ir), containsAll([1, 2, 3]));
     expect(CompileError.of(error, 2).toString(), error.format(2));
   });
+}
+
+/// Tags every statement, to see what keeps its data.
+class _Tagging extends Parser {
+  _Tagging(super.source) : super(wide: true, extensions: true);
+
+  @override
+  List<Statement> parse() => [
+    for (final s in super.parse()) s..data = 'tagged',
+  ];
 }

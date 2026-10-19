@@ -2,7 +2,7 @@
 /// PETITION. Their values are documented beside each, in the order the host takes them.
 abstract final class HostService {
   /// `READ OUT #n WITH TEMPLATE`: the template's number, then a value for each of its pieces that
-  /// needs one.
+  /// needs one. The parser leaves them out; the front end adds them once it has read the template.
   static const render = 16500;
 
   /// `,a <- ;4400 SUB e`: arrays [a], values [e].
