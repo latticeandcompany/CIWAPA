@@ -151,6 +151,12 @@ void main() {
     expect(reachable(ir), containsAll([1, 2, 3]));
     expect(CompileError.of(error, 2).toString(), error.format(2));
   });
+
+  test('lower takes each entry once, and only ordinals of the program', () {
+    final program = analyze(Source('t.xc', 'DO GIVE UP\nDO GIVE UP\n'));
+    expect(lower(program, entries: const [2, 2, 1]).entries, [2, 1]);
+    expect(() => lower(program, entries: const [3]), throwsArgumentError);
+  });
 }
 
 /// Tags every statement, to see what keeps its data.

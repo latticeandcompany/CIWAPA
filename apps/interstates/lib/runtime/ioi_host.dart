@@ -41,7 +41,10 @@ class IoiHost extends IckHost {
         _found(
           scalars[0],
           arrays[1],
-          _field(_env['QUERY_STRING'] ?? '', ickString(arrays[0], next)),
+          _field(
+            utf8.encode(_env['QUERY_STRING'] ?? ''),
+            ickString(arrays[0], next),
+          ),
         );
       case 16050:
         _found(
@@ -56,25 +59,24 @@ class IoiHost extends IckHost {
         _status = ickScalar(scalars[0]);
       case 16110:
         _unsent(next);
-        _headers.add(
-          _checked(
-            ickString(arrays[0], next),
-            ickString(arrays[1], next),
-            next,
-          ),
-        );
+        final name = ickString(arrays[0], next);
+        final value = ickString(arrays[1], next);
+        if (!_isToken(name) || !_isFieldValue(value)) ickFatal(828, next);
+        _headers.add((name, value));
       case 16120:
         _unsent(next);
-        final (name, value) = _checked(
-          ickString(arrays[0], next),
-          ickString(arrays[1], next),
-          next,
-        );
+        final name = ickString(arrays[0], next);
+        final value = ickString(arrays[1], next);
+        if (!_isToken(name) || !value.codeUnits.every(_isCookieOctet)) {
+          ickFatal(828, next);
+        }
         _headers.add(('Set-Cookie', '$name=$value; Path=/'));
       case 16130:
         _unsent(next);
+        final location = ickString(arrays[0], next);
+        if (!_isFieldValue(location)) ickFatal(828, next);
         _status = 303;
-        _headers.add(_checked('Location', ickString(arrays[0], next), next));
+        _headers.add(('Location', location));
       case 16510:
         ickSetString(arrays[0], _param(values[0], next));
       case 16511:
@@ -98,7 +100,7 @@ class IoiHost extends IckHost {
   void prologue() {
     _sent = true;
     final head = StringBuffer('Status: $_status ${_reason(_status)}\n');
-    if (!_headers.any((h) => h.$1.toLowerCase() == 'content-type')) {
+    if (!_headers.any((h) => _asciiLower(h.$1) == 'content-type')) {
       head.write('Content-Type: text/html; charset=utf-8\n');
     }
     for (final (name, value) in _headers) {
@@ -113,11 +115,22 @@ class IoiHost extends IckHost {
     if (_sent) ickFatal(823, next);
   }
 
-  /// A header line break would split the response (E828).
-  (String, String) _checked(String name, String value, int next) {
-    if ('$name$value'.contains(RegExp('[\r\n]'))) ickFatal(828, next);
-    return (name, value);
-  }
+  /// A header name is an HTTP token (RFC 9110).
+  static bool _isToken(String s) =>
+      s.isNotEmpty && RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$").hasMatch(s);
+
+  /// A header value has no control characters but tabs, so it can't split the response.
+  static bool _isFieldValue(String s) =>
+      !s.codeUnits.any((c) => (c < 0x20 && c != 0x09) || c == 0x7F);
+
+  /// RFC 6265's cookie-octet: ASCII with no controls, spaces, `"`, `,`, `;` or `\`, so a value
+  /// can't add attributes to its cookie.
+  static bool _isCookieOctet(int c) =>
+      c == 0x21 ||
+      (c >= 0x23 && c <= 0x2B) ||
+      (c >= 0x2D && c <= 0x3A) ||
+      (c >= 0x3C && c <= 0x5B) ||
+      (c >= 0x5D && c <= 0x7E);
 
   /// Stores a lookup's result: [value] in the array [into] and status #1, or #2 when there is none.
   void _found(int status, int into, String? value) {
@@ -158,46 +171,43 @@ class IoiHost extends IckHost {
     return null;
   }
 
-  /// The first [name] in a `application/x-www-form-urlencoded` list, decoded.
-  static String? _field(String encoded, String name) {
-    for (final pair in encoded.split('&')) {
-      final equals = pair.indexOf('=');
-      final key = equals < 0 ? pair : pair.substring(0, equals);
-      if (_decode(key) == name) {
-        return equals < 0 ? '' : _decode(pair.substring(equals + 1));
+  /// The first [name] in an `application/x-www-form-urlencoded` list of bytes, decoded.
+  static String? _field(List<int> encoded, String name) {
+    var start = 0;
+    for (var i = 0; i <= encoded.length; i++) {
+      if (i < encoded.length && encoded[i] != 0x26) continue;
+      var equals = start;
+      while (equals < i && encoded[equals] != 0x3D) {
+        equals++;
       }
+      if (urlDecode(encoded.sublist(start, equals), plus: true) == name) {
+        return equals < i
+            ? urlDecode(encoded.sublist(equals + 1, i), plus: true)
+            : '';
+      }
+      start = i + 1;
     }
     return null;
   }
 
-  /// Form decoding: `+` is a space and `%XX` a byte, the other characters stand for their UTF-8,
-  /// and the bytes are decoded as [decodeUtf8] does.
-  static String _decode(String text) {
-    final bytes = <int>[];
-    final units = text.codeUnits;
-    for (var i = 0; i < units.length; i++) {
-      final c = units[i];
-      final high = i + 2 < units.length ? _hexDigit(units[i + 1]) : -1;
-      final low = i + 2 < units.length ? _hexDigit(units[i + 2]) : -1;
-      if (c == 0x2B) {
-        bytes.add(0x20);
-      } else if (c == 0x25 && high >= 0 && low >= 0) {
-        bytes.add(high * 16 + low);
+  /// `%XX` is a byte and, with [plus], `+` a space; then the bytes are decoded as [decodeUtf8]
+  /// does.
+  static String urlDecode(List<int> bytes, {bool plus = false}) {
+    final out = <int>[];
+    for (var i = 0; i < bytes.length; i++) {
+      final b = bytes[i];
+      final high = i + 2 < bytes.length ? _hexDigit(bytes[i + 1]) : -1;
+      final low = i + 2 < bytes.length ? _hexDigit(bytes[i + 2]) : -1;
+      if (b == 0x2B && plus) {
+        out.add(0x20);
+      } else if (b == 0x25 && high >= 0 && low >= 0) {
+        out.add(high * 16 + low);
         i += 2;
       } else {
-        final pair =
-            c >= 0xD800 &&
-            c <= 0xDBFF &&
-            i + 1 < units.length &&
-            units[i + 1] >= 0xDC00 &&
-            units[i + 1] <= 0xDFFF;
-        bytes.addAll(
-          utf8.encode(String.fromCharCodes(units, i, i + (pair ? 2 : 1))),
-        );
-        if (pair) i++;
+        out.add(b);
       }
     }
-    return decodeUtf8(bytes);
+    return decodeUtf8(out);
   }
 
   static int _hexDigit(int c) => switch (c) {
@@ -207,16 +217,16 @@ class IoiHost extends IckHost {
     _ => -1,
   };
 
-  /// The body of a form post, one unit per byte, or nothing for any other kind of body.
-  String _form() {
-    final type = _env['CONTENT_TYPE'] ?? '';
-    const form = 'application/x-www-form-urlencoded';
-    final lowered = String.fromCharCodes([
-      for (final c in type.codeUnits) c >= 0x41 && c <= 0x5A ? c + 32 : c,
-    ]);
-    if (!lowered.startsWith(form)) return '';
-    return String.fromCharCodes(_requestBody());
+  /// The body of a form post, or nothing for any other kind of body.
+  List<int> _form() {
+    final type = _asciiLower(_env['CONTENT_TYPE'] ?? '');
+    if (!type.startsWith('application/x-www-form-urlencoded')) return const [];
+    return _requestBody();
   }
+
+  static String _asciiLower(String s) => String.fromCharCodes([
+    for (final c in s.codeUnits) c >= 0x41 && c <= 0x5A ? c + 32 : c,
+  ]);
 
   /// The request body, read once from stdin: CONTENT_LENGTH bytes, or up to the end of input.
   List<int> _requestBody() {

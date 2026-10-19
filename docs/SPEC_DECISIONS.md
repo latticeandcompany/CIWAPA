@@ -1439,9 +1439,12 @@ Conditions that only Interstates programs can meet get codes of their own, which
 - **Tests:** `apps/interstates/test/syntax_test.dart`
 - **Date:** 2026-10-18
 
-### E828: a response header with a line break in it
-- **Text:** `A RESPONSE HEADER CONTAINS A LINE BREAK.`
-- **Joke:** `ONE HEADER, ONE LINE. THIS IS NOT POETRY.`
-- **Source:** R4. A carriage return or line feed in a header's name or value, a cookie or a redirect's location would split the response into headers the program never asked for, so the routine raises E828 instead of writing it.
-- **Tests:** `apps/interstates/test/golden/cgi/e828-header-line-break.xc`
+### E828: a malformed response header or cookie
+- **Text:** `A RESPONSE HEADER OR COOKIE IS MALFORMED.`
+- **Joke:** `ONE HEADER, ONE LINE, NO SURPRISES. THIS IS NOT POETRY.`
+- **Source:** R4 and L38. The routine raises E828 instead of writing the header in these cases:
+  - A header or cookie name that isn't an HTTP token (RFC 9110).
+  - A header value or redirect location with a control character other than a tab, such as CR, LF or NUL. That would split the response or confuse what reads it.
+  - A cookie value with anything outside RFC 6265's cookie-octets. A `;` would add attributes the program never asked for.
+- **Tests:** `apps/interstates/test/golden/cgi/e828-header-line-break.xc`, `apps/interstates/test/golden/cgi/e828-header-nul.xc`, `apps/interstates/test/golden/cgi/e828-header-name.xc`, `apps/interstates/test/golden/cgi/e828-cookie-value.xc`, `apps/interstates/test/golden/cgi/e828-location.xc`
 - **Date:** 2026-10-18

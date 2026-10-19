@@ -156,12 +156,13 @@ static void build_digit_tables(uint32_t base);
  * after ick_init are what a host may use. runtime.dart has the same. */
 
 typedef struct {
-  /* The ordinal of the statement to start at, or 0 for the first. Runs once the runtime options
-   * are read. */
+  /* The ordinal of the statement to start at: 0 for the first, or one of the program's entries
+   * (nothing else). Runs once the runtime options are read. */
   uint32_t (*start)(void);
   /* Runs [service], one the runtime doesn't have, on the scalars (by key, UINT32_MAX for none),
    * arrays (by number, UINT32_MAX for none) and values the compiler passes in. 0 if the host
-   * doesn't have it either. */
+   * doesn't have it either. A PETITION passes 4 scalars and 3 arrays, as many as a service may
+   * have (more are dropped); a host call passes its arrays and values. */
   int (*petition)(uint32_t service, const uint32_t *scalars, uint32_t scalar_count, const uint32_t *arrays,
                   uint32_t array_count, const uint64_t *values, uint32_t value_count, uint32_t next);
   /* Runs once, just before the first byte of standard output, or at a normal exit (GIVE UP or the

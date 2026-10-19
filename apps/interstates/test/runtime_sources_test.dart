@@ -16,4 +16,22 @@ void main() {
       reason: 'run `dart run tool/embed_runtime.dart`',
     );
   });
+
+  test('host.c declares runtime.c\'s ick_host exactly', () {
+    String struct(String path) {
+      final text = File(path).readAsStringSync();
+      final body = RegExp(r'typedef struct \{([^}]*)\} ick_host;')
+          .firstMatch(text)!
+          .group(1)!;
+      return body
+          .replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+    }
+
+    expect(
+      struct('runtime/host.c'),
+      struct('../../packages/runtime_c/runtime.c'),
+    );
+  });
 }

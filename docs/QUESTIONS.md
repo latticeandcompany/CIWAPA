@@ -286,6 +286,17 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - **The string arrays:**
     - `;4400 SUB n` past the route's parameters is E241.
     - `;49221 SUB n` never stored is the empty string, and n runs from 1 to 4294967295; anything else is E241.
+  - **What a program may set:**
+    - Any status from #0 to #65535, with `Unknown` as the reason phrase for a code the host doesn't know.
+    - A header name must be an HTTP token (RFC 9110), and a value or location may hold no control characters but tabs.
+    - A cookie's name must be a token, and its value RFC 6265's cookie-octets, so a `;` can't add attributes.
+    - Anything else is E828, rather than being encoded or dropped silently.
+  - **Reading the request:**
+    - A header name longer than 256 characters finds nothing.
+    - An environment variable that isn't UTF-8 counts as missing, as Dart's environment leaves it out.
+    - Cookie names are matched exactly. Spaces and tabs around names and values are trimmed, the first match wins, and quotes stay.
+    - The form `Content-Type` is matched as a prefix, without regard to ASCII case.
+    - A form body is decoded byte by byte, so raw UTF-8 in it reads as UTF-8.
 - **Options:** (a) as above; (b) other routines, numbers or formats.
 - **Lean:** (a). The code does (a) until this is answered.
 - **Blocks:** no checklist items; `apps/interstates/test/golden/cgi` pins (a).

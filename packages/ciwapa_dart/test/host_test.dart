@@ -89,6 +89,15 @@ void main() {
     expect(result.stdout, 'HEAD\n    \nVIII\n');
   });
 
+  test('a host call works on the control engine too', () async {
+    final result = await run(
+      'DO .2 <- #4\nDO .2 <- #5\nDO GIVE UP\nPLEASE READ OUT .2\nDO GIVE UP\n',
+      hostCall: 3,
+      engine: true,
+    );
+    expect(result.stdout, 'HEAD\n    \nVIII\n');
+  });
+
   test('the control engine starts where the host says too', () async {
     final result = await run(
       'DO READ OUT #1\nDO PETITION #7\nPLEASE READ OUT .1\nDO GIVE UP\n',

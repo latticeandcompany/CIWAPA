@@ -744,10 +744,12 @@ class DartEmitter {
 
   /// A host service (R10, L29), given its variables' keys (64-bit scalars after the others) and
   /// array numbers.
-  String _petition(IrPetition p, Object next) =>
-      'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
-      '[${p.arrays.map((a) => a.index).join(', ')}], $next'
-      '${p.values.isEmpty ? '' : ', [${p.values.map((v) => _expr(v, next)).join(', ')}]'});';
+  String _petition(IrPetition p, Object next) => p.host
+      ? 'ickHostCall(${p.service}, [${p.arrays.map((a) => a.index).join(', ')}], '
+            '[${p.values.map((v) => _expr(v, next)).join(', ')}], $next);'
+      : 'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
+            '[${p.arrays.map((a) => a.index).join(', ')}], $next'
+            '${p.values.isEmpty ? '' : ', [${p.values.map((v) => _expr(v, next)).join(', ')}]'});';
 
   /// When a native library routine can stand in for its INTERCAL: [clear] tests that a statement
   /// isn't abstained.

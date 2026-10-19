@@ -1,0 +1,16 @@
+PLEASE COME FROM (16000)
+DO .1 <- #1
+DO READ OUT .1
+DO ,1 <- #6
+PLEASE ,1 SUB #1 <- #88
+DO ,1 SUB #2 <- #45
+DO ,1 SUB #3 <- #76
+DO ,1 SUB #4 <- #97
+PLEASE ,1 SUB #5 <- #116
+DO ,1 SUB #6 <- #101
+DO ,2 <- #3
+DO ,2 SUB #1 <- #121
+PLEASE ,2 SUB #2 <- #101
+DO ,2 SUB #3 <- #115
+DO (16110) NEXT
+DO GIVE UP

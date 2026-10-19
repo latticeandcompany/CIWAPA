@@ -21,8 +21,8 @@ const interstatesErrors = <IclError>[
   ),
   IclError(
     828,
-    'A RESPONSE HEADER CONTAINS A LINE BREAK.',
-    'ONE HEADER, ONE LINE. THIS IS NOT POETRY.',
+    'A RESPONSE HEADER OR COOKIE IS MALFORMED.',
+    'ONE HEADER, ONE LINE, NO SURPRISES. THIS IS NOT POETRY.',
   ),
 ];
 

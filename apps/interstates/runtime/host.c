@@ -309,49 +309,38 @@ static int hex_digit(uint16_t c) {
   return -1;
 }
 
-/* Form decoding: + is a space and %XX a byte, the other characters stand for their UTF-8, and the
- * bytes are decoded as str_decode does. */
-static ioi_string form_decode(ioi_string s, size_t start, size_t end) {
-  uint8_t *bytes = checked(malloc((end - start) * 3 + 1));
+/* %XX is a byte and, with [plus], + is a space; then the bytes are decoded as str_decode does. */
+static ioi_string url_decode(const uint8_t *bytes, size_t length, int plus) {
+  uint8_t *out = checked(malloc(length + 1));
   size_t n = 0;
-  for (size_t i = start; i < end; i++) {
-    uint16_t c = s.units[i];
-    int high = i + 2 < end ? hex_digit(s.units[i + 1]) : -1, low = i + 2 < end ? hex_digit(s.units[i + 2]) : -1;
-    if (c == '+') {
-      bytes[n++] = ' ';
-    } else if (c == '%' && high >= 0 && low >= 0) {
-      bytes[n++] = (uint8_t)(high * 16 + low);
+  for (size_t i = 0; i < length; i++) {
+    int high = i + 2 < length ? hex_digit(bytes[i + 1]) : -1, low = i + 2 < length ? hex_digit(bytes[i + 2]) : -1;
+    if (bytes[i] == '+' && plus) {
+      out[n++] = ' ';
+    } else if (bytes[i] == '%' && high >= 0 && low >= 0) {
+      out[n++] = (uint8_t)(high * 16 + low);
       i += 2;
     } else {
-      size_t pair = c >= 0xD800 && c <= 0xDBFF && i + 1 < end && s.units[i + 1] >= 0xDC00 &&
-                            s.units[i + 1] <= 0xDFFF
-                        ? 2
-                        : 1;
-      size_t length;
-      char *utf8 = str_utf8((ioi_string){s.units + i, pair}, &length);
-      memcpy(bytes + n, utf8, length);
-      n += length;
-      free(utf8);
-      i += pair - 1;
+      out[n++] = bytes[i];
     }
   }
-  ioi_string out = str_decode(bytes, n);
-  free(bytes);
-  return out;
+  ioi_string s = str_decode(out, n);
+  free(out);
+  return s;
 }
 
-/* The first [name] in an application/x-www-form-urlencoded list, decoded. */
-static int field(ioi_string encoded, ioi_string name, ioi_string *out) {
+/* The first [name] in an application/x-www-form-urlencoded list of bytes, decoded. */
+static int field(const uint8_t *encoded, size_t length, ioi_string name, ioi_string *out) {
   size_t start = 0;
-  for (size_t i = 0; i <= encoded.length; i++) {
-    if (i < encoded.length && encoded.units[i] != '&') continue;
+  for (size_t i = 0; i <= length; i++) {
+    if (i < length && encoded[i] != '&') continue;
     size_t equals = start;
-    while (equals < i && encoded.units[equals] != '=') equals++;
-    ioi_string key = form_decode(encoded, start, equals);
+    while (equals < i && encoded[equals] != '=') equals++;
+    ioi_string key = url_decode(encoded + start, equals - start, 1);
     int match = str_equal(key, name);
     str_free(&key);
     if (match) {
-      *out = equals < i ? form_decode(encoded, equals + 1, i) : str_new(0);
+      *out = equals < i ? url_decode(encoded + equals + 1, i - equals - 1, 1) : str_new(0);
       return 1;
     }
     start = i + 1;
@@ -359,8 +348,8 @@ static int field(ioi_string encoded, ioi_string name, ioi_string *out) {
   return 0;
 }
 
-/* The body of a form post, one unit per byte, or nothing for any other kind of body. */
-static ioi_string form(void) {
+/* The body of a form post, or nothing (NULL) for any other kind of body. */
+static const uint8_t *form(size_t *length) {
   ioi_string type = env_or_empty("CONTENT_TYPE");
   static const char form_type[] = "application/x-www-form-urlencoded";
   int is_form = type.length >= sizeof form_type - 1;
@@ -369,12 +358,11 @@ static ioi_string form(void) {
     is_form = (c >= 'A' && c <= 'Z' ? c + 32 : c) == form_type[i];
   }
   str_free(&type);
-  if (!is_form) return str_new(0);
+  *length = 0;
+  if (!is_form) return NULL;
   read_body();
-  ioi_string s = str_new(body_length);
-  for (size_t i = 0; i < body_length; i++) s.units[i] = body[i];
-  s.length = body_length;
-  return s;
+  *length = body_length;
+  return body;
 }
 
 /* Stores a lookup's result: the string in [into] and status #1, or #2 when there is none. */
@@ -453,14 +441,40 @@ static void unsent(uint32_t next) {
   if (sent) ick_fatal(823, next);
 }
 
-/* Adds a header, which a line break would split (E828). The header takes the strings. */
-static void add_header(ioi_string name, ioi_string value, uint32_t next) {
-  for (size_t i = 0; i < name.length; i++) {
-    if (name.units[i] == '\r' || name.units[i] == '\n') ick_fatal(828, next);
+/* A header name is an HTTP token (RFC 9110). */
+static int is_token(ioi_string s) {
+  if (!s.length) return 0;
+  for (size_t i = 0; i < s.length; i++) {
+    uint16_t c = s.units[i];
+    int ok = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+             (c < 0x80 && c && strchr("!#$%&'*+.^_`|~-", (char)c));
+    if (!ok) return 0;
   }
-  for (size_t i = 0; i < value.length; i++) {
-    if (value.units[i] == '\r' || value.units[i] == '\n') ick_fatal(828, next);
+  return 1;
+}
+
+/* A header value has no control characters but tabs, so it can't split the response. */
+static int is_field_value(ioi_string s) {
+  for (size_t i = 0; i < s.length; i++) {
+    if ((s.units[i] < 0x20 && s.units[i] != '\t') || s.units[i] == 0x7F) return 0;
   }
+  return 1;
+}
+
+/* RFC 6265's cookie-octet: ASCII with no controls, spaces, ", comma, ; or backslash, so a value
+ * can't add attributes to its cookie. */
+static int is_cookie_value(ioi_string s) {
+  for (size_t i = 0; i < s.length; i++) {
+    uint16_t c = s.units[i];
+    if (!(c == 0x21 || (c >= 0x23 && c <= 0x2B) || (c >= 0x2D && c <= 0x3A) || (c >= 0x3C && c <= 0x5B) ||
+          (c >= 0x5D && c <= 0x7E)))
+      return 0;
+  }
+  return 1;
+}
+
+/* Adds a header that has been checked. The header takes the strings. */
+static void add_header(ioi_string name, ioi_string value) {
   if (header_count == header_capacity) {
     header_capacity = header_capacity ? header_capacity * 2 : 8;
     headers = checked(realloc(headers, header_capacity * sizeof *headers));
@@ -553,11 +567,21 @@ static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_c
   }
   case 16040:
   case 16050: {
-    ioi_string encoded = service == 16040 ? env_or_empty("QUERY_STRING") : form();
+    size_t length;
+    char *query = NULL;
+    const uint8_t *encoded;
+    if (service == 16040) {
+      ioi_string text = env_or_empty("QUERY_STRING");
+      query = str_utf8(text, &length);
+      str_free(&text);
+      encoded = (const uint8_t *)query;
+    } else {
+      encoded = form(&length);
+    }
     ioi_string name = str_array(arrays[0], next);
-    int was = field(encoded, name, &value);
+    int was = field(encoded, length, name, &value);
     str_free(&name);
-    str_free(&encoded);
+    free(query);
     found(scalars[0], arrays[1], was, &value);
     break;
   }
@@ -575,13 +599,15 @@ static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_c
     break;
   case 16110: {
     unsent(next);
-    ioi_string name = str_array(arrays[0], next);
-    add_header(name, str_array(arrays[1], next), next);
+    ioi_string name = str_array(arrays[0], next), v = str_array(arrays[1], next);
+    if (!is_token(name) || !is_field_value(v)) ick_fatal(828, next);
+    add_header(name, v);
     break;
   }
   case 16120: {
     unsent(next);
     ioi_string name = str_array(arrays[0], next), v = str_array(arrays[1], next);
+    if (!is_token(name) || !is_cookie_value(v)) ick_fatal(828, next);
     ioi_string cookie_value = str_new(name.length + v.length + 9);
     memcpy(cookie_value.units, name.units, name.length * sizeof(uint16_t));
     cookie_value.length = name.length;
@@ -592,14 +618,17 @@ static int petition(uint32_t service, const uint32_t *scalars, uint32_t scalar_c
     for (size_t i = 0; i < sizeof path - 1; i++) cookie_value.units[cookie_value.length++] = (uint16_t)path[i];
     str_free(&name);
     str_free(&v);
-    add_header(str_ascii("Set-Cookie"), cookie_value, next);
+    add_header(str_ascii("Set-Cookie"), cookie_value);
     break;
   }
-  case 16130:
+  case 16130: {
     unsent(next);
+    ioi_string location = str_array(arrays[0], next);
+    if (!is_field_value(location)) ick_fatal(828, next);
     status = 303;
-    add_header(str_ascii("Location"), str_array(arrays[0], next), next);
+    add_header(str_ascii("Location"), location);
     break;
+  }
   case 16510: set_string(arrays[0], param(values[0], next)); break;
   case 16511: set_string(arrays[0], arg(values[0], next)); break;
   case 16512: set_arg(values[0], str_array(arrays[0], next), next); break;

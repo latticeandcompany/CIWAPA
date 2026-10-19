@@ -38,12 +38,15 @@ dart --suppress-analytics compile exe "apps/interstates/bin/ioi_$flavor.dart" -o
 )
 
 # Once per flavor, every .xc program runs again on the control engine, which then has to behave
-# exactly as Mode 1 does on the whole suite (CIWAPA_TEST_ENGINE is test-only).
+# exactly as Mode 1 does on the whole suite, and the Interstates suite with it (CIWAPA_TEST_ENGINE is
+# test-only).
 if [[ "$platform" == linux-x64 ]]; then
   (
     cd packages/conformance
     CIWAPA_TEST_ENGINE=1 dart --suppress-analytics run bin/conformance.dart \
       --compiler "../../.cache/build/ciwapa-$flavor$exe" --extracal-only
+    CIWAPA_TEST_ENGINE=1 dart --suppress-analytics run bin/conformance.dart \
+      --compiler "../../.cache/build/ioi-$flavor$exe" --tests ../../apps/interstates/test/golden --flag -s
   )
 fi
 

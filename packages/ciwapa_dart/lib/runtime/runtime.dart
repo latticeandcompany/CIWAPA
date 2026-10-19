@@ -140,8 +140,8 @@ void ickInit(
 
 /// What a host adds to the runtime.
 abstract class IckHost {
-  /// The ordinal of the statement to start at, or 0 for the first. Runs once the runtime options
-  /// are read.
+  /// The ordinal of the statement to start at: 0 for the first, or one of the program's entries
+  /// (nothing else). Runs once the runtime options are read.
   int start() => 0;
 
   /// Runs [service], one the runtime doesn't have, on the variables and [values] the compiler
@@ -161,6 +161,13 @@ abstract class IckHost {
 
 IckHost? _host;
 var _startOrdinal = 0;
+
+/// A host call (a PETITION with computed [values]), which only the host has.
+void ickHostCall(int service, List<int> arrays, List<int> values, int next) {
+  if (_host?.petition(service, const [], arrays, values, next) ?? false) return;
+  ickFatal(801, next);
+}
+
 var _outputBegun = false;
 
 /// Where the host's [IckHost.start] said to start.

@@ -1,4 +1,5 @@
-PLEASE ,1 <- #5
+PLEASE COME FROM (16000)
+DO ,1 <- #5
 DO ,1 SUB #1 <- #116
 DO ,1 SUB #2 <- #105
 DO ,1 SUB #3 <- #116

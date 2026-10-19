@@ -1,24 +1,25 @@
-PLEASE ,1 <- #12
+PLEASE COME FROM (16000)
+DO ,1 <- #12
 DO ,1 SUB #1 <- #67
 DO ,1 SUB #2 <- #111
-DO ,1 SUB #3 <- #110
-PLEASE ,1 SUB #4 <- #116
+PLEASE ,1 SUB #3 <- #110
+DO ,1 SUB #4 <- #116
 DO ,1 SUB #5 <- #101
 DO ,1 SUB #6 <- #110
-DO ,1 SUB #7 <- #116
-PLEASE ,1 SUB #8 <- #45
+PLEASE ,1 SUB #7 <- #116
+DO ,1 SUB #8 <- #45
 DO ,1 SUB #9 <- #84
 DO ,1 SUB #10 <- #121
-DO ,1 SUB #11 <- #112
-PLEASE ,1 SUB #12 <- #101
+PLEASE ,1 SUB #11 <- #112
+DO ,1 SUB #12 <- #101
 DO ,2 <- #25
 DO ,2 SUB #1 <- #116
-DO ,2 SUB #2 <- #101
-PLEASE ,2 SUB #3 <- #120
+PLEASE ,2 SUB #2 <- #101
+DO ,2 SUB #3 <- #120
 DO ,2 SUB #4 <- #116
 DO ,2 SUB #5 <- #47
-DO ,2 SUB #6 <- #112
-PLEASE ,2 SUB #7 <- #108
+PLEASE ,2 SUB #6 <- #112
+DO ,2 SUB #7 <- #108
 DO ,2 SUB #8 <- #97
 DO ,2 SUB #9 <- #105
 DO ,2 SUB #10 <- #110

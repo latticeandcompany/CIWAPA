@@ -728,6 +728,15 @@ IrProgram lower(
   List<IclError> errors = const [],
   Object? extension,
 }) {
+  final count = program.statements.length;
+  if (entries.any((o) => o < 1 || o > count)) {
+    throw ArgumentError.value(
+      entries,
+      'entries',
+      'are not all ordinals of the program',
+    );
+  }
+  entries = entries.toSet().toList();
   final lowered = _Lowering(program, options.memoryLimit, {
     ...petitionServices,
     ...services,

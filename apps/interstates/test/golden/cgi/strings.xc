@@ -1,8 +1,9 @@
-PLEASE ,1 <- #3
+PLEASE COME FROM (16000)
+DO ,1 <- #3
 DO ,1 SUB #1 <- #97
 DO ,1 SUB #2 <- #98
-DO ,1 SUB #3 <- #99
-PLEASE ;49221 SUB #2 <- ,1
+PLEASE ,1 SUB #3 <- #99
+DO ;49221 SUB #2 <- ,1
 DO ,1 <- ;49221 SUB #2
 DO .1 <- #1
 DO (2310) NEXT

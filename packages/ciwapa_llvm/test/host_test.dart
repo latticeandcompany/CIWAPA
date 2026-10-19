@@ -7,6 +7,7 @@ import 'package:ciwapa_llvm/ciwapa_llvm.dart';
 import 'package:test/test.dart';
 
 const toyHost = r'''
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -17,7 +18,7 @@ typedef struct {
 } ick_host;
 
 void ick_set_scalar(uint32_t key, uint64_t value);
-void ick_output(const char *bytes, unsigned long length);
+void ick_output(const char *bytes, size_t length);
 
 static uint32_t start(void) { return 2; }
 
@@ -96,6 +97,15 @@ void main() {
     final result = await run(
       'DO .2 <- #4\nDO .2 <- #5\nDO GIVE UP\nPLEASE READ OUT .2\nDO GIVE UP\n',
       hostCall: 3,
+    );
+    expect(result.stdout, 'HEAD\n    \nVIII\n');
+  });
+
+  test('a host call works on the control engine too', () async {
+    final result = await run(
+      'DO .2 <- #4\nDO .2 <- #5\nDO GIVE UP\nPLEASE READ OUT .2\nDO GIVE UP\n',
+      hostCall: 3,
+      engine: true,
     );
     expect(result.stdout, 'HEAD\n    \nVIII\n');
   });
