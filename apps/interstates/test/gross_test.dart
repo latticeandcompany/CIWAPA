@@ -371,12 +371,14 @@ void main() {
           ]),
         );
         await request(gross.port, '/log?x=1');
-        expect(
-          log,
-          contains(
-            matches(r'^127\.0\.0\.1:\d+ "GET /log\?x=1 HTTP/1\.1" 200 \d+ms$'),
-          ),
+        // The request's line is written once the response has gone, so it may come a little later.
+        final line = RegExp(
+          r'^127\.0\.0\.1:\d+ "GET /log\?x=1 HTTP/1\.1" 200 \d+ms$',
         );
+        for (var i = 0; i < 100 && !log.any(line.hasMatch); i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+        expect(log, contains(matches(line)));
         expect(log, contains(endsWith(': complaint')));
       });
 
@@ -484,16 +486,15 @@ void main() {
           final gross = await serve(echo);
           final socket = await Socket.connect('127.0.0.1', gross.port);
           final reply = utf8.decoder.bind(socket).join();
-          socket.write('POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n');
-          await socket.flush();
-          try {
-            for (var i = 0; i < 64; i++) {
-              socket.write('400\r\n${'x' * 1024}\r\n');
-              await socket.flush();
-            }
-          } on SocketException {
-            // gross has stopped reading; what matters is its answer.
-          }
+          // gross stops reading once it has refused, so the rest of the body may fail to send.
+          unawaited(socket.done.catchError((_) {}));
+          socket.add(
+            utf8.encode(
+              'POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n'
+              '${'400\r\n${'x' * 1024}\r\n' * 64}',
+            ),
+          );
+          await socket.flush().catchError((_) {});
           expect(await reply, startsWith('HTTP/1.1 411 Length Required\r\n'));
         },
       );
