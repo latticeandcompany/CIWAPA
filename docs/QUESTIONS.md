@@ -375,7 +375,7 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
     - The `Referer` must be an absolute URL whose authority equals the `Host` header (ignoring ASCII case). Its path must match a route, catch-all included, whose entry can reach line L.
     - A request with no `Host` header, or behind a proxy that rewrites it, can't pass. gross itself passes `Host` through as the browser sent it.
     - A restricted route whose page no route can reach still compiles, and always answers 403.
-    - Reachability is a conservative pass over every way control can go: running on, NEXTs, the return points of every NEXT for a RESUME, COME FROM traps (threads included), and TRY AGAIN. A program with computed or gerund COME FROMs or CREATE lets every route reach everything.
+    - Reachability is a conservative pass over every way control can go: running on, NEXTs, COME FROM traps (threads included), TRY AGAIN, and for a RESUME the return points of the NEXTs and NEXT FROMs the route's own run can have made, since only those can be on its NEXT stack. So a routine that every route NEXTs to doesn't let one route reach another's pages. A program with computed or gerund COME FROMs or CREATE lets every route reach everything.
     - A failed check is E403, reported at the route's own statement. E440 is reported at statement 1.
 - **Options:** (a) as above; (b) other specificity rules, such as counting fixed segments, which would make more pairs ties; (c) trailing slashes ignored.
 - **Lean:** (a). The code does (a) until this is answered.

@@ -9,11 +9,13 @@ import 'package:interstates/interstates.dart';
 import 'package:interstates/src/gross.dart';
 import 'package:test/test.dart';
 
+import 'support.dart';
+
 void main() {
   for (final backend in [ioiDart(), ioiLlvm()]) {
     test('${backend.name}: list, create, view', () async {
       final temp = Directory.systemTemp.createTempSync('ioi-blog-');
-      addTearDown(() => temp.deleteSync(recursive: true));
+      addTearDown(() => deleteSoon(temp));
       final exe = '${temp.path}/blog${Platform.isWindows ? '.exe' : ''}';
       expect(
         await runCli(
@@ -126,9 +128,49 @@ void main() {
         contains('<h1>Hello, world</h1>\n<p>COME FROM &lt;the start&gt;</p>'),
       );
 
-      // A post is only reachable from the list.
+      // A post is only reachable from the list: not directly, and not from any other page, the
+      // catch-all and the post itself included, though every route NEXTs to the same routine.
       expect((await go('GET', '/blog/post/1')).$1, 403);
-      expect((await go('GET', '/blog/post/1', referer: '/blog/new')).$1, 403);
+      for (final page in ['/blog/new', '/nowhere', '/', '/blog/post/1']) {
+        expect(
+          (await go('GET', '/blog/post/1', referer: page)).$1,
+          403,
+          reason: page,
+        );
+      }
+
+      // A post needs both fields, and a GET has neither.
+      for (final (method, form) in [
+        ('POST', 'title=Only+a+title'),
+        ('POST', 'body=Only+a+body'),
+        ('GET', null),
+      ]) {
+        final (status, page, _) = await go(
+          method,
+          '/blog/create',
+          referer: '/blog/new',
+          form: form,
+        );
+        expect(status, 400, reason: '$method $form');
+        expect(page, contains('A post needs a title and a body'));
+      }
+
+      // Markup in a title stays text, in the list and in the post's <title>.
+      await go(
+        'POST',
+        '/blog/create',
+        referer: '/blog/new',
+        form: 'title=%3Cb%3E%22x%22%3C%2Fb%3E&body=z',
+      );
+      final (_, escaped, _) = await go('GET', '/blog');
+      expect(
+        escaped,
+        contains('<a href="/blog/post/3">&lt;b&gt;&quot;x&quot;&lt;/b&gt;</a>'),
+      );
+      expect(
+        (await go('GET', '/blog/post/3', referer: '/blog')).$2,
+        contains('<title>&lt;b&gt;&quot;x&quot;&lt;/b&gt; | The INTERCAL Blog'),
+      );
 
       final (missing, page, _) = await go(
         'GET',

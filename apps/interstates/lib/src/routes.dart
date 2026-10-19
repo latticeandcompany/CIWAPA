@@ -222,15 +222,18 @@ void allowReferers(RouteTable table, IrProgram program) {
   }
 }
 
-/// Every statement control can reach from [entry]: running on, NEXTs and the return points a
-/// RESUME can go back to, COME FROM traps, and TRY AGAIN's restart.
+/// Every statement control can reach from [entry]: running on, NEXTs, COME FROM traps, TRY AGAIN's
+/// restart, and the return points a RESUME can go back to, which are those of the NEXTs (and NEXT
+/// FROMs) this route's run can have made, since only they can be on its NEXT stack.
 Set<int> _reachable(IrProgram program, int entry) {
-  final returns = [
-    for (final s in program.statements)
-      if (s.op is IrNext) s.ordinal + 1,
-  ];
+  final returns = <int>{};
+  var resumes = false;
   final seen = <int>{};
   final work = [entry];
+  void pushed(int point) {
+    if (returns.add(point) && resumes) work.add(point);
+  }
+
   while (work.isNotEmpty) {
     final o = work.removeLast();
     if (o < 1 || o > program.statements.length || !seen.add(o)) continue;
@@ -244,12 +247,15 @@ Set<int> _reachable(IrProgram program, int entry) {
       case IrGiveUp():
         if (skippable) work.add(o + 1);
       case IrResume():
-        work.addAll(returns);
+        if (!resumes) {
+          resumes = true;
+          work.addAll(returns);
+        }
         if (skippable) work.add(o + 1);
       case IrNext(:final target):
-        work
-          ..add(target)
-          ..add(o + 1);
+        work.add(target);
+        pushed(o + 1);
+        if (skippable) work.add(o + 1);
       case IrTryAgain():
         work
           ..add(1)
@@ -257,7 +263,10 @@ Set<int> _reachable(IrProgram program, int entry) {
       default:
         work.add(o + 1);
     }
-    work.addAll(s.comeFroms);
+    for (final trap in s.comeFroms) {
+      work.add(trap);
+      if (program.at(trap).op case IrComeFrom(nexting: true)) pushed(o + 1);
+    }
   }
   return seen;
 }
