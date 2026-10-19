@@ -46,6 +46,25 @@ Future<Got> request(
   }
 }
 
+/// Sends [text] over a raw connection and returns everything gross answers. A reset after the
+/// answer is no failure.
+Future<String> raw(int port, String text) async {
+  final socket = await Socket.connect('127.0.0.1', port);
+  unawaited(socket.done.catchError((_) => socket));
+  final reply = <int>[];
+  final done = Completer<void>();
+  socket.listen(
+    reply.addAll,
+    onError: (_) => done.isCompleted ? null : done.complete(),
+    onDone: () => done.isCompleted ? null : done.complete(),
+  );
+  socket.add(utf8.encode(text));
+  await socket.flush().catchError((_) => null);
+  await done.future;
+  socket.destroy();
+  return utf8.decode(reply, allowMalformed: true);
+}
+
 /// The method and the query parameter `name` in the body, one per line.
 final echo = program([
   '(16001) NEXT',
@@ -211,12 +230,11 @@ void main() {
             'REQUEST_METHOD': 'FAKE',
           },
         );
-        final socket = await Socket.connect('127.0.0.1', gross.port);
-        socket.write(
+        final reply = await raw(
+          gross.port,
           'GET /a%20b/c?x=1 HTTP/1.1\r\nHost: example.test:8080\r\nX-Test: one\r\n'
           'X-Test: two\r\nCookie: a=1\r\nCookie: b=2\r\n\r\n',
         );
-        final reply = await utf8.decoder.bind(socket).join();
         final body = reply.substring(reply.indexOf('\r\n\r\n') + 4);
         final values = [
           for (final (i, line) in body.split('\n').indexed)
@@ -354,9 +372,7 @@ void main() {
           '/con',
           '/style.css%00.png',
         ]) {
-          final socket = await Socket.connect('127.0.0.1', gross.port);
-          socket.write('GET $path HTTP/1.1\r\n\r\n');
-          final reply = await utf8.decoder.bind(socket).join();
+          final reply = await raw(gross.port, 'GET $path HTTP/1.1\r\n\r\n');
           expect(reply, endsWith('\r\n\r\nGET\n\n'), reason: path);
         }
       });
@@ -471,11 +487,10 @@ void main() {
         'a chunked body gets a 411: only Content-Length bodies are read',
         () async {
           final gross = await serve(echo);
-          final socket = await Socket.connect('127.0.0.1', gross.port);
-          socket.write(
+          final reply = await raw(
+            gross.port,
             'POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n',
           );
-          final reply = await utf8.decoder.bind(socket).join();
           expect(reply, startsWith('HTTP/1.1 411 Length Required\r\n'));
         },
       );
@@ -484,18 +499,13 @@ void main() {
         'a chunked body streamed after its head still sees the 411',
         () async {
           final gross = await serve(echo);
-          final socket = await Socket.connect('127.0.0.1', gross.port);
-          final reply = utf8.decoder.bind(socket).join();
           // gross stops reading once it has refused, so the rest of the body may fail to send.
-          unawaited(socket.done.catchError((_) {}));
-          socket.add(
-            utf8.encode(
-              'POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n'
-              '${'400\r\n${'x' * 1024}\r\n' * 64}',
-            ),
+          final reply = await raw(
+            gross.port,
+            'POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n'
+            '${'400\r\n${'x' * 1024}\r\n' * 64}',
           );
-          await socket.flush().catchError((_) {});
-          expect(await reply, startsWith('HTTP/1.1 411 Length Required\r\n'));
+          expect(reply, startsWith('HTTP/1.1 411 Length Required\r\n'));
         },
       );
 
@@ -503,12 +513,10 @@ void main() {
         'a request that stops arriving gets a 408 after --timeout',
         () async {
           final gross = await serve(echo, timeout: const Duration(seconds: 1));
-          final socket = await Socket.connect('127.0.0.1', gross.port);
-          socket.write('GET / HTTP/1.1\r\n');
-          final reply = await utf8.decoder
-              .bind(socket)
-              .join()
-              .timeout(const Duration(seconds: 10));
+          final reply = await raw(
+            gross.port,
+            'GET / HTTP/1.1\r\n',
+          ).timeout(const Duration(seconds: 10));
           expect(reply, startsWith('HTTP/1.1 408 Request Timeout\r\n'));
         },
       );
@@ -524,9 +532,7 @@ void main() {
           ('GET / HTTP/2.0\r\n\r\n', '400'),
           ('GET http://example.test/ HTTP/1.1\r\n\r\n', '400'),
         ]) {
-          final socket = await Socket.connect('127.0.0.1', gross.port);
-          socket.write(head);
-          final reply = await utf8.decoder.bind(socket).join();
+          final reply = await raw(gross.port, head);
           expect(reply, startsWith('HTTP/1.1 $status '), reason: status);
         }
       });
@@ -542,6 +548,7 @@ void main() {
           ]),
         );
         final socket = await Socket.connect('127.0.0.1', gross.port);
+        unawaited(socket.done.catchError((_) => socket));
         final replies = StreamIterator(utf8.decoder.bind(socket));
         socket.write(
           'POST / HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\n'
@@ -552,9 +559,14 @@ void main() {
         expect(replies.current, startsWith('HTTP/1.1 100 Continue\r\n\r\n'));
         socket.write('a=b');
         var rest = replies.current;
-        while (await replies.moveNext()) {
-          rest += replies.current;
+        try {
+          while (await replies.moveNext()) {
+            rest += replies.current;
+          }
+        } on SocketException {
+          // A reset after the answer is no failure.
         }
+        socket.destroy();
         expect(rest, endsWith('\r\n\r\nb\n'));
       });
 
@@ -576,9 +588,7 @@ void main() {
 
       test('a request that isn\'t HTTP gets a 400', () async {
         final gross = await serve(echo);
-        final socket = await Socket.connect('127.0.0.1', gross.port);
-        socket.write('NONSENSE\r\n\r\n');
-        final reply = await utf8.decoder.bind(socket).join();
+        final reply = await raw(gross.port, 'NONSENSE\r\n\r\n');
         expect(reply, startsWith('HTTP/1.1 400 Bad Request\r\n'));
       });
     });

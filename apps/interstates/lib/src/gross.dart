@@ -100,17 +100,22 @@ class Gross {
     final peer = '${socket.remoteAddress.address}:${socket.remotePort}';
     var line = '-';
     var status = 0;
+    final input = StreamIterator(socket);
     try {
       final HttpRequest request;
       try {
-        request = await HttpRequest.read(socket).timeout(config.timeout);
+        request = await HttpRequest.read(socket, input).timeout(config.timeout);
       } on TimeoutException {
         status = 408;
-        await _refuse(socket, 408);
+        await _write(socket, _plain(408, reasonPhrase(408)), head: false);
         return;
       } on HttpRefusal catch (e) {
         status = e.status;
-        await _refuse(socket, e.status);
+        await _write(
+          socket,
+          _plain(e.status, reasonPhrase(e.status)),
+          head: false,
+        );
         return;
       }
       line = '${request.method} ${request.target} ${request.version}';
@@ -124,7 +129,7 @@ class Gross {
     } on Object catch (e) {
       _log('gross: $e');
     } finally {
-      socket.destroy();
+      await _hangUp(socket, input);
       _log(
         _printable(
           '$peer "$line" ${status == 0 ? '-' : status} ${started.elapsedMilliseconds}ms',
@@ -133,15 +138,25 @@ class Gross {
     }
   }
 
-  /// Answers a request gross won't read, then stops writing and drains what the client still
-  /// sends for a moment, so that the answer isn't lost to a reset.
-  Future<void> _refuse(Socket socket, int status) async {
-    await _write(socket, _plain(status, reasonPhrase(status)), head: false);
-    await socket.close();
-    await socket.drain<void>().timeout(
-      const Duration(seconds: 1),
-      onTimeout: () {},
-    );
+  /// Ends a connection gently: stops writing, then reads and drops what the client still sends
+  /// for up to a second, so that the answer isn't lost to a reset, and only then lets go.
+  static Future<void> _hangUp(
+    Socket socket,
+    StreamIterator<Uint8List> input,
+  ) async {
+    try {
+      unawaited(socket.close().catchError((_) => null));
+      final deadline = DateTime.now().add(const Duration(seconds: 1));
+      while (await input.moveNext().timeout(
+        deadline.difference(DateTime.now()),
+        onTimeout: () => false,
+      )) {}
+    } on Object {
+      // The client is already gone.
+    } finally {
+      unawaited(input.cancel());
+      socket.destroy();
+    }
   }
 
   /// A file under `--static` that the path names, if there is one (R2: no folder is served
@@ -504,12 +519,14 @@ class HttpRequest {
   /// 1.1 in origin form (or that stops short), 431 for a head over 64 KiB, 411 for a body sent with
   /// a transfer encoding, and 413 for a body over [Gross.bodyLimit]. It answers
   /// `Expect: 100-continue` before reading the body.
-  static Future<HttpRequest> read(Socket socket) async {
+  static Future<HttpRequest> read(
+    Socket socket,
+    StreamIterator<Uint8List> chunks,
+  ) async {
     final buffer = BytesBuilder(copy: false);
-    final chunks = StreamIterator(socket);
     var bytes = Uint8List(0);
     var headEnd = -1;
-    try {
+    {
       while (headEnd < 0) {
         if (!await chunks.moveNext()) throw HttpRefusal(400);
         buffer.add(chunks.current);
@@ -584,8 +601,6 @@ class HttpRequest {
         headers,
         Uint8List.sublistView(body.toBytes(), 0, length),
       );
-    } finally {
-      unawaited(chunks.cancel());
     }
   }
 
