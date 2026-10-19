@@ -64,7 +64,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 - [x] R6 — templates are embedded at compile time, and `READ OUT #n` must match the template's argument count. Tests: `apps/interstates/test/golden/templates/e821-too-many.xc`, `apps/interstates/test/golden/templates/e821-none-given.xc`, `apps/interstates/test/golden/templates/gap-counts-to-the-highest.xc`, `apps/interstates/test/golden/templates/e777-missing.xc`, `apps/interstates/test/golden/templates/e820-unclosed.xc`
 - [x] R6 — `{{ }}` escapes HTML and `{{{ }}}` prints raw. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/string-values.xc`
-- [x] R6 — numbers print as butchered Roman numerals with CSS overlines, including inside attribute values. Tests: `apps/interstates/test/golden/templates/numbers.xc`, `apps/interstates/test/golden/templates/numbers-wimp.xc`
+- [x] R6 — numbers print as butchered Roman numerals with CSS overlines, including inside attribute values. Tests: `apps/interstates/test/golden/templates/numbers.xc`, `apps/interstates/test/golden/templates/numbers-wimp.xc`, `apps/interstates/test/golden/templates/title-and-textarea.xc`, `apps/interstates/test/golden/templates/e820-unquoted.xc`
 - [x] R6 — `;49221 SUB #1` appears in the template as `,144`, `SUB #2` as `,143`, and so on. Tests: `apps/interstates/test/golden/templates/escaped-and-raw.xc`, `apps/interstates/test/golden/templates/fragments.xc`, `apps/interstates/test/golden/templates/unset-argument-is-empty.xc`
 
 ## ActiveCassette

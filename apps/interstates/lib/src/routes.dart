@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'errors.dart';
 import 'syntax.dart';
+import 'templates.dart' show readTemplate;
 
 /// One segment of a route's pattern: fixed text, or a `:param` ([text] null).
 typedef Segment = ({String? text});
@@ -72,31 +72,12 @@ RouteTable routeTable(Program program) {
     if (use is! TemplateUse || r.catchAll) {
       throw interstatesCompileError(443, r.ordinal);
     }
-    final links = templateLinks(
-      _templateText(program.source, use.path, target),
-    );
+    final links = templateLinks(readTemplate(program.source, use.path, target));
     if (!links.any((link) => linkMatches(link, r.segments!))) {
       throw interstatesCompileError(443, r.ordinal);
     }
   }
   return RouteTable(ordered);
-}
-
-/// A template's text: E777 if it can't be read, as for a source file that can't be.
-String _templateText(Source source, String path, int statement) {
-  final file = File(templatePath(source, path));
-  try {
-    return file.readAsStringSync();
-  } on FileSystemException {
-    throw CompileError(777, statement);
-  }
-}
-
-/// A template's path, relative to the source file's folder.
-String templatePath(Source source, String path) {
-  if (File(path).isAbsolute) return path;
-  final sourceFile = File(source.path);
-  return '${sourceFile.parent.path}${Platform.pathSeparator}$path';
 }
 
 /// A route pattern's segments: it starts with `/`, `/` separates them, a `:name` segment is a

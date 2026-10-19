@@ -396,11 +396,18 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
   - **Strings** are HTML-escaped (`&`, `<`, `>`, `"`, `'`) between `{{ }}`, and printed as they are between `{{{ }}}`.
   - **Numbers:**
     - A number prints as READ OUT's numeral, the same between `{{{ }}}`.
-    - Overlines are CSS: a letter with one gets `<span style="text-decoration: overline">`, and one with two (64-bit values) `text-decoration: overline double`.
+    - READ OUT's two overline rows stay apart. A letter under its bar row (×1000) gets `<span style="text-decoration: overline">`. A letter under its top row (×10^12, only in 64-bit values) gets `<span style="border-top: 1px solid">` around that, a line above the overline. So 5000, 5×10^12 and 5×10^15 all look different.
     - Zero is an overlined no-break space.
-    - Inside an attribute's value, where markup can't go, each overline is a combining character instead: U+0305, or U+033F for two.
+    - Inside an attribute's value, or the text of a `<title>` or `<textarea>`, where markup can't go, the two rows are combining characters: U+0305 for the bar row and U+033F for the top one.
     - In wimp mode, numbers print as plain decimal, as READ OUT does.
-  - **Attribute values** are told apart by following the HTML: a grumpy is in one when it follows `name=` inside a tag, quoted or not. HTML comments count as text.
+  - **Where a grumpy may sit:**
+    - in text, comments included
+    - in a quoted attribute value
+    - in the text of a `<title>` or `<textarea>`
+
+    The compiler follows the HTML to tell these apart. Anywhere else is E820: a tag's name, between a tag's attributes, an unquoted attribute value (where escaping can't stop a space from starting a new attribute), or inside `<script>` or `<style>` (where HTML escaping is the wrong escaping).
+  - **Arguments** are `,1` to `,144`. Anything else, `,0` included, is E820.
+  - **Reading:** the link check reads a template the same way as the compiler, as UTF-8 with malformed bytes becoming U+FFFD. A byte-order mark is dropped.
   - **Rendering:** a template's output is written all at once, so an error while rendering it, such as E241 for a parameter the route doesn't have, writes none of it.
 - **Options:** (a) as above; (b) other context rules, or numerals without overlines in attributes; (c) program tail arrays reachable from templates.
 - **Lean:** (a). The code does (a) until this is answered.

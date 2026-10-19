@@ -1471,9 +1471,11 @@ Conditions that only Interstates programs can meet get codes of their own, which
   - `,m SUB …` (an argument is a whole string)
   - a string used as a number
   - a slat or a created operator
+  - an argument outside `,1`–`,144`
+  - a grumpy where no value belongs: a tag's name, between attributes, an unquoted attribute value, or inside `<script>` or `<style>` (L41)
 
   An operator binary lacks is E997, as anywhere else, and a missing template E777.
-- **Tests:** `apps/interstates/test/golden/templates/e820-unclosed.xc`, `apps/interstates/test/golden/templates/e820-bad-expression.xc`, `apps/interstates/test/golden/templates/e820-tail-element.xc`, `apps/interstates/test/golden/templates/e820-string-in-number.xc`, `apps/interstates/test/golden/templates/e820-empty.xc`, `apps/interstates/test/golden/templates/e820-past-145.xc`
+- **Tests:** `apps/interstates/test/golden/templates/e820-unclosed.xc`, `apps/interstates/test/golden/templates/e820-bad-expression.xc`, `apps/interstates/test/golden/templates/e820-tail-element.xc`, `apps/interstates/test/golden/templates/e820-string-in-number.xc`, `apps/interstates/test/golden/templates/e820-empty.xc`, `apps/interstates/test/golden/templates/e820-past-145.xc`, `apps/interstates/test/golden/templates/e820-unquoted.xc`, `apps/interstates/test/golden/templates/e820-tag-name.xc`, `apps/interstates/test/golden/templates/e820-between-attributes.xc`, `apps/interstates/test/golden/templates/e820-script.xc`, `apps/interstates/test/golden/templates/e820-style.xc`, `apps/interstates/test/golden/templates/e820-slat.xc`, `apps/interstates/test/golden/templates/e820-created-operator.xc`, `apps/interstates/test/golden/templates/e820-argument-zero.xc`, `apps/interstates/test/golden/templates/e820-argument-huge.xc`
 - **Date:** 2026-10-18
 
 ### E821: a template given the wrong number of arguments

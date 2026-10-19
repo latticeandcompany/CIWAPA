@@ -619,38 +619,41 @@ static void put_html(ioi_buffer *b, ioi_string s, int raw) {
   str_free(&s);
 }
 
-/* A number as READ OUT's butchered Roman numeral, each letter's overlines as CSS
- * (text-decoration: overline, or overline double for two), or in an attribute's value as
- * combining overlines (U+0305, or U+033F for two). Zero is an overlined no-break space. In wimp
- * mode it is plain decimal. */
+/* A number as READ OUT's butchered Roman numeral. A letter under READ OUT's bar row (x1000) gets
+ * text-decoration: overline, and one under its top row (x10^12, for 64-bit values) a border-top
+ * line above that; in an attribute's value, where markup can't go, they are combining characters
+ * instead, U+0305 and U+033F. Zero is an overlined no-break space. In wimp mode it is plain
+ * decimal. */
 static void put_numeral(ioi_buffer *b, uint64_t value, int attribute) {
+  static const char *const opening[4] = {
+      "", "<span style=\"text-decoration: overline\">", "<span style=\"border-top: 1px solid\">",
+      "<span style=\"border-top: 1px solid\"><span style=\"text-decoration: overline\">"};
+  static const char *const closing[4] = {"", "</span>", "</span>", "</span></span>"};
   char rows[3][96];
   int count = ick_numeral_rows(value, rows);
   if (count == 1) {
     put_text(b, rows[0]);
     return;
   }
-  const char *letters = rows[count - 1];
+  const char *letters = rows[count - 1], *bars = rows[count - 2], *top = count == 3 ? rows[0] : "";
   size_t width = strlen(letters);
-  for (int r = 0; r < count - 1; r++) {
-    if (strlen(rows[r]) > width) width = strlen(rows[r]);
-  }
-  int run_depth = -1;
+  if (strlen(bars) > width) width = strlen(bars);
+  if (strlen(top) > width) width = strlen(top);
+  int run_style = -1;
   for (size_t c = 0; c < width; c++) {
-    int depth = 0;
-    for (int r = 0; r < count - 1; r++) depth += c < strlen(rows[r]) && rows[r][c] == '_';
-    if (!attribute && depth != run_depth) {
-      if (run_depth > 0) put_text(b, "</span>");
-      if (depth == 1) put_text(b, "<span style=\"text-decoration: overline\">");
-      if (depth >= 2) put_text(b, "<span style=\"text-decoration: overline double\">");
-      run_depth = depth;
+    int barred = c < strlen(bars) && bars[c] == '_', topped = c < strlen(top) && top[c] == '_';
+    int style = (topped ? 2 : 0) + (barred ? 1 : 0);
+    if (!attribute && style != run_style) {
+      if (run_style > 0) put_text(b, closing[run_style]);
+      put_text(b, opening[style]);
+      run_style = style;
     }
     if (c < strlen(letters)) put(b, letters + c, 1);
     else put_text(b, "\xC2\xA0");
-    if (attribute && depth == 1) put_text(b, "\xCC\x85");
-    if (attribute && depth >= 2) put_text(b, "\xCC\xBF");
+    if (attribute && barred) put_text(b, "\xCC\x85");
+    if (attribute && topped) put_text(b, "\xCC\xBF");
   }
-  if (!attribute && run_depth > 0) put_text(b, "</span>");
+  if (!attribute && run_style > 0) put_text(b, closing[run_style]);
 }
 
 /* READ OUT #n WITH TEMPLATE (R6): the template's pieces, with values from [values] (after the

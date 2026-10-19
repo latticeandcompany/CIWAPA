@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'errors.dart';
-import 'routes.dart' show templatePath;
 import 'syntax.dart';
 
 /// What a piece of a template prints (R6).
@@ -66,19 +65,31 @@ class Template {
   final List<Expr> values;
 }
 
-/// Compiles the template [path] for the statement [statement] (`READ OUT #count`): E777 if it
-/// can't be read, E820 for a grumpy that isn't one, E821 unless [count] is the number of
-/// arguments the template uses, and E997 for an operator binary doesn't have.
-Template compileTemplate(Source source, String path, int count, int statement) {
-  final String text;
+/// A template's path, relative to the source file's folder.
+String templatePath(Source source, String path) {
+  if (File(path).isAbsolute) return path;
+  return '${File(source.path).parent.path}${Platform.pathSeparator}$path';
+}
+
+/// A template's text, as UTF-8 with malformed bytes as U+FFFD: E777 if it can't be read, as for a
+/// source file that can't be.
+String readTemplate(Source source, String path, int statement) {
   try {
-    text = utf8.decode(
+    return utf8.decode(
       File(templatePath(source, path)).readAsBytesSync(),
       allowMalformed: true,
     );
   } on FileSystemException {
     throw CompileError(777, statement);
   }
+}
+
+/// Compiles the template [path] for the statement [statement] (`READ OUT #count`): E777 if it
+/// can't be read, E820 for a grumpy that isn't one or sits where no value can go, E821 unless
+/// [count] is the number of arguments the template uses, and E997 for an operator binary doesn't
+/// have.
+Template compileTemplate(Source source, String path, int count, int statement) {
+  final text = readTemplate(source, path, statement);
   final pieces = <Piece>[];
   final values = <Expr>[];
   var arguments = 0;
@@ -102,12 +113,16 @@ Template compileTemplate(Source source, String path, int count, int statement) {
       literal.clear();
     }
     final inner = text.substring(start, end);
-    final attribute = html.inAttribute;
+    final place = html.grumpy();
+    if (place == _Place.nowhere) throw interstatesCompileError(820, statement);
+    final attribute = place == _Place.noMarkup;
     final argument = RegExp(r'^\s*,\s*([0-9][0-9\s]*)$').firstMatch(inner);
     if (argument != null) {
-      final m = int.parse(argument.group(1)!.replaceAll(RegExp(r'\s'), ''));
+      final m = int.tryParse(argument.group(1)!.replaceAll(RegExp(r'\s'), ''));
+      if (m == null || m < 1 || m > 144) {
+        throw interstatesCompileError(820, statement);
+      }
       final k = 145 - m;
-      if (k < 1) throw interstatesCompileError(820, statement);
       if (k > arguments) arguments = k;
       pieces.add(
         Piece(PieceKind.arg, index: k, raw: raw, attribute: attribute),
@@ -154,35 +169,60 @@ bool _valid(Expr e) => switch (e) {
   ArrayItem() || Slat() || CreatedOp() => false,
 };
 
-/// Follows an HTML document character by character, far enough to know whether a grumpy sits in
-/// an attribute's value (quoted or not) or anywhere else.
+/// Where a grumpy sits: in text, where markup can go; where it can't (a quoted attribute value, or
+/// the text of a `<title>` or `<textarea>`); or where no value belongs (a tag's name, between its
+/// attributes, an unquoted value, or a `<script>` or `<style>`), which is E820.
+enum _Place { text, noMarkup, nowhere }
+
+/// Follows an HTML document character by character, far enough to know where each grumpy sits.
 class _HtmlContext {
   var _state = _State.text;
   var _quote = '';
   var _recent = '';
+  var _name = '';
+  var _closing = false;
+  var _raw = '';
 
-  bool get inAttribute => _state == _State.value;
+  static const _rawElements = {'script', 'style', 'title', 'textarea'};
+
+  _Place grumpy() => switch (_state) {
+    _State.text || _State.comment => _Place.text,
+    _State.raw =>
+      _raw == 'title' || _raw == 'textarea' ? _Place.noMarkup : _Place.nowhere,
+    _State.value when _quote.isNotEmpty => _Place.noMarkup,
+    _ => _Place.nowhere,
+  };
 
   void feed(String c) {
-    _recent = (_recent + c).length > 4
-        ? (_recent + c).substring(1)
-        : _recent + c;
+    _recent = _recent.length >= 16 ? _recent.substring(1) + c : _recent + c;
+    final letter = RegExp(r'[A-Za-z]').hasMatch(c);
+    final space = RegExp(r'\s').hasMatch(c);
     switch (_state) {
       case _State.text:
         if (c == '<') _state = _State.tagStart;
       case _State.tagStart:
-        _state = _recent.endsWith('<!--')
-            ? _State.comment
-            : RegExp(r'[A-Za-z/!?]').hasMatch(c)
-            ? _State.tag
-            : (c == '-' ? _State.tagStart : _State.text);
-      case _State.comment:
-        if (_recent.endsWith('-->')) _state = _State.text;
+        if (c == '/' || letter) {
+          _closing = c == '/';
+          _name = letter ? c : '';
+          _state = _State.tagName;
+        } else if (c == '!' || c == '?') {
+          _state = _State.tag;
+        } else {
+          _state = c == '<' ? _State.tagStart : _State.text;
+        }
+      case _State.tagName:
+        if (RegExp(r'[A-Za-z0-9-]').hasMatch(c)) {
+          _name += c;
+        } else if (c == '>') {
+          _endTag();
+        } else {
+          _state = _State.tag;
+        }
       case _State.tag:
         if (_recent.endsWith('<!--')) {
           _state = _State.comment;
         } else if (c == '>') {
-          _state = _State.text;
+          _endTag();
         } else if (c == '=') {
           _state = _State.beforeValue;
         }
@@ -191,19 +231,39 @@ class _HtmlContext {
           _quote = c;
           _state = _State.value;
         } else if (c == '>') {
-          _state = _State.text;
-        } else if (!RegExp(r'\s').hasMatch(c)) {
+          _endTag();
+        } else if (!space) {
           _quote = '';
           _state = _State.value;
         }
       case _State.value:
-        if (_quote.isEmpty
-            ? (c == '>' || RegExp(r'\s').hasMatch(c))
-            : c == _quote) {
-          _state = c == '>' ? _State.text : _State.tag;
+        if (_quote.isEmpty ? (c == '>' || space) : c == _quote) {
+          if (c == '>') {
+            _endTag();
+          } else {
+            _state = _State.tag;
+          }
         }
+      case _State.comment:
+        if (_recent.endsWith('-->')) _state = _State.text;
+      case _State.raw:
+        if (_recent.toLowerCase().endsWith('</$_raw')) {
+          _closing = true;
+          _name = _raw;
+          _state = _State.tagName;
+        }
+    }
+  }
+
+  void _endTag() {
+    final name = _name.toLowerCase();
+    if (!_closing && _rawElements.contains(name)) {
+      _raw = name;
+      _state = _State.raw;
+    } else {
+      _state = _State.text;
     }
   }
 }
 
-enum _State { text, tagStart, comment, tag, beforeValue, value }
+enum _State { text, tagStart, tagName, tag, beforeValue, value, comment, raw }
