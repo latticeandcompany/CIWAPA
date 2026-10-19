@@ -86,6 +86,22 @@
         "format": "",
         "goal-status": ""
       }
+    },
+    {
+      "name": "interstates",
+      "path": "apps/interstates",
+      "auto": false,
+      "scripts": {
+        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_core",
+        "ciwapa_dart",
+        "ciwapa_llvm"
+      ]
     }
   ],
   "globalDependencies": [

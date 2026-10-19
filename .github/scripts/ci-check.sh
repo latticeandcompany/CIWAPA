@@ -11,7 +11,7 @@ dart --suppress-analytics pub get
 dart --suppress-analytics analyze --fatal-infos
 dart --suppress-analytics format --output=none --set-exit-if-changed .
 
-for dir in packages/*/test tools/*/test; do
+for dir in packages/*/test apps/*/test tools/*/test; do
   if [[ -d "$dir" ]]; then
     (cd "${dir%/test}" && dart --suppress-analytics test)
   fi
