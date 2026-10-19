@@ -26,7 +26,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 ## Language (R1, R5, Q141, Q147)
 
 - [x] R1 — `ioi-dart` and `ioi-llvm` have CIWAPA's `build`, `run` and `doctor` commands, and `-s` takes the source rules recorded for it (L35). Tests: `apps/interstates/test/cli_test.dart`
-- [ ] R1 — CIWAPA's own packages and CLIs never learn about Interstates: nothing under `packages/` names it.
+- [x] R1 — CIWAPA's own packages and CLIs never learn about Interstates: nothing under `packages/` names it. Tests: `apps/interstates/test/separation_test.dart`, `packages/ciwapa_core/test/dialect_test.dart`
 - [x] Q141 — under `-s` only, text before the first statement identifier is a comment and a bare `GIVE UP` is `DO GIVE UP`; nothing else from the site's other examples is accepted. Tests: `apps/interstates/test/syntax_test.dart`
 - [x] R5 — `"…"` string literals are allowed only right after `WITH ROUTE` and `WITH TEMPLATE`; anywhere else `"` is rabbit ears. Tests: `apps/interstates/test/syntax_test.dart`
 - [x] Q147 — politeness is checked on Interstates programs too. Tests: `apps/interstates/test/syntax_test.dart`
@@ -39,7 +39,7 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 - [x] R2 — `--database` or `DATABASE_URL` picks the ActiveCassette connection and reaches each run (L39). Tests: `apps/interstates/test/gross_test.dart`
 - [x] R2 — logs go to stderr (L39). Tests: `apps/interstates/test/gross_test.dart`
 - [x] Q144 — `--timeout` (default 30 s) answers 504 with an ICL-style page. Tests: `apps/interstates/test/gross_test.dart`
-- [ ] Design — 403, 404 and any ICL error render as an ICL-style page (official text, joke, `ON THE WAY TO STATEMENT n`, `CORRECT SOURCE AND RESUBMIT`), and an ICL error inside the program is HTTP 500.
+- [x] Design — 403, 404 and any ICL error render as an ICL-style page (official text, joke, `ON THE WAY TO STATEMENT n`, `CORRECT SOURCE AND RESUBMIT`), and an ICL error inside the program is HTTP 500. Tests: `apps/interstates/test/gross_test.dart`
 - [x] Edge cases — an ICL error after part of the body was written, a program that never reaches `GIVE UP`, and Windows: a child process per request and `--static` paths (L39). Tests: `apps/interstates/test/gross_test.dart`
 
 ## Routes
@@ -89,15 +89,15 @@ The sections follow the plan's acceptance criteria. `lattice run goal-status` re
 
 Each new code is listed under "INTERCAL on Interstates error codes" in [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) and has a test.
 
-- [ ] Every code in `apps/interstates/lib/src/errors.dart` has its entry and a test.
+- [x] Every code in `apps/interstates/lib/src/errors.dart` has its entry and a test. Tests: `apps/interstates/test/errors_test.dart`
 
 ## EXTRACAL and Mode 1 are unchanged
 
-- [ ] The Mode 1 and EXTRACAL conformance suite passes unchanged in both flavors on every platform.
+- [x] The Mode 1 and EXTRACAL conformance suite passes unchanged in both flavors on every platform. Tests: `packages/conformance/bin/conformance.dart`, `.github/scripts/ci-check.sh`
 
 ## CI and release archives
 
-- [ ] R9 — CI builds the `ioi-<flavor>-<os>-<arch>` archives, each bundling the CIWAPA toolchain, the `ioi-*` CLI and `gross`, and smoke-tests them.
+- [x] R9 — CI builds the `ioi-<flavor>-<os>-<arch>` archives, each bundling the CIWAPA toolchain, the `ioi-*` CLI and `gross`, and smoke-tests them. Tests: `.github/workflows/release-archives.yml`, `.github/scripts/ioi-sites.sh`
 
 ## Temporary scaffolding
 

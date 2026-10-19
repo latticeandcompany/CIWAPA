@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 # Builds one release archive: the flavor's compiler, its bundled toolchain and the license notices.
-# The version is the flavor's pubspec version. Prints the archive's path.
-# Usage: assemble-archive.sh <platform> <dart|llvm> <toolchain-dir> <out-dir>
+#   ciwapa   ciwapa-<flavor>-<version>-<platform>, the version being the flavor's pubspec version
+#   ioi      ioi-<flavor>-<platform>: ioi-<flavor> and gross instead, and ActiveCassette's SQLite
+# Prints the archive's path.
+# Usage: assemble-archive.sh <ciwapa|ioi> <platform> <dart|llvm> <toolchain-dir> <out-dir>
 set -euo pipefail
 
-platform="$1"
-flavor="$2"
-toolchain="$(cd "$3" && pwd)"
-out="$(mkdir -p "$4" && cd "$4" && pwd)"
+product="$1"
+platform="$2"
+flavor="$3"
+toolchain="$(cd "$4" && pwd)"
+out="$(mkdir -p "$5" && cd "$5" && pwd)"
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck source=../toolchain.env
 source "$repo_root/.github/toolchain.env"
 
 version="$(sed -n 's/^version: *//p' "$repo_root/packages/ciwapa_$flavor/pubspec.yaml")"
 name="ciwapa-$flavor-$version-$platform"
+[[ "$product" == ioi ]] && name="ioi-$flavor-$platform"
 exe=""
 [[ "$platform" == windows-* ]] && exe=".exe"
 root="$out/$name"
@@ -21,8 +25,15 @@ rm -rf "$root"
 mkdir -p "$root/bin" "$root/licenses"
 
 (cd "$repo_root" && dart --suppress-analytics pub get >/dev/null)
-dart --suppress-analytics compile exe "$repo_root/packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" \
-  -o "$root/bin/ciwapa-$flavor$exe" >&2
+if [[ "$product" == ioi ]]; then
+  dart --suppress-analytics compile exe "$repo_root/apps/interstates/bin/ioi_$flavor.dart" \
+    -o "$root/bin/ioi-$flavor$exe" >&2
+  dart --suppress-analytics compile exe "$repo_root/apps/interstates/bin/gross.dart" \
+    -o "$root/bin/gross$exe" >&2
+else
+  dart --suppress-analytics compile exe "$repo_root/packages/ciwapa_$flavor/bin/ciwapa_$flavor.dart" \
+    -o "$root/bin/ciwapa-$flavor$exe" >&2
+fi
 
 # Every binary in bin/ is a `dart compile exe` executable, so it carries the Dart runtime.
 dart_sdk="$(dirname "$(dirname "$(command -v dart)")")"
@@ -75,7 +86,21 @@ if [[ "$flavor" == llvm ]]; then
   "$clang" --target="$triple" ${flags[@]+"${flags[@]}"} -O2 -w -c "$repo_root/packages/runtime_c/runtime.c" \
     -o "$root/lib/runtime-$triple.o"
 fi
-cp "$repo_root/.github/release/README.txt" "$root/README.txt"
+if [[ "$product" == ioi ]]; then
+  # ActiveCassette's SQLite: an object ioi-llvm links, built like the runtime, or the shared
+  # library ioi-dart programs load, built by the runner's C compiler.
+  case "$flavor-$platform" in
+    llvm-*) built=("$clang" "$triple" - ${flags[@]+"${flags[@]}"}) ;;
+    dart-linux-*) built=(- - "$(command -v cc || echo clang)") ;;
+    dart-*) built=(- - clang) ;;
+  esac
+  "$repo_root/apps/interstates/tool/activecassette.sh" "$root/lib" "${built[@]}" >&2
+  rm -rf "$root/lib/sqlite"
+  cp "$repo_root/.github/release/SQLite-public-domain.txt" "$root/licenses/"
+  cp "$repo_root/.github/release/ioi-README.txt" "$root/README.txt"
+else
+  cp "$repo_root/.github/release/README.txt" "$root/README.txt"
+fi
 
 cd "$out"
 if [[ "$platform" == windows-* ]]; then
