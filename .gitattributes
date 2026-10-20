@@ -4,3 +4,11 @@
 
 # Test inputs that are CRLF on purpose (decision T7).
 packages/conformance/tests/**/*crlf* -text
+
+# GitHub's language bar: Linguist has no INTERCAL, so it guesses XC, Assembly, SWIG or Roff for
+# the programs, and the .g.dart files are the C and INTERCAL runtimes again, inside Dart strings.
+*.i linguist-detectable=false
+*.[2-7]i linguist-detectable=false
+*.xc linguist-detectable=false
+*.[2-7]xc linguist-detectable=false
+*.g.dart linguist-generated=true
