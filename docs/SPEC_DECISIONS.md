@@ -1162,7 +1162,7 @@ Every answer Ryan has given, so no question gets asked twice. Newest entries go 
 
 ## Loop questions
 
-Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
+Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each up to L15 and L33; L16–L42 follow below.
 
 ### L1: May GitHub Actions open pull requests in this repo?
 - **Options:** Ryan enables it at the org level and then on the repo / a GitHub App or fine-grained token as a secret / open an issue instead of a PR
@@ -1255,6 +1255,418 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each.
   - **Decimal strings out:** scientific, with 5 significant digits, correctly rounded, like `-1.2346E+5`.
   - **Decimal strings in:** an optional sign, digits, an optional fraction and an optional `E` exponent, rounded to nearest, with a status for malformed input.
 - **Date:** 2026-10-18
+
+
+Ryan asked Claude to settle every question still open after goal 3 (L16–L42) as it judged right, on 2026-10-20. Each takes the loop's lean, which the code already followed and its tests pin: none of the alternatives had a reason to change shipped behavior.
+
+### L16: What is a select's result when it selects more than 64 bits?
+- **Context:** R5 says a 128-bit ephemeral value "can only be consumed by a select, which may use a 128-bit mask". With a mask of 64 set bits or fewer, the result always fits in 64 bits, and the loop treats it as an ordinary 64-bit value; that is the only reading under which "consumed" means anything. Q77 says a select takes its right operand's type, though, and a 128-bit mask with more than 64 set bits can select more than 64 bits. Nothing says whether that result is another ephemeral value or an error.
+- **Options:**
+  - (a) The result is a 64-bit value when it fits in 64 bits, and otherwise another ephemeral value that only a further select can use.
+  - (b) The result is always 64-bit, and a select that produces more than 64 bits is an error.
+- **Decision:** (a).
+- **Note:** the 128-bit select tests use results that fit in 64 bits.
+- **Date:** 2026-10-20
+
+### L17: Which EXTRACAL features exist in bases 3–7?
+- **Context:** R2 makes `.3xc`–`.7xc` EXTRACAL in bases 3–7, but R4–R10 are written for binary: 64-bit sigils, mingle widening "by value" past 65535, two's-complement signed numbers, the §8.4 float layout and a library written in binary INTERCAL. L9 already keeps the binary system library out of bases 3–7.
+- **Options:**
+  - (a) Bases 3–7 get the `ick` extensions (R3) and nothing else. The 64-bit sigils and `SIGNED` aren't recognized there (so a statement using them is undecodable), mingle keeps Mode 1's E533, and the library blocks are never included, as in L9.
+  - (b) Generalize everything to base N: 64-bit types hold four small words of digits, widening uses the base's limits, signed numbers use radix complement, and the library gets per-base versions.
+- **Decision:** (a).
+- **Date:** 2026-10-20
+
+### L18: Does EXTRACAL have `ick`'s "COME FROM gerund" form?
+- **Context:** R3 item 2 lists computed COME FROM and NEXT FROM. `ick` 0.35 also accepts a gerund list after both (`DO COME FROM CALCULATING`, `DO NEXT FROM NEXTING FROM`), through the same grammar rule as the computed form, and its manual describes it in the same section. R3 doesn't mention it.
+- **Options:** (a) include it as part of item 2; (b) leave it out, so such statements stay undecodable.
+- **Decision:** (a), since it is part of `ick` 0.35's COME FROM.
+- **Date:** 2026-10-20
+
+### L19: Is `.2xc` a valid EXTRACAL extension?
+- **Context:** R2 lists `.xc` and `.3xc`–`.7xc`, and says anything else is E998. Mode 1 also accepts `.2i` as base 2 (§6.3, T40), although R2's own Mode 1 row lists only `.i` and `.3i`–`.7i`. The superset harness renames each Mode 1 test to its EXTRACAL twin, so the two `.2i` tests become `.2xc`.
+- **Options:** (a) accept `.2xc` as binary EXTRACAL, mirroring `.2i`; (b) make `.2xc` E998, and rename `.2i` tests to `.xc` in the superset harness.
+- **Decision:** (a).
+- **Date:** 2026-10-20
+
+### L20: Do abstention counts wrap around as in `ick`, or saturate?
+- **Context:** R3 asks for `ick` 0.35's computed ABSTAIN. `ick` adds the expression's 32-bit value to a C `int` (`ICKABSTAINED(n) += expr`), so large counts overflow. That's undefined behavior, and in practice it wraps: two `ABSTAIN :1 FROM (5)` with `:1` = 2³¹ bring the count back to 0, so the statement runs again. EXTRACAL values can also be 64 bits wide, which `ick` doesn't have.
+- **Options:**
+  - (a) Counts are 64-bit and saturate at 2⁶³−1, so a huge count stays abstained.
+  - (b) Imitate `ick`: truncate the value to 32 bits and wrap the count as a 32-bit signed integer, so it can even go negative and stay abstained through 2³² REINSTATEs.
+- **Decision:** (a), since `ick`'s behavior there comes from undefined overflow rather than a design.
+- **Tests:** `computed-abstain/huge-count.xc` pins (a).
+- **Date:** 2026-10-20
+
+### L21: Where does TRY AGAIN restart after a RESUME or a computed COME FROM?
+- **Context:** R3 asks for `ick` 0.35's TRY AGAIN, which its manual describes as restarting the program from the top. But `ick`'s generated code restarts by jumping back to its dispatch on `ick_skipto`, and nothing resets that variable. Every executed RESUME sets it, so after a RESUME, TRY AGAIN goes back to the return point of the last resumed NEXT instead. With computed or gerund COME FROM, every labelled statement sets it too, so TRY AGAIN can give E129 or jump somewhere unrelated.
+- **Options:**
+  - (a) TRY AGAIN always restarts from the first statement, as the manual and the plan describe.
+  - (b) Imitate `ick`'s generated code, including the jumps to the last return point.
+- **Decision:** (a), since `ick`'s behavior comes from a stale variable rather than a design.
+- **Tests:** `try-again/after-resume.xc` pins (a).
+- **Date:** 2026-10-20
+
+### L22: Does ONCE or AGAIN attach to an undecodable statement?
+- **Context:** `ick` parses a comment made only of capital letters as an unknown statement, and a trailing `ONCE` or `AGAIN` attaches to it. So `PLEASE NOTE THIS RUNS ONCE` is an abstained statement that `ONCE` reinstates the first time it's reached: the second time, it raises E000. CIWAPA treats the whole text as the comment, ONCE included, so the comment stays harmless however often it's reached.
+- **Options:**
+  - (a) A comment's trailing `ONCE` or `AGAIN` is part of the comment.
+  - (b) Imitate `ick`: it attaches, so comments that end in those words can wake up and raise E000.
+- **Decision:** (a). Mode 1 comments ending in "ONCE" or "AGAIN" inside loops are far more common than programs relying on (b), and R1 asks for them to keep working.
+- **Tests:** `once-again/comment.xc` pins (a).
+- **Date:** 2026-10-20
+
+### L23: Where may CIWAPA's operand overloading differ from `ick`'s?
+- **Context:** R3 asks for `ick` 0.35's operand overloading. Three corners of it don't fit EXTRACAL as it is:
+  - `ick` reads an overloaded onespot as the full 32-bit value of its expression, so `.1/:2` with `:2` = 131072 reads as 131072. CIWAPA's code generation relies on a onespot's value fitting 16 bits.
+  - In bases 3–7, `ick` reverses a unary operator by building the binary candidate and checking it with the base's own operator, which works for a few values (such as 0).
+  - `ick` lexes a backslash (`\`), the reverse of the slat, but never parses it.
+- **Options:**
+  - (a) An overloaded variable's value must fit the variable, as an assignment would (E275, E276). In bases 3–7, every mingle, select and unary operator in a reverse assignment is E277. A backslash is undecodable, as in `ick`.
+  - (b) Follow `ick` in the first two: overloaded onespot reads have 32 bits (every expression on a onespot then needs 32-bit code when the program overloads), and bases 3–7 copy `ick`'s binary candidate.
+- **Decision:** (a).
+- **Tests:** `overloading/narrowing.xc` and `overloading/e277.xc` pin (a).
+- **Date:** 2026-10-20
+
+### L24: How do CREATEd statements and operators behave where `ick`'s code generators disagree or crash?
+- **Context:** R3 asks for `ick` 0.35's CREATE. `ick` has two implementations: created statements in its ordinary code use its NEXT stack, but created operators exist only with `-e`, whose code runs NEXT and RESUME on the C stack with `setjmp`/`longjmp`. Some corners differ between the two, crash, or aren't defined:
+  - A created operator's code is a NEXT from the middle of an expression. When a RESUME or FORGET removes its NEXT stack entry without returning to it, `ick -e` abandons the expression (FORGET is put off until the next jump). A COME FROM can also take control from the RESUME that would return.
+  - `ick` evaluates a created operator's operands (as arguments to a C function, in C's unspecified order) before matching it, whenever the program has a CREATE; with no CREATE at all it raises E000 without evaluating them.
+  - A created label that doesn't exist is E129, which `ick` reports at statement 0 for a statement.
+  - A whole array as an operand: `:1601` standing for it crashes `ick` (a segmentation fault) when read.
+  - Operator names: `ick` allows any byte its lexer doesn't use, including the bytes of non-ASCII characters.
+  - An unknown statement whose operands wouldn't compile (an ungrouped chain, a constant too big, an operator the base lacks) is a compile-time error in `ick`.
+  - `ick` lexes `PIN` (a PIC-INTERCAL keyword) and its other dialects' words, so those letters can't appear in a template there.
+- **Options:**
+  - (a) As CIWAPA does: a created operator ends when a RESUME returns to its entry, and a RESUME, FORGET or COME FROM that takes its entry away abandons the expression at once, continuing where it sends control. A created operator's operands, and a created statement's, are evaluated left to right before anything else, CREATE or not. E129 is reported at the statement after the one that jumps. Reading or assigning `:1601` that stands for a whole array is E277. Operator names are ASCII: lowercase letters, punctuation and control characters `ick` doesn't use (not `_`, `\` or `|`) and overstrikes (not `c^H|`). An unknown statement whose operands wouldn't compile stays a comment, as in Mode 1. Only EXTRACAL's own keywords are reserved.
+  - (b) Copy `ick -e` exactly, including the postponed FORGET and the crash.
+- **Decision:** (a).
+- **Tests:** `create/abandon.xc`, `create/forget.xc`, `create/e129.xc` and `create/e277-array.xc` pin (a).
+- **Date:** 2026-10-20
+
+### L25: Where may CIWAPA's backtracking differ from `ick`'s?
+- **Context:** R3 asks for `ick` 0.35's backtracking. A few corners of `ick`'s come from how its C is put together rather than from a design:
+  - `ick` stores MAYBE in the same number as the `%` chance, so `MAYBE DO %0` loses its MAYBE and makes no choicepoint.
+  - A ONCE or AGAIN on a NEXT or GO BACK keeps the abstention it found in a single global variable, which a choicepoint doesn't save, so going back can test a later statement's value.
+  - `ick` has no created operators and backtracking together (they need `-e` and `-m`), so it doesn't say what going back to a choicepoint made inside a created operator that has since finished means.
+- **Options:**
+  - (a) As CIWAPA does: MAYBE always makes its choicepoint; each choicepoint saves the abstention its guard tested; a choicepoint made inside a finished created operator is discarded like a stale one, and one made at a shallower level abandons the operators in between.
+  - (b) Copy `ick`'s first two quirks.
+- **Decision:** (a).
+- **Date:** 2026-10-20
+
+### L26: Does EXTRACAL accept `ick`'s right-associative operator chains?
+- **Context:** Mode 1 follows `ick` 0.15 (Q85, Q97): an ungrouped chain such as `#1$#2~#3` is E017 when it runs, and inside a group it doesn't decode at all. `ick` 0.35 accepts chains, CLC-INTERCAL style, as right-associative: `#1$#2~#3` is `#1$'#2~#3'`. Programs written for `ick` 0.35 use them, such as `pit/tests/whileadd.i`, whose WHILE line can't decode in CIWAPA because of them.
+- **Options:**
+  - (a) EXTRACAL keeps Mode 1's rule. Programs that rely on chains need grouping added.
+  - (b) EXTRACAL accepts chains right-associatively, as `ick` 0.35 does. A Mode 1 program with a chain then runs as `.xc` instead of failing with E017, which R1 allows. But a chain inside a group makes a statement undecodable in Mode 1 and decodable in `.xc`, the same kind of difference as L15.
+- **Decision:** (a), because chains aren't one of R3's listed extensions.
+- **Note:** `pit/tests/whileadd.i` can't be used as an oracle test under (a).
+- **Date:** 2026-10-20
+
+### L27: How do threads and created operators interact?
+- **Context:** R3 asks for `ick` 0.35's threading and CREATE. `ick` has no created operators and threads together: operators need `-e`, which replaces the code generator that threads use.
+- **Options:**
+  - (a) As CIWAPA does:
+    - A created operator's code runs as one turn, so no other thread runs until it returns.
+    - Several COME FROMs taking control inside it can't split the thread, so they are E555 as in Mode 1.
+    - A GIVE UP inside it ends the thread and abandons the operator.
+  - (b) Let operators split and yield, which needs each thread to carry its own stack of operator calls.
+- **Decision:** (a).
+- **Date:** 2026-10-20
+
+### L28: What happens when a computed COME FROM splits a thread?
+- **Context:** R3 asks for `ick` 0.35's threading. When a computed or gerund COME FROM is one of several taking control from a statement, `ick` 0.35's generated code splits the thread but then resumes the new thread at the wrong place, so it runs the same COME FROM's code over and over: a program with two computed COME FROMs on one label prints the second one's output forever.
+- **Options:**
+  - (a) Each thread follows its own COME FROM, as with plain ones: the new thread takes the one found earlier, the running thread the one found last.
+  - (b) Copy `ick`'s loop.
+- **Decision:** (a), since `ick`'s loop is a bug in how it saves the jump target.
+- **Tests:** `threads/computed.xc` pins (a).
+- **Date:** 2026-10-20
+
+### L29: How do library routines reach the operating system?
+- **Context:** R10 wants every library block written in INTERCAL, with native fast paths on top. INTERCAL can't reach command-line arguments, the environment, the clock, files or sockets, and Q74 allows "a few new statements" for exactly this without saying what they look like.
+- **Options:**
+  - (a) One new EXTRACAL statement, `PETITION #n` (gerund `PETITIONING`), which asks the host for numbered service `n`. Each service reads and writes fixed variables documented in `packages/ciwapa_core/lib/extracal/README.md`. A routine in the System, I/O or Network block is INTERCAL around the smallest services that can do its job, for example reading or writing one byte. Everything that can be INTERCAL is: number formatting, string handling, HTTP.
+  - (b) One new statement per operation (`OPEN`, `CLOSE`, `CONNECT`, …).
+  - (c) Labels the compiler implements natively, with no INTERCAL statement behind them.
+- **Decision:** (a). It is one statement, it keeps the host interface small, and it leaves the INTERCAL version as the reference.
+- **Date:** 2026-10-20
+
+### L30: How is the empty string stored?
+- **Context:** Strings are tail arrays of code points (Q108), but INTERCAL can't DIMENSION an array to zero elements (E240), and nothing says how a string of length zero looks.
+- **Options:**
+  - (a) The empty string is a tail array with no dimensions, as an array is before its first DIMENSION. Only the library makes one; a program tests for it through the library. INTERCAL can't ask an array's size, so a program learns any string's length only through the Strings block's (3000).
+  - (b) Strings carry their length in a separate variable, and the array always has at least one element.
+- **Decision:** (a). A string stays one array, and no routine needs an extra length argument.
+- **Date:** 2026-10-20
+
+### L31: Do WHILE's added statements count in statement numbers?
+- **Context:** CIWAPA expands `a WHILE b` into the 11 statements `ick`'s preprocessor makes (R3). Error messages give statement ordinals (T33), so the ten added statements shift every later statement's number: an error after one WHILE is reported 10 higher than a reader counting the source would expect. `ick` prints source line numbers, so it doesn't have the question.
+- **Options:**
+  - (a) Count them. Ordinals stay plain positions in the expanded program, and the user docs say a WHILE counts as 11 statements.
+  - (b) Number every statement by the source statement it came from, so a WHILE counts as one. Errors inside the expansion then share a number.
+- **Decision:** (a).
+- **Date:** 2026-10-20
+
+### L32: How do the Math block's routines fail?
+- **Context:** R6 and R10 put signed arithmetic at all three widths, 64-bit arithmetic, and power, square root, modulo and gcd in the Math block. Neither says what a result too big for its variable, or a division by zero, does. Syslib (§7.2, goal 1) has an error variant and a flag variant of each operation that can overflow, and gives #0 for a division by zero.
+- **Options:**
+  - (a) Follow syslib's shape. An error variant raises a new code, E813 (R11), and a flag variant (its number ending in 9) stores the wrapped result and #1 or #2 in the next variable. Division by zero gives #0, so modulo by zero gives the dividend. Signed division truncates toward zero, and the most negative value divided by −1 is E813.
+  - (b) Status flags only, with no error variants.
+  - (c) Errors only, including a new code for division by zero.
+- **Decision:** (a). It matches what syslib's users already know, and Q139 makes a result that doesn't fit a programming error.
+- **Date:** 2026-10-20
+
+### L34: How does the Dart runtime reach the network, and what does the Network block offer?
+- **Context:** The plan's Technical Approach says: "**Networking** in both runtimes uses the platform's sockets: `dart:io` in `runtime.dart`, and BSD sockets or Winsock in `runtime.c`." CIWAPA's Dart runtime is synchronous: each statement runs to completion, and a library service must return before the next one runs. `dart:io` has a synchronous client socket (`RawSynchronousSocket`) but no synchronous server socket: `ServerSocket.bind` and `RawServerSocket.bind` return futures, and Dart 3 has no `waitFor`. A server still works on `dart:io` alone if a helper isolate owns the listening sockets and the program talks to it over loopback through `RawSynchronousSocket`, which a reviewer confirmed with a working echo round trip. Q110 fixes the scope (TCP client and server, a minimal HTTP/1.1 client, request/response helpers, no TLS) but not the API.
+- **Options:**
+  - **Dart sockets:**
+    - (a) `dart:io` only. Clients use `RawSynchronousSocket`. A helper isolate holds each listening `ServerSocket`, and the program reaches every accepted connection through a loopback connection to the helper, which copies bytes both ways. The costs are an isolate per networking program, a loopback port, copying, and failure modes of the helper's own.
+    - (b) `dart:ffi` to the platform's own sockets (BSD sockets in libc, Winsock's `ws2_32.dll`), the way Q146 reaches database adapters. The two runtimes then share one model, call for call, but the Dart runtime leaves `dart:io` for networking.
+    - (c) `RawSynchronousSocket` for clients and `dart:ffi` only for servers.
+  - **API:**
+    - (a) Sockets are I/O-block handles. CONNECT (host string, port) and LISTEN (port) give a handle, ACCEPT gives a connection handle, and (2000)/(2010)/(2100)–(2310) read and write them, with `.3 = #2` for a refused connection or a name that doesn't resolve (Q139). IPv4 and IPv6 through name resolution, blocking calls, no timeouts. HTTP: GET and POST of a URL string give a status and a body string. The helpers parse a request line and headers and build a response, with `Content-Length` bodies only: no chunked transfer and no redirects.
+    - (b) A separate handle space for sockets, with their own read and write routines.
+- **Decision:** (a) for both. It keeps to the plan's written approach.
+- **Date:** 2026-10-20
+
+### L35: Which source files do the ioi-* CLIs take?
+- **Context:** R1 says "Without `-s`, the `ioi-*` CLIs compile plain EXTRACAL" and Q112 says "Source files are `.xc`". Neither says what happens to a Mode 1 `.i` file, or to `.3xc`–`.7xc` with `-s`, which is built on binary-only pieces: the library blocks (L9, L17) and the 32-bit string machinery. It also isn't said whether `-s --traditional` is allowed, given that `--traditional` turns off every C-INTERCAL extension (E111).
+- **Options:**
+  - (a) Without `-s`, any EXTRACAL extension (`.xc`, `.2xc`–`.7xc`), and anything else (including `.i`) is E998. With `-s`, binary EXTRACAL only (`.xc`, `.2xc`), and anything else is E998. `-s --traditional` is E111.
+  - (b) Without `-s`, everything CIWAPA takes, Mode 1 included. With `-s`, as in (a).
+  - (c) Let `-s` work in bases 3–7 as well, with the Interstates extensions but no library.
+- **Decision:** (a). The CLIs then do what R1 says, and nothing more. E998's text names `.I`, because it is CIWAPA's message, and that stays: a code of Interstates' own for the same refusal would only duplicate it.
+- **Tests:** `apps/interstates/test/cli_test.dart` pins (a).
+- **Date:** 2026-10-20
+
+### L36: How do Interstates statements reach the emitters without CIWAPA learning about them?
+- **Context:** The plan's Technical Approach has `apps/interstates` emit "the same IR plus a small set of Interstates IR nodes, lowered by both emitters". R1 says CIWAPA's own packages never learn about Interstates, and Affected Areas allows only generic hooks in them. CIWAPA's AST and IR node types are sealed, so another package can't add nodes that the emitters would have to understand.
+- **Options:**
+  - (a) Add generic hooks, and no Interstates nodes at all. A `HostCall` statement lowers to a PETITION carrying computed values. The runtimes hand unknown services, a start point and output hooks to a "host" that the embedding backend supplies, in Dart and in C. Interstates' statements become host calls, its routes become entry points, and its runtime is the host.
+  - (b) A generic emitter-plugin hook, through which `apps/interstates` emits Dart and LLVM IR for its own nodes. It would have to know each emitter's internals.
+- **Decision:** (a). The emitters stay unaware of anything outside CIWAPA, and each Interstates feature is one place in each host runtime.
+- **Date:** 2026-10-20
+
+### L37: What exactly is the syntax of the string and database statements?
+- **Context:** R5 and R7 give a statement's shape, not its grammar. These are the readings the parser takes:
+  - **String literals** (R5): `"…"` runs to the next `"` on the same line, with no escapes. An unterminated one leaves the statement undecodable.
+  - **Moving strings** (R5):
+    - These are the only allowed forms:
+      - `,a <- ;4400 SUB e` and `,a <- ;49221 SUB e`
+      - `;49221 SUB e <- ,a`
+      - `;49221 SUB e <- ;4400 SUB f` and `;49221 SUB e <- ;49221 SUB f`
+    - `;4400` can't be written to.
+    - Any other use of either array raises E822 when the statement runs, Q80 style. That includes a string in a number's place, STASH, READ OUT, and a hybrid target.
+  - **Table and column numbers** (R7) are `#n` constants, because `~` and `$` there are list separators rather than operators.
+  - **`HAVING`** pairs are `#column value`, joined with `+`. A value is either a string (a whole tail array, or a `;4400`/`;49221` element) or a number (any other expression).
+  - **A read** can only be the whole of `;49221 <- '…'`. With more than one matching row, `'FROM DATABASE …' SUB r` picks row r. Without `SUB` it is row 1. The SUB goes before `HAVING`, because after a HAVING value it would read as that value's subscript, as in example D's position.
+  - **`INTO DATABASE #t~#c$… <- item + item`** takes one item per column, or E827 at compile time. A trailing `HAVING` makes it an update.
+  - **`FORGET DATABASE #t`** takes an optional `HAVING`. Without one, it deletes every row of the table. It names no columns, so `#t~#c` there is undecodable. `INTO DATABASE #t` with no columns is E827, like any other count that doesn't match.
+  - **Gerunds** (T21):
+    - FORGET DATABASE counts as FORGETTING.
+    - INTO DATABASE, a read and a string copy count as CALCULATING, being assignments.
+    - `READ OUT … WITH TEMPLATE` counts as READING OUT.
+    - AMNESIA has none, like GIVE UP.
+    - A statement made E822 keeps the gerund of the statement it was, so abstaining that kind of statement skips it, as with Q80's faults.
+  - **Routes:**
+    - A route is a statement that does nothing when it runs, so DON'T, `%`, ONCE, AGAIN and ABSTAIN on one change nothing about the route. The entry point is reached whatever they say.
+    - A NEXT FROM (16000) is an ordinary NEXT FROM, so E444, since no program has the label.
+    - A program may label a statement (16000), but no COME FROM can trap it, because any COME FROM (16000) is a route.
+  - **WHILE** (R3): a WHILE's body can be any statement body, Interstates' included, except the two that need a suffix (`WITH ROUTE`, `WITH TEMPLATE`). Those leave the statement undecodable there.
+- **Options:** (a) as above; (b) other spellings, which would change the parser and its tests.
+- **Decision:** (a).
+- **Tests:** `apps/interstates/test/syntax_test.dart` pins (a).
+- **Date:** 2026-10-20
+
+### L38: What exactly do the request and response routines do?
+- **Context:** R4 lists what the `(16001)`+ block covers (the method, query string, headers, cookies, status, headers, cookies and redirects) and Q115 adds that `WRITE IN` reads the body. Neither gives the routines, their variables or the CGI details. These are the readings `apps/interstates/README.md` documents:
+  - **The routines:**
+    - (16001) method
+    - (16010) raw query string
+    - (16020) a header by name
+    - (16030) a cookie by name
+    - (16040) a query parameter
+    - (16050) a form field
+    - (16060) the raw body
+    - (16100) the status
+    - (16110) a header
+    - (16120) a cookie
+    - (16130) a redirect
+    
+    Each is one PETITION of its own number, as in the System block, so each gets its native fast path. Lookups set `.1` to #1 or #2 (Q139).
+  - **The response:**
+    - The response is `Status: n reason`, then `Content-Type: text/html; charset=utf-8` unless the program set one, then the program's headers in order, then an empty line. Lines end in LF, which CGI allows.
+    - These come just before the body's first byte, or at GIVE UP (or the exit service) if there is no body. After that, changing them is E823.
+    - A line break in a header is E828.
+  - **The details:**
+    - A redirect is 303 See Other with `Location`. A cookie is `Set-Cookie: name=value; Path=/`.
+    - A header name is ASCII letters, digits, `-` and `_`, matched without regard to case.
+    - Query parameters and form fields are `application/x-www-form-urlencoded`. `+` is a space and `%XX` a byte, the bytes are UTF-8, and a malformed sequence becomes U+FFFD as in the Strings block. The first match wins.
+    - A form field comes only from a body whose `Content-Type` is that type.
+    - The body is read once: `CONTENT_LENGTH` bytes (up to 18 digits), or to the end of stdin. A routine that reads it and `WRITE IN`, which reads stdin directly, share stdin, so a program uses one or the other.
+  - **The string arrays:**
+    - `;4400 SUB n` past the route's parameters is E241.
+    - `;49221 SUB n` never stored is the empty string, and n runs from 1 to 4294967295; anything else is E241.
+  - **What a program may set:**
+    - Any status from #0 to #65535, with `Unknown` as the reason phrase for a code the host doesn't know.
+    - A header name must be an HTTP token (RFC 9110), and a value or location may hold no control characters but tabs.
+    - A cookie's name must be a token, and its value RFC 6265's cookie-octets, so a `;` can't add attributes.
+    - Anything else is E828, rather than being encoded or dropped silently.
+  - **Reading the request:**
+    - A header name longer than 256 characters finds nothing.
+    - An environment variable that isn't UTF-8 counts as missing, as Dart's environment leaves it out.
+    - Cookie names are matched exactly. Spaces and tabs around names and values are trimmed, the first match wins, and quotes stay.
+    - The form `Content-Type` is matched as a prefix, without regard to ASCII case.
+    - A form body is decoded byte by byte, so raw UTF-8 in it reads as UTF-8.
+- **Options:** (a) as above; (b) other routines, numbers or formats.
+- **Decision:** (a).
+- **Tests:** `apps/interstates/test/golden/cgi` pins (a).
+- **Date:** 2026-10-20
+
+### L39: How does gross speak HTTP, and what does it make of a run?
+- **Context:** R2, Q120, Q143 and Q144 fix gross's flags and its CGI model. The plan says it "uses the HTTP/1.1 and socket layer from EXTRACAL's runtime (Q89)", but the Network block's HTTP is INTERCAL (`network.xc`) with only its four socket services native, so a Dart program can't call it. These are the readings gross takes:
+  - **HTTP:**
+    - gross uses the same `dart:io` sockets as `runtime.dart`, and the Network block's HTTP/1.1: one request per connection, empty lines before it skipped, a `Content-Length` body, and `Connection: close` with a `Content-Length` on every response.
+    - The head is read as UTF-8 (malformed bytes become U+FFFD).
+    - **Refused requests:**
+      - A request that is not `METHOD /origin-form HTTP/1.0|1.1` gets a plain 400, as does a bad `Content-Length` or one that stops short.
+      - A head over 64 KiB gets 431, a body over 16 MiB gets 413, and a `Transfer-Encoding` body gets 411.
+      - A request that hasn't fully arrived within `--timeout` gets 408.
+      - After any of these, gross stops writing and drains for a second, so the answer isn't lost to a reset.
+    - `Expect: 100-continue` gets its interim answer, and HEAD runs the program and drops the body.
+  - **CGI:**
+    - The program runs with gross's environment, minus anything named like a CGI variable or `HTTP_…` (so an inherited `HTTP_PROXY` never reaches it), plus:
+      - `GATEWAY_INTERFACE`, `SERVER_SOFTWARE`, `SERVER_PROTOCOL`, `SERVER_NAME`, `SERVER_PORT`
+      - `REQUEST_METHOD`, `REQUEST_URI` (as sent), `SCRIPT_NAME` (empty), `PATH_INFO` (decoded), `QUERY_STRING`
+      - `REMOTE_ADDR`, `REMOTE_HOST` (the address, which RFC 3875 allows), `REMOTE_PORT`
+      - `CONTENT_TYPE`, `CONTENT_LENGTH`
+      - `HTTP_…` for every other header whose name maps onto `[A-Z0-9_]`. Others are dropped, and repeats are joined with `, `, or `; ` for cookies.
+      - `DATABASE_URL` when `--database` is given. Otherwise the inherited one stays.
+    - The body goes to stdin. The run's working folder is gross's.
+    - The program's path is resolved once, and the CLI refuses a program that isn't there.
+  - **The answer:**
+    - gross keeps all of stdout and stderr, up to 64 MiB together, until the run ends.
+    - If stderr ends in an ICL error, the page for it replaces whatever stdout had: E403 is 403, E440 404, any other code 500. The error must be the error's four lines, at the start of a line, at the very end of stderr, with an exit status that agrees with its code (T34).
+    - Otherwise stdout must be a CGI response (E829 if not): `Status:` and its reason phrase, or 302 for a bare `Location`, else 200.
+    - Headers about the connection (`Connection`, `Content-Length`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`, `Proxy-Connection`) are gross's own, and a program's are dropped.
+    - **Failures:**
+      - A run past `--timeout` gets E504's page with 504.
+      - A run killed by a signal, or one whose output passes 64 MiB, gets E829's.
+      - Other exit statuses don't matter, because (8030) can set them.
+  - **Pages:** the error's four lines, exactly as the program printed them, in a `<pre>` (escaped). E504 and E829, which no program raises, are reported at statement 1: gross doesn't know where the run had got to. This is a ruling of its own, not T33's.
+  - **`--static`:**
+    - A GET or HEAD whose path names a regular file inside the folder gets that file, with a type by extension.
+    - Anything else goes to the program instead: a folder, a missing or unreadable file, `.` or `..`, a segment with `/`, `\`, `:` or NUL, or a Windows device name such as `CON` or `NUL.css`.
+    - There is no index file, and files come before the program.
+  - **Logs:**
+    - one line per request on stderr (`peer "request line" status time`)
+    - each line the program writes to stderr, prefixed with its name
+    - control characters escaped
+    - any failure of gross's own
+  - **Shutdown:** closing gross kills the runs still going. There is no limit on concurrent runs.
+- **Options:** (a) as above; (b) gross on `dart:io`'s `HttpServer`, with keep-alive and chunked bodies; (c) other details.
+- **Decision:** (a).
+- **Tests:** `apps/interstates/test/gross_test.dart` pins (a).
+- **Date:** 2026-10-20
+
+### L40: How are routes written, matched and checked?
+- **Context:** R3, Q113 and Q114 give the meaning of routes, not every detail. These are the readings the compiler and the hosts take:
+  - **The entry:**
+    - Under `-s`, `(16000)` is a program's only entry, so a program with no routes answers every request with E440 (404), as does a request no route matches when there is no catch-all.
+    - A bare `COME FROM (L)` for any other L keeps its ordinary meaning.
+  - **Patterns** start with `/`, hold no `?`, `#` or `%`, and each `:name` segment names its parameter (E442). Fixed segments are literal text, compared with the request's segments after those are percent-decoded, so a percent-encoded pattern could never match.
+  - **Segments:**
+    - The raw path (REQUEST_URI, or PATH_INFO without it) is split on `/`, keeping empty segments. So `/blog/` has an empty second segment, matches `/blog/:id` with an empty parameter, and doesn't match `/blog`.
+    - Each segment is then percent-decoded as UTF-8, with malformed bytes becoming U+FFFD, so `%2F` stays inside its parameter.
+    - An absolute-form REQUEST_URI loses its `scheme://authority` (which ends at the first `/`, `?` or `#`). One with no path after it matches no route. The query and fragment are ignored.
+  - **Specificity:**
+    - Routes are compared segment by segment from the left, and at the first difference a fixed segment beats a parameter.
+    - Routes of different lengths, or with different fixed text at the same place, never match the same path.
+    - Two routes tie (E441) only when they have the same shape, as do two catch-alls. That holds even when one is restricted and the other public, or they are restricted to different pages; the Referer doesn't choose between them. The catch-all comes last.
+  - **The link check:**
+    - L must be a `READ OUT … WITH TEMPLATE` (E443), and its template must hold a link that matches the route.
+    - A link is the value of an `href`, `action`, `src` or `formaction` attribute of a tag, outside HTML comments, starting with a single `/`, up to a `?` or `#` outside a grumpy. `data-href=` and the like don't count, and neither does text that only looks like an attribute.
+    - In each fixed segment, character references (`&amp;` and the like) and then percent-encoding are decoded before it is compared.
+    - The link matches when it has as many segments as the route, each fixed one equal to the route's or in a parameter's place, and each segment holding a `{{ }}` in a parameter's place.
+    - A missing label is E444. An unreadable template is E777. A template's path is relative to the source file's folder.
+  - **The `Referer` check:**
+    - The `Referer` must be an absolute URL whose authority equals the `Host` header (ignoring ASCII case). Its path must match a route, catch-all included, whose entry can reach line L.
+    - A request with no `Host` header, or behind a proxy that rewrites it, can't pass. gross itself passes `Host` through as the browser sent it.
+    - A restricted route whose page no route can reach still compiles, and always answers 403.
+    - Reachability is a conservative pass over every way control can go: running on, NEXTs, COME FROM traps (threads included), TRY AGAIN, and for a RESUME the return points of the NEXTs and NEXT FROMs the route's own run can have made, since only those can be on its NEXT stack. So a routine that every route NEXTs to doesn't let one route reach another's pages. A program with computed or gerund COME FROMs or CREATE lets every route reach everything.
+    - A failed check is E403, reported at the route's own statement. E440 is reported at statement 1.
+- **Options:** (a) as above; (b) other specificity rules, such as counting fixed segments, which would make more pairs ties; (c) trailing slashes ignored.
+- **Decision:** (a).
+- **Tests:** `apps/interstates/test/golden/routes` pins (a).
+- **Date:** 2026-10-20
+
+### L41: How are templates written and rendered?
+- **Context:** R6 and Q117 give the shape of templates. These are the readings the compiler and the hosts take:
+  - **Files:** a template's path is relative to the source file's folder. Templates are read as UTF-8, with malformed bytes becoming U+FFFD, and compiled into the program. An unreadable one is E777.
+  - **Grumpies:** `{{ … }}` and `{{{ … }}}` hold one of these:
+    - `,m`, the template argument `;49221 SUB (145-m)`, a whole string
+    - `;4400 SUB e` or `;49221 SUB e` at the top, a string
+    - any other INTERCAL expression over the program's variables, a number
+    
+    Tail arrays mean only arguments there, so `,m SUB e` is E820. So is a string inside a number, a slat, or a created operator.
+  - **The argument count:** it is the highest k named as `,(145-k)`, so a template that names only `,142` takes three. It must equal `#n` (E821). An argument the program never stored prints as the empty string.
+  - **Strings** are HTML-escaped (`&`, `<`, `>`, `"`, `'`) between `{{ }}`, and printed as they are between `{{{ }}}`.
+  - **Numbers:**
+    - A number prints as READ OUT's numeral, the same between `{{{ }}}`.
+    - READ OUT's two overline rows stay apart. A letter under its bar row (×1000) gets `<span style="text-decoration: overline">`. A letter under its top row (×10^12, only in 64-bit values) gets `<span style="border-top: 1px solid">` around that, a line above the overline. So 5000, 5×10^12 and 5×10^15 all look different.
+    - Zero is an overlined no-break space.
+    - Inside an attribute's value, or the text of a `<title>` or `<textarea>`, where markup can't go, the two rows are combining characters: U+0305 for the bar row and U+033F for the top one.
+    - In wimp mode, numbers print as plain decimal, as READ OUT does.
+  - **Where a grumpy may sit:**
+    - in text, comments included
+    - in a quoted attribute value
+    - in the text of a `<title>` or `<textarea>`
+
+    The compiler follows the HTML to tell these apart. Anywhere else is E820: a tag's name, between a tag's attributes, an unquoted attribute value (where escaping can't stop a space from starting a new attribute), or inside `<script>` or `<style>` (where HTML escaping is the wrong escaping).
+  - **Arguments** are `,1` to `,144`. Anything else, `,0` included, is E820.
+  - **Reading:** the link check reads a template the same way as the compiler, as UTF-8 with malformed bytes becoming U+FFFD. A byte-order mark is dropped.
+  - **Rendering:** a template's output is written all at once, so an error while rendering it, such as E241 for a parameter the route doesn't have, writes none of it.
+- **Options:** (a) as above; (b) other context rules, or numerals without overlines in attributes; (c) program tail arrays reachable from templates.
+- **Decision:** (a).
+- **Tests:** `apps/interstates/test/golden/templates` pins (a).
+- **Date:** 2026-10-20
+
+### L42: How does ActiveCassette number, read, write and connect?
+- **Context:** R7, Q119, Q145 and Q146 fix the shape of ActiveCassette. These are the readings the hosts take:
+  - **Numbers:**
+    - Tables and columns count from #1, in the database's own order: SQLite's is the order tables were made, then each table's columns in order, generated ones included, as `SELECT *` has them. SQLite's internal tables don't count.
+    - #0, or a number past the end, is E824.
+  - **Reads:**
+    - `;49221 <- 'FROM DATABASE #t~#c$…'` runs `SELECT "c", … FROM "t" WHERE … ` with the database's own row order, and no `ORDER BY`.
+    - It empties `;49221`, then stores row 1's columns (or row r's, with `SUB r`) in `;49221 SUB #1` on. With no such row it stays empty.
+    - Without `~` columns, a read takes them all (`SELECT *`).
+    - An integer column becomes its decimal digits, text its characters, and NULL the empty string.
+  - **Writes:**
+    - INTO DATABASE inserts; with HAVING it updates every matching row.
+    - FORGET DATABASE deletes the matching rows, or every row without HAVING.
+    - AMNESIA drops every table, as the adapter lists them.
+  - **Parameters:**
+    - Every value is a `?` parameter: a number up to 2^63 − 1 as an integer, a larger one as its digits, and a string as UTF-8 text.
+    - Identifiers come from the schema, in double quotes. SQL text never holds a value.
+  - **The two routines:**
+    - **(16200)** runs raw SQL. `,1` is one statement (a second after a `;` is E826), `:1` how many parameters to take from `;49221 SUB #1` on, as text, and `:2` which row's columns to put in `;49221`. Afterwards `:1` is how many rows it returned, or how many it changed.
+    - **(16210)** puts in `:1` what the last read matched, or what the last write, AMNESIA or raw statement changed (AMNESIA counts its tables). A statement that changes no rows, such as `CREATE TABLE`, changed 0.
+    - Raw SQL may change the schema, so the hosts read it again afterwards.
+  - **Connecting:**
+    - The connection is made when the program first uses the database: `DATABASE_URL`, or `sqlite:./app.db` without one, a file the run makes if it isn't there.
+    - `sqlite:path` uses the built-in adapter. `sqlite://…` is E825 rather than a guess at what the slashes mean, and so is a file that isn't a database.
+    - Any other scheme uses the shared library that the environment variable `IOI_ADAPTER_` + the scheme in capitals names, through `ioi_adapter.h`'s ABI (version 1). A scheme is at most 64 bytes. Everything the hosts pass an adapter is borrowed for the call only.
+    - Failures are E825, a refused statement E826, and the reason goes to stderr after `ActiveCassette: `.
+  - **Where SQLite comes from:**
+    - ioi-llvm links ActiveCassette's object for its target, or builds it from the amalgamation. ioi-dart programs load ActiveCassette's shared library through `dart:ffi`, from the absolute path the compiler found.
+    - Both come from the folder `IOI_LIB` names, or a release archive's `lib/`, and `tool/activecassette.sh` makes them from SQLite 3.54.1, checked by SHA-256.
+    - Only programs that use a database need them: (16200) and (16210) are a library block of their own, (16200)–(16999), apart from the request and response's (16001)–(16199). Either compiler refuses to build a program that uses a database without them (E778).
+  - **A limit on Linux:** ioi-llvm's release archives link programs statically against musl, whose `dlopen` can't load a library. A Linux program built from one can use SQLite but no user adapter; built with a system clang, it can.
+- **Options:** (a) as above; (b) other row orders, NULL spellings or routine shapes; (c) for static Linux programs, a build flag that links a user adapter in.
+- **Decision:** (a).
+- **Tests:** `apps/interstates/test/golden/activecassette` and `apps/interstates/test/adapter_test.dart` pin (a).
+- **Date:** 2026-10-20
 
 ## EXTRACAL error codes
 

@@ -10,8 +10,8 @@ of EXTRACAL it adds:
 - **ActiveCassette**, a database layer where tables and columns are numbered rather than named.
 
 This guide shows how to use each part. The rules behind every detail are in
-[`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md) and the loop's readings L35–L42 in
-[`QUESTIONS.md`](QUESTIONS.md). The library's routine tables are in
+[`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md) and decisions L35–L42 in
+[`SPEC_DECISIONS.md`](SPEC_DECISIONS.md). The library's routine tables are in
 [`apps/interstates/README.md`](../apps/interstates/README.md).
 
 ## Getting it
