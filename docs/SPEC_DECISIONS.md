@@ -1257,7 +1257,7 @@ Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each up to L15
 - **Date:** 2026-10-18
 
 
-Ryan asked Claude to settle every question still open after goal 3 (L16–L42) as it judged right, on 2026-10-20. Each takes the loop's lean, which the code already followed and its tests pin: none of the alternatives had a reason to change shipped behavior.
+Ryan asked Claude to settle every question still open after goal 3 (L16–L42) as it judged right, on 2026-10-20. Each takes the loop's lean, which the code already followed; the tests listed pin it. None of the alternatives was worth changing shipped behavior for.
 
 ### L16: What is a select's result when it selects more than 64 bits?
 - **Context:** R5 says a 128-bit ephemeral value "can only be consumed by a select, which may use a 128-bit mask". With a mask of 64 set bits or fewer, the result always fits in 64 bits, and the loop treats it as an ordinary 64-bit value; that is the only reading under which "consumed" means anything. Q77 says a select takes its right operand's type, though, and a 128-bit mask with more than 64 set bits can select more than 64 bits. Nothing says whether that result is another ephemeral value or an error.
@@ -1265,7 +1265,7 @@ Ryan asked Claude to settle every question still open after goal 3 (L16–L42) a
   - (a) The result is a 64-bit value when it fits in 64 bits, and otherwise another ephemeral value that only a further select can use.
   - (b) The result is always 64-bit, and a select that produces more than 64 bits is an error.
 - **Decision:** (a).
-- **Note:** the 128-bit select tests use results that fit in 64 bits.
+- **Tests:** `extracal/mingle/select-over-64.xc` pins (a).
 - **Date:** 2026-10-20
 
 ### L17: Which EXTRACAL features exist in bases 3–7?
@@ -1274,6 +1274,7 @@ Ryan asked Claude to settle every question still open after goal 3 (L16–L42) a
   - (a) Bases 3–7 get the `ick` extensions (R3) and nothing else. The 64-bit sigils and `SIGNED` aren't recognized there (so a statement using them is undecodable), mingle keeps Mode 1's E533, and the library blocks are never included, as in L9.
   - (b) Generalize everything to base N: 64-bit types hold four small words of digits, widening uses the base's limits, signed numbers use radix complement, and the library gets per-base versions.
 - **Decision:** (a).
+- **Tests:** `extracal/wide/base3-has-no-wide.3xc` pins (a).
 - **Date:** 2026-10-20
 
 ### L18: Does EXTRACAL have `ick`'s "COME FROM gerund" form?
@@ -1352,6 +1353,7 @@ Ryan asked Claude to settle every question still open after goal 3 (L16–L42) a
   - (a) As CIWAPA does: MAYBE always makes its choicepoint; each choicepoint saves the abstention its guard tested; a choicepoint made inside a finished created operator is discarded like a stale one, and one made at a shallower level abandons the operators in between.
   - (b) Copy `ick`'s first two quirks.
 - **Decision:** (a).
+- **Tests:** `extracal/backtracking/finished-operator.xc` and `extracal/backtracking/abstentions-stay.xc` pin (a).
 - **Date:** 2026-10-20
 
 ### L26: Does EXTRACAL accept `ick`'s right-associative operator chains?
@@ -1398,6 +1400,7 @@ Ryan asked Claude to settle every question still open after goal 3 (L16–L42) a
   - (a) The empty string is a tail array with no dimensions, as an array is before its first DIMENSION. Only the library makes one; a program tests for it through the library. INTERCAL can't ask an array's size, so a program learns any string's length only through the Strings block's (3000).
   - (b) Strings carry their length in a separate variable, and the array always has at least one element.
 - **Decision:** (a). A string stays one array, and no routine needs an extra length argument.
+- **Tests:** `extracal/lib-arrays/copy-empty.xc` pins (a).
 - **Date:** 2026-10-20
 
 ### L31: Do WHILE's added statements count in statement numbers?
@@ -1415,6 +1418,7 @@ Ryan asked Claude to settle every question still open after goal 3 (L16–L42) a
   - (b) Status flags only, with no error variants.
   - (c) Errors only, including a new code for division by zero.
 - **Decision:** (a). It matches what syslib's users already know, and Q139 makes a result that doesn't fit a programming error.
+- **Tests:** the `extracal/lib-math/e813-*.xc` and `extracal/lib-math/abstained-e813.xc` tests pin (a).
 - **Date:** 2026-10-20
 
 ### L34: How does the Dart runtime reach the network, and what does the Network block offer?
@@ -1689,7 +1693,7 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 ### E534: an ephemeral 128-bit value used for something other than a select
 - **Text:** `AN EPHEMERAL 128-BIT VALUE HAS BEEN USED FOR SOMETHING OTHER THAN A SELECT.`
 - **Joke:** `IT WAS ONLY EVER MEANT TO BE A PHASE.`
-- **Source:** R5. A mingle of operands over 32 bits makes a 128-bit value that only a select may consume. Storing it, printing it, using it as a subscript or count, giving it to a unary operator or mingling it again is E534 when the statement executes. A select whose result doesn't fit in 64 bits is another such value (L16's lean).
+- **Source:** R5. A mingle of operands over 32 bits makes a 128-bit value that only a select may consume. Storing it, printing it, using it as a subscript or count, giving it to a unary operator or mingling it again is E534 when the statement executes. A select whose result doesn't fit in 64 bits is another such value (L16).
 - **Tests:** `packages/conformance/tests/extracal/mingle/ephemeral-store.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-unary.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-mingle.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-subscript.xc`, `packages/conformance/tests/extracal/mingle/ephemeral-count.xc`, `packages/conformance/tests/extracal/mingle/select-over-64.xc`
 - **Date:** 2026-10-18
 
@@ -1780,7 +1784,7 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 ### E813: an arithmetic result too big for its variable
 - **Text:** `AN ARITHMETIC RESULT HAS BEEN TOO BIG FOR ITS VARIABLE.`
 - **Joke:** `THE ANSWER WAS CORRECT. IT JUST DID NOT FIT.`
-- **Source:** R6, R10, R11, Q139, L32's lean. A new code. The Math block's error variants raise it when the true result doesn't fit its width: unsigned for (4000)–(4099) and the (4500)/(4600) powers, two's complement for the signed routines, including the most negative value divided by −1. The flag variants store the wrapped result and #2 instead. Syslib keeps its own E000 for its own routines. With its PETITION abstained, an error variant returns as if nothing had overflowed (`packages/conformance/tests/extracal/lib-math/abstained-e813.xc`).
+- **Source:** R6, R10, R11, Q139, L32. A new code. The Math block's error variants raise it when the true result doesn't fit its width: unsigned for (4000)–(4099) and the (4500)/(4600) powers, two's complement for the signed routines, including the most negative value divided by −1. The flag variants store the wrapped result and #2 instead. Syslib keeps its own E000 for its own routines. With its PETITION abstained, an error variant returns as if nothing had overflowed (`packages/conformance/tests/extracal/lib-math/abstained-e813.xc`).
 - **Tests:** `packages/conformance/tests/extracal/lib-math/e813-add64.xc`, `packages/conformance/tests/extracal/lib-math/e813-div32.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul16.xc`, `packages/conformance/tests/extracal/lib-math/e813-mul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow32.xc`, `packages/conformance/tests/extracal/lib-math/e813-pow64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sadd64.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv16.xc`, `packages/conformance/tests/extracal/lib-math/e813-sdiv64.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul32.xc`, `packages/conformance/tests/extracal/lib-math/e813-smul64.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub16.xc`, `packages/conformance/tests/extracal/lib-math/e813-ssub32.xc`, `packages/conformance/tests/extracal/lib-math/e813-sub64.xc`, each with a `-no-opt` twin
 - **Date:** 2026-10-18
 
@@ -1808,7 +1812,7 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 ### E817: a URL that isn't plain HTTP
 - **Text:** `AN ADDRESS THAT IS NOT A PLAIN HTTP URL HAS BEEN REQUESTED.`
 - **Joke:** `THERE IS NO S IN THIS PROTOCOL, AND NO SECURITY IN THIS PROGRAM.`
-- **Source:** R10, R11, Q110, Q139, L34's lean. A new code. The Network block's GET (9100) and POST (9110) take `http://host[:port][/path]`; any other scheme (there is no TLS), an empty host, or a port that is empty, not decimal or above 65535 is a programming error. A refused connection is not: it gives `.3 = #2`.
+- **Source:** R10, R11, Q110, Q139, L34. A new code. The Network block's GET (9100) and POST (9110) take `http://host[:port][/path]`; any other scheme (there is no TLS), an empty host, or a port that is empty, not decimal or above 65535 is a programming error. A refused connection is not: it gives `.3 = #2`.
 - **Tests:** `packages/conformance/tests/extracal/lib-network/e817.xc`, `packages/conformance/tests/extracal/lib-network/e817-port.xc`, each with a `-no-opt` twin
 - **Date:** 2026-10-18
 
