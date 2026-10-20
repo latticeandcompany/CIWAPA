@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="300" viewBox="0 0 880 300" font-family='system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' role="img" aria-label="Run time: how many times slower than ciwapa-llvm">
+<rect width="880" height="300" rx="10" fill="#fcfcfb"/>
+<text x="24" y="34" font-size="17" font-weight="600" fill="#0b0b0b">Run time: how many times slower than ciwapa-llvm</text>
+<text x="24" y="56" font-size="13" fill="#52514e">Geometric mean over the benchmarks each implementation runs correctly (number in brackets).</text>
+<line x1="270.0" y1="78" x2="270.0" y2="238" stroke="#c3c2b7" stroke-width="1"/>
+<text x="270.0" y="256" font-size="12" fill="#898781" text-anchor="middle" style="font-variant-numeric: tabular-nums">1×</text>
+<line x1="412.5" y1="78" x2="412.5" y2="238" stroke="#e1e0d9" stroke-width="1"/>
+<text x="412.5" y="256" font-size="12" fill="#898781" text-anchor="middle" style="font-variant-numeric: tabular-nums">10×</text>
+<line x1="555.0" y1="78" x2="555.0" y2="238" stroke="#e1e0d9" stroke-width="1"/>
+<text x="555.0" y="256" font-size="12" fill="#898781" text-anchor="middle" style="font-variant-numeric: tabular-nums">100×</text>
+<line x1="697.5" y1="78" x2="697.5" y2="238" stroke="#e1e0d9" stroke-width="1"/>
+<text x="697.5" y="256" font-size="12" fill="#898781" text-anchor="middle" style="font-variant-numeric: tabular-nums">1K×</text>
+<line x1="840.0" y1="78" x2="840.0" y2="238" stroke="#e1e0d9" stroke-width="1"/>
+<text x="840.0" y="256" font-size="12" fill="#898781" text-anchor="middle" style="font-variant-numeric: tabular-nums">10K×</text>
+<text x="555.0" y="278" font-size="12" fill="#52514e" text-anchor="middle">times slower than ciwapa-llvm (log scale)</text>
+<text x="24" y="95.5" font-size="13" fill="#0b0b0b">ciwapa-dart [10]</text>
+<path d="M270.0,84.0 H310.5 Q314.5,84.0 314.5,88.0 V94.0 Q314.5,98.0 310.5,98.0 H270.0 Z" fill="#2a78d6"><title>ciwapa-dart [10]: 2.1×</title></path>
+<text x="320.5" y="95" font-size="12" fill="#52514e" text-anchor="start" style="font-variant-numeric: tabular-nums">2.1×</text>
+<text x="24" y="127.5" font-size="13" fill="#0b0b0b">C-INTERCAL 0.35 (ick -O) [10]</text>
+<path d="M270.0,116.0 H316.5 Q320.5,116.0 320.5,120.0 V126.0 Q320.5,130.0 316.5,130.0 H270.0 Z" fill="#2a78d6"><title>C-INTERCAL 0.35 (ick -O) [10]: 2.3×</title></path>
+<text x="326.5" y="127" font-size="12" fill="#52514e" text-anchor="start" style="font-variant-numeric: tabular-nums">2.3×</text>
+<text x="24" y="159.5" font-size="13" fill="#0b0b0b">rick (compiled) [9]</text>
+<path d="M270.0,148.0 H321.5 Q325.5,148.0 325.5,152.0 V158.0 Q325.5,162.0 321.5,162.0 H270.0 Z" fill="#2a78d6"><title>rick (compiled) [9]: 2.5×</title></path>
+<text x="331.5" y="159" font-size="12" fill="#52514e" text-anchor="start" style="font-variant-numeric: tabular-nums">2.5×</text>
+<text x="24" y="191.5" font-size="13" fill="#0b0b0b">INTERCAL-64 [4]</text>
+<path d="M270.0,180.0 H697.7 Q701.7,180.0 701.7,184.0 V190.0 Q701.7,194.0 697.7,194.0 H270.0 Z" fill="#2a78d6"><title>INTERCAL-64 [4]: 1,071×</title></path>
+<text x="707.7" y="191" font-size="12" fill="#52514e" text-anchor="start" style="font-variant-numeric: tabular-nums">1,071×</text>
+<text x="24" y="223.5" font-size="13" fill="#0b0b0b">CLC-INTERCAL [4]</text>
+<path d="M270.0,212.0 H757.4 Q761.4,212.0 761.4,216.0 V222.0 Q761.4,226.0 757.4,226.0 H270.0 Z" fill="#2a78d6"><title>CLC-INTERCAL [4]: 2,807×</title></path>
+<text x="767.4" y="223" font-size="12" fill="#52514e" text-anchor="start" style="font-variant-numeric: tabular-nums">2,807×</text>
+</svg>
