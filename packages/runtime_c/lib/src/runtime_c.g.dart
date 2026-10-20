@@ -1374,7 +1374,7 @@ void ick_xmingle(uint64_t *out, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_
 }
 
 /* Takes its right operand's width (Q77). A 128-bit mask gives a 64-bit result when it fits in 64
- * bits, and otherwise another ephemeral value (L16's lean). */
+ * bits, and otherwise another ephemeral value (L16). */
 void ick_xselect(uint64_t *out, uint32_t aw, uint64_t ahi, uint64_t alo, uint32_t bw, uint64_t bhi,
                  uint64_t blo) {
   (void)aw;

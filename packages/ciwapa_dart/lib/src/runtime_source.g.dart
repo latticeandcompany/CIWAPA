@@ -1527,7 +1527,7 @@ XValue ickXMingle(XValue a, XValue b, int next) {
 }
 
 /// Takes its right operand's width (Q77). A 128-bit mask gives a 64-bit result when it fits in
-/// 64 bits, and otherwise another ephemeral value (L16's lean).
+/// 64 bits, and otherwise another ephemeral value (L16).
 @pragma('vm:never-inline')
 XValue ickXSelect(XValue a, XValue b) {
   var resultLow = 0, resultHigh = 0, at = 0;
