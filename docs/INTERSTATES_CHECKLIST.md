@@ -8,7 +8,7 @@ Format, as in [`EXTRACAL_CHECKLIST.md`](EXTRACAL_CHECKLIST.md):
 - [ ] R3 — rule, in one line. Tests: `apps/interstates/...`
 ```
 
-The sections follow the plan's acceptance criteria. `lattice run goal-status` reads this file, together with the CI run and the release archives on the `mega` HEAD.
+The sections follow the plan's acceptance criteria. `goal-status` read this file, together with the CI run and the release archives on the `mega` HEAD, until goal 3's cleanup removed it with `tools/goal`; its last verdict is in the git history.
 
 ## The site's hello world
 
@@ -101,4 +101,4 @@ Each new code is listed under "INTERCAL on Interstates error codes" in [`SPEC_DE
 
 ## Temporary scaffolding
 
-- [ ] Step 13 — `tools/goal` is the only temporary scaffolding left, and it goes last.
+- [x] Step 13 — `tools/goal` is the only temporary scaffolding left, and it goes last. Tests: `git ls-files tools/goal` prints nothing (removed by goal 3's cleanup; see the git history)
