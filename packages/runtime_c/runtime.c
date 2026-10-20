@@ -148,6 +148,40 @@ static uint32_t small_digits(uint32_t base) {
 static void parse_options(int argc, char **argv);
 static void build_digit_tables(uint32_t base);
 
+/* ---- Hosts ----------------------------------------------------------------------------- */
+/* A language built on CIWAPA's adds services and hooks of its own through a host, which its
+ * compiler links into the program; the generated main installs it before ick_init. The functions
+ * after ick_init are what a host may use. runtime.dart has the same. */
+
+typedef struct {
+  /* The ordinal of the statement to start at: 0 for the first, or one of the program's entries
+   * (nothing else). Runs once the runtime options are read. */
+  uint32_t (*start)(void);
+  /* Runs [service], one the runtime doesn't have, on the scalars (by key, UINT32_MAX for none),
+   * arrays (by number, UINT32_MAX for none) and values the compiler passes in. 0 if the host
+   * doesn't have it either. A PETITION passes 4 scalars and 3 arrays, as many as a service may
+   * have (more are dropped); a host call passes its arrays and values. */
+  int (*petition)(uint32_t service, const uint32_t *scalars, uint32_t scalar_count, const uint32_t *arrays,
+                  uint32_t array_count, const uint64_t *values, uint32_t value_count, uint32_t next);
+  /* Runs once, just before the first byte of standard output, or at a normal exit (GIVE UP or the
+   * exit service) if nothing was written. */
+  void (*prologue)(void);
+} ick_host;
+
+static const ick_host *host;
+static uint32_t start_ordinal;
+static int output_begun;
+
+void ick_set_host(const ick_host *h) { host = h; }
+
+uint32_t ick_start_ordinal(void) { return start_ordinal; }
+
+static void begin_output(void) {
+  if (output_begun) return;
+  output_begun = 1;
+  if (host && host->prologue) host->prologue();
+}
+
 /* A seed is decimal digits for a value below 2^63. */
 static int parse_seed(const char *text) {
   uint64_t value = 0;
@@ -184,6 +218,7 @@ void ick_init(int argc, char **argv, const ick_program *p) {
     if (!*end && *limit != '-') stash_limit = value;
   }
   parse_options(argc, argv);
+  if (host && host->start) start_ordinal = host->start();
 }
 
 /* ---- Errors (§9) ------------------------------------------------------------------------- */
@@ -220,6 +255,7 @@ void ick_undecodable(const char *text, uint32_t length, uint32_t next) {
 }
 
 void ick_give_up(void) {
+  begin_output();
   fflush(stdout);
   exit(0);
 }
@@ -745,6 +781,7 @@ static int butcher(uint64_t value, char *numeral, char *bars, int end) {
 }
 
 void ick_read_out(uint32_t value) {
+  begin_output();
   if (wimp_mode) {
     printf("%u\n", (unsigned)value);
     ICK_FLUSH();
@@ -764,6 +801,7 @@ void ick_read_out(uint32_t value) {
 }
 
 static void write_decimal(uint64_t value, int negative) {
+  begin_output();
   char digits[24];
   int at = 23;
   digits[at] = '\0';
@@ -778,12 +816,13 @@ static void write_decimal(uint64_t value, int negative) {
 /* R7, Q125: a 64-bit value splits into groups of 12 decimal digits. The x10^12 group is printed
  * like the low one with an extra overline on every character, in a row of its own on top. A
  * [negative] value (R6, Q138) gets a `-` before the letters and a space above it. */
-static void print_numeral(uint64_t value, int negative) {
-  const char *sign = negative ? "-" : "", *above = negative ? " " : "";
+/* The rows READ OUT prints for [value]: the overline rows, then the letters, each NUL-terminated
+ * in [rows]. Returns how many there are, 2 or 3. */
+static int numeral_rows(uint64_t value, char rows[3][96]) {
   if (value == 0) {
-    printf("%s_\n%s\n", above, sign);
-    fflush(stdout);
-    return;
+    strcpy(rows[0], "_");
+    rows[1][0] = '\0';
+    return 2;
   }
   uint64_t high = value / 1000000000000ull, low = value % 1000000000000ull;
   char numeral[96], bars[96], top[96];
@@ -792,8 +831,19 @@ static void print_numeral(uint64_t value, int negative) {
   int split = butcher(low, numeral, bars, end);
   int at = butcher(high, numeral, bars, split);
   for (int i = at; i < end; i++) top[i] = i < split ? '_' : ' ';
-  if (high != 0) printf("%s%s\n", above, top + at);
-  printf("%s%s\n%s%s\n", above, bars + at, sign, numeral + at);
+  int count = 0;
+  if (high != 0) strcpy(rows[count++], top + at);
+  strcpy(rows[count++], bars + at);
+  strcpy(rows[count++], numeral + at);
+  return count;
+}
+
+static void print_numeral(uint64_t value, int negative) {
+  begin_output();
+  const char *sign = negative ? "-" : "", *above = negative ? " " : "";
+  char rows[3][96];
+  int count = numeral_rows(value, rows);
+  for (int i = 0; i < count; i++) printf("%s%s\n", i == count - 1 ? sign : above, rows[i]);
   fflush(stdout);
 }
 
@@ -890,6 +940,7 @@ void ick_turing_out(uint32_t index, uint32_t next) {
     c = (c & 0x0Fu) << 4 | (c & 0xF0u) >> 4;
     c = (c & 0x33u) << 2 | (c & 0xCCu) >> 2;
     c = (c & 0x55u) << 1 | (c & 0xAAu) >> 1;
+    begin_output();
     putchar((int)c);
     if (c == '\n') ICK_FLUSH();
   }
@@ -1128,6 +1179,7 @@ void ick_turing_out64(uint32_t index, uint32_t next) {
     c = (c & 0x0Fu) << 4 | (c & 0xF0u) >> 4;
     c = (c & 0x33u) << 2 | (c & 0xCCu) >> 2;
     c = (c & 0x55u) << 1 | (c & 0xAAu) >> 1;
+    begin_output();
     putchar((int)c);
     if (c == '\n') ICK_FLUSH();
   }
@@ -1238,6 +1290,7 @@ static void baudot_print(uint64_t value, int *state) {
     return;
   }
   int c = baudot[code][*state];
+  begin_output();
   putchar(c ? c : 0x1A);
 }
 
@@ -1257,6 +1310,7 @@ void ick_baudot_out(uint32_t index, uint32_t next) {
   if (a->rank != 1) ick_fatal(241, next);
   int state = 0;
   for (size_t i = 0; i < a->dims[0]; i++) baudot_print(a->data[i], &state);
+  begin_output();
   putchar('\n');
   ICK_FLUSH();
 }
@@ -1277,6 +1331,7 @@ void ick_baudot_out64(uint32_t index, uint32_t next) {
   if (a->rank != 1) ick_fatal(241, next);
   int state = 0;
   for (size_t i = 0; i < a->dims[0]; i++) baudot_print(a->data[i], &state);
+  begin_output();
   putchar('\n');
   ICK_FLUSH();
 }
@@ -2171,6 +2226,7 @@ void ick_x_run(const int32_t *table, uint32_t count, const int32_t *lists, const
   if (!x_ring || !first) ick_fatal(778, 1);
   x_ring[0] = first;
   x_ring_count = 1;
+  if (start_ordinal) x_thread.position = start_ordinal * 8 + X_START;
   x_loop(0);
   ick_fatal(778, 1);
 }
@@ -2683,6 +2739,7 @@ static int write_byte_to(uint64_t handle, uint64_t byte, uint32_t next) {
   }
   if (byte > 255) ick_fatal(805, next);
   if (handle == 1) {
+    begin_output();
     putchar((int)byte);
     if (byte == '\n') ICK_FLUSH();
     return 1;
@@ -2950,6 +3007,7 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 8030: {
     uint64_t status = scalar_at(s0);
     if (status > 255) ick_fatal(802, next);
+    begin_output();
     ICK_FLUSH();
     exit((int)status);
   }
@@ -3027,8 +3085,50 @@ void ick_petition(uint32_t service, uint32_t s0, uint32_t s1, uint32_t s2, uint3
   case 815:
   case 816:
   case 817: ick_fatal(service, next); break;
-  default: ick_fatal(801, next);
+  default: {
+    uint32_t scalars[4] = {s0, s1, s2, s3}, arrays[3] = {a0, a1, a2};
+    if (host && host->petition && host->petition(service, scalars, 4, arrays, 3, NULL, 0, next)) break;
+    ick_fatal(801, next);
   }
+  }
+}
+
+/* A host call (a PETITION with computed [values]), which only a host has. */
+void ick_host_call(uint32_t service, const uint32_t *arrays, uint32_t array_count, const uint64_t *values,
+                   uint32_t value_count, uint32_t next) {
+  if (host && host->petition && host->petition(service, NULL, 0, arrays, array_count, values, value_count, next))
+    return;
+  ick_fatal(801, next);
+}
+
+/* ---- For hosts ---------------------------------------------------------------------------- */
+
+uint64_t ick_scalar(uint32_t key) { return scalar_at(key); }
+
+void ick_set_scalar(uint32_t key, uint64_t value) { set_scalar(key, value); }
+
+/* A tail array's string, as UTF-16 code units in 32-bit elements (E803 unless it has one dimension
+ * or none). */
+const uint32_t *ick_string(uint32_t array, size_t *length, uint32_t next) {
+  return string_at(array, length, next);
+}
+
+void ick_set_string(uint32_t array, const uint16_t *units, size_t length) {
+  set_string(array, units, length);
+}
+
+/* Writes [bytes] to standard output, in order with READ OUT. */
+void ick_output(const char *bytes, size_t length) {
+  begin_output();
+  fwrite(bytes, 1, length, stdout);
+}
+
+/* The rows READ OUT would print for [value], as numeral_rows gives them; in wimp mode, one row of
+ * decimal digits. */
+int ick_numeral_rows(uint64_t value, char rows[3][96]) {
+  if (!wimp_mode) return numeral_rows(value, rows);
+  snprintf(rows[0], 96, "%llu", (unsigned long long)value);
+  return 1;
 }
 
 /* ---- EXTRACAL's Strings block (R8, R10) ------------------------------------------------ */

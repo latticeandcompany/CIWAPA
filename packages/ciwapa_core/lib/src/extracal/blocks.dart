@@ -3,24 +3,26 @@ import 'library.g.dart';
 /// One of EXTRACAL's library blocks (R10): a range of labels and the INTERCAL source that defines
 /// them, included when a program NEXTs into the range and defines no label in it.
 class LibraryBlock {
-  const LibraryBlock(this.name, this.first, this.last);
+  const LibraryBlock(this.name, this.first, this.last, [this._source]);
 
+  /// The file name the block's statements come from, such as `io.xc`.
   final String name;
   final int first;
   final int last;
+  final String? _source;
 
-  String get source => extracalSources[name]!;
+  String get source => _source ?? extracalSources[name.split('.').first]!;
 }
 
 /// The blocks, in the order they are appended after a program.
 const libraryBlocks = [
-  LibraryBlock('io', 2000, 2999),
-  LibraryBlock('strings', 3000, 3999),
-  LibraryBlock('math', 4000, 4999),
-  LibraryBlock('arrays', 6000, 6999),
-  LibraryBlock('floats', 7000, 7999),
-  LibraryBlock('system', 8000, 8999),
-  LibraryBlock('network', 9000, 9999),
+  LibraryBlock('io.xc', 2000, 2999),
+  LibraryBlock('strings.xc', 3000, 3999),
+  LibraryBlock('math.xc', 4000, 4999),
+  LibraryBlock('arrays.xc', 6000, 6999),
+  LibraryBlock('floats.xc', 7000, 7999),
+  LibraryBlock('system.xc', 8000, 8999),
+  LibraryBlock('network.xc', 9000, 9999),
 ];
 
 /// The host services PETITION asks for (R10, L29), and the variables each reads and writes, in

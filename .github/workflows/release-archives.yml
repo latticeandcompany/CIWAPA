@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   archive:
-    name: archive (${{ matrix.platform.name }}, ${{ matrix.flavor }})
+    name: ${{ matrix.product == 'ioi' && 'ioi-' || '' }}archive (${{ matrix.platform.name }}, ${{ matrix.flavor }})
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -27,6 +27,7 @@ jobs:
           - { name: windows-x64, runner: windows-latest, os: windows, arch: x64 }
           - { name: windows-arm64, runner: windows-11-arm, os: windows, arch: arm64 }
         flavor: [dart, llvm]
+        product: [ciwapa, ioi]
     defaults:
       run:
         shell: bash
@@ -69,7 +70,7 @@ jobs:
       - name: Assemble the archive
         id: archive
         run: |
-          archive="$(.github/scripts/assemble-archive.sh ${{ matrix.platform.name }} ${{ matrix.flavor }} "$RUNNER_TEMP/toolchain" "$RUNNER_TEMP/archives")"
+          archive="$(.github/scripts/assemble-archive.sh ${{ matrix.product }} ${{ matrix.platform.name }} ${{ matrix.flavor }} "$RUNNER_TEMP/toolchain" "$RUNNER_TEMP/archives")"
           name="$(basename "$archive")"
           name="${name%.zip}"
           # upload-artifact needs a Windows path there, not Git Bash's /d/a/...
@@ -85,7 +86,7 @@ jobs:
 
       # The IR cross-check: the full conformance suite through the toolchain the archive ships.
       - name: Conformance with the archived compiler
-        if: matrix.flavor == 'llvm'
+        if: matrix.flavor == 'llvm' && matrix.product == 'ciwapa'
         working-directory: packages/conformance
         run: dart --suppress-analytics run bin/conformance.dart --compiler "${{ steps.smoke.outputs.compiler }}"
 

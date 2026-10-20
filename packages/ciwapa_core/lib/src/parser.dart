@@ -15,16 +15,34 @@ class _Fail implements Exception {
 /// can't be parsed, or junk follows a complete one, the statement becomes undecodable and its text
 /// runs up to the next `DO`, `PLEASE` or label token. Garbage before the first statement is a
 /// statement of its own, with no identifier.
+///
+/// A language built on CIWAPA's extends it by subclassing: its [LexerDialect] adds tokens, and it
+/// overrides [body] and [extendBody], using the protected helpers below them.
 class Parser {
   Parser(
     this.source, {
     this.memoryLimit,
     bool wide = false,
     bool extensions = false,
+    LexerDialect dialect = const LexerDialect(),
+    this.leadingComment = false,
+    this.bareGiveUp = false,
   }) : _extensions = extensions,
-       _tokens = Lexer(source, wide: wide, extensions: extensions).tokenize();
+       _tokens = Lexer(
+         source,
+         wide: wide,
+         extensions: extensions,
+         dialect: dialect,
+       ).tokenize();
 
   final Source source;
+
+  /// Whether text before the first statement identifier is a comment that makes no statement,
+  /// instead of an undecodable statement.
+  final bool leadingComment;
+
+  /// Whether a `GIVE UP` with no identifier where a statement could start is a `DO GIVE UP`.
+  final bool bareGiveUp;
 
   /// Test-only: parsing more statements than this fails as if memory ran out (decision L7).
   final int? memoryLimit;
@@ -45,7 +63,28 @@ class Parser {
       final labelled =
           _tok.kind == TokenKind.label &&
           _tokens[_pos + 1].kind == TokenKind.identifier;
+      if (bareGiveUp && _tok.kind == TokenKind.giveUp) {
+        _pos++;
+        statements.add(
+          Statement(
+            source: source,
+            start: _tokens[first].start,
+            end: _tokens[first].end,
+            label: null,
+            polite: false,
+            not: false,
+            percent: null,
+            body: const GiveUp(),
+          ),
+        );
+        continue;
+      }
       if (!labelled && _tok.kind != TokenKind.identifier) {
+        if (leadingComment && statements.isEmpty) {
+          // A label with no identifier after it is part of the comment too.
+          _pos = _resync(_tok.kind == TokenKind.label ? _pos + 1 : _pos);
+          continue;
+        }
         _recoverAtCommandStart(statements, first);
         continue;
       }
@@ -64,11 +103,11 @@ class Parser {
       final bodyStart = _pos;
       Body? whileBody;
       try {
-        body = _body();
+        body = extendBody(this.body());
         // `ick`'s `a WHILE b` (R3): b is another statement body.
         if (_tok.kind == TokenKind.whileKeyword) {
           _pos++;
-          whileBody = _body();
+          whileBody = this.body();
         }
         // `ick`'s ONCE and AGAIN end a statement (R3).
         if (_tok.kind == TokenKind.once || _tok.kind == TokenKind.again) {
@@ -149,6 +188,42 @@ class Parser {
   }
 
   Never _fail() => throw _Fail(_pos);
+
+  // ---- For dialects: hooks to override, and the helpers they use ----
+
+  /// The statement body after [body] is parsed, where a dialect can take more tokens.
+  Body extendBody(Body body) => body;
+
+  /// The token the parser is at, and the one [ahead] of it.
+  Token get current => _tok;
+  Token lookAhead(int ahead) => _tokens[_pos + ahead];
+
+  /// Moves past the current token and returns it.
+  Token take() => _tokens[_pos++];
+
+  /// Where the parser is, to come back to with [reset].
+  int get mark => _pos;
+  void reset(int mark) => _pos = mark;
+
+  /// Gives up on the statement, which becomes undecodable.
+  Never reject() => _fail();
+
+  Expr expression() => _expr();
+  Expr operand() => _operand();
+  List<Expr> subscriptList() => _subscripts();
+  VarRef variable() => _varRef();
+  Constant constant(int width) => _constant(width);
+
+  /// The whole text as one expression, or null when it isn't one (or is an ungrouped chain).
+  Expr? parseExpression() {
+    try {
+      _chain = false;
+      final e = _expr();
+      return _tok.kind == TokenKind.end && !_chain ? e : null;
+    } on _Fail {
+      return null;
+    }
+  }
 
   /// `ick`'s just-in-case compilation (R3): the whole body as an [Unknown], or null.
   Unknown? _tryUnknown() {
@@ -284,7 +359,8 @@ class Parser {
     TokenKind.stockade: 64,
   };
 
-  Body _body() {
+  /// A statement body. A dialect overrides this to parse its own statements first.
+  Body body() {
     final kind = _tok.kind;
     switch (kind) {
       case TokenKind.oneSpot || TokenKind.twoSpot || TokenKind.doubleCateye:

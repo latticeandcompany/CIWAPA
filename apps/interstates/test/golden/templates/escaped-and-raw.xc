@@ -1,0 +1,43 @@
+PLEASE COME FROM (16000)
+DO ,1 <- #27
+DO ,1 SUB #1 <- #60
+PLEASE ,1 SUB #2 <- #98
+DO ,1 SUB #3 <- #62
+DO ,1 SUB #4 <- #84
+DO ,1 SUB #5 <- #111
+PLEASE ,1 SUB #6 <- #109
+DO ,1 SUB #7 <- #32
+DO ,1 SUB #8 <- #38
+DO ,1 SUB #9 <- #32
+PLEASE ,1 SUB #10 <- #74
+DO ,1 SUB #11 <- #101
+DO ,1 SUB #12 <- #114
+DO ,1 SUB #13 <- #114
+PLEASE ,1 SUB #14 <- #121
+DO ,1 SUB #15 <- #39
+DO ,1 SUB #16 <- #115
+DO ,1 SUB #17 <- #32
+PLEASE ,1 SUB #18 <- #34
+DO ,1 SUB #19 <- #115
+DO ,1 SUB #20 <- #104
+DO ,1 SUB #21 <- #111
+PLEASE ,1 SUB #22 <- #119
+DO ,1 SUB #23 <- #34
+DO ,1 SUB #24 <- #60
+DO ,1 SUB #25 <- #47
+PLEASE ,1 SUB #26 <- #98
+DO ,1 SUB #27 <- #62
+DO ;49221 SUB #1 <- ,1
+DO ,1 <- #9
+PLEASE ,1 SUB #1 <- #99
+DO ,1 SUB #2 <- #97
+DO ,1 SUB #3 <- #102
+DO ,1 SUB #4 <- #233
+PLEASE ,1 SUB #5 <- #32
+DO ,1 SUB #6 <- #10003
+DO ,1 SUB #7 <- #32
+DO ,1 SUB #8 <- #55357
+PLEASE ,1 SUB #9 <- #56832
+DO ;49221 SUB #2 <- ,1
+DO READ OUT #2 WITH TEMPLATE "t/strings.html"
+DO GIVE UP

@@ -1,0 +1,211 @@
+NOTE The INTERCAL Blog, INTERCAL on Interstates' sample application. Build it with
+ioi-llvm build -s --no-random-bug blog.xc -o blog, then gross --static public --database
+sqlite:./blog.db ./blog. Everything up to the first statement is a comment.
+
+PLEASE COME FROM (16000) WITH ROUTE "/blog"
+DO NOTE the list of posts: a header, one fragment per post, and a footer.
+DO (500) NEXT
+(10) PLEASE READ OUT #0 WITH TEMPLATE "templates/header.html"
+DO ;49221 <- 'FROM DATABASE #1~#1$#2'
+DO (16210) NEXT
+DO NOTE .5 counts from one to the number of posts; .4 is one past the last.
+PLEASE .1 <- :1
+DO (1020) NEXT
+DO .4 <- .1
+DO .5 <- #1
+PLEASE NOTE with no posts at all, the loop renders nothing and stops at once.
+DO .3 <- '?.5$.4'~'#0$#65535'
+DO .6 <- '.3~.3'~#1
+DO .7 <- '?.6$#1'~#1
+PLEASE ABSTAIN .7 FROM (20)
+DO ABSTAIN .7 FROM (98)
+(98) DO COME FROM (99)
+DO ;49221 <- 'FROM DATABASE #1~#1$#2' SUB .5
+(20) PLEASE READ OUT #2 WITH TEMPLATE "templates/item.html"
+DO .1 <- .5
+DO (1020) NEXT
+DO .5 <- .1
+PLEASE NOTE past the last post, the loop abstains from coming back.
+DO .3 <- '?.5$.4'~'#0$#65535'
+DO .6 <- '.3~.3'~#1
+DO .7 <- '?.6$#1'~#1
+PLEASE ABSTAIN .7 FROM (98)
+(99) DO .7 <- #0
+DO READ OUT #0 WITH TEMPLATE "templates/footer.html"
+DO GIVE UP
+PLEASE COME FROM (20) WITH ROUTE "/blog/post/:id"
+DO NOTE one post, reachable only from the list, which links it.
+DO (500) NEXT
+DO ;49221 <- 'FROM DATABASE #1~#2$#3' HAVING #1 ;4400 SUB #1
+PLEASE (16210) NEXT
+DO .3 <- :1
+DO .6 <- '.3~.3'~#1
+DO .7 <- '?.6$#1'~#1
+PLEASE NOTE found: skip the not-found lines. missing: skip the post.
+DO ABSTAIN .6 FROM (30)
+DO ABSTAIN .6 FROM (31)
+DO ABSTAIN .7 FROM (32)
+PLEASE .1 <- #404
+(30) DO (16100) NEXT
+(31) DO READ OUT #0 WITH TEMPLATE "templates/missing.html"
+(32) DO READ OUT #2 WITH TEMPLATE "templates/post.html"
+PLEASE GIVE UP
+DO COME FROM (16000) WITH ROUTE "/blog/new"
+DO NOTE the form for a new post.
+(40) DO READ OUT #0 WITH TEMPLATE "templates/new.html"
+PLEASE GIVE UP
+DO COME FROM (40) WITH ROUTE "/blog/create"
+DO NOTE the form posts here, and only from its own page.
+DO (500) NEXT
+PLEASE NOTE ,2 starts out dimensioned, so a missing title still copies.
+DO ,2 <- #1
+DO ,1 <- #5
+DO ,1 SUB #1 <- #116
+PLEASE ,1 SUB #2 <- #105
+DO ,1 SUB #3 <- #116
+DO ,1 SUB #4 <- #108
+DO ,1 SUB #5 <- #101
+PLEASE (16050) NEXT
+DO .8 <- .1
+DO ;49221 SUB #1 <- ,2
+DO ,1 <- #4
+PLEASE ,1 SUB #1 <- #98
+DO ,1 SUB #2 <- #111
+DO ,1 SUB #3 <- #100
+DO ,1 SUB #4 <- #121
+PLEASE (16050) NEXT
+DO .9 <- .1
+DO ,1 <- ;49221 SUB #1
+DO NOTE .6 is one when both fields came, and .7 is one when either is missing.
+PLEASE .6 <- '.8~#1'~'.9~#1'
+DO .7 <- '?.6$#1'~#1
+DO ABSTAIN .6 FROM (41)
+DO ABSTAIN .6 FROM (42)
+PLEASE ABSTAIN .7 FROM (43)
+DO ABSTAIN .7 FROM (44)
+DO .1 <- #400
+(41) DO (16100) NEXT
+(42) PLEASE READ OUT #0 WITH TEMPLATE "templates/incomplete.html"
+(43) DO INTO DATABASE #1~#2$#3 <- ,1 + ,2
+DO ,1 <- #5
+DO ,1 SUB #1 <- #47
+PLEASE ,1 SUB #2 <- #98
+DO ,1 SUB #3 <- #108
+DO ,1 SUB #4 <- #111
+DO ,1 SUB #5 <- #103
+(44) PLEASE (16130) NEXT
+DO GIVE UP
+DO COME FROM (16000)
+DO NOTE anything else goes to the list.
+PLEASE ,1 <- #5
+DO ,1 SUB #1 <- #47
+DO ,1 SUB #2 <- #98
+DO ,1 SUB #3 <- #108
+PLEASE ,1 SUB #4 <- #111
+DO ,1 SUB #5 <- #103
+DO (16130) NEXT
+DO GIVE UP
+PLEASE NOTE the table, made the first time any page needs it.
+(500) DO ,1 <- #98
+DO ,1 SUB #1 <- #67
+DO ,1 SUB #2 <- #82
+PLEASE ,1 SUB #3 <- #69
+DO ,1 SUB #4 <- #65
+DO ,1 SUB #5 <- #84
+DO ,1 SUB #6 <- #69
+PLEASE ,1 SUB #7 <- #32
+DO ,1 SUB #8 <- #84
+DO ,1 SUB #9 <- #65
+DO ,1 SUB #10 <- #66
+PLEASE ,1 SUB #11 <- #76
+DO ,1 SUB #12 <- #69
+DO ,1 SUB #13 <- #32
+DO ,1 SUB #14 <- #73
+PLEASE ,1 SUB #15 <- #70
+DO ,1 SUB #16 <- #32
+DO ,1 SUB #17 <- #78
+DO ,1 SUB #18 <- #79
+PLEASE ,1 SUB #19 <- #84
+DO ,1 SUB #20 <- #32
+DO ,1 SUB #21 <- #69
+DO ,1 SUB #22 <- #88
+PLEASE ,1 SUB #23 <- #73
+DO ,1 SUB #24 <- #83
+DO ,1 SUB #25 <- #84
+DO ,1 SUB #26 <- #83
+PLEASE ,1 SUB #27 <- #32
+DO ,1 SUB #28 <- #112
+DO ,1 SUB #29 <- #111
+DO ,1 SUB #30 <- #115
+PLEASE ,1 SUB #31 <- #116
+DO ,1 SUB #32 <- #115
+DO ,1 SUB #33 <- #32
+DO ,1 SUB #34 <- #40
+PLEASE ,1 SUB #35 <- #105
+DO ,1 SUB #36 <- #100
+DO ,1 SUB #37 <- #32
+DO ,1 SUB #38 <- #73
+PLEASE ,1 SUB #39 <- #78
+DO ,1 SUB #40 <- #84
+DO ,1 SUB #41 <- #69
+DO ,1 SUB #42 <- #71
+PLEASE ,1 SUB #43 <- #69
+DO ,1 SUB #44 <- #82
+DO ,1 SUB #45 <- #32
+DO ,1 SUB #46 <- #80
+PLEASE ,1 SUB #47 <- #82
+DO ,1 SUB #48 <- #73
+DO ,1 SUB #49 <- #77
+DO ,1 SUB #50 <- #65
+PLEASE ,1 SUB #51 <- #82
+DO ,1 SUB #52 <- #89
+DO ,1 SUB #53 <- #32
+DO ,1 SUB #54 <- #75
+PLEASE ,1 SUB #55 <- #69
+DO ,1 SUB #56 <- #89
+DO ,1 SUB #57 <- #44
+DO ,1 SUB #58 <- #32
+PLEASE ,1 SUB #59 <- #116
+DO ,1 SUB #60 <- #105
+DO ,1 SUB #61 <- #116
+DO ,1 SUB #62 <- #108
+PLEASE ,1 SUB #63 <- #101
+DO ,1 SUB #64 <- #32
+DO ,1 SUB #65 <- #84
+DO ,1 SUB #66 <- #69
+PLEASE ,1 SUB #67 <- #88
+DO ,1 SUB #68 <- #84
+DO ,1 SUB #69 <- #32
+DO ,1 SUB #70 <- #78
+PLEASE ,1 SUB #71 <- #79
+DO ,1 SUB #72 <- #84
+DO ,1 SUB #73 <- #32
+DO ,1 SUB #74 <- #78
+PLEASE ,1 SUB #75 <- #85
+DO ,1 SUB #76 <- #76
+DO ,1 SUB #77 <- #76
+DO ,1 SUB #78 <- #44
+PLEASE ,1 SUB #79 <- #32
+DO ,1 SUB #80 <- #98
+DO ,1 SUB #81 <- #111
+DO ,1 SUB #82 <- #100
+PLEASE ,1 SUB #83 <- #121
+DO ,1 SUB #84 <- #32
+DO ,1 SUB #85 <- #84
+DO ,1 SUB #86 <- #69
+PLEASE ,1 SUB #87 <- #88
+DO ,1 SUB #88 <- #84
+DO ,1 SUB #89 <- #32
+DO ,1 SUB #90 <- #78
+PLEASE ,1 SUB #91 <- #79
+DO ,1 SUB #92 <- #84
+DO ,1 SUB #93 <- #32
+DO ,1 SUB #94 <- #78
+PLEASE ,1 SUB #95 <- #85
+DO ,1 SUB #96 <- #76
+DO ,1 SUB #97 <- #76
+DO ,1 SUB #98 <- #41
+PLEASE :1 <- #0
+DO :2 <- #1
+DO (16200) NEXT
+DO RESUME #1

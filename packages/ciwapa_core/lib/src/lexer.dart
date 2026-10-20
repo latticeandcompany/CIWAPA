@@ -55,6 +55,9 @@ enum TokenKind {
   again,
   intersection,
   badChar,
+
+  /// A word or other token of a [LexerDialect], which [Token.tag] names.
+  dialect,
   end,
 }
 
@@ -107,6 +110,8 @@ class Token {
     this.unary,
     this.gerund,
     this.bits,
+    this.tag,
+    this.text,
   });
 
   final TokenKind kind;
@@ -134,16 +139,37 @@ class Token {
   /// null when it is above 2^64 - 1.
   final int? bits;
 
+  /// What a [TokenKind.dialect] token is: the word it matched, or the dialect's own name for it.
+  final String? tag;
+
+  /// The text a [TokenKind.dialect] token carries, such as a string literal's contents.
+  final String? text;
+
   @override
   String toString() => '$kind@$start';
+}
+
+/// Tokens a language built on CIWAPA's adds: [words] become [TokenKind.dialect] tokens tagged with
+/// the word (a space stands for optional whitespace, as in the built-in keywords), competing with
+/// the built-in tokens by longest match; and [scan], given the tokens so far, may claim the text at
+/// an offset before anything else does.
+class LexerDialect {
+  const LexerDialect({this.words = const [], this.scan});
+
+  final List<String> words;
+  final Token? Function(List<int> text, int offset, List<Token> before)? scan;
 }
 
 /// A longest-match tokenizer in the style of C-INTERCAL 0.15's flex scanner: any character that
 /// starts no token becomes a [TokenKind.badChar], which is how a statement identifier is found even
 /// in the middle of a word (§4.5, decision T8).
 class Lexer {
-  Lexer(this.source, {this.wide = false, this.extensions = false})
-    : _text = source.runes;
+  Lexer(
+    this.source, {
+    this.wide = false,
+    this.extensions = false,
+    this.dialect = const LexerDialect(),
+  }) : _text = source.runes;
 
   static const numberCap = 1 << 40;
 
@@ -157,11 +183,19 @@ class Lexer {
 
   /// Whether the keywords of `ick`'s extensions are tokens (R3): in EXTRACAL, in every base.
   final bool extensions;
+
+  /// The tokens of a language built on this one.
+  final LexerDialect dialect;
   final List<int> _text;
   late final _activePatterns = [
     ..._patterns,
     if (wide) ..._widePatterns,
     if (extensions) ..._extensionPatterns,
+    for (final word in dialect.words)
+      (
+        word,
+        (int start, int end) => Token(TokenKind.dialect, start, end, tag: word),
+      ),
   ];
 
   List<Token> tokenize() {
@@ -173,7 +207,8 @@ class Lexer {
         tokens.add(Token(TokenKind.end, i, i));
         return tokens;
       }
-      final token = _longest(i);
+      final claimed = dialect.scan?.call(_text, i, tokens);
+      final token = claimed == null ? _longest(i) : [claimed];
       tokens.addAll(token);
       i = token.last.end;
     }

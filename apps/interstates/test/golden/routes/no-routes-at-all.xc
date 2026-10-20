@@ -1,0 +1,15 @@
+PLEASE ,1 <- #11
+DO ,1 SUB #1 <- #117
+DO ,1 SUB #2 <- #110
+PLEASE ,1 SUB #3 <- #114
+DO ,1 SUB #4 <- #101
+DO ,1 SUB #5 <- #97
+DO ,1 SUB #6 <- #99
+PLEASE ,1 SUB #7 <- #104
+DO ,1 SUB #8 <- #97
+DO ,1 SUB #9 <- #98
+DO ,1 SUB #10 <- #108
+PLEASE ,1 SUB #11 <- #101
+DO .1 <- #1
+DO (2310) NEXT
+DO GIVE UP

@@ -65,3 +65,11 @@ jobs:
           name: conformance-${{ matrix.platform.name }}-${{ matrix.flavor }}
           path: .cache/conformance/results.json
           if-no-files-found: ignore
+
+      - name: Upload Interstates results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: interstates-${{ matrix.platform.name }}-${{ matrix.flavor }}
+          path: .cache/interstates/results.json
+          if-no-files-found: ignore

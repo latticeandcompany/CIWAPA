@@ -1,0 +1,9 @@
+PLEASE COME FROM (16000)
+DO :1 <- #4000
+DO ,1 <- #3
+DO ,1 SUB #1 <- #60
+PLEASE ,1 SUB #2 <- #120
+DO ,1 SUB #3 <- #62
+DO ;49221 SUB #1 <- ,1
+DO READ OUT #1 WITH TEMPLATE "t/no-markup.html"
+DO GIVE UP

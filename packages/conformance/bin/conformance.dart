@@ -2,7 +2,10 @@
 //
 //   dart run bin/conformance.dart --compiler <ciwapa-dart or ciwapa-llvm executable>
 //       [--results results.json] [--jobs n] [--extracal-only] [name filters...]
+//       [--tests <dir>] [--flag <compiler flag>]...
 //
+// --tests runs another suite in the same format (a compiler built on CIWAPA's has its own), and
+// each --flag is passed to every build.
 // Each test is tests/<group>/<name>.i (or .2i–.7i, .xc, .2xc–.7xc, or .bad for a bad extension)
 // with optional siblings:
 //   .in     stdin for the program
@@ -53,13 +56,19 @@ Future<void> main(List<String> arguments) async {
     ..addFlag(
       'extracal-only',
       help: 'Run only the EXTRACAL runs: the .xc tests and the superset runs.',
-    );
+    )
+    ..addOption('tests', help: 'The suite to run, instead of this package\'s.')
+    ..addMultiOption('flag', help: 'A compiler flag for every build.');
   final args = parser.parse(arguments);
   final compiler = File(args.option('compiler')!).absolute.path;
-  final root = Directory.fromUri(
-    (await Isolate.resolvePackageUri(Uri.parse('package:conformance/')))!
-        .resolve('../tests/'),
-  );
+  final tests = args.option('tests');
+  final root = tests != null
+      ? Directory('${Directory(tests).absolute.path}${Platform.pathSeparator}')
+      : Directory.fromUri(
+          (await Isolate.resolvePackageUri(Uri.parse('package:conformance/')))!
+              .resolve('../tests/'),
+        );
+  _flags = args.multiOption('flag');
   final filters = args.rest;
   final sources =
       root
@@ -75,20 +84,20 @@ Future<void> main(List<String> arguments) async {
           .where((p) => filters.isEmpty || filters.any(p.contains))
           .toList()
         ..sort();
-  final tests = [
+  final runs = [
     for (final path in sources) ...[
       if (!args.flag('extracal-only') || _extracal.hasMatch(path))
         (path: path, superset: false),
       if (_mode1.hasMatch(path)) (path: path, superset: true),
     ],
   ];
-  final supersetCount = tests.where((t) => t.superset).length;
+  final supersetCount = runs.where((t) => t.superset).length;
 
   final failed = <String>[];
   var next = 0;
   Future<void> worker() async {
-    while (next < tests.length) {
-      final (:path, :superset) = tests[next++];
+    while (next < runs.length) {
+      final (:path, :superset) = runs[next++];
       final name =
           '${superset ? 'superset:' : ''}${_relative(path, root.path)}';
       final failure = await _check(compiler, path, superset: superset);
@@ -107,21 +116,24 @@ Future<void> main(List<String> arguments) async {
     for (var i = 0; i < int.parse(args.option('jobs')!); i++) worker(),
   ]);
   failed.sort();
-  stdout.writeln('\n${tests.length - failed.length}/${tests.length} passed');
+  stdout.writeln('\n${runs.length - failed.length}/${runs.length} passed');
   final results = args.option('results');
   if (results != null) {
     File(results).writeAsStringSync(
       jsonEncode({
-        'total': tests.length,
+        'total': runs.length,
         'superset': supersetCount,
         'failed': failed,
       }),
     );
   }
-  exit(failed.isEmpty && tests.isNotEmpty ? 0 : 1);
+  exit(failed.isEmpty && runs.isNotEmpty ? 0 : 1);
 }
 
 const _defaultTimeout = Duration(minutes: 1);
+
+/// Compiler flags for every build (--flag).
+var _flags = const <String>[];
 
 final _mode1 = RegExp(r'\.[2-7]?i$');
 final _extracal = RegExp(r'\.[2-7]?xc$');
@@ -163,6 +175,7 @@ Future<String?> _check(
       [
         'build',
         '--no-random-bug',
+        ..._flags,
         ..._lines(File('$stem.flags')),
         path,
         '-o',
@@ -173,13 +186,10 @@ Future<String?> _check(
     );
     Server? server;
     if (build.exitCode == 0 && File('$stem.server').existsSync()) {
-      final started = await Server.start(
-        compiler,
-        File('$stem.server'),
-        temp,
-        _lines(File('$stem.flags')),
-        environment,
-      );
+      final started = await Server.start(compiler, File('$stem.server'), temp, [
+        ..._flags,
+        ..._lines(File('$stem.flags')),
+      ], environment);
       if (started is String) return started;
       server = started as Server;
       environment['CIWAPA_TEST_PORT'] = '${server.port}';

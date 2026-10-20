@@ -24,7 +24,7 @@ Nothing is built yet. An AI agent is building this in a loop, working from the p
 | 3. INTERCAL on Interstates (a web framework that should never have existed) | [`docs/INTERSTATES_PLAN.md`](docs/INTERSTATES_PLAN.md) |
 | 4. Playground | Planned later |
 
-Using EXTRACAL, the extended language: [`docs/EXTRACAL.md`](docs/EXTRACAL.md).
+Using EXTRACAL, the extended language: [`docs/EXTRACAL.md`](docs/EXTRACAL.md). Building websites in it, for some reason: [`docs/INTERSTATES.md`](docs/INTERSTATES.md).
 
 The spec and every interpretation of it: [`spec/README.md`](spec/README.md), [`docs/SPEC_CHECKLIST.md`](docs/SPEC_CHECKLIST.md), [`docs/SPEC_DECISIONS.md`](docs/SPEC_DECISIONS.md).
 

@@ -202,3 +202,252 @@ Numbers are `L1`, `L2`, … so they never collide with the planning session's `Q
 - **Lean:** (a) for both. It keeps to the plan's written approach.
 - **Blocks:** no checklist items. The Network block is built on (a) until this is answered.
 - **Raised:** 2026-10-18
+
+## L35: Which source files do the ioi-* CLIs take?
+
+- **Context:** R1 says "Without `-s`, the `ioi-*` CLIs compile plain EXTRACAL" and Q112 says "Source files are `.xc`". Neither says what happens to a Mode 1 `.i` file, or to `.3xc`–`.7xc` with `-s`, which is built on binary-only pieces: the library blocks (L9, L17) and the 32-bit string machinery. It also isn't said whether `-s --traditional` is allowed, given that `--traditional` turns off every C-INTERCAL extension (E111).
+- **Options:**
+  - (a) Without `-s`, any EXTRACAL extension (`.xc`, `.2xc`–`.7xc`), and anything else (including `.i`) is E998. With `-s`, binary EXTRACAL only (`.xc`, `.2xc`), and anything else is E998. `-s --traditional` is E111.
+  - (b) Without `-s`, everything CIWAPA takes, Mode 1 included. With `-s`, as in (a).
+  - (c) Let `-s` work in bases 3–7 as well, with the Interstates extensions but no library.
+- **Lean:** (a). The CLIs then do what R1 says, and nothing more. E998's text names `.I`, because it is CIWAPA's message; a code of Interstates' own could replace it if Ryan prefers. The CLIs do (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/cli_test.dart` pins (a).
+- **Raised:** 2026-10-18
+
+## L36: How do Interstates statements reach the emitters without CIWAPA learning about them?
+
+- **Context:** The plan's Technical Approach has `apps/interstates` emit "the same IR plus a small set of Interstates IR nodes, lowered by both emitters". R1 says CIWAPA's own packages never learn about Interstates, and Affected Areas allows only generic hooks in them. CIWAPA's AST and IR node types are sealed, so another package can't add nodes that the emitters would have to understand.
+- **Options:**
+  - (a) Add generic hooks, and no Interstates nodes at all. A `HostCall` statement lowers to a PETITION carrying computed values. The runtimes hand unknown services, a start point and output hooks to a "host" that the embedding backend supplies, in Dart and in C. Interstates' statements become host calls, its routes become entry points, and its runtime is the host.
+  - (b) A generic emitter-plugin hook, through which `apps/interstates` emits Dart and LLVM IR for its own nodes. It would have to know each emitter's internals.
+- **Lean:** (a). The emitters stay unaware of anything outside CIWAPA, and each Interstates feature is one place in each host runtime. The code does (a) until this is answered.
+- **Blocks:** no checklist items.
+- **Raised:** 2026-10-18
+
+## L37: What exactly is the syntax of the string and database statements?
+
+- **Context:** R5 and R7 give a statement's shape, not its grammar. These are the readings the parser takes:
+  - **String literals** (R5): `"…"` runs to the next `"` on the same line, with no escapes. An unterminated one leaves the statement undecodable.
+  - **Moving strings** (R5):
+    - These are the only allowed forms:
+      - `,a <- ;4400 SUB e` and `,a <- ;49221 SUB e`
+      - `;49221 SUB e <- ,a`
+      - `;49221 SUB e <- ;4400 SUB f` and `;49221 SUB e <- ;49221 SUB f`
+    - `;4400` can't be written to.
+    - Any other use of either array raises E822 when the statement runs, Q80 style. That includes a string in a number's place, STASH, READ OUT, and a hybrid target.
+  - **Table and column numbers** (R7) are `#n` constants, because `~` and `$` there are list separators rather than operators.
+  - **`HAVING`** pairs are `#column value`, joined with `+`. A value is either a string (a whole tail array, or a `;4400`/`;49221` element) or a number (any other expression).
+  - **A read** can only be the whole of `;49221 <- '…'`. With more than one matching row, `'FROM DATABASE …' SUB r` picks row r. Without `SUB` it is row 1. The SUB goes before `HAVING`, because after a HAVING value it would read as that value's subscript, as in example D's position.
+  - **`INTO DATABASE #t~#c$… <- item + item`** takes one item per column, or E827 at compile time. A trailing `HAVING` makes it an update.
+  - **`FORGET DATABASE #t`** takes an optional `HAVING`. Without one, it deletes every row of the table. It names no columns, so `#t~#c` there is undecodable. `INTO DATABASE #t` with no columns is E827, like any other count that doesn't match.
+  - **Gerunds** (T21):
+    - FORGET DATABASE counts as FORGETTING.
+    - INTO DATABASE, a read and a string copy count as CALCULATING, being assignments.
+    - `READ OUT … WITH TEMPLATE` counts as READING OUT.
+    - AMNESIA has none, like GIVE UP.
+    - A statement made E822 keeps the gerund of the statement it was, so abstaining that kind of statement skips it, as with Q80's faults.
+  - **Routes:**
+    - A route is a statement that does nothing when it runs, so DON'T, `%`, ONCE, AGAIN and ABSTAIN on one change nothing about the route. The entry point is reached whatever they say.
+    - A NEXT FROM (16000) is an ordinary NEXT FROM, so E444, since no program has the label.
+    - A program may label a statement (16000), but no COME FROM can trap it, because any COME FROM (16000) is a route.
+  - **WHILE** (R3): a WHILE's body can be any statement body, Interstates' included, except the two that need a suffix (`WITH ROUTE`, `WITH TEMPLATE`). Those leave the statement undecodable there.
+- **Options:** (a) as above; (b) other spellings, which would change the parser and its tests.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/syntax_test.dart` pins (a).
+- **Raised:** 2026-10-18
+
+## L38: What exactly do the request and response routines do?
+
+- **Context:** R4 lists what the `(16001)`+ block covers (the method, query string, headers, cookies, status, headers, cookies and redirects) and Q115 adds that `WRITE IN` reads the body. Neither gives the routines, their variables or the CGI details. These are the readings `apps/interstates/README.md` documents:
+  - **The routines:**
+    - (16001) method
+    - (16010) raw query string
+    - (16020) a header by name
+    - (16030) a cookie by name
+    - (16040) a query parameter
+    - (16050) a form field
+    - (16060) the raw body
+    - (16100) the status
+    - (16110) a header
+    - (16120) a cookie
+    - (16130) a redirect
+    
+    Each is one PETITION of its own number, as in the System block, so each gets its native fast path. Lookups set `.1` to #1 or #2 (Q139).
+  - **The response:**
+    - The response is `Status: n reason`, then `Content-Type: text/html; charset=utf-8` unless the program set one, then the program's headers in order, then an empty line. Lines end in LF, which CGI allows.
+    - These come just before the body's first byte, or at GIVE UP (or the exit service) if there is no body. After that, changing them is E823.
+    - A line break in a header is E828.
+  - **The details:**
+    - A redirect is 303 See Other with `Location`. A cookie is `Set-Cookie: name=value; Path=/`.
+    - A header name is ASCII letters, digits, `-` and `_`, matched without regard to case.
+    - Query parameters and form fields are `application/x-www-form-urlencoded`. `+` is a space and `%XX` a byte, the bytes are UTF-8, and a malformed sequence becomes U+FFFD as in the Strings block. The first match wins.
+    - A form field comes only from a body whose `Content-Type` is that type.
+    - The body is read once: `CONTENT_LENGTH` bytes (up to 18 digits), or to the end of stdin. A routine that reads it and `WRITE IN`, which reads stdin directly, share stdin, so a program uses one or the other.
+  - **The string arrays:**
+    - `;4400 SUB n` past the route's parameters is E241.
+    - `;49221 SUB n` never stored is the empty string, and n runs from 1 to 4294967295; anything else is E241.
+  - **What a program may set:**
+    - Any status from #0 to #65535, with `Unknown` as the reason phrase for a code the host doesn't know.
+    - A header name must be an HTTP token (RFC 9110), and a value or location may hold no control characters but tabs.
+    - A cookie's name must be a token, and its value RFC 6265's cookie-octets, so a `;` can't add attributes.
+    - Anything else is E828, rather than being encoded or dropped silently.
+  - **Reading the request:**
+    - A header name longer than 256 characters finds nothing.
+    - An environment variable that isn't UTF-8 counts as missing, as Dart's environment leaves it out.
+    - Cookie names are matched exactly. Spaces and tabs around names and values are trimmed, the first match wins, and quotes stay.
+    - The form `Content-Type` is matched as a prefix, without regard to ASCII case.
+    - A form body is decoded byte by byte, so raw UTF-8 in it reads as UTF-8.
+- **Options:** (a) as above; (b) other routines, numbers or formats.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/cgi` pins (a).
+- **Raised:** 2026-10-18
+
+## L39: How does gross speak HTTP, and what does it make of a run?
+
+- **Context:** R2, Q120, Q143 and Q144 fix gross's flags and its CGI model. The plan says it "uses the HTTP/1.1 and socket layer from EXTRACAL's runtime (Q89)", but the Network block's HTTP is INTERCAL (`network.xc`) with only its four socket services native, so a Dart program can't call it. These are the readings gross takes:
+  - **HTTP:**
+    - gross uses the same `dart:io` sockets as `runtime.dart`, and the Network block's HTTP/1.1: one request per connection, empty lines before it skipped, a `Content-Length` body, and `Connection: close` with a `Content-Length` on every response.
+    - The head is read as UTF-8 (malformed bytes become U+FFFD).
+    - **Refused requests:**
+      - A request that is not `METHOD /origin-form HTTP/1.0|1.1` gets a plain 400, as does a bad `Content-Length` or one that stops short.
+      - A head over 64 KiB gets 431, a body over 16 MiB gets 413, and a `Transfer-Encoding` body gets 411.
+      - A request that hasn't fully arrived within `--timeout` gets 408.
+      - After any of these, gross stops writing and drains for a second, so the answer isn't lost to a reset.
+    - `Expect: 100-continue` gets its interim answer, and HEAD runs the program and drops the body.
+  - **CGI:**
+    - The program runs with gross's environment, minus anything named like a CGI variable or `HTTP_…` (so an inherited `HTTP_PROXY` never reaches it), plus:
+      - `GATEWAY_INTERFACE`, `SERVER_SOFTWARE`, `SERVER_PROTOCOL`, `SERVER_NAME`, `SERVER_PORT`
+      - `REQUEST_METHOD`, `REQUEST_URI` (as sent), `SCRIPT_NAME` (empty), `PATH_INFO` (decoded), `QUERY_STRING`
+      - `REMOTE_ADDR`, `REMOTE_HOST` (the address, which RFC 3875 allows), `REMOTE_PORT`
+      - `CONTENT_TYPE`, `CONTENT_LENGTH`
+      - `HTTP_…` for every other header whose name maps onto `[A-Z0-9_]`. Others are dropped, and repeats are joined with `, `, or `; ` for cookies.
+      - `DATABASE_URL` when `--database` is given. Otherwise the inherited one stays.
+    - The body goes to stdin. The run's working folder is gross's.
+    - The program's path is resolved once, and the CLI refuses a program that isn't there.
+  - **The answer:**
+    - gross keeps all of stdout and stderr, up to 64 MiB together, until the run ends.
+    - If stderr ends in an ICL error, the page for it replaces whatever stdout had: E403 is 403, E440 404, any other code 500. The error must be the error's four lines, at the start of a line, at the very end of stderr, with an exit status that agrees with its code (T34).
+    - Otherwise stdout must be a CGI response (E829 if not): `Status:` and its reason phrase, or 302 for a bare `Location`, else 200.
+    - Headers about the connection (`Connection`, `Content-Length`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`, `Proxy-Connection`) are gross's own, and a program's are dropped.
+    - **Failures:**
+      - A run past `--timeout` gets E504's page with 504.
+      - A run killed by a signal, or one whose output passes 64 MiB, gets E829's.
+      - Other exit statuses don't matter, because (8030) can set them.
+  - **Pages:** the error's four lines, exactly as the program printed them, in a `<pre>` (escaped). E504 and E829, which no program raises, are reported at statement 1: gross doesn't know where the run had got to. This is a ruling of its own, not T33's.
+  - **`--static`:**
+    - A GET or HEAD whose path names a regular file inside the folder gets that file, with a type by extension.
+    - Anything else goes to the program instead: a folder, a missing or unreadable file, `.` or `..`, a segment with `/`, `\`, `:` or NUL, or a Windows device name such as `CON` or `NUL.css`.
+    - There is no index file, and files come before the program.
+  - **Logs:**
+    - one line per request on stderr (`peer "request line" status time`)
+    - each line the program writes to stderr, prefixed with its name
+    - control characters escaped
+    - any failure of gross's own
+  - **Shutdown:** closing gross kills the runs still going. There is no limit on concurrent runs.
+- **Options:** (a) as above; (b) gross on `dart:io`'s `HttpServer`, with keep-alive and chunked bodies; (c) other details.
+- **Lean:** (a). gross does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/gross_test.dart` pins (a).
+- **Raised:** 2026-10-18
+
+
+## L40: How are routes written, matched and checked?
+
+- **Context:** R3, Q113 and Q114 give the meaning of routes, not every detail. These are the readings the compiler and the hosts take:
+  - **The entry:**
+    - Under `-s`, `(16000)` is a program's only entry, so a program with no routes answers every request with E440 (404), as does a request no route matches when there is no catch-all.
+    - A bare `COME FROM (L)` for any other L keeps its ordinary meaning.
+  - **Patterns** start with `/`, hold no `?`, `#` or `%`, and each `:name` segment names its parameter (E442). Fixed segments are literal text, compared with the request's segments after those are percent-decoded, so a percent-encoded pattern could never match.
+  - **Segments:**
+    - The raw path (REQUEST_URI, or PATH_INFO without it) is split on `/`, keeping empty segments. So `/blog/` has an empty second segment, matches `/blog/:id` with an empty parameter, and doesn't match `/blog`.
+    - Each segment is then percent-decoded as UTF-8, with malformed bytes becoming U+FFFD, so `%2F` stays inside its parameter.
+    - An absolute-form REQUEST_URI loses its `scheme://authority` (which ends at the first `/`, `?` or `#`). One with no path after it matches no route. The query and fragment are ignored.
+  - **Specificity:**
+    - Routes are compared segment by segment from the left, and at the first difference a fixed segment beats a parameter.
+    - Routes of different lengths, or with different fixed text at the same place, never match the same path.
+    - Two routes tie (E441) only when they have the same shape, as do two catch-alls. That holds even when one is restricted and the other public, or they are restricted to different pages; the Referer doesn't choose between them. The catch-all comes last.
+  - **The link check:**
+    - L must be a `READ OUT … WITH TEMPLATE` (E443), and its template must hold a link that matches the route.
+    - A link is the value of an `href`, `action`, `src` or `formaction` attribute of a tag, outside HTML comments, starting with a single `/`, up to a `?` or `#` outside a grumpy. `data-href=` and the like don't count, and neither does text that only looks like an attribute.
+    - In each fixed segment, character references (`&amp;` and the like) and then percent-encoding are decoded before it is compared.
+    - The link matches when it has as many segments as the route, each fixed one equal to the route's or in a parameter's place, and each segment holding a `{{ }}` in a parameter's place.
+    - A missing label is E444. An unreadable template is E777. A template's path is relative to the source file's folder.
+  - **The `Referer` check:**
+    - The `Referer` must be an absolute URL whose authority equals the `Host` header (ignoring ASCII case). Its path must match a route, catch-all included, whose entry can reach line L.
+    - A request with no `Host` header, or behind a proxy that rewrites it, can't pass. gross itself passes `Host` through as the browser sent it.
+    - A restricted route whose page no route can reach still compiles, and always answers 403.
+    - Reachability is a conservative pass over every way control can go: running on, NEXTs, COME FROM traps (threads included), TRY AGAIN, and for a RESUME the return points of the NEXTs and NEXT FROMs the route's own run can have made, since only those can be on its NEXT stack. So a routine that every route NEXTs to doesn't let one route reach another's pages. A program with computed or gerund COME FROMs or CREATE lets every route reach everything.
+    - A failed check is E403, reported at the route's own statement. E440 is reported at statement 1.
+- **Options:** (a) as above; (b) other specificity rules, such as counting fixed segments, which would make more pairs ties; (c) trailing slashes ignored.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/routes` pins (a).
+- **Raised:** 2026-10-18
+
+## L41: How are templates written and rendered?
+
+- **Context:** R6 and Q117 give the shape of templates. These are the readings the compiler and the hosts take:
+  - **Files:** a template's path is relative to the source file's folder. Templates are read as UTF-8, with malformed bytes becoming U+FFFD, and compiled into the program. An unreadable one is E777.
+  - **Grumpies:** `{{ … }}` and `{{{ … }}}` hold one of these:
+    - `,m`, the template argument `;49221 SUB (145-m)`, a whole string
+    - `;4400 SUB e` or `;49221 SUB e` at the top, a string
+    - any other INTERCAL expression over the program's variables, a number
+    
+    Tail arrays mean only arguments there, so `,m SUB e` is E820. So is a string inside a number, a slat, or a created operator.
+  - **The argument count:** it is the highest k named as `,(145-k)`, so a template that names only `,142` takes three. It must equal `#n` (E821). An argument the program never stored prints as the empty string.
+  - **Strings** are HTML-escaped (`&`, `<`, `>`, `"`, `'`) between `{{ }}`, and printed as they are between `{{{ }}}`.
+  - **Numbers:**
+    - A number prints as READ OUT's numeral, the same between `{{{ }}}`.
+    - READ OUT's two overline rows stay apart. A letter under its bar row (×1000) gets `<span style="text-decoration: overline">`. A letter under its top row (×10^12, only in 64-bit values) gets `<span style="border-top: 1px solid">` around that, a line above the overline. So 5000, 5×10^12 and 5×10^15 all look different.
+    - Zero is an overlined no-break space.
+    - Inside an attribute's value, or the text of a `<title>` or `<textarea>`, where markup can't go, the two rows are combining characters: U+0305 for the bar row and U+033F for the top one.
+    - In wimp mode, numbers print as plain decimal, as READ OUT does.
+  - **Where a grumpy may sit:**
+    - in text, comments included
+    - in a quoted attribute value
+    - in the text of a `<title>` or `<textarea>`
+
+    The compiler follows the HTML to tell these apart. Anywhere else is E820: a tag's name, between a tag's attributes, an unquoted attribute value (where escaping can't stop a space from starting a new attribute), or inside `<script>` or `<style>` (where HTML escaping is the wrong escaping).
+  - **Arguments** are `,1` to `,144`. Anything else, `,0` included, is E820.
+  - **Reading:** the link check reads a template the same way as the compiler, as UTF-8 with malformed bytes becoming U+FFFD. A byte-order mark is dropped.
+  - **Rendering:** a template's output is written all at once, so an error while rendering it, such as E241 for a parameter the route doesn't have, writes none of it.
+- **Options:** (a) as above; (b) other context rules, or numerals without overlines in attributes; (c) program tail arrays reachable from templates.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/templates` pins (a).
+- **Raised:** 2026-10-18
+
+## L42: How does ActiveCassette number, read, write and connect?
+
+- **Context:** R7, Q119, Q145 and Q146 fix the shape of ActiveCassette. These are the readings the hosts take:
+  - **Numbers:**
+    - Tables and columns count from #1, in the database's own order: SQLite's is the order tables were made, then each table's columns in order, generated ones included, as `SELECT *` has them. SQLite's internal tables don't count.
+    - #0, or a number past the end, is E824.
+  - **Reads:**
+    - `;49221 <- 'FROM DATABASE #t~#c$…'` runs `SELECT "c", … FROM "t" WHERE … ` with the database's own row order, and no `ORDER BY`.
+    - It empties `;49221`, then stores row 1's columns (or row r's, with `SUB r`) in `;49221 SUB #1` on. With no such row it stays empty.
+    - Without `~` columns, a read takes them all (`SELECT *`).
+    - An integer column becomes its decimal digits, text its characters, and NULL the empty string.
+  - **Writes:**
+    - INTO DATABASE inserts; with HAVING it updates every matching row.
+    - FORGET DATABASE deletes the matching rows, or every row without HAVING.
+    - AMNESIA drops every table, as the adapter lists them.
+  - **Parameters:**
+    - Every value is a `?` parameter: a number up to 2^63 − 1 as an integer, a larger one as its digits, and a string as UTF-8 text.
+    - Identifiers come from the schema, in double quotes. SQL text never holds a value.
+  - **The two routines:**
+    - **(16200)** runs raw SQL. `,1` is one statement (a second after a `;` is E826), `:1` how many parameters to take from `;49221 SUB #1` on, as text, and `:2` which row's columns to put in `;49221`. Afterwards `:1` is how many rows it returned, or how many it changed.
+    - **(16210)** puts in `:1` what the last read matched, or what the last write, AMNESIA or raw statement changed (AMNESIA counts its tables). A statement that changes no rows, such as `CREATE TABLE`, changed 0.
+    - Raw SQL may change the schema, so the hosts read it again afterwards.
+  - **Connecting:**
+    - The connection is made when the program first uses the database: `DATABASE_URL`, or `sqlite:./app.db` without one, a file the run makes if it isn't there.
+    - `sqlite:path` uses the built-in adapter. `sqlite://…` is E825 rather than a guess at what the slashes mean, and so is a file that isn't a database.
+    - Any other scheme uses the shared library that the environment variable `IOI_ADAPTER_` + the scheme in capitals names, through `ioi_adapter.h`'s ABI (version 1). A scheme is at most 64 bytes. Everything the hosts pass an adapter is borrowed for the call only.
+    - Failures are E825, a refused statement E826, and the reason goes to stderr after `ActiveCassette: `.
+  - **Where SQLite comes from:**
+    - ioi-llvm links ActiveCassette's object for its target, or builds it from the amalgamation. ioi-dart programs load ActiveCassette's shared library through `dart:ffi`, from the absolute path the compiler found.
+    - Both come from the folder `IOI_LIB` names, or a release archive's `lib/`, and `tool/activecassette.sh` makes them from SQLite 3.54.1, checked by SHA-256.
+    - Only programs that use a database need them: (16200) and (16210) are a library block of their own, (16200)–(16999), apart from the request and response's (16001)–(16199). Either compiler refuses to build a program that uses a database without them (E778).
+  - **A limit on Linux:** ioi-llvm's release archives link programs statically against musl, whose `dlopen` can't load a library. A Linux program built from one can use SQLite but no user adapter; built with a system clang, it can.
+- **Options:** (a) as above; (b) other row orders, NULL spellings or routine shapes; (c) for static Linux programs, a build flag that links a user adapter in.
+- **Lean:** (a). The code does (a) until this is answered.
+- **Blocks:** no checklist items; `apps/interstates/test/golden/activecassette` and `apps/interstates/test/adapter_test.dart` pin (a).
+- **Raised:** 2026-10-19
+

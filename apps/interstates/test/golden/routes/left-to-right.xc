@@ -1,0 +1,32 @@
+PLEASE COME FROM (16000) WITH ROUTE "/:y/b"
+DO ,1 <- #11
+DO ,1 SUB #1 <- #112
+DO ,1 SUB #2 <- #97
+PLEASE ,1 SUB #3 <- #114
+DO ,1 SUB #4 <- #97
+DO ,1 SUB #5 <- #109
+DO ,1 SUB #6 <- #32
+PLEASE ,1 SUB #7 <- #102
+DO ,1 SUB #8 <- #105
+DO ,1 SUB #9 <- #114
+DO ,1 SUB #10 <- #115
+PLEASE ,1 SUB #11 <- #116
+DO .1 <- #1
+DO (2310) NEXT
+DO GIVE UP
+PLEASE COME FROM (16000) WITH ROUTE "/a/:x"
+DO ,1 <- #11
+DO ,1 SUB #1 <- #102
+DO ,1 SUB #2 <- #105
+PLEASE ,1 SUB #3 <- #120
+DO ,1 SUB #4 <- #101
+DO ,1 SUB #5 <- #100
+DO ,1 SUB #6 <- #32
+PLEASE ,1 SUB #7 <- #102
+DO ,1 SUB #8 <- #105
+DO ,1 SUB #9 <- #114
+DO ,1 SUB #10 <- #115
+PLEASE ,1 SUB #11 <- #116
+DO .1 <- #1
+DO (2310) NEXT
+DO GIVE UP

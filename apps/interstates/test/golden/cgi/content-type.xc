@@ -1,0 +1,50 @@
+PLEASE COME FROM (16000)
+DO ,1 <- #12
+DO ,1 SUB #1 <- #67
+DO ,1 SUB #2 <- #111
+PLEASE ,1 SUB #3 <- #110
+DO ,1 SUB #4 <- #116
+DO ,1 SUB #5 <- #101
+DO ,1 SUB #6 <- #110
+PLEASE ,1 SUB #7 <- #116
+DO ,1 SUB #8 <- #45
+DO ,1 SUB #9 <- #84
+DO ,1 SUB #10 <- #121
+PLEASE ,1 SUB #11 <- #112
+DO ,1 SUB #12 <- #101
+DO ,2 <- #25
+DO ,2 SUB #1 <- #116
+PLEASE ,2 SUB #2 <- #101
+DO ,2 SUB #3 <- #120
+DO ,2 SUB #4 <- #116
+DO ,2 SUB #5 <- #47
+PLEASE ,2 SUB #6 <- #112
+DO ,2 SUB #7 <- #108
+DO ,2 SUB #8 <- #97
+DO ,2 SUB #9 <- #105
+DO ,2 SUB #10 <- #110
+PLEASE ,2 SUB #11 <- #59
+DO ,2 SUB #12 <- #32
+DO ,2 SUB #13 <- #99
+DO ,2 SUB #14 <- #104
+PLEASE ,2 SUB #15 <- #97
+DO ,2 SUB #16 <- #114
+DO ,2 SUB #17 <- #115
+DO ,2 SUB #18 <- #101
+PLEASE ,2 SUB #19 <- #116
+DO ,2 SUB #20 <- #61
+DO ,2 SUB #21 <- #117
+DO ,2 SUB #22 <- #116
+PLEASE ,2 SUB #23 <- #102
+DO ,2 SUB #24 <- #45
+DO ,2 SUB #25 <- #56
+DO (16110) NEXT
+PLEASE ,1 <- #5
+DO ,1 SUB #1 <- #112
+DO ,1 SUB #2 <- #108
+DO ,1 SUB #3 <- #97
+PLEASE ,1 SUB #4 <- #105
+DO ,1 SUB #5 <- #110
+DO .1 <- #1
+DO (2310) NEXT
+DO GIVE UP

@@ -1413,3 +1413,139 @@ New error conditions in EXTRACAL get codes of their own that neither C-INTERCAL 
 - **Source:** R3 item 8, with `ick` 0.35 semantics. `ick`'s own code for `ick`'s own condition, so it keeps the number; the text is CIWAPA's. Assigning to an overloaded variable works backwards through its expression, and fails with E277 at a constant, at a unary operator whose result can't be produced (found the way `ick` does, by building one candidate and checking it), and in bases 3–7 at any mingle, select or unary operator (L23).
 - **Tests:** `packages/conformance/tests/extracal/overloading/e277.xc`, `packages/conformance/tests/extracal/overloading/e277-unary.xc`
 - **Date:** 2026-10-18
+
+## INTERCAL on Interstates error codes
+
+Conditions that only Interstates programs can meet get codes of their own, which neither C-INTERCAL nor CIWAPA uses. They live in `apps/interstates/lib/src/errors.dart`, so CIWAPA itself never knows them (R1). Each has official text written for Interstates and a joke line. Conditions that are the same as CIWAPA's keep CIWAPA's code.
+
+### E403: a restricted route requested from a page that doesn't link to it
+- **Text:** `THIS ROUTE CAN ONLY BE REACHED FROM A PAGE THAT LINKS TO IT.`
+- **Joke:** `NO TELEPORTING ON THE INTERSTATES. TAKE THE EXIT RAMP LIKE EVERYONE ELSE.`
+- **Source:** R3 and Q113's run-time check. A `COME FROM (L) WITH ROUTE` is reachable only when the request's `Referer` is a page of the same host whose route can reach line L. Otherwise the host raises E403 before the program starts, at the route's own statement, and `gross` answers 403 with its page (L39, L40).
+- **Tests:** `apps/interstates/test/golden/routes/restricted-no-referer.xc`, `apps/interstates/test/golden/routes/restricted-wrong-referer.xc`
+- **Date:** 2026-10-18
+
+### E440: no route for the request
+- **Text:** `NO ROUTE MATCHES THE REQUESTED PATH.`
+- **Joke:** `THIS ROAD IS NOT ON THE MAP. RECALCULATING. RECALCULATING.`
+- **Source:** R3 and Q114. A request that no route matches, in a program with no bare `COME FROM (16000)`, gets E440 before the program starts, at statement 1 (T33), and `gross` answers 404 with its page. A program with no routes at all answers every request so, since `(16000)` is its only entry (L40). E404, the number one would expect, is `ick`'s "no choicepoint" already.
+- **Tests:** `apps/interstates/test/golden/routes/no-route.xc`, `apps/interstates/test/golden/routes/no-routes-at-all.xc`
+- **Date:** 2026-10-18
+
+### E441: two routes equally specific
+- **Text:** `TWO ROUTES ARE EQUALLY SPECIFIC.`
+- **Joke:** `THE ROAD FORKS, AND BOTH SIGNS SAY THE SAME THING.`
+- **Source:** R3 and Q114: "A genuine tie fails at compile time." Two routes tie when their patterns have the same shape, fixed text for fixed text and a parameter for a parameter, whatever their parameters are called, or when there are two catch-alls (L40). Reported at the later of the two.
+- **Tests:** `apps/interstates/test/golden/routes/e441-tie.xc`, `apps/interstates/test/golden/routes/e441-two-catch-alls.xc`
+- **Date:** 2026-10-18
+
+### E442: a route pattern that isn't a path
+- **Text:** `A ROUTE IS NOT A PATH.`
+- **Joke:** `A ROUTE STARTS WITH A SLASH AND NAMES ITS PARAMETERS. THIS ONE DOES NEITHER.`
+- **Source:** R3. A pattern must start with `/`, may not hold `?` or `#`, and each `:` segment must name its parameter. Otherwise the build fails at the route (L40).
+- **Tests:** `apps/interstates/test/golden/routes/e442-no-slash.xc`, `apps/interstates/test/golden/routes/e442-unnamed.xc`
+- **Date:** 2026-10-18
+
+### E443: a restricted route that its page doesn't link
+- **Text:** `A RESTRICTED ROUTE IS NOT LINKED FROM ITS PAGE.`
+- **Joke:** `AN ON-RAMP WITH NO ROAD LEADING TO IT IS JUST A RAMP.`
+- **Source:** R3 and Q113's compile-time check, the site's "static link checking". For `COME FROM (L) WITH ROUTE "/x"`, L must be a `READ OUT … WITH TEMPLATE`, and its template must link a path matching `/x` (L40). A missing label is E444, and a template that can't be read is E777, as for a source file that can't be.
+- **Tests:** `apps/interstates/test/golden/routes/e443-not-a-template.xc`, `apps/interstates/test/golden/routes/e443-unlinked.xc`
+- **Date:** 2026-10-18
+
+### E504: a request that runs past gross's timeout
+- **Text:** `THE PROGRAM DID NOT GIVE UP IN TIME.`
+- **Joke:** `GROSS WAITED, AND WAITED. GROSS IS NOT A PATIENT SERVER.`
+- **Source:** Q144. `gross` kills a run that takes longer than `--timeout` (30 seconds by default) and answers 504 Gateway Timeout with this error's page. No program raises it, and gross doesn't know where the run had got to, so it is reported at statement 1 (a ruling of L39's).
+- **Tests:** `apps/interstates/test/gross_test.dart`
+- **Date:** 2026-10-18
+
+### E820: a template that doesn't parse
+- **Text:** `A TEMPLATE CONTAINS A SYNTAX ERROR.`
+- **Joke:** `TWO CURLY BRACES WALK INTO A TEMPLATE. ONE OF THEM NEVER LEAVES.`
+- **Source:** R6, Q117 and L41. Templates are compiled with the program, so a template the compiler can't read is a compile-time error at the `READ OUT … WITH TEMPLATE`. That covers:
+  - a `{{` with no `}}`
+  - an empty grumpy
+  - an expression that isn't one
+  - an argument past `,144`
+  - `,m SUB …` (an argument is a whole string)
+  - a string used as a number
+  - a slat or a created operator
+  - an argument outside `,1`–`,144`
+  - a grumpy where no value belongs: a tag's name, between attributes, an unquoted attribute value, or inside `<script>` or `<style>` (L41)
+
+  An operator binary lacks is E997, as anywhere else, and a missing template E777.
+- **Tests:** `apps/interstates/test/golden/templates/e820-unclosed.xc`, `apps/interstates/test/golden/templates/e820-bad-expression.xc`, `apps/interstates/test/golden/templates/e820-tail-element.xc`, `apps/interstates/test/golden/templates/e820-string-in-number.xc`, `apps/interstates/test/golden/templates/e820-empty.xc`, `apps/interstates/test/golden/templates/e820-past-145.xc`, `apps/interstates/test/golden/templates/e820-unquoted.xc`, `apps/interstates/test/golden/templates/e820-tag-name.xc`, `apps/interstates/test/golden/templates/e820-between-attributes.xc`, `apps/interstates/test/golden/templates/e820-script.xc`, `apps/interstates/test/golden/templates/e820-style.xc`, `apps/interstates/test/golden/templates/e820-slat.xc`, `apps/interstates/test/golden/templates/e820-created-operator.xc`, `apps/interstates/test/golden/templates/e820-argument-zero.xc`, `apps/interstates/test/golden/templates/e820-argument-huge.xc`
+- **Date:** 2026-10-18
+
+### E821: a template given the wrong number of arguments
+- **Text:** `A TEMPLATE WAS GIVEN THE WRONG NUMBER OF ARGUMENTS.`
+- **Joke:** `THE TEMPLATE SET A TABLE FOR THIS MANY GUESTS. THIS MANY CAME.`
+- **Source:** R6 and Q117: "`#n` must equal the number of template arguments, and a mismatch is an error." The number a template takes is the highest k it names as `,(145-k)` (L41), and a mismatch fails the build at the statement.
+- **Tests:** `apps/interstates/test/golden/templates/e821-too-many.xc`, `apps/interstates/test/golden/templates/e821-none-given.xc`
+- **Date:** 2026-10-18
+
+### E822: a string where a number belongs, or the other way round
+- **Text:** `STRINGS AND NUMBERS DO NOT MIX.`
+- **Joke:** `A STRING WALKED INTO AN EXPRESSION. THE EXPRESSION DID NOT LAUGH.`
+- **Source:** R5 and L37. `;4400` and `;49221` hold whole strings, which only the forms in R5 and ActiveCassette's statements move. Any other use is E822: a string in a number's place, a number stored into `;49221`, a write to `;4400`, STASH, READ OUT, or a hybrid target. It fires when the statement executes (Q80), and abstaining the statement's kind skips it.
+- **Tests:** `apps/interstates/test/syntax_test.dart` (which statements become it), `apps/interstates/test/golden/cgi/e822-when-it-runs.xc`
+- **Date:** 2026-10-18
+
+### E823: changing the response after its body has started
+- **Text:** `THE RESPONSE HEADERS HAVE ALREADY BEEN SENT.`
+- **Joke:** `THE TRUCK HAS LEFT THE DEPOT. YOUR PARCEL IS NOT ON IT.`
+- **Source:** R2 and R4. The program's stdout is a CGI response, whose status and headers come before the body. They are written just before the body's first byte (or at GIVE UP if there is none), so setting the status, a header, a cookie or a redirect after that is E823 when the routine runs.
+- **Tests:** `apps/interstates/test/golden/cgi/e823-headers-sent.xc`
+- **Date:** 2026-10-18
+
+### E824: a table or column past the end of the schema
+- **Text:** `ACTIVECASSETTE HAS NO SUCH TABLE OR COLUMN.`
+- **Joke:** `THE TAPE RAN OUT BEFORE THE TRACK YOU ASKED FOR.`
+- **Source:** R7, Q119 and L42. Tables and columns are numbered from #1, in the database's own order. A number past the end of the schema (or #0) raises E824 when the statement runs, after `ActiveCassette: no such table` (or `column`) on stderr.
+- **Tests:** `apps/interstates/test/golden/activecassette/e824-table.xc`, `apps/interstates/test/golden/activecassette/e824-column.xc`, `apps/interstates/test/golden/activecassette/amnesia.xc`
+- **Date:** 2026-10-19
+
+### E825: a database ActiveCassette can't reach
+- **Text:** `ACTIVECASSETTE COULD NOT LOAD THE DATABASE.`
+- **Joke:** `THE CASSETTE IS JAMMED. HAVE YOU TRIED A PENCIL?`
+- **Source:** R7, Q99, Q146 and L42. The connection is made when a program first uses the database. A `DATABASE_URL` without a scheme, a scheme with no adapter (no `IOI_ADAPTER_SCHEME`, a library that can't be loaded, or one of the wrong version), or a database that won't open raises E825. The adapter's reason goes to stderr first.
+- **Tests:** `apps/interstates/test/golden/activecassette/e825-no-scheme.xc`, `apps/interstates/test/golden/activecassette/e825-no-adapter.xc`, `apps/interstates/test/golden/activecassette/e825-cannot-open.xc`
+- **Date:** 2026-10-19
+
+### E826: a statement the database refuses
+- **Text:** `THE DATABASE REFUSED THE STATEMENT.`
+- **Joke:** `THE DECK PRESSED STOP. IT DID NOT SAY WHY. IT NEVER DOES.`
+- **Source:** R7 and Q139. A statement the database rejects is a programming error rather than a recoverable failure, so it raises E826 when it runs. Examples are a broken raw SQL statement and a broken constraint, such as a duplicate key. The database's own reason goes to stderr first, after `ActiveCassette: `.
+- **Tests:** `apps/interstates/test/golden/activecassette/e826-refused.xc`, `apps/interstates/test/golden/activecassette/e826-bad-sql.xc`
+- **Date:** 2026-10-19
+
+### E827: an INTO DATABASE whose values don't match its columns
+- **Text:** `AN INTO DATABASE HAS THE WRONG NUMBER OF VALUES.`
+- **Joke:** `THE CASSETTE HAS A SLOT FOR EACH COLUMN. COUNT THEM.`
+- **Source:** R7, Q145 and L37. `INTO DATABASE #t~#c$… <- item + item` needs one item per column. The columns and items are both known when the program compiles, so this is a compile-time error, reported at the statement.
+- **Tests:** `apps/interstates/test/syntax_test.dart`
+- **Date:** 2026-10-18
+
+### E828: a malformed response header or cookie
+- **Text:** `A RESPONSE HEADER OR COOKIE IS MALFORMED.`
+- **Joke:** `ONE HEADER, ONE LINE, NO SURPRISES. THIS IS NOT POETRY.`
+- **Source:** R4 and L38. The routine raises E828 instead of writing the header in these cases:
+  - A header or cookie name that isn't an HTTP token (RFC 9110).
+  - A header value or redirect location with a control character other than a tab, such as CR, LF or NUL. That would split the response or confuse what reads it.
+  - A cookie value with anything outside RFC 6265's cookie-octets. A `;` would add attributes the program never asked for.
+- **Tests:** `apps/interstates/test/golden/cgi/e828-header-line-break.xc`, `apps/interstates/test/golden/cgi/e828-header-nul.xc`, `apps/interstates/test/golden/cgi/e828-header-name.xc`, `apps/interstates/test/golden/cgi/e828-cookie-value.xc`, `apps/interstates/test/golden/cgi/e828-location.xc`
+- **Date:** 2026-10-18
+
+### E829: a program that doesn't answer in CGI
+- **Text:** `THE PROGRAM DID NOT ANSWER IN CGI.`
+- **Joke:** `GROSS ASKED A QUESTION AND GOT A SHRUG.`
+- **Source:** R2 and L39. `gross` answers 500 with this error's page in four cases:
+  - The run's stdout isn't a CGI response, and its stderr ends in no ICL error. That covers headers with no empty line after them, a line that isn't `name: value` with a token for a name, a CR or NUL in a value, and a status outside 100–599. A program built without `-s` lands here, because it prints no headers.
+  - The run was killed by a signal.
+  - Its output passed 64 MiB.
+  - gross couldn't start it at all.
+
+  Like E504, no program raises it, and it is reported at statement 1.
+- **Tests:** `apps/interstates/test/gross_test.dart`
+- **Date:** 2026-10-18

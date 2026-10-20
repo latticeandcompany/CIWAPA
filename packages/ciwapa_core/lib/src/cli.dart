@@ -4,7 +4,9 @@ import 'package:args/args.dart';
 
 import 'errors.dart';
 import 'frontend.dart';
+import 'frontend.dart' as core show analyze;
 import 'ir.dart';
+import 'ir.dart' as core show lower;
 import 'source.dart';
 
 /// Compile-time options that reach the generated program.
@@ -54,21 +56,71 @@ abstract interface class Backend {
   Future<List<(bool, String)>> doctor();
 }
 
+/// How a CLI turns a source file into IR. [CiwapaFrontend] is CIWAPA's own; a compiler built on
+/// CIWAPA can add options and language of its own on top.
+abstract interface class Frontend {
+  /// What the usage message calls a source file.
+  String get sourceDescription;
+
+  /// Adds this front end's options to the CLI's.
+  void addOptions(ArgParser parser);
+
+  /// Parses [source] and runs the whole-program checks, throwing [CompileError] on failure.
+  Program analyze(
+    Source source,
+    ArgResults args, {
+    required bool traditional,
+    int? memoryLimit,
+  });
+
+  /// Lowers a checked [program] to the IR the backend emits.
+  IrProgram lower(Program program, ArgResults args, IrOptions options);
+}
+
+/// CIWAPA's own front end: Mode 1 and EXTRACAL, picked by the file extension.
+class CiwapaFrontend implements Frontend {
+  const CiwapaFrontend();
+
+  @override
+  String get sourceDescription => 'file.i or file.xc';
+
+  @override
+  void addOptions(ArgParser parser) {}
+
+  @override
+  Program analyze(
+    Source source,
+    ArgResults args, {
+    required bool traditional,
+    int? memoryLimit,
+  }) =>
+      core.analyze(source, traditional: traditional, memoryLimit: memoryLimit);
+
+  @override
+  IrProgram lower(Program program, ArgResults args, IrOptions options) =>
+      core.lower(program, options: options);
+}
+
 /// Runs the `build`, `run` and `doctor` commands (decisions Q100, Q101) and returns the exit status.
-Future<int> runCli(List<String> arguments, Backend backend) async {
+Future<int> runCli(
+  List<String> arguments,
+  Backend backend, {
+  Frontend frontend = const CiwapaFrontend(),
+}) async {
   final parser = _parser();
+  frontend.addOptions(parser);
   final ArgResults args;
   try {
     args = parser.parse(arguments);
   } on FormatException catch (e) {
     stderr.writeln(
-      '${backend.name}: ${e.message}\n\n${_usage(backend, parser)}',
+      '${backend.name}: ${e.message}\n\n${_usage(backend, frontend, parser)}',
     );
     return 64;
   }
   final command = args.rest.isEmpty ? null : args.rest.first;
   if (args.flag('help') || command == null) {
-    stdout.writeln(_usage(backend, parser));
+    stdout.writeln(_usage(backend, frontend, parser));
     return command == null && !args.flag('help') ? 64 : 0;
   }
   switch (command) {
@@ -77,18 +129,18 @@ Future<int> runCli(List<String> arguments, Backend backend) async {
     case 'build' || 'run':
       if (args.rest.length < 2) {
         stderr.writeln(
-          '${backend.name} $command: which file?\n\n${_usage(backend, parser)}',
+          '${backend.name} $command: which file?\n\n${_usage(backend, frontend, parser)}',
         );
         return 64;
       }
       try {
-        return await _build(backend, args, command == 'run');
+        return await _build(backend, frontend, args, command == 'run');
       } on _Exit catch (e) {
         return e.status;
       }
     default:
       stderr.writeln(
-        '${backend.name}: unknown command "$command"\n\n${_usage(backend, parser)}',
+        '${backend.name}: unknown command "$command"\n\n${_usage(backend, frontend, parser)}',
       );
       return 64;
   }
@@ -139,11 +191,11 @@ ArgParser _parser() => ArgParser()
     help: 'Turn off optimization, which is on by default.',
   );
 
-String _usage(Backend backend, ArgParser parser) =>
+String _usage(Backend backend, Frontend frontend, ArgParser parser) =>
     '''
 Usage:
-  ${backend.name} build <file.i or file.xc> [-o <executable>] [options]
-  ${backend.name} run <file.i or file.xc> [options] [-- <program arguments>]
+  ${backend.name} build <${frontend.sourceDescription}> [-o <executable>] [options]
+  ${backend.name} run <${frontend.sourceDescription}> [options] [-- <program arguments>]
   ${backend.name} doctor
 
 Options:
@@ -172,7 +224,12 @@ Never _fail(IclError error, int statement, {String? detail}) {
   throw _Exit(error.exitStatus);
 }
 
-Future<int> _build(Backend backend, ArgResults args, bool run) async {
+Future<int> _build(
+  Backend backend,
+  Frontend frontend,
+  ArgResults args,
+  bool run,
+) async {
   final path = args.rest[1];
   final programArgs = run ? args.rest.skip(2).toList() : const <String>[];
   if (!run && args.rest.length > 2) {
@@ -202,8 +259,9 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
   final IrProgram ir;
   try {
     try {
-      program = analyze(
+      program = frontend.analyze(
         Source.fromBytes(path, bytes),
+        args,
         traditional: args.flag('traditional'),
         memoryLimit: memoryLimit,
       );
@@ -212,9 +270,10 @@ Future<int> _build(Backend backend, ArgResults args, bool run) async {
     }
     if (args.option('dump') == 'ast') stdout.write(_dumpAst(program));
     try {
-      ir = lower(
+      ir = frontend.lower(
         program,
-        options: IrOptions(
+        args,
+        IrOptions(
           randomBug: !args.flag('no-random-bug'),
           seed: seed == null ? null : int.tryParse(seed),
           memoryLimit: memoryLimit,

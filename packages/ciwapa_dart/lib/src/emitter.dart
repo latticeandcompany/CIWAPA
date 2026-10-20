@@ -33,9 +33,11 @@ class DartEmitter {
   bool _emitted(int ordinal) => _reachable.contains(ordinal);
 
   /// The statements control reaches other than by running on from the one before: the first,
-  /// NEXT targets, COME FROMs (their traps jump there), and the first of every chunk.
+  /// the host's entries, NEXT targets, COME FROMs (their traps jump there), and the first of every
+  /// chunk.
   late final Set<int> _entries = {
     1,
+    ...program.entries,
     for (var o = 1; o <= program.statements.length; o += chunkSize) o,
     for (final s in program.statements) ...[
       if (s.op case IrNext(:final target) when target != 0) target,
@@ -82,6 +84,7 @@ class DartEmitter {
       ..writeln("import 'dart:typed_data';")
       ..writeln()
       ..writeln("import 'runtime.dart';")
+      ..write(program.host ? "import 'host.dart';\n" : '')
       ..writeln()
       ..writeln('final _v = Uint32List(${program.scalars.length});')
       ..writeln('final _ig = Uint8List(${program.scalars.length});')
@@ -101,7 +104,8 @@ class DartEmitter {
       ..writeln(
         '  ickInit(args, base: ${program.base}, clockface: ${options.clockface}, '
         'arrayCount: ${program.arrays.length}, values: _v, ignored: _ig, messages: _messages'
-        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}, latin: true, extracal: true' : ''});',
+        '${program.extracal ? ', wideValues: _w, wideIgnored: _igw, wideArrayCount: ${program.wideArrays.length}, latin: true, extracal: true' : ''}'
+        '${program.host ? ', host: createHost()' : ''});',
       );
     if (program.engine) {
       _emitEngine();
@@ -160,7 +164,7 @@ class DartEmitter {
     _out
       ..writeln()
       ..writeln('const _messages = {');
-    for (final m in IclError.all) {
+    for (final m in [...IclError.all, ...program.errors]) {
       _out.writeln(
         '  ${m.code}: IckMessage(${_string(m.text)}, ${_string(m.joke)}),',
       );
@@ -182,7 +186,11 @@ class DartEmitter {
       ..writeln()
       ..writeln('void _run() {')
       ..writeln(
-        '  var pc = ${program.statements.isEmpty ? fellOff : entry(1)};',
+        program.entries.isEmpty
+            ? '  var pc = ${program.statements.isEmpty ? fellOff : entry(1)};'
+            : '  var pc = switch (ickStartOrdinal()) {'
+                  '${[for (final o in program.entries.where(_emitted)) ' $o => ${entry(o)},'].join()}'
+                  ' _ => ${entry(1)} };',
       )
       ..writeln('  while (true) {')
       ..writeln(
@@ -725,7 +733,7 @@ class DartEmitter {
             );
           }
         }
-      case IrComeFrom():
+      case IrComeFrom() || IrNothing():
         break;
       case IrUndecodable(:final text):
         _line('ickUndecodable(${_string(text)}, $next);');
@@ -736,9 +744,12 @@ class DartEmitter {
 
   /// A host service (R10, L29), given its variables' keys (64-bit scalars after the others) and
   /// array numbers.
-  String _petition(IrPetition p, Object next) =>
-      'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
-      '[${p.arrays.map((a) => a.index).join(', ')}], $next);';
+  String _petition(IrPetition p, Object next) => p.host
+      ? 'ickHostCall(${p.service}, [${p.arrays.map((a) => a.index).join(', ')}], '
+            '[${p.values.map((v) => _expr(v, next)).join(', ')}], $next);'
+      : 'ickPetition(${p.service}, [${p.scalars.map(_key).join(', ')}], '
+            '[${p.arrays.map((a) => a.index).join(', ')}], $next'
+            '${p.values.isEmpty ? '' : ', [${p.values.map((v) => _expr(v, next)).join(', ')}]'});';
 
   /// When a native library routine can stand in for its INTERCAL: [clear] tests that a statement
   /// isn't abstained.

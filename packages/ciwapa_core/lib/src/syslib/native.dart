@@ -369,7 +369,7 @@ Set<int> _reachable(IrProgram program, int entry) {
 /// user's last statement is E633, not a way into the library.
 Set<int> reachable(IrProgram program) {
   final live = <int>{};
-  final work = [if (program.statements.isNotEmpty) 1];
+  final work = [if (program.statements.isNotEmpty) 1, ...program.entries];
   void fallFrom(int ordinal) {
     if (ordinal != program.userStatements) work.add(ordinal + 1);
   }
@@ -435,9 +435,10 @@ Set<int> reachable(IrProgram program) {
       arrays.addAll(named2);
     case IrWriteIn(:final items) || IrReadOut(:final items):
       items.forEach(expr);
-    case IrPetition(scalars: final named, arrays: final named2):
+    case IrPetition(scalars: final named, arrays: final named2, :final values):
       scalars.addAll(named);
       arrays.addAll(named2);
+      values.forEach(expr);
     default:
       break;
   }

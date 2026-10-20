@@ -1,0 +1,86 @@
+PLEASE COME FROM (16000)
+DO ,1 <- #73
+DO ,1 SUB #1 <- #67
+PLEASE ,1 SUB #2 <- #82
+DO ,1 SUB #3 <- #69
+DO ,1 SUB #4 <- #65
+DO ,1 SUB #5 <- #84
+PLEASE ,1 SUB #6 <- #69
+DO ,1 SUB #7 <- #32
+DO ,1 SUB #8 <- #84
+DO ,1 SUB #9 <- #65
+PLEASE ,1 SUB #10 <- #66
+DO ,1 SUB #11 <- #76
+DO ,1 SUB #12 <- #69
+DO ,1 SUB #13 <- #32
+PLEASE ,1 SUB #14 <- #103
+DO ,1 SUB #15 <- #32
+DO ,1 SUB #16 <- #40
+DO ,1 SUB #17 <- #97
+PLEASE ,1 SUB #18 <- #32
+DO ,1 SUB #19 <- #73
+DO ,1 SUB #20 <- #78
+DO ,1 SUB #21 <- #84
+PLEASE ,1 SUB #22 <- #69
+DO ,1 SUB #23 <- #71
+DO ,1 SUB #24 <- #69
+DO ,1 SUB #25 <- #82
+PLEASE ,1 SUB #26 <- #44
+DO ,1 SUB #27 <- #32
+DO ,1 SUB #28 <- #98
+DO ,1 SUB #29 <- #32
+PLEASE ,1 SUB #30 <- #73
+DO ,1 SUB #31 <- #78
+DO ,1 SUB #32 <- #84
+DO ,1 SUB #33 <- #69
+PLEASE ,1 SUB #34 <- #71
+DO ,1 SUB #35 <- #69
+DO ,1 SUB #36 <- #82
+DO ,1 SUB #37 <- #32
+PLEASE ,1 SUB #38 <- #71
+DO ,1 SUB #39 <- #69
+DO ,1 SUB #40 <- #78
+DO ,1 SUB #41 <- #69
+PLEASE ,1 SUB #42 <- #82
+DO ,1 SUB #43 <- #65
+DO ,1 SUB #44 <- #84
+PLEASE ,1 SUB #45 <- #69
+DO ,1 SUB #46 <- #68
+DO ,1 SUB #47 <- #32
+DO ,1 SUB #48 <- #65
+PLEASE ,1 SUB #49 <- #76
+DO ,1 SUB #50 <- #87
+DO ,1 SUB #51 <- #65
+DO ,1 SUB #52 <- #89
+PLEASE ,1 SUB #53 <- #83
+DO ,1 SUB #54 <- #32
+DO ,1 SUB #55 <- #65
+DO ,1 SUB #56 <- #83
+PLEASE ,1 SUB #57 <- #32
+DO ,1 SUB #58 <- #40
+DO ,1 SUB #59 <- #97
+DO ,1 SUB #60 <- #32
+PLEASE ,1 SUB #61 <- #42
+DO ,1 SUB #62 <- #32
+DO ,1 SUB #63 <- #50
+DO ,1 SUB #64 <- #41
+PLEASE ,1 SUB #65 <- #44
+DO ,1 SUB #66 <- #32
+DO ,1 SUB #67 <- #99
+DO ,1 SUB #68 <- #32
+PLEASE ,1 SUB #69 <- #84
+DO ,1 SUB #70 <- #69
+DO ,1 SUB #71 <- #88
+DO ,1 SUB #72 <- #84
+PLEASE ,1 SUB #73 <- #41
+DO :1 <- #0
+DO :2 <- #1
+DO (16200) NEXT
+PLEASE ,1 <- #1
+DO ,1 SUB #1 <- #120
+DO INTO DATABASE #1~#1$#3 <- #4 + ,1
+DO ;49221 <- 'FROM DATABASE #1'
+PLEASE READ OUT #3 WITH TEMPLATE "t/row.html"
+DO ;49221 <- 'FROM DATABASE #1~#2'
+DO READ OUT #1 WITH TEMPLATE "t/one.html"
+DO GIVE UP

@@ -1,0 +1,32 @@
+PLEASE COME FROM (16000)
+DO .1 <- #404
+DO (16100) NEXT
+DO ,1 <- #6
+PLEASE ,1 SUB #1 <- #88
+DO ,1 SUB #2 <- #45
+DO ,1 SUB #3 <- #74
+DO ,1 SUB #4 <- #111
+PLEASE ,1 SUB #5 <- #107
+DO ,1 SUB #6 <- #101
+DO ,2 <- #3
+DO ,2 SUB #1 <- #89
+PLEASE ,2 SUB #2 <- #101
+DO ,2 SUB #3 <- #115
+DO (16110) NEXT
+DO ,1 <- #6
+PLEASE ,1 SUB #1 <- #102
+DO ,1 SUB #2 <- #108
+DO ,1 SUB #3 <- #97
+DO ,1 SUB #4 <- #118
+PLEASE ,1 SUB #5 <- #111
+DO ,1 SUB #6 <- #114
+DO ,2 <- #7
+DO ,2 SUB #1 <- #111
+PLEASE ,2 SUB #2 <- #97
+DO ,2 SUB #3 <- #116
+DO ,2 SUB #4 <- #109
+DO ,2 SUB #5 <- #101
+PLEASE ,2 SUB #6 <- #97
+DO ,2 SUB #7 <- #108
+DO (16120) NEXT
+DO GIVE UP

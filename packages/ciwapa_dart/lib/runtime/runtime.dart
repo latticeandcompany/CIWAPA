@@ -92,7 +92,9 @@ void ickInit(
   int wideArrayCount = 0,
   bool latin = false,
   bool extracal = false,
+  IckHost? host,
 }) {
+  _host = host;
   _latin = latin;
   _monotonic.start();
   _messages = messages;
@@ -128,6 +130,74 @@ void ickInit(
   _arrays = List.generate(arrayCount, (_) => _Array());
   _rngState = ickClock();
   _parseOptions(args, extracal: extracal);
+  _startOrdinal = host?.start() ?? 0;
+}
+
+// ---- Hosts -----------------------------------------------------------------------------------
+// A language built on CIWAPA's adds services and hooks of its own through a host, which its
+// compiler copies next to the program as host.dart. The rest of this section is what a host may
+// use.
+
+/// What a host adds to the runtime.
+abstract class IckHost {
+  /// The ordinal of the statement to start at: 0 for the first, or one of the program's entries
+  /// (nothing else). Runs once the runtime options are read.
+  int start() => 0;
+
+  /// Runs [service], one the runtime doesn't have, on the variables and [values] the compiler
+  /// passes in. False if the host doesn't have it either.
+  bool petition(
+    int service,
+    List<int> scalars,
+    List<int> arrays,
+    List<int> values,
+    int next,
+  ) => false;
+
+  /// Runs once, just before the first byte of standard output, or at a normal exit (GIVE UP or the
+  /// exit service) if nothing was written.
+  void prologue() {}
+}
+
+IckHost? _host;
+var _startOrdinal = 0;
+
+/// A host call (a PETITION with computed [values]), which only the host has.
+void ickHostCall(int service, List<int> arrays, List<int> values, int next) {
+  if (_host?.petition(service, const [], arrays, values, next) ?? false) return;
+  ickFatal(801, next);
+}
+
+var _outputBegun = false;
+
+/// Where the host's [IckHost.start] said to start.
+int ickStartOrdinal() => _startOrdinal;
+
+void _beginOutput() {
+  if (_outputBegun) return;
+  _outputBegun = true;
+  _host?.prologue();
+}
+
+/// A scalar's value, by key (64-bit scalars come after the others).
+int ickScalar(int key) => _scalarAt(key);
+
+/// Stores into a scalar, by key, as WRITE IN does: an IGNOREd one keeps its value.
+void ickSetScalar(int key, int value) => _setScalar(key, value);
+
+/// The string a tail array holds (E803 unless it has one dimension or none).
+String ickString(int array, int next) => _stringAt(array, next);
+
+/// Makes a tail array hold [value], resized to fit; an IGNOREd one keeps its value.
+void ickSetString(int array, String value) => _setString(array, value);
+
+/// Writes [bytes] to standard output, in order with READ OUT.
+void ickOutput(List<int> bytes) => _write(bytes);
+
+/// The lines READ OUT would print for [bits] (64 bits, unsigned), without their newlines.
+List<String> ickNumeralLines(int bits) {
+  final value = BigInt.from(bits).toUnsigned(64);
+  return _wimpMode ? ['$value'] : _numeralLines(value);
 }
 
 // ---- Errors (§9) -----------------------------------------------------------------------------
@@ -143,6 +213,7 @@ var _outputLength = 0;
 void Function(List<int>) ickWriteBytes = stdout.add;
 
 void _writeByte(int b) {
+  if (!_outputBegun) _beginOutput();
   if (_outputLength == _output.length) _flush();
   _output[_outputLength++] = b;
 }
@@ -196,6 +267,7 @@ Never ickUnknownOperator(int left, int right, String text, int next) =>
     ickUndecodable(text, next);
 
 Never ickGiveUp() {
+  _beginOutput();
   _flush();
   _closeConnections();
   exit(0);
@@ -2055,6 +2127,7 @@ Never ickXRun(XProgram program) {
         : _chainEnd;
   }
   _xExpanding.add((Uint8List(0), Uint8List(0)));
+  if (_startOrdinal != 0) _xThread.position = _startOrdinal * 8 + _start;
   _xLoop(0);
   throw StateError('the engine stopped');
 }
@@ -2607,7 +2680,13 @@ void _setString(int array, String value) {
       : _Shape(Uint32List.fromList([units.length]), Uint32List.fromList(units));
 }
 
-void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
+void ickPetition(
+  int service,
+  List<int> scalars,
+  List<int> arrays,
+  int next, [
+  List<int> values = const [],
+]) {
   switch (service) {
     case 8000:
       _setScalar(scalars[0], _programArgs.length);
@@ -2626,6 +2705,7 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
     case 8030:
       final status = _scalarAt(scalars[0]);
       if (status > 255) ickFatal(802, next);
+      _beginOutput();
       _flush();
       _closeConnections();
       exit(status);
@@ -2700,6 +2780,9 @@ void ickPetition(int service, List<int> scalars, List<int> arrays, int next) {
     case 807 || 808 || 809 || 813 || 814 || 815 || 816 || 817:
       ickFatal(service, next);
     default:
+      if (_host?.petition(service, scalars, arrays, values, next) ?? false) {
+        return;
+      }
       ickFatal(801, next);
   }
 }
