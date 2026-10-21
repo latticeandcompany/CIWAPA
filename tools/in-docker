@@ -2,6 +2,11 @@
 # The image tag is a hash of the Dockerfile, so editing the Dockerfile builds a fresh image.
 set -euo pipefail
 
+# The devcontainer is already this image.
+if [[ "${CIWAPA_IN_TOOLCHAIN:-}" == 1 ]]; then
+  exec "$@"
+fi
+
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 dockerfile_hash="$(shasum -a 256 "$repo_root/Dockerfile" | cut -c1-12)"
 image="ciwapa-toolchain:$dockerfile_hash"
