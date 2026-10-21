@@ -1,0 +1,25 @@
+{
+  "name": "CIWAPA",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "."
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/work,type=bind",
+  "workspaceFolder": "/work",
+  "containerEnv": {
+    "CIWAPA_IN_TOOLCHAIN": "1",
+    "PUB_CACHE": "/work/.cache/pub"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.dart-code",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "colejcummins.llvm-syntax-highlighting"
+      ],
+      "settings": {
+        "dart.checkForSdkUpdates": false
+      }
+    }
+  }
+}
