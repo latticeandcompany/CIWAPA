@@ -68,6 +68,7 @@ void main() {
     ),
     _separation(),
     _ci(),
+    _smokeTests(),
     _release(),
     _scaffolding(),
   ];
@@ -156,12 +157,21 @@ Criterion _section(String title, List<String> items) {
   var done = 0, open = 0, blocked = 0;
   final problems = <String>[];
   for (final item in items) {
+    // The cleanup deletes this script after its final report, so that report can't see it done.
+    // [_scaffolding] checks everything else marked TEMPORARY.
+    if (item.contains('`tools/goal/` is removed')) {
+      done++;
+      problems.add(
+        'left to the cleanup, after this report: ${summaryOf(item)}',
+      );
+      continue;
+    }
     final checked = item.startsWith('- [x]');
     final tests = _linkedTests(item);
     final missing = tests.where(
       (t) => FileSystemEntity.typeSync(t) == FileSystemEntityType.notFound,
     );
-    final summary = item.length > 110 ? '${item.substring(0, 110)}…' : item;
+    final summary = summaryOf(item);
     final waitingOn = RegExp(r'\*\*BLOCKED\*\* \((L\d+)\)')
         .allMatches(item)
         .map((m) => m.group(1)!)
@@ -181,6 +191,7 @@ Criterion _section(String title, List<String> items) {
       problems.add('checked without an existing linked test: $summary');
     } else {
       done++;
+      problems.add('done: $summary');
     }
   }
   final met = done == items.length;
@@ -189,6 +200,9 @@ Criterion _section(String title, List<String> items) {
     ...problems,
   ], blocked: !met && blocked + done == items.length);
 }
+
+String summaryOf(String item) =>
+    item.length > 110 ? '${item.substring(0, 110)}…' : item;
 
 /// The paths in backticks after an item's `Tests:`. A path may end in `#name`, naming the test.
 List<String> _linkedTests(String item) {
@@ -261,7 +275,8 @@ Map<String, String>? _jobs(String runFile) {
   };
 }
 
-/// Every job must succeed, and the jobs named by [required] (each a name prefix) must exist.
+/// No job in the run may fail, and every job named by [required] (each a name prefix) must exist
+/// and succeed: a skipped one didn't run.
 Criterion _jobsGreen(String title, String runFile, List<String> required) {
   final jobs = _jobs(runFile);
   if (jobs == null) {
@@ -270,30 +285,59 @@ Criterion _jobsGreen(String title, String runFile, List<String> required) {
   final details = <String>[];
   var met = true;
   for (final prefix in required) {
-    if (!jobs.keys.any((name) => name.startsWith(prefix))) {
+    final matching = jobs.entries.where((j) => j.key.startsWith(prefix));
+    if (matching.isEmpty) {
       met = false;
       details.add('$prefix: missing');
+    } else if (matching.any((j) => j.value != 'success')) {
+      met = false;
+      details.add(
+        '$prefix: ${matching.map((j) => j.value).toSet().join(', ')}',
+      );
     }
   }
   for (final MapEntry(key: name, value: state) in jobs.entries) {
-    if (state != 'success' && state != 'skipped') {
+    if (state != 'success' &&
+        state != 'skipped' &&
+        required.every((p) => !name.startsWith(p))) {
       met = false;
       details.add('$name: $state');
     }
   }
-  if (met) details.add('${jobs.length}/${jobs.length} jobs succeeded');
+  if (met) details.add('${jobs.length} jobs, none failed');
   return Criterion(title, met, details);
 }
 
-Criterion _ci() => _jobsGreen(
-  'CI on the mega HEAD is green, the three editor smoke tests included',
-  'run-ci.json',
-  [
-    for (final platform in platforms)
-      for (final flavor in flavors) 'ci ($platform, $flavor)',
-    for (final editor in editors) '$editor smoke test',
-  ],
-);
+Criterion _ci() => _jobsGreen('CI on the mega HEAD is green', 'run-ci.json', [
+  for (final platform in platforms)
+    for (final flavor in flavors) 'ci ($platform, $flavor)',
+]);
+
+/// Q168: the smoke tests run on releases (and on PRs that touch the editors), so they must have
+/// succeeded in one of the mega HEAD's two push runs.
+Criterion _smokeTests() {
+  const title =
+      'The VS Code, JetBrains and Neovim smoke tests pass on the mega HEAD (R12)';
+  final details = <String>[];
+  var met = true;
+  for (final editor in editors) {
+    final states = [
+      for (final run in ['run-ci.json', 'run-release-archives.json'])
+        for (final MapEntry(key: name, value: state)
+            in (_jobs(run) ?? {}).entries)
+          if (name.startsWith('$editor smoke test')) state,
+    ];
+    final ok =
+        states.isNotEmpty &&
+        states.every((s) => s == 'success' || s == 'skipped') &&
+        states.contains('success');
+    if (!ok) met = false;
+    details.add(
+      '$editor smoke test: ${states.isEmpty ? 'missing' : states.toSet().join(', ')}',
+    );
+  }
+  return Criterion(title, met, details);
+}
 
 /// R14: the release builds the compiler archives as before, and the .vsix and the plugin .zip with
 /// the compilers' version.
