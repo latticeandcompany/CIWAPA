@@ -5,7 +5,11 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'diagnostics.dart';
 import 'document.dart';
+import 'extension.dart';
+import 'hover.dart';
 import 'rpc.dart';
+import 'semantic_tokens.dart';
+import 'text.dart';
 
 /// The compiler flags an editor passes to the server, from its settings (Q160). The server never
 /// plants the random bug, so `--no-random-bug` is always on (R3).
@@ -38,9 +42,11 @@ class LanguageServer {
     required this.name,
     required Stream<List<int>> input,
     required StreamSink<List<int>> output,
+    this.extension = const LanguageExtension(),
   }) : connection = Connection(input, output);
 
   final Frontend frontend;
+  final LanguageExtension extension;
 
   /// The CLI it runs in, such as `ciwapa-llvm`, which it reports as its name.
   final String name;
@@ -58,7 +64,23 @@ class LanguageServer {
       _shuttingDown = true;
       return null;
     },
+    'textDocument/hover': (params) => _withDocument(
+      params,
+      (document) => hover(document, Position.fromJson(params['position'])),
+    ),
+    'textDocument/semanticTokens/full': (params) =>
+        _withDocument(params, semanticTokens),
   };
+
+  /// Runs [handler] on the open, handled document [params] names; null for any other.
+  Object? _withDocument(
+    Map<String, Object?> params,
+    Object? Function(Document document) handler,
+  ) {
+    final document = documentOf(params);
+    if (document == null || !document.handled) return null;
+    return handler(document);
+  }
 
   late final Map<String, void Function(Map<String, Object?> params)>
   _notifications = {
@@ -161,6 +183,8 @@ class LanguageServer {
       'capabilities': {
         'positionEncoding': 'utf-16',
         'textDocumentSync': {'openClose': true, 'change': 1},
+        'hoverProvider': true,
+        'semanticTokensProvider': {'legend': legend, 'full': true},
       },
       'serverInfo': {'name': name, 'version': ciwapaVersion},
     };
@@ -223,5 +247,14 @@ class LanguageServer {
 }
 
 /// Runs the server on stdin and stdout, for the CLIs' `lsp` command.
-Future<int> runLanguageServer(Frontend frontend, String name) =>
-    LanguageServer(frontend, name: name, input: stdin, output: stdout).serve();
+Future<int> runLanguageServer(
+  Frontend frontend,
+  String name, {
+  LanguageExtension extension = const LanguageExtension(),
+}) => LanguageServer(
+  frontend,
+  name: name,
+  input: stdin,
+  output: stdout,
+  extension: extension,
+).serve();

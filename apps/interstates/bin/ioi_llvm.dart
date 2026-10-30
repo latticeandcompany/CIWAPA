@@ -9,6 +9,10 @@ Future<void> main(List<String> args) async => exit(
     args,
     ioiLlvm(),
     frontend: InterstatesFrontend(),
-    languageServer: runLanguageServer,
+    languageServer: (frontend, name) => runLanguageServer(
+      frontend,
+      name,
+      extension: const InterstatesEditing(),
+    ),
   ),
 );

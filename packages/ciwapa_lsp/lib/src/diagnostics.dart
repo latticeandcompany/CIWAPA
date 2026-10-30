@@ -4,10 +4,22 @@ import 'document.dart';
 
 const errorSeverity = 1, informationSeverity = 3;
 
-/// Every error the front end found, as Error diagnostics on its token or statement (R2, R4).
+/// Every error the front end found, as Error diagnostics on its token or statement (R2, R4), and
+/// an Information hint on every undecodable statement: the comments everyone writes as `DO NOTE`
+/// are E000 only if they ever run, so they never get a warning (Q163).
 List<Map<String, Object?>> diagnosticsOf(Document document) {
   final analysis = document.analysis;
   return [
+    for (final s in document.model.statements.where((s) => s.undecodable))
+      {
+        'range': document.text.range(s.span),
+        'severity': informationSeverity,
+        'code': 'E000',
+        'source': document.server.name,
+        'message': s.statement.not
+            ? 'A comment, abstained from the start: E000 only if something REINSTATEs it and it runs.'
+            : 'A comment to the compiler, and E000 if it ever runs. PLEASE NOTE keeps it from running.',
+      },
     for (final e in analysis.errors)
       {
         'range': document.text.range(placeOf(e, analysis)),

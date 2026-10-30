@@ -121,10 +121,13 @@ void main() {
     test(
       'an error is placed on its token, as a range of UTF-16 positions',
       () async {
-        final diagnostics = await client.open(
-          'file:///w/a.i',
-          'DO NOTE ¢🎉\r\n(1) DO .1 <- #1\r\n(1) PLEASE DO .2 <- #2\r\nDO GIVE UP\r\n',
-        );
+        final diagnostics = [
+          for (final d in await client.open(
+            'file:///w/a.i',
+            'DO NOTE ¢🎉\r\n(1) DO .1 <- #1\r\n(1) PLEASE DO .2 <- #2\r\nDO GIVE UP\r\n',
+          ))
+            if (d['severity'] == 1) d,
+        ];
         expect(diagnostics[0]['range'], {
           'start': {'line': 1, 'character': 0},
           'end': {'line': 1, 'character': 3},
@@ -213,9 +216,12 @@ void main() {
       'an empty file, and a file of nothing but prose, have no errors',
       () async {
         expect(await client.open('file:///w/empty.i', ''), isEmpty);
+        // Prose is one undecodable statement: a hint, not an error.
         expect(
-          await client.open('file:///w/prose.i', 'This is not INTERCAL.\n'),
-          isEmpty,
+          codesOf(
+            await client.open('file:///w/prose.i', 'This is not INTERCAL.\n'),
+          ),
+          ['E000'],
         );
       },
     );

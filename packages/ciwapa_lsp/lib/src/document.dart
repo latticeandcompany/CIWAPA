@@ -1,7 +1,19 @@
 import 'package:ciwapa_core/ciwapa_core.dart';
 
+import 'library_docs.g.dart';
+import 'model.dart';
+import 'routines.dart';
 import 'server.dart';
 import 'text.dart';
+
+final _systemRoutines = parseRoutineTables(
+  libraryTables['system library']!,
+  'system library',
+);
+final _extracalRoutines = parseRoutineTables(
+  libraryTables['EXTRACAL library']!,
+  'EXTRACAL library',
+);
 
 /// An open document, and what the front end makes of it with the server's current settings.
 class Document {
@@ -13,6 +25,7 @@ class Document {
   EditorText text;
   int version;
   Analysis? _analysis;
+  SyntaxModel? _model;
 
   String get path => text.path;
 
@@ -26,13 +39,34 @@ class Document {
     traditional: server.settings.traditional,
   );
 
+  SyntaxModel get model => _model ??= SyntaxModel(analysis.program);
+
+  /// The labels the file's own statements carry.
+  Set<int> get definedLabels => {
+    for (final s in model.statements) ?s.statement.label,
+  };
+
+  /// The library routine [label] names, when the file doesn't define it and its library comes
+  /// with files like this one: the system library with every binary file, EXTRACAL's with
+  /// EXTRACAL files, and those of the language built on CIWAPA's (decisions T36, L9, L17).
+  RoutineDoc? libraryRoutine(int label) {
+    final program = analysis.program;
+    if (program.base != 2 || definedLabels.contains(label)) return null;
+    return server.extension.routinesFor(path)[label] ??
+        _systemRoutines[label] ??
+        (program.extracal ? _extracalRoutines[label] : null);
+  }
+
   void update(String newText, int newVersion) {
     text = EditorText(path, newText);
     version = newVersion;
     invalidate();
   }
 
-  void invalidate() => _analysis = null;
+  void invalidate() {
+    _analysis = null;
+    _model = null;
+  }
 }
 
 /// The file path a `file:` URI names, in this platform's form. Other schemes keep their path,

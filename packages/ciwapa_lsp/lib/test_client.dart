@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:ciwapa_core/ciwapa_core.dart';
 
+import 'src/extension.dart';
 import 'src/rpc.dart';
 import 'src/server.dart';
 
@@ -17,7 +18,11 @@ class TestClient {
   }
 
   /// A client for a server running here, around [frontend].
-  factory TestClient(Frontend frontend, {String name = 'ciwapa-test'}) {
+  factory TestClient(
+    Frontend frontend, {
+    String name = 'ciwapa-test',
+    LanguageExtension extension = const LanguageExtension(),
+  }) {
     final toServer = StreamController<List<int>>();
     final fromServer = StreamController<List<int>>();
     final client = TestClient._(fromServer.stream, toServer.sink);
@@ -26,6 +31,7 @@ class TestClient {
       name: name,
       input: toServer.stream,
       output: fromServer.sink,
+      extension: extension,
     );
     client.exitCode = client.server!.serve();
     return client;
@@ -180,3 +186,48 @@ class TestClient {
 List<Object?> codesOf(List<Map<String, Object?>> diagnostics) => [
   for (final d in diagnostics) d['code'],
 ];
+
+/// A decoded semantic token: where it is, and its type and modifiers by name.
+typedef DecodedToken = ({
+  int line,
+  int character,
+  int length,
+  String type,
+  Set<String> modifiers,
+});
+
+/// Decodes `semanticTokens/full`'s [result] with the server's [legend].
+List<DecodedToken> decodeTokens(
+  Map<String, Object?> result,
+  Map<String, Object?> legend,
+) {
+  final data = (result['data'] as List).cast<int>();
+  final types = (legend['tokenTypes'] as List).cast<String>();
+  final modifiers = (legend['tokenModifiers'] as List).cast<String>();
+  final tokens = <DecodedToken>[];
+  var line = 0, character = 0;
+  for (var i = 0; i < data.length; i += 5) {
+    line += data[i];
+    character = data[i] == 0 ? character + data[i + 1] : data[i + 1];
+    tokens.add((
+      line: line,
+      character: character,
+      length: data[i + 2],
+      type: types[data[i + 3]],
+      modifiers: {
+        for (var m = 0; m < modifiers.length; m++)
+          if (data[i + 4] & (1 << m) != 0) modifiers[m],
+      },
+    ));
+  }
+  return tokens;
+}
+
+/// The text of each of [tokens] in [text], with its type: what a highlighter would color.
+List<(String, String)> coloredText(String text, List<DecodedToken> tokens) {
+  final lines = text.split(RegExp(r'\r\n|\r|\n'));
+  return [
+    for (final t in tokens)
+      (lines[t.line].substring(t.character, t.character + t.length), t.type),
+  ];
+}

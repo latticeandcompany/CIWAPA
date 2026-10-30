@@ -36,15 +36,15 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Diagnostics and hovers (R4)
 
-- [ ] R4 — every compile error is an Error diagnostic on its statement. Tests: —
-- [ ] R4 — undecodable statements get an Information hint, never a warning or an error. Tests: —
-- [ ] R4 — an error hover shows the `ICLnnnI` line, the joke line, the §9.2 description and a fix. Tests: —
-- [ ] R4 — operators, sigils, gerunds and library labels have hovers, and library hovers say what goes in and out. Tests: —
+- [x] R4 — every compile error is an Error diagnostic on its statement. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R4 — undecodable statements get an Information hint, never a warning or an error. Tests: `packages/ciwapa_lsp/test/hover_test.dart`
+- [x] R4 — an error hover shows the `ICLnnnI` line, the joke line, the §9.2 description and a fix. Tests: `packages/ciwapa_lsp/test/hover_test.dart`, `packages/ciwapa_lsp/test/help_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R4 — operators, sigils, gerunds and library labels have hovers, and library hovers say what goes in and out. Tests: `packages/ciwapa_lsp/test/hover_test.dart`, `apps/interstates/test/lsp_test.dart`
 
 ## Highlighting (R5)
 
-- [ ] R5 — semantic tokens cover every token kind in the legend, in all three languages. Tests: —
-- [ ] R5 — undecodable statements are comment tokens. Tests: —
+- [x] R5 — semantic tokens cover every token kind in the legend, in all three languages. Tests: `packages/ciwapa_lsp/test/semantic_tokens_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R5 — undecodable statements are comment tokens. Tests: `packages/ciwapa_lsp/test/semantic_tokens_test.dart`
 
 ## Label navigation (R6)
 

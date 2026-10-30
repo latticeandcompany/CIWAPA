@@ -3,13 +3,18 @@ import 'dart:io';
 import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_lsp/test_client.dart';
 import 'package:interstates/interstates.dart';
+import 'package:interstates/src/errors.dart';
 import 'package:test/test.dart';
+
+import '../tool/embed_docs.dart' as embed;
 
 const database =
     'DO COME FROM (16000)\nPLEASE DO .1 <- #1\n'
     'DO INTO DATABASE #1~#2\$#3 <- ,1\nDO GIVE UP\n';
 
 void main() {
+  group('editing', editingTests);
+
   for (final flavor in ['llvm', 'dart']) {
     test('R3: ioi-$flavor lsp speaks LSP on stdin and stdout', () async {
       final client = await TestClient.start(Platform.resolvedExecutable, [
@@ -50,8 +55,10 @@ void main() {
       });
 
       test('.i and .xc with CIWAPA\'s', () async {
-        // As plain EXTRACAL, INTO DATABASE is no statement, so the COME FROM has nowhere to come from.
+        // As plain EXTRACAL, INTO DATABASE is undecodable (a hint), and the COME FROM has nowhere
+        // to come from.
         expect(codesOf(await client.open('file:///w/site.xc', database)), [
+          'E000',
           'E444',
         ]);
         expect(
@@ -99,5 +106,125 @@ void main() {
       ),
       isEmpty,
     );
+  });
+}
+
+void editingTests() {
+  late TestClient client;
+  late Map<String, Object?> legend;
+  setUp(() async {
+    client = TestClient(
+      InterstatesFrontend(),
+      name: 'ioi-llvm',
+      extension: const InterstatesEditing(),
+    );
+    final init = await client.initialize();
+    legend =
+        ((init['capabilities'] as Map)['semanticTokensProvider']
+                as Map)['legend']
+            as Map<String, Object?>;
+  });
+
+  Future<String?> hoverAt(String uri, int line, int character) async {
+    final result = await client.request<Map<String, Object?>?>(
+      'textDocument/hover',
+      {
+        'textDocument': {'uri': uri},
+        'position': {'line': line, 'character': character},
+      },
+    );
+    return (result?['contents'] as Map?)?['value'] as String?;
+  }
+
+  test('R4: every Interstates error has a description and a fix', () {
+    expect(interstatesErrorHelp.keys.toSet(), {
+      for (final e in interstatesErrors) e.code,
+    });
+  });
+
+  test('R4: the embedded library tables match the README', () {
+    expect(
+      embed.generate(),
+      File('lib/src/library_docs.g.dart').readAsStringSync(),
+      reason: 'run dart run tool/embed_docs.dart',
+    );
+  });
+
+  test('R4: Interstates\' errors hover with their own help', () async {
+    await client.open('file:///w/site.ioi', database);
+    expect(
+      await hoverAt('file:///w/site.ioi', 2, 5),
+      allOf(
+        startsWith(
+          '```text\nICL827I AN INTO DATABASE HAS THE WRONG NUMBER OF VALUES.',
+        ),
+        contains('**What to do:** Give one value for each column.'),
+      ),
+    );
+  });
+
+  test(
+    'R4: Interstates\' library labels and the entry label have hovers',
+    () async {
+      await client.open(
+        'file:///w/site.ioi',
+        'DO COME FROM (16000)\nPLEASE DO (16010) NEXT\nDO GIVE UP\n',
+      );
+      expect(
+        await hoverAt('file:///w/site.ioi', 1, 12),
+        allOf(
+          startsWith('**(16010)**, in the Interstates library'),
+          contains('- **Out:** ,1 = the query string'),
+        ),
+      );
+      expect(
+        await hoverAt('file:///w/site.ioi', 0, 15),
+        startsWith('**(16000)**: where every request comes in.'),
+      );
+      // In a .xc, neither the library nor the entry label exists.
+      await client.open(
+        'file:///w/p.xc',
+        'PLEASE DO (16010) NEXT\nDO GIVE UP\n',
+      );
+      expect(
+        await hoverAt('file:///w/p.xc', 0, 12),
+        contains('no statement has this label'),
+      );
+    },
+  );
+
+  test('R5: Interstates\' words and strings are highlighted', () async {
+    const text =
+        'Prose comes first.\n'
+        'DO COME FROM (16000) WITH ROUTE "/hello"\n'
+        'PLEASE READ OUT #0 WITH TEMPLATE "hello.html"\n'
+        'GIVE UP\n';
+    await client.open('file:///w/site.ioi', text);
+    final tokens = decodeTokens(
+      await client.request<Map<String, Object?>>(
+        'textDocument/semanticTokens/full',
+        {
+          'textDocument': {'uri': 'file:///w/site.ioi'},
+        },
+      ),
+      legend,
+    );
+    final colored = coloredText(text, tokens);
+    expect(
+      colored,
+      containsAllInOrder([
+        ('Prose comes first.', 'comment'),
+        ('COME FROM', 'keyword'),
+        ('(16000)', 'function'),
+        ('WITH ROUTE', 'keyword'),
+        ('"/hello"', 'string'),
+        ('WITH TEMPLATE', 'keyword'),
+        ('"hello.html"', 'string'),
+        ('GIVE UP', 'keyword'),
+      ]),
+    );
+    expect(tokens[colored.indexOf(('WITH ROUTE', 'keyword'))].modifiers, {
+      'dialect',
+    });
   });
 }
