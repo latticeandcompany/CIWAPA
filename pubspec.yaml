@@ -8,6 +8,7 @@ environment:
 
 workspace:
   - packages/ciwapa_core
+  - packages/ciwapa_lsp
   - packages/ciwapa_dart
   - packages/ciwapa_llvm
   - packages/runtime_c

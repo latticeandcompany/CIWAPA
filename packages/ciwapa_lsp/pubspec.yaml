@@ -1,0 +1,14 @@
+name: ciwapa_lsp
+description: The INTERCAL language server behind every CIWAPA CLI's lsp command.
+version: 0.0.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  ciwapa_core: any
+
+dev_dependencies:
+  test: ^1.33.0

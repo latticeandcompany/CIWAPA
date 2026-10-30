@@ -37,6 +37,20 @@
       }
     },
     {
+      "name": "ciwapa_lsp",
+      "path": "packages/ciwapa_lsp",
+      "auto": false,
+      "scripts": {
+        "test": "../../tools/in-docker dart --suppress-analytics test",
+        "lint": "",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_core"
+      ]
+    },
+    {
       "name": "ciwapa_dart",
       "path": "packages/ciwapa_dart",
       "auto": false,
@@ -47,7 +61,8 @@
         "goal-status": ""
       },
       "dependsOn": [
-        "ciwapa_core"
+        "ciwapa_core",
+        "ciwapa_lsp"
       ]
     },
     {
@@ -62,7 +77,8 @@
       },
       "dependsOn": [
         "ciwapa_core",
-        "runtime_c"
+        "runtime_c",
+        "ciwapa_lsp"
       ]
     },
     {
@@ -100,7 +116,8 @@
       "dependsOn": [
         "ciwapa_core",
         "ciwapa_dart",
-        "ciwapa_llvm"
+        "ciwapa_llvm",
+        "ciwapa_lsp"
       ]
     }
   ],

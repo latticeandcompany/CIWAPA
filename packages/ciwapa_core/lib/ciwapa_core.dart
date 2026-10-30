@@ -8,6 +8,7 @@ export 'src/lexer.dart' show Gerund, LexerDialect, Token, TokenKind, UnaryOp;
 export 'src/parser.dart' show Parser;
 export 'src/source.dart';
 export 'src/ir.dart';
+export 'src/version.dart';
 export 'src/syslib/native.dart'
     show
         NativeCall,

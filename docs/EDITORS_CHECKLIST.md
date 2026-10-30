@@ -27,11 +27,11 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## The server (R3)
 
-- [ ] R3 — `lsp` exists on `ciwapa-llvm`, `ciwapa-dart`, `ioi-llvm` and `ioi-dart`, and speaks LSP on stdio. Tests: —
-- [ ] R3 — `ciwapa_lsp` has no dependencies beyond the workspace's, and doesn't depend on Interstates. Tests: —
-- [ ] R3 — `ciwapa-* lsp` diagnoses `.i` and `.xc`; `ioi-* lsp` also diagnoses `.ioi`, each the way its CLI would. Tests: —
-- [ ] R3 — E774 is never reported. Tests: —
-- [ ] R3 — the `traditional` and `clockface` settings change diagnostics as the flags would. Tests: —
+- [x] R3 — `lsp` exists on `ciwapa-llvm`, `ciwapa-dart`, `ioi-llvm` and `ioi-dart`, and speaks LSP on stdio. Tests: `packages/ciwapa_llvm/test/lsp_test.dart`, `packages/ciwapa_dart/test/lsp_test.dart`, `apps/interstates/test/lsp_test.dart`, `packages/ciwapa_lsp/test/server_test.dart`, `packages/ciwapa_lsp/test/rpc_test.dart`
+- [x] R3 — `ciwapa_lsp` has no dependencies beyond the workspace's, and doesn't depend on Interstates. Tests: `packages/ciwapa_lsp/test/dependencies_test.dart`, `apps/interstates/test/separation_test.dart`
+- [x] R3 — `ciwapa-* lsp` diagnoses `.i` and `.xc`; `ioi-* lsp` also diagnoses `.ioi`, each the way its CLI would. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`, `packages/ciwapa_lsp/test/text_test.dart`
+- [x] R3 — E774 is never reported. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `packages/ciwapa_core/test/analysis_test.dart`
+- [x] R3 — the `traditional` and `clockface` settings change diagnostics as the flags would. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`
 - [ ] R3 — the server reports its version, and each extension warns on a mismatch. Tests: —
 
 ## Diagnostics and hovers (R4)
