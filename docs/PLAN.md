@@ -1,13 +1,14 @@
 # CIWAPA, goal 1: a spec-faithful native INTERCAL compiler
 
-CIWAPA (Compiler for INTERCAL With A Pronounceable Acronym) is built by four `/goal` loops run one after another. This document is goal 1. It is written so that the loop never has to ask a question.
+CIWAPA (Compiler for INTERCAL With A Pronounceable Acronym) is built by five `/goal` loops run one after another. This document is goal 1. It is written so that the loop never has to ask a question.
 
 | Goal | Plan |
 |---|---|
 | 1. CIWAPA, Mode 1 | this file |
 | 2. EXTRACAL | [`EXTRACAL_PLAN.md`](EXTRACAL_PLAN.md) |
 | 3. INTERCAL on Interstates | [`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md) |
-| 4. WASM playground | planned in a later session ([Later goals](#later-goals)) |
+| 4. Editors | [`EDITORS_PLAN.md`](EDITORS_PLAN.md) |
+| 5. WASM playground | planned in a later session ([Later goals](#later-goals)) |
 
 Related documents:
 - [`SPEC_CHECKLIST.md`](SPEC_CHECKLIST.md) defines what "100% compliance" means. Each item cites its section of the spec and links at least one test.
@@ -356,7 +357,8 @@ The goal is met when this conversation shows ONE of:
 
 - **Goal 2, EXTRACAL:** [`EXTRACAL_PLAN.md`](EXTRACAL_PLAN.md).
 - **Goal 3, INTERCAL on Interstates:** [`INTERSTATES_PLAN.md`](INTERSTATES_PLAN.md).
-- **Goal 4, WASM playground.** This gets its own planning session. Decisions so far:
+- **Goal 4, Editors:** [`EDITORS_PLAN.md`](EDITORS_PLAN.md).
+- **Goal 5, WASM playground.** This gets its own planning session (Q148 moved it from goal 4). Decisions so far:
   - a static site with a WebAssembly backend, so the compiler runs in the browser with no server (Q23)
   - the deliberate exception to "no bytecode"
   - its own goal, after goal 3 (Q127)

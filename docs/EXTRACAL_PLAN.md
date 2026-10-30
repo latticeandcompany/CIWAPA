@@ -2,7 +2,7 @@
 
 EXTRACAL is CIWAPA's "Mode B". It is a strict superset of Mode 1 (the spec-faithful INTERCAL from goal 1) that adds modern C-INTERCAL extensions, 64-bit and signed numbers, and a real standard library with I/O and networking.
 
-This is the second of four `/goal` runs: **CIWAPA (Mode 1)** → **EXTRACAL** → **INTERCAL on Interstates** → **Playground**. It starts only after goal 1 is done. Interstates (goal 3) depends on it.
+This is the second of five `/goal` runs: **CIWAPA (Mode 1)** → **EXTRACAL** → **INTERCAL on Interstates** → **Editors** → **Playground**. It starts only after goal 1 is done. Interstates (goal 3) depends on it.
 
 Background: [`PLAN.md`](PLAN.md) (goal 1, architecture, workflow) and [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) (every answer, including the Q-numbers cited here).
 

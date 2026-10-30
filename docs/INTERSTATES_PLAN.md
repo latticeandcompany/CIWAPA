@@ -2,7 +2,7 @@
 
 INTERCAL on Interstates ("IoI") was an April Fools' joke from 2013: a web framework for INTERCAL, in the style of Ruby on Rails, with a 346-byte "download" that contained only `APRIL FOOL'S! :)`. Goal 3 makes the joke real.
 
-This is the third of four `/goal` runs: **CIWAPA (Mode 1)** → **EXTRACAL** → **INTERCAL on Interstates** → **Playground**. It starts only after goal 2 is done, because Interstates programs are EXTRACAL programs (Q88).
+This is the third of five `/goal` runs: **CIWAPA (Mode 1)** → **EXTRACAL** → **INTERCAL on Interstates** → **Editors** → **Playground**. It starts only after goal 2 is done, because Interstates programs are EXTRACAL programs (Q88).
 
 Background: [`PLAN.md`](PLAN.md) (architecture, workflow), [`EXTRACAL_PLAN.md`](EXTRACAL_PLAN.md) (the language Interstates builds on), and [`SPEC_DECISIONS.md`](SPEC_DECISIONS.md) (every answer, including the Q-numbers cited here).
 
