@@ -1,4 +1,4 @@
-// The Interstates host that ioi-dart copies next to every -s program, as ioi_host.dart (with this
+// The Interstates host that ioi-dart copies next to every .ioi program, as ioi_host.dart (with this
 // import pointing at the runtime.dart beside it). host.c is its twin; the Interstates suite keeps
 // the two identical in behavior.
 import 'dart:convert';

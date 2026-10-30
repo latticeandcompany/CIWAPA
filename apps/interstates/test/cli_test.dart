@@ -141,6 +141,25 @@ void main() {
           expect(File(exe('prog')).existsSync(), isFalse);
         });
       }
+
+      test('R1: -s on a .2xc says .2ioi, and on a .ioi just says to drop it', () async {
+        final (_, xc) = await build(backend, 'site.2xc', 'DO GIVE UP\n', [
+          '-s',
+        ]);
+        expect(
+          xc,
+          contains('Rename ${temp.path}/site.2xc to ${temp.path}/site.2ioi '),
+        );
+        final (status, ioi) = await build(backend, 'site.ioi', 'DO GIVE UP\n', [
+          '-s',
+        ]);
+        expect(
+          ioi,
+          '${backend.name}: -s is gone: Interstates programs are .ioi files now. '
+          'Build ${temp.path}/site.ioi without -s.\n',
+        );
+        expect(status, 64);
+      });
     });
   }
 

@@ -1,4 +1,4 @@
-/* The Interstates host that ioi-llvm links into every -s program. ioi_host.dart is its twin; the
+/* The Interstates host that ioi-llvm links into every .ioi program. ioi_host.dart is its twin; the
  * Interstates suite keeps the two identical in behavior. It reads a request the CGI/1.1 way, from
  * the environment and stdin, and builds the response the program asks for (R2, R4). */
 #include <stdint.h>

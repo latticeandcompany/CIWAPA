@@ -5,7 +5,7 @@ This archive holds one flavor of INTERCAL on Interstates, the web framework nobo
 everything it needs to build and serve sites:
 
   bin/ioi-dart or     CIWAPA's compiler of that flavor, which builds INTERCAL on Interstates sites
-  bin/ioi-llvm        with -s (and plain EXTRACAL programs, .xc to .7xc, without it)
+  bin/ioi-llvm        from .ioi files (and plain EXTRACAL programs, .xc to .7xc)
   bin/gross           the development server, which runs a site's program once per request
   lib/                ActiveCassette's SQLite: an object ioi-llvm links into sites that use a
                       database, or the library ioi-dart sites load
@@ -23,13 +23,13 @@ finds its toolchain and lib/ next to bin/.
 Hello, world
 ------------
 
-  hello.xc        DO COME FROM (16000)
+  hello.ioi       DO COME FROM (16000)
                   PLEASE READ OUT #0 WITH TEMPLATE "hello.html"
                   GIVE UP
 
   hello.html      <h1>Hello, world!</h1>
 
-  ioi-<flavor> build -s --no-random-bug hello.xc -o hello
+  ioi-<flavor> build --no-random-bug hello.ioi -o hello
   gross ./hello
 
 Then open http://127.0.0.1:10585/. `gross --help` lists its flags: --static <dir> serves files,

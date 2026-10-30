@@ -24,10 +24,15 @@ class InterstatesFrontend implements Frontend {
   String? checkOptions(ArgResults args) {
     if (!args.flag('states')) return null;
     final path = args.rest.length > 1 ? args.rest[1] : null;
-    final rename = path != null && path.endsWith('.xc')
-        ? 'Rename $path to ${path.substring(0, path.length - 3)}.ioi'
+    const gone = '-s is gone: Interstates programs are .ioi files now.';
+    if (path != null && interstatesBase(path) != null) {
+      return '$gone Build $path without -s.';
+    }
+    final xc = path == null ? null : RegExp(r'\.(2?)xc$').firstMatch(path);
+    final rename = xc != null
+        ? 'Rename $path to ${path!.substring(0, xc.start)}.${xc.group(1)}ioi'
         : 'Rename the program to end in .ioi';
-    return "-s is gone: Interstates programs are .ioi files now. $rename and build it without -s.";
+    return '$gone $rename and build it without -s.';
   }
 
   @override
