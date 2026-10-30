@@ -1,3 +1,4 @@
+export 'src/analysis.dart';
 export 'src/ast.dart';
 export 'src/engine.dart';
 export 'src/errors.dart';

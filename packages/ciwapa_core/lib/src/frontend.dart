@@ -6,18 +6,60 @@ import 'source.dart';
 import 'extracal/blocks.dart';
 import 'syslib/syslib.g.dart';
 
-/// A whole-program error, reported at compile time (decision Q80).
+/// A whole-program error, reported at compile time (decision Q80), or for an editor, a
+/// statement-local one that fires when its statement runs (R2).
 class CompileError implements Exception {
-  CompileError(int code, this.statement) : error = IclError.of(code);
+  CompileError(
+    int code,
+    this.statement, {
+    this.span,
+    this.token,
+    this.whenRun = false,
+  }) : error = IclError.of(code);
 
   /// An error of a language built on CIWAPA's, which isn't in [IclError.all].
-  CompileError.of(this.error, this.statement);
+  CompileError.of(
+    this.error,
+    this.statement, {
+    this.span,
+    this.token,
+    this.whenRun = false,
+  });
 
   final IclError error;
 
   /// The offending statement's ordinal. Errors with no offending statement report statement 1, the
   /// statement that would have run first (decision T33).
   final int statement;
+
+  /// The runes of the offending statement in the user's file, when it has one there.
+  final Span? span;
+
+  /// The runes of the one token the error is about, when it is about one.
+  final Span? token;
+
+  /// A statement-local error (decisions Q80, Q81): the program builds, and the error fires only if
+  /// the statement runs.
+  final bool whenRun;
+
+  /// This error, placed at [statement] of [statements] when that statement is in [source].
+  CompileError placed(
+    List<Statement> statements,
+    Source source, {
+    Span? token,
+  }) {
+    final s = statement >= 1 && statement <= statements.length
+        ? statements[statement - 1]
+        : null;
+    final inFile = s != null && identical(s.source, source);
+    return CompileError.of(
+      error,
+      statement,
+      span: span ?? (inFile ? Span(s.start, s.end) : null),
+      token: this.token ?? (inFile ? token : null),
+      whenRun: whenRun,
+    );
+  }
 
   @override
   String toString() => error.format(statement);
@@ -31,9 +73,13 @@ class Program {
     this.statements,
     this.userStatements, {
     required this.extracal,
+    this.tokens = const [],
   });
 
   final Source source;
+
+  /// The user's file as the lexer saw it.
+  final List<Token> tokens;
 
   /// The numeric base picked by the file extension, 2 through 7.
   final int base;
@@ -50,7 +96,9 @@ class Program {
 
 bool isValidLabel(int label) => label >= 1 && label <= 65535;
 
-/// Parses [source] and runs the whole-program checks, in C-INTERCAL 0.15's order.
+/// Parses [source] and runs the whole-program checks, in C-INTERCAL 0.15's order, throwing the first
+/// [CompileError]. With [onError], every error goes there instead and the checks carry on, so that
+/// an editor sees them all (R2); the first one is the one that would have been thrown.
 /// [memoryLimit] is test-only (decision L7): see [Parser.memoryLimit].
 ///
 /// A language built on CIWAPA's passes its own [parser], and [libraries]: blocks of its own that
@@ -68,22 +116,33 @@ Program analyze(
   parser,
   List<LibraryBlock> libraries = const [],
   Dialect? dialect,
+  void Function(CompileError error)? onError,
 }) {
-  dialect ??= Source.dialectOf(source.path);
-  if (dialect == null) throw CompileError(998, 1);
-  final base = dialect.base;
-  if (traditional && base != 2) throw CompileError(111, 1);
+  var statements = const <Statement>[];
+  void report(CompileError error, {Span? token}) {
+    final placed = error.placed(statements, source, token: token);
+    if (onError == null) throw placed;
+    onError(placed);
+  }
 
+  dialect ??= Source.dialectOf(source.path);
+  if (dialect == null) {
+    report(CompileError(998, 1));
+    return Program(source, 2, const [], 0, extracal: false);
+  }
+  final base = dialect.base;
+  if (traditional && base != 2) report(CompileError(111, 1));
   final wide = dialect.extracal && base == 2;
-  final statements =
-      (parser?.call(source, wide: wide, extensions: dialect.extracal) ??
-              Parser(
-                source,
-                memoryLimit: memoryLimit,
-                wide: wide,
-                extensions: dialect.extracal,
-              ))
-          .parse();
+  final parsing =
+      parser?.call(source, wide: wide, extensions: dialect.extracal) ??
+      Parser(
+        source,
+        memoryLimit: memoryLimit,
+        wide: wide,
+        extensions: dialect.extracal,
+      );
+  statements = parsing.parse();
+  final tokens = parsing.tokens;
   if (traditional) {
     for (final (i, s) in statements.indexed) {
       final gerund = s.body.gerund;
@@ -101,16 +160,16 @@ Program analyze(
           body is Petition ||
           body is HostCall ||
           (body is IoBody && body.baudot)) {
-        throw CompileError(111, i + 1);
+        report(CompileError(111, i + 1));
       }
     }
   }
   _expandWhiles(statements);
-  _checkPoliteness(statements);
+  _checkPoliteness(statements, report);
   // `ick` allows nothing after a TRY AGAIN, not even a comment.
   final tryAgain = statements.indexWhere((s) => s.body is TryAgain);
   if (tryAgain >= 0 && tryAgain < statements.length - 1) {
-    throw CompileError(993, tryAgain + 2);
+    report(CompileError(993, tryAgain + 2));
   }
   final userStatements = statements.length;
   // `--traditional` has none of EXTRACAL's library, which is built on PETITION.
@@ -120,8 +179,9 @@ Program analyze(
     extracal: dialect.extracal && !traditional,
     libraries: libraries,
   );
-  _checkLabels(statements, extracal: dialect.extracal);
-  _checkOperators(statements, base);
+  final lex = _StatementTokens(tokens);
+  _checkLabels(statements, lex, report, extracal: dialect.extracal);
+  _checkOperators(statements, base, lex, report);
   _demoteUnreadable(statements, base);
   return Program(
     source,
@@ -129,7 +189,39 @@ Program analyze(
     statements,
     userStatements,
     extracal: dialect.extracal,
+    tokens: tokens,
   );
+}
+
+typedef _Report = void Function(CompileError error, {Span? token});
+
+/// The tokens of each statement of the user's file.
+class _StatementTokens {
+  _StatementTokens(this.tokens);
+
+  final List<Token> tokens;
+
+  /// [s]'s tokens; none for a statement from a library.
+  Iterable<Token> of(Statement s) => tokens.where(
+    (t) => t.kind != TokenKind.end && t.start >= s.start && t.end <= s.end,
+  );
+
+  /// The span of [s]'s label, when it has one.
+  Span? labelOf(Statement s) {
+    final first = of(s).firstOrNull;
+    return first != null && first.kind == TokenKind.label
+        ? Span(first.start, first.end)
+        : null;
+  }
+
+  /// The span of the first label [s] names in its body, such as a COME FROM's.
+  Span? targetOf(Statement s) {
+    final labels = of(s).where((t) => t.kind == TokenKind.label).toList();
+    final target = labels.length > (s.label == null ? 0 : 1)
+        ? labels[s.label == null ? 0 : 1]
+        : null;
+    return target == null ? null : Span(target.start, target.end);
+  }
 }
 
 /// `ick`'s `(x) DO a WHILE b` (R3), expanded the way `ick`'s preprocessor does it, into 11
@@ -277,15 +369,20 @@ void _includeLibraries(
 
 /// §10.4 and decision T35: fewer than 1/5 polite statements is E079, more than 1/3 is E099, using
 /// exact fractions, and only for programs of more than 2 statements.
-void _checkPoliteness(List<Statement> statements) {
+void _checkPoliteness(List<Statement> statements, _Report report) {
   final total = statements.length;
   if (total <= 2) return;
   final polite = statements.where((s) => s.polite).length;
-  if (5 * polite < total) throw CompileError(79, 1);
-  if (3 * polite > total) throw CompileError(99, 1);
+  if (5 * polite < total) report(CompileError(79, 1));
+  if (3 * polite > total) report(CompileError(99, 1));
 }
 
-void _checkLabels(List<Statement> statements, {required bool extracal}) {
+void _checkLabels(
+  List<Statement> statements,
+  _StatementTokens lex,
+  _Report report, {
+  required bool extracal,
+}) {
   final firstWithLabel = <int, int>{};
   final duplicated = <int>{};
   for (final (i, s) in statements.indexed) {
@@ -294,11 +391,11 @@ void _checkLabels(List<Statement> statements, {required bool extracal}) {
     if (firstWithLabel.containsKey(label)) duplicated.add(label);
     firstWithLabel.putIfAbsent(label, () => i);
   }
-  if (duplicated.isNotEmpty) {
-    final earliest = duplicated
-        .map((l) => firstWithLabel[l]!)
-        .reduce((a, b) => a < b ? a : b);
-    throw CompileError(182, earliest + 1);
+  // Every statement with a duplicated label, in order, so the first is the earliest first use.
+  for (final (i, s) in statements.indexed) {
+    if (duplicated.contains(s.label) && (isValidLabel(s.label!) || s.preproc)) {
+      report(CompileError(182, i + 1), token: lex.labelOf(s));
+    }
   }
 
   final targeted = <int>{};
@@ -308,21 +405,35 @@ void _checkLabels(List<Statement> statements, {required bool extracal}) {
     // Only WHILE's own statements can reach its internal labels.
     final reachable = isValidLabel(body.label) || s.preproc;
     if (!reachable || !firstWithLabel.containsKey(body.label)) {
-      throw CompileError(444, i + 1);
+      report(CompileError(444, i + 1), token: lex.targetOf(s));
+      continue;
     }
     // In EXTRACAL, several COME FROMs on one label start threads (R3).
-    if (!targeted.add(body.label) && !extracal) throw CompileError(555, i + 1);
+    if (!targeted.add(body.label) && !extracal) {
+      report(CompileError(555, i + 1), token: lex.targetOf(s));
+    }
   }
 }
 
 /// `^` and `@` exist only in bases 3–7, and `N@` only where N ≤ base − 2 (§6.6, decision T40).
-void _checkOperators(List<Statement> statements, int base) {
+void _checkOperators(
+  List<Statement> statements,
+  int base,
+  _StatementTokens lex,
+  _Report report,
+) {
   for (final (i, s) in statements.indexed) {
-    for (final e in expressionsOf(s.body)) {
-      if (unaryOps(e).any((op) => !_allowed(op, base))) {
-        throw CompileError(997, i + 1);
-      }
-    }
+    final banned = expressionsOf(s.body)
+        .any((e) => unaryOps(e).any((op) => !_allowed(op, base)));
+    if (!banned) continue;
+    final token = lex
+        .of(s)
+        .where((t) => t.unary != null && !_allowed(t.unary!, base))
+        .firstOrNull;
+    report(
+      CompileError(997, i + 1),
+      token: token == null ? null : Span(token.start, token.end),
+    );
   }
 }
 

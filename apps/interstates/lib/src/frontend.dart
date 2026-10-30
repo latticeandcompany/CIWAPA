@@ -60,10 +60,38 @@ class InterstatesFrontend implements Frontend {
   }
 
   @override
-  IrProgram lower(Program program, ArgResults args, IrOptions options) {
+  IrProgram lower(Program program, ArgResults args, IrOptions options) =>
+      _lower(program, options);
+
+  /// `.ioi` files, and everything CIWAPA's own front end takes (R3, Q167).
+  @override
+  bool handles(String path) =>
+      interstatesBase(path) != null || const CiwapaFrontend().handles(path);
+
+  /// A `.ioi` file as the `ioi-*` CLIs see it, and any other file as `ciwapa-*` does (R3).
+  @override
+  Analysis analyzeAll(Source source, {required bool traditional}) {
+    final base = interstatesBase(source.path);
+    if (base == null) {
+      return const CiwapaFrontend().analyzeAll(
+        source,
+        traditional: traditional,
+      );
+    }
+    return collectErrors((onError) {
+      if (base != 2) {
+        onError(CompileError(998, 1));
+        return Program(source, base, const [], 0, extracal: true);
+      }
+      if (traditional) onError(CompileError(111, 1));
+      return analyzeInterstates(source, onError: onError);
+    }, _lower);
+  }
+
+  IrProgram _lower(Program program, IrOptions options) {
     final routes = _routes[program];
     if (routes == null) {
-      return const CiwapaFrontend().lower(program, args, options);
+      return core.lower(program, options: options);
     }
     final ir = core.lower(
       program,
@@ -87,12 +115,18 @@ int? interstatesBase(String path) {
   return digit.isEmpty ? 2 : int.parse(digit);
 }
 
-/// Parses an Interstates program and runs CIWAPA's whole-program checks, then its own.
-Program analyzeInterstates(Source source, {int? memoryLimit}) {
+/// Parses an Interstates program and runs CIWAPA's whole-program checks, then its own, throwing the
+/// first error, or with [onError], passing every one there and carrying on (R2).
+Program analyzeInterstates(
+  Source source, {
+  int? memoryLimit,
+  void Function(CompileError error)? onError,
+}) {
   late InterstatesParser parser;
   final program = core.analyze(
     source,
     memoryLimit: memoryLimit,
+    onError: onError,
     dialect: const Dialect(2, extracal: true),
     parser: (source, {required wide, required extensions}) =>
         parser = InterstatesParser(source, memoryLimit: memoryLimit),
@@ -102,6 +136,12 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
       LibraryBlock('activecassette.xc', 16200, 16999, activecassetteLibrary),
     ],
   );
+  void report(CompileError error) {
+    final placed = error.placed(program.statements, source);
+    if (onError == null) throw placed;
+    onError(placed);
+  }
+
   // A WHILE's body becomes a statement of its own, which gets its data here.
   for (final s in program.statements.take(program.userStatements)) {
     s.data ??= parser.dataOf(s.body);
@@ -110,19 +150,29 @@ Program analyzeInterstates(Source source, {int? memoryLimit}) {
       in program.statements.take(program.userStatements).indexed) {
     if (s.data case DatabaseWrite(:final columns, :final items)
         when columns != items) {
-      throw interstatesCompileError(827, i + 1);
+      report(interstatesCompileError(827, i + 1));
     }
     // ;4400 and ;49221 hold strings, which only the Interstates statements can move (R5).
     if (s.body is! HostCall && _usesStrings(s.body)) {
       s.body = InterstatesParser.fault(822, s.body.gerund);
     }
   }
-  _routes[program] = routeTable(program);
+  try {
+    _routes[program] = routeTable(program);
+  } on CompileError catch (e) {
+    report(e);
+  }
   final templates = <Template>[];
   for (final (i, s)
       in program.statements.take(program.userStatements).indexed) {
     if (s.data case TemplateUse(:final count, :final path)) {
-      final template = compileTemplate(program.source, path, count, i + 1);
+      final Template template;
+      try {
+        template = compileTemplate(program.source, path, count, i + 1);
+      } on CompileError catch (e) {
+        report(e);
+        continue;
+      }
       s.body = HostCall(
         HostService.render,
         values: [Constant(templates.length), ...template.values],

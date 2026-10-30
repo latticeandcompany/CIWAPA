@@ -21,9 +21,9 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Errors (R2)
 
-- [ ] R2 — the front end reports every compile error in a file, each with its statement's span. Tests: —
-- [ ] R2 — errors about one token carry that token's span. Tests: —
-- [ ] R2 — the CLIs print only the first error, and the conformance suite is unchanged in both flavors. Tests: `packages/conformance`
+- [x] R2 — the front end reports every compile error in a file, each with its statement's span. Tests: `packages/ciwapa_core/test/analysis_test.dart`, `apps/interstates/test/analysis_test.dart`
+- [x] R2 — errors about one token carry that token's span. Tests: `packages/ciwapa_core/test/analysis_test.dart`
+- [x] R2 — the CLIs print only the first error, and the conformance suite is unchanged in both flavors. Tests: `packages/conformance`, `packages/ciwapa_core/test/analysis_test.dart`, `apps/interstates/test/analysis_test.dart`
 
 ## The server (R3)
 
