@@ -8,13 +8,13 @@ import 'package:interstates/src/syntax.dart';
 import 'package:test/test.dart';
 
 List<Statement> parse(String text) =>
-    analyzeInterstates(Source('t.xc', text)).statements;
+    analyzeInterstates(Source('t.ioi', text)).statements;
 
 Statement only(String text) => parse(text).single;
 
 /// The parse alone, before the front end reads any template.
 List<Statement> parseOnly(String text) =>
-    InterstatesParser(Source('t.xc', text)).parse();
+    InterstatesParser(Source('t.ioi', text)).parse();
 
 /// The values of a HostCall, with each constant as its number and anything else as text.
 List<Object> values(Body body) => [
@@ -45,7 +45,7 @@ void main() {
           .writeAsStringSync('<a href="/a">a</a><a href="/b">b</a>');
       final statements = analyzeInterstates(
         Source(
-          '${dir.path}/t.xc',
+          '${dir.path}/t.ioi',
           '(5) PLEASE READ OUT #0 WITH TEMPLATE "a.html"\n'
               'DO COME FROM (5) WITH ROUTE "/a"\n'
               'DO COME FROM (5) WITH ROUTE "/b"\n',
@@ -337,11 +337,12 @@ void main() {
       setUp(() => temp = Directory.systemTemp.createTempSync('ioi-syntax-'));
       tearDown(() => temp.deleteSync(recursive: true));
 
-      Future<ProcessResult> build(String program, List<String> flags) async {
-        final source = File('${temp.path}/p.xc')..writeAsStringSync(program);
+      Future<ProcessResult> build(String program, String extension) async {
+        final source = File('${temp.path}/p.$extension')
+          ..writeAsStringSync(program);
         final exe = '${temp.path}/p${Platform.isWindows ? '.exe' : ''}';
         final status = await runCli(
-          ['build', '--no-random-bug', ...flags, source.path, '-o', exe],
+          ['build', '--no-random-bug', source.path, '-o', exe],
           backend,
           frontend: InterstatesFrontend(),
         );
@@ -352,8 +353,8 @@ void main() {
       const program =
           'NOTE says hello\nDO COME FROM (16000)\nDO .1 <- #2\nPLEASE READ OUT .1\nGIVE UP\n';
 
-      test('Q141: under -s, a leading NOTE and a bare GIVE UP work', () async {
-        final run = await build(program, ['-s']);
+      test('Q141: in a .ioi, a leading NOTE and a bare GIVE UP work', () async {
+        final run = await build(program, 'ioi');
         expect(
           run.stdout,
           'Status: 200 OK\nContent-Type: text/html; charset=utf-8\n\n'
@@ -363,24 +364,24 @@ void main() {
         expect(run.exitCode, 0);
       });
 
-      test('Q141: without -s they are what they always were', () async {
+      test('Q141: in a .xc they are what they always were', () async {
         // The NOTE is statement 1, undecodable, and the bare GIVE UP splatters the READ OUT.
         final run = await build(
           program.replaceFirst('DO COME FROM (16000)\n', ''),
-          [],
+          'xc',
         );
         expect(run.stderr, startsWith('ICL000I NOTE says hello'));
       });
 
       test('E827 stops the build at the INTO DATABASE', () async {
-        final source = File('${temp.path}/p.xc')
+        final source = File('${temp.path}/p.ioi')
           ..writeAsStringSync(
             'PLEASE DO .1 <- #1\nDO INTO DATABASE #1~#2\$#3 <- ,1\nDO GIVE UP\n',
           );
         final err = StringBuffer();
         final status = await IOOverrides.runZoned(
           () => runCli(
-            ['build', '-s', source.path, '-o', '${temp.path}/p'],
+            ['build', source.path, '-o', '${temp.path}/p'],
             backend,
             frontend: InterstatesFrontend(),
           ),
@@ -391,10 +392,10 @@ void main() {
       });
 
       test('Q147: politeness still applies', () async {
-        final source = File('${temp.path}/p.xc')
+        final source = File('${temp.path}/p.ioi')
           ..writeAsStringSync('DO .1 <- #1\nDO .1 <- #2\nDO GIVE UP\n');
         final status = await runCli(
-          ['build', '-s', source.path, '-o', '${temp.path}/p'],
+          ['build', source.path, '-o', '${temp.path}/p'],
           backend,
           frontend: InterstatesFrontend(),
         );

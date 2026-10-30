@@ -3,7 +3,7 @@
 A web framework for INTERCAL (goal 3, [`docs/INTERSTATES_PLAN.md`](../../docs/INTERSTATES_PLAN.md)).
 The user guide is [`docs/INTERSTATES.md`](../../docs/INTERSTATES.md); this file is about how it's
 built, and the library's routine tables.
-`ioi-dart` and `ioi-llvm` compile EXTRACAL; with `-s` they add the Interstates statements, and
+`ioi-dart` and `ioi-llvm` compile EXTRACAL; a `.ioi` file adds the Interstates statements, and
 the program becomes a CGI program that `gross` runs once per request.
 
 ## How it fits on CIWAPA
@@ -14,7 +14,7 @@ CIWAPA knows nothing about Interstates (R1, L36). `apps/interstates` uses CIWAPA
   `body`/`extendBody` overrides. Its statements become `HostCall`s, which lower to a PETITION
   carrying computed values, and its routes become do-nothing statements whose ordinals are entry
   points.
-- **Host:** every `-s` program runs with a host beside CIWAPA's runtime:
+- **Host:** every `.ioi` program runs with a host beside CIWAPA's runtime:
   `lib/runtime/ioi_host.dart` for ioi-dart and `runtime/host.c` for ioi-llvm, which are twins.
   The host picks where the program starts, runs the Interstates services, and writes the CGI
   headers just before the body. `tool/embed_runtime.dart` regenerates
@@ -23,7 +23,7 @@ CIWAPA knows nothing about Interstates (R1, L36). `apps/interstates` uses CIWAPA
 
 ## The library blocks, (16001)–(16999)
 
-A `-s` program gets each block when it NEXTs to a label in its range, like the system library:
+A `.ioi` program gets each block when it NEXTs to a label in its range, like the system library:
 (16001)–(16199) for the request and response, and (16200)–(16999) for ActiveCassette, so only a
 program that uses a database needs SQLite. Each
 routine is a single PETITION of its own number. Strings are tail arrays of code points; a lookup

@@ -8,7 +8,7 @@ import 'host_data.dart';
 import 'runtime_sources.g.dart';
 import 'services.dart';
 
-/// `ioi-dart`: CIWAPA's Dart flavor, with the Interstates host beside `-s` programs.
+/// `ioi-dart`: CIWAPA's Dart flavor, with the Interstates host beside `.ioi` programs.
 Backend ioiDart() => IoiBackend(
   'ioi-dart',
   DartBackend(),
@@ -19,7 +19,7 @@ Backend ioiDart() => IoiBackend(
   },
 );
 
-/// `ioi-llvm`: CIWAPA's LLVM flavor, with the Interstates host compiled into `-s` programs, and
+/// `ioi-llvm`: CIWAPA's LLVM flavor, with the Interstates host compiled into `.ioi` programs, and
 /// ActiveCassette's SQLite into those that use a database.
 Backend ioiLlvm() {
   final triple = Toolchain.find().triple;
@@ -104,8 +104,8 @@ final _noSqlite = ToolchainException(
   'apps/interstates/tool/activecassette.sh made, or use a release archive',
 );
 
-/// One of CIWAPA's backends, under the name of an `ioi-*` CLI: [plain] builds programs without
-/// `-s`, and [hosted] the backend for a `-s` one, with the [hostFiles] beside the generated code.
+/// One of CIWAPA's backends, under the name of an `ioi-*` CLI: [plain] builds plain EXTRACAL
+/// programs, and [hosted] the backend for a `.ioi` one, with the [hostFiles] beside the generated code.
 class IoiBackend implements Backend {
   IoiBackend(this.name, this.plain, this.hosted, this.hostFiles);
 

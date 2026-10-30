@@ -9,20 +9,26 @@ import 'runtime_sources.g.dart';
 import 'services.dart';
 import 'syntax.dart';
 
-/// The `ioi-*` front end: plain EXTRACAL, or with `-s` ('States) the Interstates extensions
-/// (R1, punchline 2).
+/// The `ioi-*` front end: Interstates programs are `.ioi` files, and anything else is plain EXTRACAL
+/// (R1, Q154, L35).
 class InterstatesFrontend implements Frontend {
   @override
-  String get sourceDescription => 'file.xc';
+  String get sourceDescription => 'file.ioi or file.xc';
+
+  /// `-s` is gone, but it is still recognized, so that using it says what to do instead.
+  @override
+  void addOptions(ArgParser parser) =>
+      parser.addFlag('states', abbr: 's', negatable: false, hide: true);
 
   @override
-  void addOptions(ArgParser parser) => parser.addFlag(
-    'states',
-    abbr: 's',
-    negatable: false,
-    help:
-        "'States: turn on the Interstates extensions (binary .xc files only).",
-  );
+  String? checkOptions(ArgResults args) {
+    if (!args.flag('states')) return null;
+    final path = args.rest.length > 1 ? args.rest[1] : null;
+    final rename = path != null && path.endsWith('.xc')
+        ? 'Rename $path to ${path.substring(0, path.length - 3)}.ioi'
+        : 'Rename the program to end in .ioi';
+    return "-s is gone: Interstates programs are .ioi files now. $rename and build it without -s.";
+  }
 
   @override
   Program analyze(
@@ -31,32 +37,29 @@ class InterstatesFrontend implements Frontend {
     required bool traditional,
     int? memoryLimit,
   }) {
-    // The ioi-* CLIs compile EXTRACAL; with -s, binary EXTRACAL with C-INTERCAL-style extensions
-    // on top (L35).
+    final base = interstatesBase(source.path);
+    if (base != null) {
+      // Interstates is built on the binary library blocks and string machinery (L35).
+      if (base != 2) throw CompileError(998, 1);
+      if (traditional) throw CompileError(111, 1);
+      return analyzeInterstates(source, memoryLimit: memoryLimit);
+    }
     final dialect = Source.dialectOf(source.path);
-    final states = args.flag('states');
-    if (dialect == null || !dialect.extracal || (states && dialect.base != 2)) {
-      throw CompileError(998, 1);
-    }
-    if (states && traditional) throw CompileError(111, 1);
-    if (!states) {
-      return const CiwapaFrontend().analyze(
-        source,
-        args,
-        traditional: traditional,
-        memoryLimit: memoryLimit,
-      );
-    }
-    return analyzeInterstates(source, memoryLimit: memoryLimit);
+    if (dialect == null || !dialect.extracal) throw CompileError(998, 1);
+    return const CiwapaFrontend().analyze(
+      source,
+      args,
+      traditional: traditional,
+      memoryLimit: memoryLimit,
+    );
   }
 
   @override
   IrProgram lower(Program program, ArgResults args, IrOptions options) {
-    if (!args.flag('states')) {
+    final routes = _routes[program];
+    if (routes == null) {
       return const CiwapaFrontend().lower(program, args, options);
     }
-    final routes = _routes[program];
-    if (routes == null) throw StateError('lower() needs analyze()\'s program');
     final ir = core.lower(
       program,
       options: options,
@@ -71,12 +74,21 @@ class InterstatesFrontend implements Frontend {
   }
 }
 
+/// The base a `.ioi` or `.2ioi`–`.7ioi` path names, or null for any other path.
+int? interstatesBase(String path) {
+  final match = RegExp(r'\.([2-7]?)ioi$').firstMatch(path);
+  if (match == null) return null;
+  final digit = match.group(1)!;
+  return digit.isEmpty ? 2 : int.parse(digit);
+}
+
 /// Parses an Interstates program and runs CIWAPA's whole-program checks, then its own.
 Program analyzeInterstates(Source source, {int? memoryLimit}) {
   late InterstatesParser parser;
   final program = core.analyze(
     source,
     memoryLimit: memoryLimit,
+    dialect: const Dialect(2, extracal: true),
     parser: (source, {required wide, required extensions}) =>
         parser = InterstatesParser(source, memoryLimit: memoryLimit),
     libraries: const [

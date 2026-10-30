@@ -37,6 +37,16 @@ void main() {
       expect(tri.extracal, isTrue);
       expect(tri.base, 4);
     });
+
+    test('a front end can supply the dialect for an extension of its own', () {
+      expect(() => compile('DO GIVE UP', path: 'x.site'), throwsIcl(998, 1));
+      final program = analyze(
+        Source('x.site', 'DO GIVE UP'),
+        dialect: const Dialect(2, extracal: true),
+      );
+      expect(program.extracal, isTrue);
+      expect(program.base, 2);
+    });
   });
 
   group('--traditional (decision T39)', () {

@@ -62,7 +62,7 @@ The file extension decides what you're in for.
 
 **EXTRACAL** (`.xc`) is a strict superset, for people who found INTERCAL too limiting. It adds the control statements modern C-INTERCAL grew (NEXT FROM, computed COME FROM, threads, backtracking, CREATE, and more), 64-bit and signed numbers, and a standard library for files, strings, sockets and the command line. Every one of these makes the language more capable and none of them make it easier. See [`docs/EXTRACAL.md`](docs/EXTRACAL.md).
 
-**INTERCAL on Interstates** is a web framework for EXTRACAL. It began in 2013 as an [April Fools' website](https://www.intercaloninterstates.org/) advertising a framework that didn't exist. Now it does. Routes are `COME FROM`s with a path, templates use `{{ }}`, numbers render as Roman numerals with real overlines, and the database layer, ActiveCassette, numbers its tables instead of naming them. The server is called `gross`. It ships in separate `ioi-<flavor>-<platform>` archives. See [`docs/INTERSTATES.md`](docs/INTERSTATES.md).
+**INTERCAL on Interstates** is a web framework for EXTRACAL, written in `.ioi` files. It began in 2013 as an [April Fools' website](https://www.intercaloninterstates.org/) advertising a framework that didn't exist. Now it does. Routes are `COME FROM`s with a path, templates use `{{ }}`, numbers render as Roman numerals with real overlines, and the database layer, ActiveCassette, numbers its tables instead of naming them. The server is called `gross`. It ships in separate `ioi-<flavor>-<platform>` archives. See [`docs/INTERSTATES.md`](docs/INTERSTATES.md).
 
 ## Performance
 

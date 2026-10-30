@@ -26,11 +26,11 @@ Download the `ioi-<flavor>-<os>-<arch>` archive for your platform from a release
 Its `README.txt` covers unpacking and unsigned binaries.
 
 `ioi-dart` and `ioi-llvm` are CIWAPA's two compilers under new names. They have the same `build`,
-`run` and `doctor` commands, plus one flag:
+`run` and `doctor` commands, and one new file extension:
 
 ```
-ioi-llvm build -s --no-random-bug site.xc -o site   # an Interstates site
-ioi-llvm build prog.xc                              # plain EXTRACAL, as ciwapa-llvm builds it
+ioi-llvm build --no-random-bug site.ioi -o site   # an Interstates site
+ioi-llvm build prog.xc                            # plain EXTRACAL, as ciwapa-llvm builds it
 ```
 
 `--no-random-bug` turns off CIWAPA's random compiler bug. Without it, each statement has a 1 in 128
@@ -38,12 +38,17 @@ chance of an E774 planted at build time. In a site of any size, that means some 
 until the next build moves the bug somewhere else. Leave the flag off for the authentic
 experience.
 
-`-s` turns on everything in this guide. It takes binary EXTRACAL files only (`.xc`, `.2xc`), and
-it can't be combined with `--traditional` (E111).
+A `.ioi` file turns on everything in this guide. Interstates is binary only, so `.ioi` and `.2ioi`
+are the whole list; `.3ioi` through `.7ioi` are E998. A `.ioi` can't be built with
+`--traditional` (E111). Anything else the `ioi-*` compilers build is plain EXTRACAL (`.xc`,
+`.2xc`–`.7xc`), and Mode 1's `.i` is E998: build those with `ciwapa-*`.
+
+Before `.ioi` existed, a `-s` flag did this job. It's gone, and using it fails with a note to
+rename the file, which is the whole migration.
 
 ## Hello, world
 
-`hello.xc`:
+`hello.ioi`:
 
 ```
 NOTE At the start of the program, handle the default route.
@@ -64,13 +69,13 @@ GIVE UP
 ```
 
 ```
-ioi-llvm build -s --no-random-bug hello.xc -o hello
+ioi-llvm build --no-random-bug hello.ioi -o hello
 gross ./hello
 ```
 
 Then open <http://127.0.0.1:10585/>.
 
-Under `-s`, two of the site's habits are allowed:
+In a `.ioi` file, two of the site's habits are allowed:
 
 - text before the first statement is a comment, so the `NOTE` line needs no statement identifier;
 - a bare `GIVE UP` means `DO GIVE UP`.
@@ -201,7 +206,7 @@ when the statement runs. `;4400 SUB n` past the route's parameters is E241.
 
 ## The request and the response
 
-A `-s` program gets the library block (16001)–(16130) when it NEXTs into it, as it does the system
+A `.ioi` program gets the library block (16001)–(16130) when it NEXTs into it, as it does the system
 library. Inputs and results are strings in tail arrays, one code point per element. Lookups set
 `.1` to #1 when they find something and #2 when they don't. To read the form field `title`:
 

@@ -12,12 +12,12 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## `.ioi` (R1)
 
-- [ ] R1 — `.ioi` and `.2ioi` select Interstates in both `ioi-*` CLIs; `.3ioi`–`.7ioi` are E998. Tests: —
-- [ ] R1 — `-s` is gone, and passing it fails with a message to rename the file to `.ioi`. Tests: —
-- [ ] R1 — without `.ioi`, the `ioi-*` CLIs still take exactly what L35 says. Tests: —
-- [ ] R1 — Q141's tolerances apply to `.ioi` files. Tests: —
-- [ ] R1 — `ciwapa-*` treats `.ioi` as E998, and nothing under `packages/` names Interstates. Tests: —
-- [ ] R1 — the blog, the hello world and every Interstates golden are `.ioi`, and all of goal 3's tests pass. Tests: —
+- [x] R1 — `.ioi` and `.2ioi` select Interstates in both `ioi-*` CLIs; `.3ioi`–`.7ioi` are E998. Tests: `apps/interstates/test/cli_test.dart`
+- [x] R1 — `-s` is gone, and passing it fails with a message to rename the file to `.ioi`. Tests: `apps/interstates/test/cli_test.dart`
+- [x] R1 — without `.ioi`, the `ioi-*` CLIs still take exactly what L35 says. Tests: `apps/interstates/test/cli_test.dart`
+- [x] R1 — Q141's tolerances apply to `.ioi` files. Tests: `apps/interstates/test/cli_test.dart`, `apps/interstates/test/syntax_test.dart`
+- [x] R1 — `ciwapa-*` treats `.ioi` as E998, and nothing under `packages/` names Interstates. Tests: `apps/interstates/test/cli_test.dart`, `apps/interstates/test/separation_test.dart`
+- [x] R1 — the blog, the hello world and every Interstates golden are `.ioi`, and all of goal 3's tests pass. Tests: `apps/interstates/test/golden`, `apps/interstates/test/hello_test.dart`, `apps/interstates/test/blog_test.dart`
 
 ## Errors (R2)
 

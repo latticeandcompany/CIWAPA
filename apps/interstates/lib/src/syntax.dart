@@ -33,7 +33,7 @@ class DatabaseWrite {
   final int items;
 }
 
-/// The words `-s` adds, and its string literals: `"…"` right after `WITH ROUTE` or
+/// The words `.ioi` files add, and its string literals: `"…"` right after `WITH ROUTE` or
 /// `WITH TEMPLATE`, up to the next `"` on the same line (R5). Anywhere else `"` stays rabbit ears.
 final interstatesDialect = LexerDialect(
   words: const [
@@ -68,7 +68,7 @@ final interstatesDialect = LexerDialect(
   },
 );
 
-/// EXTRACAL with the Interstates extensions (`-s`). Its own statements become [HostCall]s, or for a
+/// EXTRACAL with the Interstates extensions, for `.ioi` files. Its own statements become [HostCall]s, or for a
 /// route a [Nothing], and what the rest of the compiler needs to know about them is the
 /// statement's [Statement.data].
 class InterstatesParser extends Parser {
