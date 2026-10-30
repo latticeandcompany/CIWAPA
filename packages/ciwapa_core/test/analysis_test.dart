@@ -50,6 +50,8 @@ void main() {
         [for (final e in a.errors) (e.error.code, e.statement)],
         [(111, 1), (111, 1), (79, 1)],
       );
+      // E111 for the base comes before the parse, and still lands on statement 1.
+      expect(a.errors[0].span, at(text, 'DO COME FROM (1)'));
       expect(a.errors[1].span, at(text, 'DO COME FROM (1)'));
     });
 
@@ -115,16 +117,39 @@ void main() {
     });
   });
 
-  test('R3: the random compiler bug is never reported', () {
+  test('R3: the random compiler bug is never planted, so never reported', () {
     // At 1 in 128 per statement, a build of this would almost surely plant some.
     final text = [
-      'PLEASE DO .1 <- #1',
       for (var i = 0; i < 2000; i++)
         i % 4 == 0 ? 'PLEASE DO .1 <- #1' : 'DO .1 <- #1',
       'PLEASE GIVE UP',
     ].join('\n');
-    expect(collect(text).errors, isEmpty);
+    final a = collect(text);
+    expect(a.errors, isEmpty);
+    expect(a.ir!.statements, hasLength(2001));
+    expect(a.ir!.statements.where((s) => s.bug), isEmpty);
   });
+
+  test(
+    'R2: a WHILE\'s COME FROM points at its own label, and its two statements '
+    'don\'t repeat an error',
+    () {
+      const comeFrom = '(3) DO .1 <- #1 WHILE COME FROM (9)\nPLEASE GIVE UP\n';
+      final e444 = collect(
+        comeFrom,
+        path: 't.xc',
+      ).errors.singleWhere((e) => e.error.code == 444);
+      expect(e444.token, at(comeFrom, '(9)'));
+      const variable = 'DO .1 <- .0 WHILE .0 <- #2\nPLEASE GIVE UP\n';
+      expect(
+        collect(
+          variable,
+          path: 't.xc',
+        ).errors.where((e) => e.error.code == 200),
+        hasLength(1),
+      );
+    },
+  );
 
   test('R2: the first collected error is exactly the one the CLI throws, '
       'for every conformance program', () {

@@ -1,3 +1,5 @@
+import 'ast.dart';
+import 'errors.dart';
 import 'frontend.dart';
 import 'ir.dart';
 import 'lexer.dart';
@@ -6,23 +8,33 @@ import 'source.dart';
 /// Everything a front end found in a file, for an editor: the program and every error with its
 /// place (R2), the compile errors first, in the order the compiler meets them.
 class Analysis {
-  Analysis(this.program, this.errors);
+  Analysis(this.program, this.errors, [this.ir]);
 
   final Program program;
   final List<CompileError> errors;
+
+  /// The program lowered without the random bug, or null when it has errors that stop lowering.
+  final IrProgram? ir;
 
   Source get source => program.source;
 }
 
 /// Runs [analyze], collecting every compile error, then [lower]s the program without the random
 /// bug, so that E774 never appears, to find each user statement's statement-local error: the one
-/// it would raise if it ran.
+/// it would raise if it ran. A language built on CIWAPA's adds its own statement-local errors with
+/// [faultOf].
 Analysis collectErrors(
   Program Function(void Function(CompileError error) onError) analyze,
-  IrProgram Function(Program program, IrOptions options) lower,
-) {
-  final errors = <CompileError>[];
-  final program = analyze(errors.add);
+  IrProgram Function(Program program, IrOptions options) lower, {
+  IclError? Function(Statement statement)? faultOf,
+}) {
+  final compile = <CompileError>[];
+  final program = analyze(compile.add);
+  // Errors reported before the statements were parsed, such as E111 for the base, still belong on
+  // statement 1.
+  final errors = [
+    for (final e in compile) e.placed(program.statements, program.source),
+  ];
   if (program.statements.isEmpty) return Analysis(program, errors);
   final IrProgram ir;
   try {
@@ -37,22 +49,29 @@ Analysis collectErrors(
     for (final s in program.statements)
       if (s.label case final label? when isValidLabel(label)) label,
   };
+  // A WHILE's two statements share their text, so the same error can come up twice.
+  final seen = <(int, Span?, Span?)>{};
   for (final s in ir.statements.take(program.userStatements)) {
-    if (s.faults.isEmpty) continue;
-    final code = s.faults.first.code;
     final statement = program.statements[s.ordinal - 1];
+    final IclError error;
+    if (s.faults.isNotEmpty) {
+      error = IclError.of(s.faults.first.code);
+    } else if (faultOf?.call(statement) case final own?) {
+      error = own;
+    } else {
+      continue;
+    }
     final tokens = program.tokens
         .where((t) => t.start >= statement.start && t.end <= statement.end)
         .toList();
-    errors.add(
-      CompileError(code, s.ordinal, whenRun: true).placed(
-        program.statements,
-        program.source,
-        token: _faultToken(code, tokens, program.base, defined),
-      ),
+    final placed = CompileError.of(error, s.ordinal, whenRun: true).placed(
+      program.statements,
+      program.source,
+      token: _faultToken(error.code, tokens, program.base, defined),
     );
+    if (seen.add((error.code, placed.span, placed.token))) errors.add(placed);
   }
-  return Analysis(program, errors);
+  return Analysis(program, errors, ir);
 }
 
 const _sigils = {

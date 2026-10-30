@@ -54,6 +54,24 @@ void main() {
     },
   );
 
+  test('R2: Interstates\' own statement-local errors are reported too', () {
+    final a = frontend.analyzeAll(
+      Source('p.ioi', 'DO .1 <- ;4400 SUB #1\nPLEASE GIVE UP\n'),
+      traditional: false,
+    );
+    expect(codes(a), [(822, 1)]);
+    expect(a.errors.single.whenRun, isTrue);
+    expect(a.errors.single.error.text, 'STRINGS AND NUMBERS DO NOT MIX.');
+  });
+
+  test('R2: --traditional\'s E111 lands on statement 1', () {
+    final a = frontend.analyzeAll(
+      Source('p.ioi', 'DO COME FROM (16000)\nPLEASE GIVE UP\n'),
+      traditional: true,
+    );
+    expect(a.errors.first.span, const Span(0, 20));
+  });
+
   test('R3: any other file is diagnosed as ciwapa-* would', () {
     // ioi-* builds no .i, but its server diagnoses one with CIWAPA's own front end.
     const text = '(1) DO .1 <- #1\n(1) PLEASE GIVE UP\n';

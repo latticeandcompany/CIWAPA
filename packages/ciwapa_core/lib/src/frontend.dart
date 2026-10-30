@@ -179,7 +179,7 @@ Program analyze(
     extracal: dialect.extracal && !traditional,
     libraries: libraries,
   );
-  final lex = _StatementTokens(tokens);
+  final lex = _StatementTokens(tokens, source);
   _checkLabels(statements, lex, report, extracal: dialect.extracal);
   _checkOperators(statements, base, lex, report);
   _demoteUnreadable(statements, base);
@@ -197,14 +197,18 @@ typedef _Report = void Function(CompileError error, {Span? token});
 
 /// The tokens of each statement of the user's file.
 class _StatementTokens {
-  _StatementTokens(this.tokens);
+  _StatementTokens(this.tokens, this.source);
 
   final List<Token> tokens;
+  final Source source;
 
   /// [s]'s tokens; none for a statement from a library.
-  Iterable<Token> of(Statement s) => tokens.where(
-    (t) => t.kind != TokenKind.end && t.start >= s.start && t.end <= s.end,
-  );
+  Iterable<Token> of(Statement s) => identical(s.source, source)
+      ? tokens.where(
+          (t) =>
+              t.kind != TokenKind.end && t.start >= s.start && t.end <= s.end,
+        )
+      : const [];
 
   /// The span of [s]'s label, when it has one.
   Span? labelOf(Statement s) {
@@ -214,12 +218,15 @@ class _StatementTokens {
         : null;
   }
 
-  /// The span of the first label [s] names in its body, such as a COME FROM's.
+  /// The span of the first label [s] names in its body, such as a COME FROM's. A WHILE's second
+  /// statement shares the first's text, label included, so the text decides what to skip.
   Span? targetOf(Statement s) {
-    final labels = of(s).where((t) => t.kind == TokenKind.label).toList();
-    final target = labels.length > (s.label == null ? 0 : 1)
-        ? labels[s.label == null ? 0 : 1]
-        : null;
+    final tokens = of(s).toList();
+    final labelled = tokens.isNotEmpty && tokens.first.kind == TokenKind.label;
+    final target = tokens
+        .skip(labelled ? 1 : 0)
+        .where((t) => t.kind == TokenKind.label)
+        .firstOrNull;
     return target == null ? null : Span(target.start, target.end);
   }
 }

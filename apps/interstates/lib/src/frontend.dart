@@ -78,15 +78,27 @@ class InterstatesFrontend implements Frontend {
         traditional: traditional,
       );
     }
-    return collectErrors((onError) {
-      if (base != 2) {
-        onError(CompileError(998, 1));
-        return Program(source, base, const [], 0, extracal: true);
-      }
-      if (traditional) onError(CompileError(111, 1));
-      return analyzeInterstates(source, onError: onError);
-    }, _lower);
+    return collectErrors(
+      (onError) {
+        if (base != 2) {
+          onError(CompileError(998, 1));
+          return Program(source, base, const [], 0, extracal: true);
+        }
+        if (traditional) onError(CompileError(111, 1));
+        return analyzeInterstates(source, onError: onError);
+      },
+      _lower,
+      faultOf: _faultOf,
+    );
   }
+
+  /// E822 and the like are statements that raise an Interstates error when they run, the way
+  /// CIWAPA's statement-local errors do.
+  static IclError? _faultOf(Statement s) => switch (s.body) {
+    HostCall(service: HostService.fault, values: [Constant(:final value)]) =>
+      interstatesError(value),
+    _ => null,
+  };
 
   IrProgram _lower(Program program, IrOptions options) {
     final routes = _routes[program];
