@@ -46,9 +46,9 @@ void main() {
         expect(entry.tests, isNotEmpty);
         for (final path in entry.tests) {
           final file = '../../$path';
-          if (path.endsWith('.xc')) {
+          if (path.endsWith('.ioi')) {
             expect(
-              File(file.replaceFirst(RegExp(r'\.xc$'), '.err'))
+              File(file.replaceFirst(RegExp(r'\.ioi$'), '.err'))
                   .readAsStringSync(),
               matches(RegExp('^ICL${code}I', multiLine: true)),
               reason: path,

@@ -17,7 +17,7 @@ final appendixA = RegExp(r'## Appendix A[\s\S]*?```\n([\s\S]*?)```')
 void main() {
   test('the golden source is Appendix A, byte for byte', () {
     expect(appendixA, startsWith('NOTE At the start of the program'));
-    expect(File('test/golden/hello/hello.xc').readAsStringSync(), appendixA);
+    expect(File('test/golden/hello/hello.ioi').readAsStringSync(), appendixA);
   });
 
   for (final backend in [ioiDart(), ioiLlvm()]) {
@@ -28,11 +28,11 @@ void main() {
         addTearDown(() => deleteSoon(temp));
         File('test/golden/hello/hello.html')
             .copySync('${temp.path}/hello.html');
-        final source = File('${temp.path}/hello.xc')
+        final source = File('${temp.path}/hello.ioi')
           ..writeAsStringSync(appendixA);
         final exe = '${temp.path}/hello${Platform.isWindows ? '.exe' : ''}';
         final status = await runCli(
-          ['build', '--no-random-bug', '-s', source.path, '-o', exe],
+          ['build', '--no-random-bug', source.path, '-o', exe],
           backend,
           frontend: InterstatesFrontend(),
         );

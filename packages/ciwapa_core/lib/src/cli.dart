@@ -65,6 +65,9 @@ abstract interface class Frontend {
   /// Adds this front end's options to the CLI's.
   void addOptions(ArgParser parser);
 
+  /// Why the options can't be used together, or null when they can. The CLI prints it and exits 64.
+  String? checkOptions(ArgResults args);
+
   /// Parses [source] and runs the whole-program checks, throwing [CompileError] on failure.
   Program analyze(
     Source source,
@@ -86,6 +89,9 @@ class CiwapaFrontend implements Frontend {
 
   @override
   void addOptions(ArgParser parser) {}
+
+  @override
+  String? checkOptions(ArgResults args) => null;
 
   @override
   Program analyze(
@@ -116,6 +122,11 @@ Future<int> runCli(
     stderr.writeln(
       '${backend.name}: ${e.message}\n\n${_usage(backend, frontend, parser)}',
     );
+    return 64;
+  }
+  final problem = frontend.checkOptions(args);
+  if (problem != null) {
+    stderr.writeln('${backend.name}: $problem');
     return 64;
   }
   final command = args.rest.isEmpty ? null : args.rest.first;

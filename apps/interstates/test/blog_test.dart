@@ -19,14 +19,7 @@ void main() {
       final exe = '${temp.path}/blog${Platform.isWindows ? '.exe' : ''}';
       expect(
         await runCli(
-          [
-            'build',
-            '--no-random-bug',
-            '-s',
-            'examples/blog/blog.xc',
-            '-o',
-            exe,
-          ],
+          ['build', '--no-random-bug', 'examples/blog/blog.ioi', '-o', exe],
           backend,
           frontend: InterstatesFrontend(),
         ),

@@ -42,7 +42,7 @@ List<String> string(String array, String text) => [
 const writeLine = ['.1 <- #1', '(2310) NEXT'];
 
 /// Builds [source] (a whole program) as [name] in [dir] with [backend], and returns the
-/// executable. [states] adds -s.
+/// executable. [states] makes it a `.ioi` program; otherwise it is plain EXTRACAL.
 Future<String> build(
   Backend backend,
   Directory dir,
@@ -50,13 +50,14 @@ Future<String> build(
   String name = 'p',
   bool states = true,
 }) async {
-  final file = File('${dir.path}/$name.xc')..writeAsStringSync('$source\n');
+  final file = File('${dir.path}/$name.${states ? 'ioi' : 'xc'}')
+    ..writeAsStringSync('$source\n');
   final exe = '${dir.path}/$name${Platform.isWindows ? '.exe' : ''}';
   final status = await runCli(
-    ['build', '--no-random-bug', if (states) '-s', file.path, '-o', exe],
+    ['build', '--no-random-bug', file.path, '-o', exe],
     backend,
     frontend: InterstatesFrontend(),
   );
-  if (status != 0) throw StateError('$name.xc did not build ($status)');
+  if (status != 0) throw StateError('${file.path} did not build ($status)');
   return exe;
 }

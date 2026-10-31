@@ -48,7 +48,7 @@ dart --suppress-analytics compile exe "apps/interstates/bin/ioi_$flavor.dart" -o
 (
   cd packages/conformance
   dart --suppress-analytics run bin/conformance.dart \
-    --compiler "../../.cache/build/ioi-$flavor$exe" --tests ../../apps/interstates/test/golden --flag -s \
+    --compiler "../../.cache/build/ioi-$flavor$exe" --tests ../../apps/interstates/test/golden --extension ioi \
     --results ../../.cache/interstates/results.json
 )
 
@@ -61,7 +61,7 @@ if [[ "$platform" == linux-x64 ]]; then
     CIWAPA_TEST_ENGINE=1 dart --suppress-analytics run bin/conformance.dart \
       --compiler "../../.cache/build/ciwapa-$flavor$exe" --extracal-only
     CIWAPA_TEST_ENGINE=1 dart --suppress-analytics run bin/conformance.dart \
-      --compiler "../../.cache/build/ioi-$flavor$exe" --tests ../../apps/interstates/test/golden --flag -s
+      --compiler "../../.cache/build/ioi-$flavor$exe" --tests ../../apps/interstates/test/golden --extension ioi
   )
 fi
 

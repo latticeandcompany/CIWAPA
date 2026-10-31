@@ -54,7 +54,8 @@ bool isValidLabel(int label) => label >= 1 && label <= 65535;
 /// [memoryLimit] is test-only (decision L7): see [Parser.memoryLimit].
 ///
 /// A language built on CIWAPA's passes its own [parser], and [libraries]: blocks of its own that
-/// EXTRACAL programs get in the same way as the standard library's.
+/// EXTRACAL programs get in the same way as the standard library's. It passes the [dialect] when
+/// its files have an extension of its own, which [Source.dialectOf] doesn't know.
 Program analyze(
   Source source, {
   bool traditional = false,
@@ -66,8 +67,9 @@ Program analyze(
   })?
   parser,
   List<LibraryBlock> libraries = const [],
+  Dialect? dialect,
 }) {
-  final dialect = Source.dialectOf(source.path);
+  dialect ??= Source.dialectOf(source.path);
   if (dialect == null) throw CompileError(998, 1);
   final base = dialect.base;
   if (traditional && base != 2) throw CompileError(111, 1);

@@ -1,5 +1,5 @@
 NOTE The INTERCAL Blog, INTERCAL on Interstates' sample application. Build it with
-ioi-llvm build -s --no-random-bug blog.xc -o blog, then gross --static public --database
+ioi-llvm build --no-random-bug blog.ioi -o blog, then gross --static public --database
 sqlite:./blog.db ./blog. Everything up to the first statement is a comment.
 
 PLEASE COME FROM (16000) WITH ROUTE "/blog"

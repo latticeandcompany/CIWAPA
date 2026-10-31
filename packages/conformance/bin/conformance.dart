@@ -2,10 +2,11 @@
 //
 //   dart run bin/conformance.dart --compiler <ciwapa-dart or ciwapa-llvm executable>
 //       [--results results.json] [--jobs n] [--extracal-only] [name filters...]
-//       [--tests <dir>] [--flag <compiler flag>]...
+//       [--tests <dir>] [--flag <compiler flag>]... [--extension <ext>]...
 //
-// --tests runs another suite in the same format (a compiler built on CIWAPA's has its own), and
-// each --flag is passed to every build.
+// --tests runs another suite in the same format (a compiler built on CIWAPA's has its own), each
+// --flag is passed to every build, and each --extension is one more source file extension, such as
+// one of that compiler's own.
 // Each test is tests/<group>/<name>.i (or .2i–.7i, .xc, .2xc–.7xc, or .bad for a bad extension)
 // with optional siblings:
 //   .in     stdin for the program
@@ -58,7 +59,11 @@ Future<void> main(List<String> arguments) async {
       help: 'Run only the EXTRACAL runs: the .xc tests and the superset runs.',
     )
     ..addOption('tests', help: 'The suite to run, instead of this package\'s.')
-    ..addMultiOption('flag', help: 'A compiler flag for every build.');
+    ..addMultiOption('flag', help: 'A compiler flag for every build.')
+    ..addMultiOption(
+      'extension',
+      help: 'Another source file extension, without the dot.',
+    );
   final args = parser.parse(arguments);
   final compiler = File(args.option('compiler')!).absolute.path;
   final tests = args.option('tests');
@@ -69,6 +74,7 @@ Future<void> main(List<String> arguments) async {
               .resolve('../tests/'),
         );
   _flags = args.multiOption('flag');
+  final extensions = args.multiOption('extension');
   final filters = args.rest;
   final sources =
       root
@@ -79,7 +85,8 @@ Future<void> main(List<String> arguments) async {
             (p) =>
                 _mode1.hasMatch(p) ||
                 _extracal.hasMatch(p) ||
-                p.endsWith('.bad'),
+                p.endsWith('.bad') ||
+                extensions.any((e) => p.endsWith('.$e')),
           )
           .where((p) => filters.isEmpty || filters.any(p.contains))
           .toList()

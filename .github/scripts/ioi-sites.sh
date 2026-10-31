@@ -59,8 +59,8 @@ expect() {
 
 rm -rf "$work/hello" "$work/blog"
 mkdir -p "$work/hello"
-cp "$repo_root/apps/interstates/test/golden/hello/hello."{xc,html} "$work/hello/"
-ioi build -s --no-random-bug "$(native "$work/hello/hello.xc")" \
+cp "$repo_root/apps/interstates/test/golden/hello/hello."{ioi,html} "$work/hello/"
+ioi build --no-random-bug "$(native "$work/hello/hello.ioi")" \
   -o "$(native "$work/hello/hello")"
 serve hello "$(native "$work/hello/hello$exe")"
 expect "$(curl -fsS "$site/")" "<h1>Hello, world!</h1>"
@@ -68,7 +68,7 @@ stop
 echo "hello world served by $flavor" >&2
 
 cp -R "$repo_root/apps/interstates/examples/blog" "$work/blog"
-ioi build -s --no-random-bug "$(native "$work/blog/blog.xc")" \
+ioi build --no-random-bug "$(native "$work/blog/blog.ioi")" \
   -o "$(native "$work/blog/blog")"
 serve blog --static "$(native "$work/blog/public")" --database "sqlite:$(native "$work/blog/blog.db")" \
   "$(native "$work/blog/blog$exe")"
