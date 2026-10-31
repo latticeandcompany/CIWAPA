@@ -205,5 +205,40 @@ void main() {
         contains('no statement has this label'),
       );
     });
+
+    test('a file with any label of a library\'s range doesn\'t get that library (T36)', () async {
+      await client.open(
+        'file:///w/a.i',
+        '(1500) DO .1 <- #1\nPLEASE DO (1000) NEXT\nDO GIVE UP\n',
+      );
+      expect(
+        await hoverAt('file:///w/a.i', 1, 12),
+        allOf(contains('ICL129I'), isNot(contains('in the system library'))),
+      );
+    });
+  });
+
+  group('R4, R5: labels the model must not lose', () {
+    test('a WHILE keeps its own label', () async {
+      await client.open(
+        'file:///w/a.xc',
+        '(1000) DO .1 <- #1 WHILE .2 <- #2\nPLEASE DO (1000) NEXT\nDO GIVE UP\n',
+      );
+      expect(
+        await hoverAt('file:///w/a.xc', 1, 12),
+        allOf(startsWith('**(1000)**: statement 10, on line 1.')),
+      );
+    });
+
+    test('CREATE (n) names a label', () async {
+      await client.open(
+        'file:///w/a.xc',
+        '(100) DO .1 <- #1\nDO CREATE (100) FOO .1\nPLEASE GIVE UP\n',
+      );
+      expect(
+        await hoverAt('file:///w/a.xc', 1, 12),
+        '**(100)**: statement 1, on line 1.',
+      );
+    });
   });
 }

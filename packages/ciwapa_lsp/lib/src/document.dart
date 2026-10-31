@@ -46,15 +46,21 @@ class Document {
     for (final s in model.statements) ?s.statement.label,
   };
 
-  /// The library routine [label] names, when the file doesn't define it and its library comes
-  /// with files like this one: the system library with every binary file, EXTRACAL's with
-  /// EXTRACAL files, and those of the language built on CIWAPA's (decisions T36, L9, L17).
-  RoutineDoc? libraryRoutine(int label) {
+  /// The labels of the library statements the compiler included (decisions T36, L9, L17): a
+  /// block comes in when a NEXT asks for it and the file defines no label in its range.
+  Set<int> get includedLabels {
     final program = analysis.program;
-    if (program.base != 2 || definedLabels.contains(label)) return null;
+    return {
+      for (final s in program.statements.skip(program.userStatements)) ?s.label,
+    };
+  }
+
+  /// The library routine [label] names, when the compiler included the routine's library.
+  RoutineDoc? libraryRoutine(int label) {
+    if (!includedLabels.contains(label)) return null;
     return server.extension.routinesFor(path)[label] ??
         _systemRoutines[label] ??
-        (program.extracal ? _extracalRoutines[label] : null);
+        (analysis.program.extracal ? _extracalRoutines[label] : null);
   }
 
   void update(String newText, int newVersion) {

@@ -41,18 +41,28 @@ class Piece {
   final bool definition;
 }
 
-/// The user's statements, once each, with their ordinals: a WHILE's added statements share the
-/// WHILE's text, so the first statement with each text stands for it.
+/// The user's statements, once each, with their ordinals. A WHILE's ten added statements share
+/// the WHILE's text, so the statement the user wrote stands for them all, with the WHILE's body as
+/// [whileBody].
 class FileStatement {
-  const FileStatement(this.ordinal, this.statement, this.tokens);
+  const FileStatement(
+    this.ordinal,
+    this.statement,
+    this.tokens, {
+    this.whileBody,
+  });
 
   final int ordinal;
   final Statement statement;
   final List<Token> tokens;
+  final Statement? whileBody;
 
   Span get span => Span(statement.start, statement.end);
 
   bool get undecodable => statement.body is Undecodable;
+
+  /// The statement's body, and its WHILE's.
+  Iterable<Body> get bodies => [statement.body, ?whileBody?.body];
 }
 
 const _extensionKinds = {
@@ -98,15 +108,38 @@ class SyntaxModel {
     final tokens = program.tokens
         .where((t) => t.kind != TokenKind.end)
         .toList();
-    final seen = <int>{};
-    for (final (i, s) in program.statements.indexed) {
-      if (!identical(s.source, program.source) || !seen.add(s.start)) continue;
+    final user = program.statements.take(program.userStatements).toList();
+    var t = 0;
+    for (var i = 0; i < user.length;) {
+      final s = user[i];
+      var j = i + 1;
+      while (j < user.length && user[j].start == s.start) {
+        j++;
+      }
+      if (!identical(s.source, program.source)) {
+        i = j;
+        continue;
+      }
+      // The WHILE's own statement is the last of the group that isn't added; its body is the
+      // first.
+      final group = user.sublist(i, j).indexed.where((e) => !e.$2.preproc);
+      final (own, statement) = group.last;
+      while (t < tokens.length && tokens[t].start < s.start) {
+        t++;
+      }
+      final first = t;
+      while (t < tokens.length && tokens[t].end <= s.end) {
+        t++;
+      }
       statements.add(
-        FileStatement(i + 1, s, [
-          for (final t in tokens)
-            if (t.start >= s.start && t.end <= s.end) t,
-        ]),
+        FileStatement(
+          i + own + 1,
+          statement,
+          tokens.sublist(first, t),
+          whileBody: j - i > 1 ? group.first.$2 : null,
+        ),
       );
+      i = j;
     }
     _classify(tokens);
   }
@@ -130,6 +163,8 @@ class SyntaxModel {
         comments.add(Span(rest.first.start, s.statement.end));
       }
     }
+    final inStatements = [...comments];
+    var nextComment = 0;
     var i = 0;
     while (i < tokens.length) {
       final t = tokens[i];
@@ -145,7 +180,12 @@ class SyntaxModel {
         i = end + 1;
         continue;
       }
-      if (comments.any((c) => t.start >= c.start && t.start < c.end)) {
+      while (nextComment < inStatements.length &&
+          inStatements[nextComment].end <= t.start) {
+        nextComment++;
+      }
+      if (nextComment < inStatements.length &&
+          inStatements[nextComment].start <= t.start) {
         i++;
         continue;
       }
@@ -175,6 +215,27 @@ class SyntaxModel {
           pieces.add(
             piece(Role.label, definition: identical(statement.tokens.first, t)),
           );
+        // `CREATE (n)` is one token; its `(n)` is a label like any other.
+        case TokenKind.createLabel:
+          var paren = t.start;
+          while (paren < t.end && program.source.runes[paren] != 0x28) {
+            paren++;
+          }
+          var keywordEnd = paren;
+          while (keywordEnd > t.start &&
+              program.source.runes[keywordEnd - 1] <= 0x20) {
+            keywordEnd--;
+          }
+          pieces
+            ..add(
+              Piece(
+                Span(t.start, keywordEnd),
+                Role.keyword,
+                token: t,
+                extension: true,
+              ),
+            )
+            ..add(Piece(Span(paren, t.end), Role.label, token: t));
         case TokenKind.identifier || TokenKind.not || TokenKind.percent:
           pieces.add(piece(Role.identifier));
         case TokenKind.gerund:
