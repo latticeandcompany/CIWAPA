@@ -47,4 +47,39 @@ void main() {
     );
     expect(jsonDecode(body), {'jsonrpc': '2.0', 'method': 'x', 'params': '¢'});
   });
+
+  test(
+    'a frame it can\'t read is skipped, and the next one still arrives',
+    () async {
+      final input = StreamController<List<int>>();
+      final connection = Connection(
+        input.stream,
+        StreamController<List<int>>().sink,
+      );
+      input
+        ..add(ascii.encode('X-Nonsense: 1\r\n\r\n{"method":"lost"}'))
+        ..add(ascii.encode('Content-Length: 99999999999999999999999\r\n\r\n'))
+        ..add(frame('{"method":"a"}'))
+        ..add(frame('{"method":"b"}'));
+      await input.close();
+      final messages = await connection.messages.toList();
+      expect([for (final m in messages) m['method']], ['a', 'b']);
+    },
+  );
+
+  test('a frame that isn\'t JSON gets a parse error', () async {
+    final input = StreamController<List<int>>();
+    final output = StreamController<List<int>>();
+    final replies = Connection(
+      output.stream,
+      StreamController<List<int>>().sink,
+    ).messages;
+    final connection = Connection(input.stream, output.sink);
+    input.add(frame('{"id":1,'));
+    final reply = await replies.first;
+    expect(reply['id'], isNull);
+    expect((reply['error'] as Map)['code'], -32700);
+    await input.close();
+    await connection.close();
+  });
 }

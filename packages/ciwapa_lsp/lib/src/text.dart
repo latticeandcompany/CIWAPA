@@ -46,6 +46,7 @@ class EditorText {
       if (r == 0x0D) {
         // A `\r` is no rune of the Source. On its own it still ends an LSP line.
         if (i + 1 >= runes.length || runes[i + 1] != 0x0A) {
+          _lineLengths.add(character);
           line++;
           character = 0;
         }
@@ -54,6 +55,7 @@ class EditorText {
       _lines.add(line);
       _characters.add(character);
       if (r == 0x0A) {
+        _lineLengths.add(character);
         line++;
         character = 0;
       } else {
@@ -62,6 +64,7 @@ class EditorText {
     }
     _lines.add(line);
     _characters.add(character);
+    _lineLengths.add(character);
   }
 
   final String path;
@@ -71,6 +74,10 @@ class EditorText {
   /// The position of each of [source]'s rune offsets, and of its end.
   final _lines = <int>[];
   final _characters = <int>[];
+  final _lineLengths = <int>[];
+
+  /// The length of 0-based [line] in UTF-16 units, without its line break.
+  int lineLength(int line) => _lineLengths[line];
 
   Position position(int offset) {
     final i = offset.clamp(0, _lines.length - 1);
@@ -82,8 +89,11 @@ class EditorText {
     'end': position(span.end).toJson(),
   };
 
-  /// The rune offset at [position], or the nearest one after it.
+  /// The rune offset at [position], or the nearest one after it on its line.
   int offset(Position position) {
+    if (position.line >= _lineLengths.length) return _lines.length - 1;
+    final line = position.line.clamp(0, _lineLengths.length - 1);
+    position = Position(line, position.character.clamp(0, _lineLengths[line]));
     var lo = 0, hi = _lines.length - 1;
     while (lo < hi) {
       final mid = (lo + hi) >> 1;

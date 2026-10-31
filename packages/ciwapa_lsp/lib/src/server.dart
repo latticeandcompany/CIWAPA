@@ -103,7 +103,11 @@ class LanguageServer {
     if (method is! String) return;
     if (id == null) {
       if (!_initialized && method != 'exit') return;
-      _notifications[method]?.call(params);
+      try {
+        _notifications[method]?.call(params);
+      } on Object catch (e, stack) {
+        _log(method, e, stack);
+      }
       return;
     }
     try {
@@ -126,7 +130,28 @@ class LanguageServer {
       connection.send({'id': id, 'result': await handler(params)});
     } on ResponseError catch (e) {
       connection.send({'id': id, 'error': e.toJson()});
+    } on FormatException catch (e) {
+      connection.send({
+        'id': id,
+        'error': ResponseError(ResponseError.invalidParams, e.message).toJson(),
+      });
+    } on Object catch (e, stack) {
+      _log(method, e, stack);
+      connection.send({
+        'id': id,
+        'error': ResponseError(
+          ResponseError.internalError,
+          '$method failed: $e',
+        ).toJson(),
+      });
     }
+  }
+
+  /// A failure the server survives, for the editor's server log: one broken document mustn't take
+  /// the others down, or have the editor restart the server until it gives up.
+  void _log(String method, Object error, StackTrace stack) {
+    final trace = error is StackOverflowError ? '' : '\n$stack';
+    stderr.writeln('$name lsp: $method failed: $error$trace');
   }
 
   Object? _initialize(Map<String, Object?> params) {

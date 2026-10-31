@@ -19,7 +19,8 @@ class Connection {
   final _messages = StreamController<Map<String, Object?>>();
   var _buffer = Uint8List(0);
 
-  /// Every message the other side sends, in order. A frame that isn't a JSON object is dropped.
+  /// Every message the other side sends, in order. A frame that isn't JSON is answered with a
+  /// parse error; one that is JSON but not an object is dropped.
   Stream<Map<String, Object?>> get messages => _messages.stream;
 
   void send(Map<String, Object?> message) {
@@ -36,9 +37,13 @@ class Connection {
   }
 
   void _receive(List<int> chunk) {
-    _buffer = Uint8List.fromList([..._buffer, ...chunk]);
+    _buffer =
+        (BytesBuilder(copy: false)
+              ..add(_buffer)
+              ..add(chunk))
+            .takeBytes();
     while (true) {
-      final headerEnd = _indexOfBlankLine(_buffer);
+      final headerEnd = _indexOf(_blankLine, _buffer);
       if (headerEnd < 0) return;
       final headers = ascii.decode(
         _buffer.sublist(0, headerEnd),
@@ -49,13 +54,15 @@ class Connection {
         multiLine: true,
         caseSensitive: false,
       ).firstMatch(headers);
-      final bodyStart = headerEnd + 4;
-      if (length == null) {
-        // Not a frame we can read: skip its headers and hope the next one is.
-        _buffer = _buffer.sublist(bodyStart);
+      final bodyLength = length == null ? null : int.tryParse(length[1]!);
+      if (bodyLength == null) {
+        // Not a frame we can read: start again at the next Content-Length.
+        final next = _indexOf(_contentLength, _buffer, from: 1);
+        _buffer = next < 0 ? Uint8List(0) : _buffer.sublist(next);
         continue;
       }
-      final bodyEnd = bodyStart + int.parse(length.group(1)!);
+      final bodyStart = headerEnd + _blankLine.length;
+      final bodyEnd = bodyStart + bodyLength;
       if (_buffer.length < bodyEnd) return;
       final body = utf8.decode(
         _buffer.sublist(bodyStart, bodyEnd),
@@ -65,21 +72,27 @@ class Connection {
       final Object? message;
       try {
         message = jsonDecode(body);
-      } on FormatException {
+      } on FormatException catch (e) {
+        send({
+          'id': null,
+          'error': ResponseError(ResponseError.parseError, e.message).toJson(),
+        });
         continue;
       }
       if (message is Map<String, Object?>) _messages.add(message);
     }
   }
 
-  static int _indexOfBlankLine(Uint8List bytes) {
-    for (var i = 0; i + 3 < bytes.length; i++) {
-      if (bytes[i] == 13 &&
-          bytes[i + 1] == 10 &&
-          bytes[i + 2] == 13 &&
-          bytes[i + 3] == 10) {
-        return i;
+  static final _blankLine = ascii.encode('\r\n\r\n');
+  static final _contentLength = ascii.encode('Content-Length:');
+
+  static int _indexOf(List<int> pattern, Uint8List bytes, {int from = 0}) {
+    outer:
+    for (var i = from; i + pattern.length <= bytes.length; i++) {
+      for (var j = 0; j < pattern.length; j++) {
+        if (bytes[i + j] != pattern[j]) continue outer;
       }
+      return i;
     }
     return -1;
   }
@@ -94,6 +107,7 @@ class ResponseError implements Exception {
   static const methodNotFound = -32601;
   static const invalidParams = -32602;
   static const serverNotInitialized = -32002;
+  static const internalError = -32603;
   static const requestFailed = -32803;
 
   final int code;

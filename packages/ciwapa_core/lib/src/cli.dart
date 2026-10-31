@@ -209,6 +209,8 @@ ArgParser _parser() => ArgParser()
     help: 'Print IIII instead of IV (ick -C).',
   )
   ..addOption('seed', valueHelp: 'n', help: 'Seed where E774 bugs are planted.')
+  // Editors often start a language server with --stdio. `lsp` only speaks stdio anyway.
+  ..addFlag('stdio', negatable: false, hide: true)
   ..addFlag(
     'keep',
     negatable: false,

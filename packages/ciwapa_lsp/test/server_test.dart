@@ -2,6 +2,17 @@ import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_lsp/test_client.dart';
 import 'package:test/test.dart';
 
+/// Its own front end, except that a file saying BOOM breaks it.
+class _Fragile extends CiwapaFrontend {
+  const _Fragile();
+
+  @override
+  Analysis analyzeAll(Source source, {required bool traditional}) {
+    if (source.text.contains('BOOM')) throw StateError('BOOM');
+    return super.analyzeAll(source, traditional: traditional);
+  }
+}
+
 const duplicated = '(1) DO .1 <- #1\n(1) PLEASE DO .2 <- #2\nDO GIVE UP\n';
 
 void main() {
@@ -35,6 +46,56 @@ void main() {
       await client.shutdown();
       expect(await client.exitCode, 0);
     });
+
+    test('requests after shutdown are refused', () async {
+      await client.initialize();
+      await client.request<Object?>('shutdown');
+      final response = await client.send('textDocument/hover', {});
+      expect((response['error'] as Map)['code'], -32600);
+    });
+
+    test('notifications before initialize are dropped', () async {
+      client.notify('textDocument/didOpen', {
+        'textDocument': {
+          'uri': 'file:///w/a.i',
+          'languageId': 'intercal',
+          'version': 1,
+          'text': duplicated,
+        },
+      });
+      await client.initialize();
+      expect(client.server!.documents, isEmpty);
+    });
+
+    test('exit before initialize ends with 1', () async {
+      client.notify('exit');
+      expect(await client.exitCode, 1);
+    });
+
+    test(
+      'a failure inside the server is answered, and the server lives on',
+      () async {
+        client = TestClient(const _Fragile());
+        await client.initialize();
+        await client.open('file:///w/fine.i', duplicated);
+        client.notify('textDocument/didOpen', {
+          'textDocument': {
+            'uri': 'file:///w/broken.i',
+            'languageId': 'intercal',
+            'version': 1,
+            'text': 'BOOM',
+          },
+        });
+        expect(
+          codesOf(
+            await client.change('file:///w/fine.i', duplicated, version: 2),
+          ),
+          ['E182', 'E182'],
+        );
+        await client.shutdown();
+        expect(await client.exitCode, 0);
+      },
+    );
 
     test('exit without shutdown ends with 1', () async {
       await client.initialize();
@@ -160,7 +221,7 @@ void main() {
     );
   });
 
-  test('R3: E774 is never reported, however long the file', () async {
+  test('R3: a long file has no E774 end to end (analysis_test guards the lowering)', () async {
     await client.initialize();
     final text = [
       for (var i = 0; i < 3000; i++)

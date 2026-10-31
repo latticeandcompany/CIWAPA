@@ -6,11 +6,13 @@ import 'package:test/test.dart';
 
 void main() {
   test('R3: ciwapa-llvm lsp speaks LSP on stdin and stdout', () async {
+    // Editors often add --stdio, which changes nothing.
     final client = await TestClient.start(Platform.resolvedExecutable, [
       '--suppress-analytics',
       'run',
       'bin/ciwapa_llvm.dart',
       'lsp',
+      '--stdio',
     ]);
     final result = await client.initialize();
     expect(result['serverInfo'], {

@@ -32,7 +32,8 @@ void main() {
       for (var i = 0; i <= t.source.runes.length; i++) {
         expect(t.offset(t.position(i)), i);
       }
-      expect(t.offset(const Position(0, 3)), 3);
+      // Past the end of a line is the end of that line, not the next one.
+      expect(t.offset(const Position(0, 3)), 2);
       expect(t.offset(const Position(99, 0)), t.source.runes.length);
     });
   });
