@@ -55,6 +55,9 @@ class Parser {
 
   Token get _tok => _tokens[_pos];
 
+  /// Every token of the source, ending with [TokenKind.end].
+  List<Token> get tokens => List.unmodifiable(_tokens);
+
   List<Statement> parse() {
     final statements = <Statement>[];
     while (_tok.kind != TokenKind.end) {

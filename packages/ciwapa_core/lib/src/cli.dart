@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 
+import 'analysis.dart';
 import 'errors.dart';
 import 'frontend.dart';
 import 'frontend.dart' as core show analyze;
@@ -78,6 +79,13 @@ abstract interface class Frontend {
 
   /// Lowers a checked [program] to the IR the backend emits.
   IrProgram lower(Program program, ArgResults args, IrOptions options);
+
+  /// Whether an editor should send this front end [path], by its extension.
+  bool handles(String path);
+
+  /// Every error in [source], for an editor (R2), with the settings an editor passes. The random
+  /// bug is never planted.
+  Analysis analyzeAll(Source source, {required bool traditional});
 }
 
 /// CIWAPA's own front end: Mode 1 and EXTRACAL, picked by the file extension.
@@ -105,6 +113,17 @@ class CiwapaFrontend implements Frontend {
   @override
   IrProgram lower(Program program, ArgResults args, IrOptions options) =>
       core.lower(program, options: options);
+
+  @override
+  bool handles(String path) => Source.dialectOf(path) != null;
+
+  @override
+  Analysis analyzeAll(Source source, {required bool traditional}) =>
+      collectErrors(
+        (onError) =>
+            core.analyze(source, traditional: traditional, onError: onError),
+        (program, options) => core.lower(program, options: options),
+      );
 }
 
 /// Runs the `build`, `run` and `doctor` commands (decisions Q100, Q101) and returns the exit status.

@@ -80,3 +80,21 @@ class Dialect {
   /// EXTRACAL rather than Mode 1.
   final bool extracal;
 }
+
+/// Rune offsets into a [Source]: [start] inclusive and [end] exclusive.
+class Span {
+  const Span(this.start, this.end);
+
+  final int start;
+  final int end;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Span && other.start == start && other.end == end;
+
+  @override
+  int get hashCode => Object.hash(start, end);
+
+  @override
+  String toString() => '$start-$end';
+}
