@@ -102,6 +102,6 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Docs and cleanup
 
-- [ ] `docs/EDITORS.md` covers installing and using every extension, and the README links it. Tests: —
-- [ ] `packages/ciwapa_lsp/README.md` documents the custom protocol. Tests: —
+- [x] `docs/EDITORS.md` covers installing and using every extension, and the README links it. Tests: `docs/EDITORS.md`, `README.md`
+- [x] `packages/ciwapa_lsp/README.md` documents the custom protocol. Tests: `packages/ciwapa_lsp/README.md`
 - [ ] `tools/goal/` is removed. Tests: —

@@ -64,6 +64,10 @@ The file extension decides what you're in for.
 
 **INTERCAL on Interstates** is a web framework for EXTRACAL, written in `.ioi` files. It began in 2013 as an [April Fools' website](https://www.intercaloninterstates.org/) advertising a framework that didn't exist. Now it does. Routes are `COME FROM`s with a path, templates use `{{ }}`, numbers render as Roman numerals with real overlines, and the database layer, ActiveCassette, numbers its tables instead of naming them. The server is called `gross`. It ships in separate `ioi-<flavor>-<platform>` archives. See [`docs/INTERSTATES.md`](docs/INTERSTATES.md).
 
+## Editors
+
+The compilers are also a language server, so VS Code, JetBrains IDEs and Neovim can show you every compile error as you type, explain it, follow a `NEXT` to its label and warn you which lines a `COME FROM` will hijack. The VS Code extension (`intercal-vscode-<version>.vsix`) and the JetBrains plugin (`intercal-jetbrains-<version>.zip`) come with each release; the Neovim plugin is in [`editors/neovim`](editors/neovim). See [`docs/EDITORS.md`](docs/EDITORS.md).
+
 ## Performance
 
 Someone had to measure this. CIWAPA was timed against C-INTERCAL 0.35 (`ick -O` with gcc `-O2`), rick in compiled mode, INTERCAL-64 2.0.3 and CLC-INTERCAL 1.00, on eight programs from C-INTERCAL's `pit/` directory and two of our own.
