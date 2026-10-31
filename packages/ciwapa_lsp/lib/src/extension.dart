@@ -1,4 +1,7 @@
+import 'package:ciwapa_core/ciwapa_core.dart';
+
 import 'help.dart';
+import 'model.dart';
 import 'routines.dart';
 
 /// What a compiler built on CIWAPA's adds to the language server beyond its `Frontend`: the words
@@ -15,4 +18,11 @@ class LanguageExtension {
 
   /// Hover text for a label no routine documents, such as an entry point the compiler provides.
   String? labelHelp(String path, int label) => null;
+
+  /// Its own library blocks, which files of [path]'s kind get as EXTRACAL files get EXTRACAL's.
+  List<LibraryBlock> librariesFor(String path) => const [];
+
+  /// Where go to definition takes a label the file doesn't define, such as an entry point; null
+  /// to leave it to the libraries.
+  List<Span>? definitionsOf(String path, int label, SyntaxModel model) => null;
 }

@@ -1,10 +1,13 @@
 import 'package:ciwapa_core/ciwapa_core.dart';
 
+import 'libraries.dart';
 import 'library_docs.g.dart';
 import 'model.dart';
 import 'routines.dart';
 import 'server.dart';
 import 'text.dart';
+
+const systemLibrary = LibraryBlock('syslib.i', 1000, 1999, syslibSource);
 
 final _systemRoutines = parseRoutineTables(
   libraryTables['system library']!,
@@ -61,6 +64,23 @@ class Document {
     return server.extension.routinesFor(path)[label] ??
         _systemRoutines[label] ??
         (analysis.program.extracal ? _extracalRoutines[label] : null);
+  }
+
+  /// The library document that defines [label] for this file, by the same rules as
+  /// [libraryRoutine].
+  LibraryDocument? libraryOf(int label) {
+    final program = analysis.program;
+    if (program.base != 2 || definedLabels.contains(label)) return null;
+    for (final block in [
+      ...server.extension.librariesFor(path),
+      systemLibrary,
+      if (program.extracal) ...libraryBlocks,
+    ]) {
+      if (label >= block.first && label <= block.last) {
+        return server.library(block);
+      }
+    }
+    return null;
   }
 
   void update(String newText, int newVersion) {

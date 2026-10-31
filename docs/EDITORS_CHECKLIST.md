@@ -48,10 +48,10 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Label navigation (R6)
 
-- [ ] R6 — go to definition works from every kind of label use. Tests: —
-- [ ] R6 — find references and rename cover every literal use of a label. Tests: —
-- [ ] R6 — rename in a file with computed targets warns that they might still use the old number. Tests: —
-- [ ] R6 — library labels open read-only `ciwapa-lib:` documents served by `intercal/librarySource`. Tests: —
+- [x] R6 — go to definition works from every kind of label use. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R6 — find references and rename cover every literal use of a label. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`
+- [x] R6 — rename in a file with computed targets warns that they might still use the old number. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`
+- [x] R6 — library labels open read-only `ciwapa-lib:` documents served by `intercal/librarySource`. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`, `apps/interstates/test/lsp_test.dart`
 
 ## The COME FROM code lens (R7)
 

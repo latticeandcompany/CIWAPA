@@ -1,7 +1,9 @@
+import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_lsp/ciwapa_lsp.dart';
 
 import 'frontend.dart';
 import 'library_docs.g.dart';
+import 'syntax.dart';
 
 /// What `ioi-* lsp` adds to CIWAPA's language server for `.ioi` files: the words for Interstates'
 /// errors and library, in the server's voice (R4).
@@ -18,6 +20,20 @@ class InterstatesEditing extends LanguageExtension {
   @override
   String? labelHelp(String path, int label) =>
       label == 16000 && interstatesBase(path) != null ? _entryHelp : null;
+
+  @override
+  List<LibraryBlock> librariesFor(String path) =>
+      interstatesBase(path) == null ? const [] : interstatesBlocks;
+
+  /// (16000) is where requests come in, and no statement has it: its definitions are the routes.
+  @override
+  List<Span>? definitionsOf(String path, int label, SyntaxModel model) {
+    if (label != 16000 || interstatesBase(path) == null) return null;
+    return [
+      for (final s in model.statements)
+        if (s.statement.data is RouteDecl) s.span,
+    ];
+  }
 }
 
 const _entryHelp =

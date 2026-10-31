@@ -7,6 +7,8 @@ import 'diagnostics.dart';
 import 'document.dart';
 import 'extension.dart';
 import 'hover.dart';
+import 'libraries.dart';
+import 'navigation.dart';
 import 'rpc.dart';
 import 'semantic_tokens.dart';
 import 'text.dart';
@@ -70,7 +72,60 @@ class LanguageServer {
     ),
     'textDocument/semanticTokens/full': (params) =>
         _withDocument(params, semanticTokens),
+    'textDocument/definition': (params) => _withDocument(
+      params,
+      (document) => definition(document, Position.fromJson(params['position'])),
+    ),
+    'textDocument/references': (params) => _withDocument(
+      params,
+      (document) => references(
+        document,
+        Position.fromJson(params['position']),
+        includeDeclaration: switch (params['context']) {
+          {'includeDeclaration': false} => false,
+          _ => true,
+        },
+      ),
+    ),
+    'textDocument/prepareRename': (params) => _withDocument(
+      params,
+      (document) =>
+          prepareRename(document, Position.fromJson(params['position'])),
+    ),
+    'textDocument/rename': (params) => _withDocument(
+      params,
+      (document) => rename(
+        document,
+        Position.fromJson(params['position']),
+        params['newName'] as String? ?? '',
+        (warning) => showMessage(warning, type: 2),
+      ),
+    ),
+    'intercal/librarySource': (params) => librarySource(params, _libraryNamed),
   };
+
+  final _libraries = <String, LibraryDocument>{};
+
+  /// The library document for [block], parsed once.
+  LibraryDocument library(LibraryBlock block) => _libraries.putIfAbsent(
+    block.name,
+    () => LibraryDocument(block.name, block.source),
+  );
+
+  LibraryDocument? _libraryNamed(String name) {
+    final known = _libraries[name];
+    if (known != null) return known;
+    for (final block in [systemLibrary, ...libraryBlocks]) {
+      if (block.name == name) return library(block);
+    }
+    return null;
+  }
+
+  /// `window/showMessage`: 1 error, 2 warning, 3 info.
+  void showMessage(String message, {int type = 3}) => connection.send({
+    'method': 'window/showMessage',
+    'params': {'type': type, 'message': message},
+  });
 
   /// Runs [handler] on the open, handled document [params] names; null for any other.
   Object? _withDocument(
@@ -184,6 +239,9 @@ class LanguageServer {
         'positionEncoding': 'utf-16',
         'textDocumentSync': {'openClose': true, 'change': 1},
         'hoverProvider': true,
+        'definitionProvider': true,
+        'referencesProvider': true,
+        'renameProvider': {'prepareProvider': true},
         'semanticTokensProvider': {'legend': legend, 'full': true},
       },
       'serverInfo': {'name': name, 'version': ciwapaVersion},

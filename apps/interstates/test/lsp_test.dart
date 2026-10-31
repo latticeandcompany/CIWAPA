@@ -193,6 +193,39 @@ void editingTests() {
     },
   );
 
+  test(
+    'R6: (16000) goes to the routes, and library labels to the library',
+    () async {
+      const text =
+          'DO COME FROM (16000) WITH ROUTE "/a"\n'
+          'PLEASE DO (16010) NEXT\n'
+          'DO COME FROM (16000) WITH ROUTE "/b"\n'
+          'DO GIVE UP\n';
+      await client.open('file:///w/site.ioi', text);
+      Future<List<Map<String, Object?>>> definitions(
+        int line,
+        int character,
+      ) async =>
+          (await client.request<List<Object?>>('textDocument/definition', {
+            'textDocument': {'uri': 'file:///w/site.ioi'},
+            'position': {'line': line, 'character': character},
+          })).cast<Map<String, Object?>>();
+      final routes = await definitions(0, 15);
+      expect(
+        [for (final r in routes) ((r['range'] as Map)['start'] as Map)['line']],
+        [0, 2],
+      );
+      final library = (await definitions(1, 12)).single;
+      expect(library['uri'], 'ciwapa-lib:/interstates.xc');
+      final source = await client.request<Map<String, Object?>>(
+        'intercal/librarySource',
+        {'uri': library['uri']},
+      );
+      final line = ((library['range'] as Map)['start'] as Map)['line'] as int;
+      expect((source['text'] as String).split('\n')[line], contains('(16010)'));
+    },
+  );
+
   test('R5: Interstates\' words and strings are highlighted', () async {
     const text =
         'Prose comes first.\n'
