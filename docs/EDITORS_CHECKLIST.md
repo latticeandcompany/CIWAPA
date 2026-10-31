@@ -70,7 +70,7 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 - [x] R9 — toggling a statement gives `PLEASE NOTE`, keeps its label, and works across lines. Tests: `packages/ciwapa_lsp/test/toggle_comment_test.dart`
 - [x] R9 — toggling `PLEASE NOTE` or `DO NOTE` back gives `DO`. Tests: `packages/ciwapa_lsp/test/toggle_comment_test.dart`
-- [ ] R9 — every extension binds its comment shortcut to `intercal/toggleComment`. Tests: —
+- [x] R9 — every extension binds its comment shortcut to `intercal/toggleComment`. Tests: `editors/vscode/tests/manifest.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/CliTest.kt`, `editors/neovim/test/unit.lua`
 
 ## Templates (R10)
 
@@ -81,18 +81,18 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Claiming file extensions (R11)
 
-- [ ] R11 — the unambiguous extensions are always INTERCAL. Tests: —
-- [ ] R11 — `.i` and `.xc` are INTERCAL only when a statement appears in their first 50 lines. Tests: —
-- [ ] R11 — a `.i` or `.xc` that fails the check prompts once, and the answer is remembered. Tests: —
+- [x] R11 — the unambiguous extensions are always INTERCAL. Tests: `editors/vscode/tests/claiming.test.ts`, `editors/vscode/tests/manifest.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/ClaimsTest.kt`, `editors/neovim/test/unit.lua`
+- [x] R11 — `.i` and `.xc` are INTERCAL only when a statement appears in their first 50 lines. Tests: `editors/vscode/tests/claiming.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/ClaimsTest.kt`, `editors/neovim/test/unit.lua`
+- [x] R11 — a `.i` or `.xc` that fails the check prompts once, and the answer is remembered. Tests: `editors/vscode/tests/claiming.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/ClaimsTest.kt`, `editors/neovim/test/unit.lua`
 
 ## The editors (R12, R13)
 
 - [x] R12 — the VS Code smoke test opens a sample, sees a diagnostic and follows a go to definition. Tests: `editors/vscode/smoke/smokeSuite.ts`
 - [x] R12 — the JetBrains smoke test does the same on IDE 2026.1. Tests: `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/SmokeTest.kt`
-- [ ] R12 — the Neovim smoke test does the same on Neovim 0.11. Tests: —
+- [x] R12 — the Neovim smoke test does the same on Neovim 0.11. Tests: `editors/neovim/test/smoke.lua`
 - [x] R12 — the VS Code extension's own code has Jest unit tests. Tests: `editors/vscode/tests`
-- [ ] R13 — Run and Build call the CLI picked by the `flavor` setting. Tests: —
-- [ ] R13 — server discovery follows `serverPath`, then `ioi-*`, then `ciwapa-*`, and `.ioi` files say when only `ciwapa-*` is installed. Tests: —
+- [x] R13 — Run and Build call the CLI picked by the `flavor` setting. Tests: `editors/vscode/tests/invocation.test.ts`, `editors/vscode/tests/discovery.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/CliTest.kt`, `editors/neovim/test/unit.lua`
+- [x] R13 — server discovery follows `serverPath`, then `ioi-*`, then `ciwapa-*`, and `.ioi` files say when only `ciwapa-*` is installed. Tests: `editors/vscode/tests/discovery.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/CliTest.kt`, `editors/neovim/test/unit.lua`
 
 ## Releases and CI (R14)
 

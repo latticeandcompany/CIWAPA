@@ -1,0 +1,8 @@
+#!/bin/sh
+# Runs test/<name>.lua with the newest pinned Neovim and with the oldest supported one.
+# Inside the neovim image: tools/in-docker --image neovim editors/neovim/test/run unit
+set -eu
+cd "$(dirname "$0")/.."
+for nvim in nvim nvim-floor; do
+  "$nvim" --clean -l "test/$1.lua"
+done

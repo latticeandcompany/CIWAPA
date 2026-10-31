@@ -1,0 +1,5 @@
+	DO .1 <- #1
+	DO .2 <- #2
+	PLEASE DO (1009) NEXT
+	DO READ OUT .3
+	DO GIVE UP

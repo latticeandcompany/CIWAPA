@@ -158,6 +158,21 @@
       "dependsOn": [
         "ciwapa_llvm"
       ]
+    },
+    {
+      "name": "neovim",
+      "path": "editors/neovim",
+      "auto": false,
+      "scripts": {
+        "lint": "../../tools/in-docker --image neovim test/run lint",
+        "test": "../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image neovim test/run unit && ../../tools/in-docker --image neovim test/run smoke",
+        "build": "",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_llvm"
+      ]
     }
   ],
   "globalDependencies": [
