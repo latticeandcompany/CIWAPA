@@ -4,15 +4,19 @@ import 'dart:io';
 import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'code_lens.dart';
+import 'completion.dart';
 import 'diagnostics.dart';
 import 'document.dart';
 import 'extension.dart';
 import 'hover.dart';
+import 'inlay_hints.dart';
 import 'libraries.dart';
 import 'navigation.dart';
+import 'politeness.dart';
 import 'rpc.dart';
 import 'semantic_tokens.dart';
 import 'text.dart';
+import 'toggle_comment.dart';
 
 /// The compiler flags an editor passes to the server, from its settings (Q160). The server never
 /// plants the random bug, so `--no-random-bug` is always on (R3).
@@ -56,6 +60,9 @@ class LanguageServer {
   final Connection connection;
 
   var settings = const Settings();
+
+  /// The editor shows `intercal/politeness` in a status bar, so the inlay hint would repeat it.
+  var politenessInStatusBar = false;
   final documents = <String, Document>{};
   var _initialized = false;
   var _shuttingDown = false;
@@ -103,6 +110,22 @@ class LanguageServer {
       ),
     ),
     'textDocument/codeLens': (params) => _withDocument(params, codeLenses),
+    'textDocument/completion': (params) => _withDocument(
+      params,
+      (document) => completion(document, Position.fromJson(params['position'])),
+    ),
+    'textDocument/inlayHint': (params) => _withDocument(
+      params,
+      (document) => inlayHints(document, params['range']),
+    ),
+    'textDocument/codeAction': (params) => _withDocument(
+      params,
+      (document) => politenessFixes(document, params['context']),
+    ),
+    'intercal/toggleComment': (params) => _withDocument(
+      params,
+      (document) => toggleComment(document, params['range']),
+    ),
     'workspace/executeCommand': (params) {
       if (params['command'] != goToCommand) {
         throw ResponseError(
@@ -262,6 +285,10 @@ class LanguageServer {
   Object? _initialize(Map<String, Object?> params) {
     _initialized = true;
     settings = Settings.fromJson(params['initializationOptions']);
+    politenessInStatusBar = switch (params['initializationOptions']) {
+      {'politenessInStatusBar': true} => true,
+      _ => false,
+    };
     return {
       'capabilities': {
         'positionEncoding': 'utf-16',
@@ -271,6 +298,13 @@ class LanguageServer {
         'referencesProvider': true,
         'renameProvider': {'prepareProvider': true},
         'codeLensProvider': {'resolveProvider': false},
+        'completionProvider': {
+          'triggerCharacters': ['('],
+        },
+        'inlayHintProvider': true,
+        'codeActionProvider': {
+          'codeActionKinds': ['quickfix'],
+        },
         'executeCommandProvider': {
           'commands': [goToCommand],
         },
@@ -333,6 +367,12 @@ class LanguageServer {
         'diagnostics': diagnosticsOf(document),
       },
     });
+    if (Politeness.of(document) case final politeness?) {
+      connection.send({
+        'method': 'intercal/politeness',
+        'params': politeness.toJson(document.uri),
+      });
+    }
   }
 }
 

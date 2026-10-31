@@ -60,16 +60,16 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Completion, inlay hints and politeness (R8)
 
-- [ ] R8 — completion offers statement keywords for the file's dialect, labels inside `( )`, and gerunds. Tests: —
-- [ ] R8 — inlay hints show constant values, constant mingles and selects, and statement ordinals. Tests: —
+- [x] R8 — completion offers statement keywords for the file's dialect, labels inside `( )`, and gerunds. Tests: `packages/ciwapa_lsp/test/completion_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R8 — inlay hints show constant values, constant mingles and selects, and statement ordinals. Tests: `packages/ciwapa_lsp/test/inlay_hints_test.dart`
 - [ ] R8 — in `.ioi` files, inlay hints name template arguments. Tests: —
-- [ ] R8 — `intercal/politeness` carries the ratio, shown in VS Code's status bar and as an inlay hint elsewhere. Tests: —
-- [ ] R8 — the E079 and E099 quick fixes leave the file inside the band. Tests: —
+- [x] R8 — `intercal/politeness` carries the ratio, shown in VS Code's status bar and as an inlay hint elsewhere. Tests: `packages/ciwapa_lsp/test/inlay_hints_test.dart`
+- [x] R8 — the E079 and E099 quick fixes leave the file inside the band. Tests: `packages/ciwapa_lsp/test/politeness_test.dart`
 
 ## Comment toggling (R9)
 
-- [ ] R9 — toggling a statement gives `PLEASE NOTE`, keeps its label, and works across lines. Tests: —
-- [ ] R9 — toggling `PLEASE NOTE` or `DO NOTE` back gives `DO`. Tests: —
+- [x] R9 — toggling a statement gives `PLEASE NOTE`, keeps its label, and works across lines. Tests: `packages/ciwapa_lsp/test/toggle_comment_test.dart`
+- [x] R9 — toggling `PLEASE NOTE` or `DO NOTE` back gives `DO`. Tests: `packages/ciwapa_lsp/test/toggle_comment_test.dart`
 - [ ] R9 — every extension binds its comment shortcut to `intercal/toggleComment`. Tests: —
 
 ## Templates (R10)

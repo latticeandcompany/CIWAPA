@@ -24,6 +24,11 @@ class InterstatesEditing extends LanguageExtension {
   @override
   List<LibraryBlock> get libraries => interstatesBlocks;
 
+  @override
+  List<String> keywordsFor(String path) => interstatesBase(path) == null
+      ? const []
+      : const ['INTO DATABASE', 'FORGET DATABASE', 'AMNESIA'];
+
   /// (16000) is where requests come in, and no statement has it: its definitions are the routes.
   @override
   List<Span>? definitionsOf(String path, int label, SyntaxModel model) {

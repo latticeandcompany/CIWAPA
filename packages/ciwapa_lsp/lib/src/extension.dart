@@ -25,4 +25,8 @@ class LanguageExtension {
   /// Where go to definition takes a label the file doesn't define, such as an entry point; null
   /// to leave it to the libraries.
   List<Span>? definitionsOf(String path, int label, SyntaxModel model) => null;
+
+  /// The words that start its own statements, for completion after an identifier in files of
+  /// [path]'s kind.
+  List<String> keywordsFor(String path) => const [];
 }

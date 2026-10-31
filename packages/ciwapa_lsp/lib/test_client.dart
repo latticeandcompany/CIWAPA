@@ -187,6 +187,34 @@ List<Object?> codesOf(List<Map<String, Object?>> diagnostics) => [
   for (final d in diagnostics) d['code'],
 ];
 
+/// [text] with LSP [edits] applied. The edits mustn't overlap; lines end in `\n` and characters
+/// count UTF-16 units.
+String applyEdits(String text, List<Map<String, Object?>> edits) {
+  final lineStarts = [0];
+  for (var i = 0; i < text.length; i++) {
+    if (text.codeUnitAt(i) == 0x0A) lineStarts.add(i + 1);
+  }
+  int offset(Object? position) {
+    final {'line': line as int, 'character': character as int} =
+        position as Map<String, Object?>;
+    return lineStarts[line] + character;
+  }
+
+  final placed = [
+    for (final e in edits)
+      (
+        offset((e['range'] as Map)['start']),
+        offset((e['range'] as Map)['end']),
+        e['newText'] as String,
+      ),
+  ]..sort((a, b) => b.$1.compareTo(a.$1));
+  var result = text;
+  for (final (start, end, newText) in placed) {
+    result = result.replaceRange(start, end, newText);
+  }
+  return result;
+}
+
 /// A decoded semantic token: where it is, and its type and modifiers by name.
 typedef DecodedToken = ({
   int line,

@@ -66,6 +66,25 @@ class Document {
         (analysis.program.extracal ? _extracalRoutines[label] : null);
   }
 
+  /// Every library routine the file could call, by label: those of the libraries that come with
+  /// files like this one, except for a library in whose range the file defines a label (T36).
+  Map<int, RoutineDoc> get libraryRoutines {
+    final program = analysis.program;
+    if (program.base != 2) return const {};
+    final own = definedLabels;
+    final shut = [
+      for (final block in server.knownLibraries)
+        if (own.any((l) => l >= block.first && l <= block.last)) block,
+    ];
+    return {
+      if (program.extracal) ..._extracalRoutines,
+      ..._systemRoutines,
+      ...server.extension.routinesFor(path),
+    }..removeWhere(
+      (label, _) => shut.any((b) => label >= b.first && label <= b.last),
+    );
+  }
+
   /// The library blocks the compiler included for this file.
   List<LibraryBlock> get includedLibraries {
     final program = analysis.program;

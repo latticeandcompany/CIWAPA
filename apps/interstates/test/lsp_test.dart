@@ -252,6 +252,30 @@ void editingTests() {
     },
   );
 
+  test('R8: completion offers Interstates\' statements and routines', () async {
+    await client.open('file:///w/site.ioi', 'DO GIVE UP\nPLEASE DO ');
+    Future<List<Object?>> labels(int line, int character) async => [
+      for (final item in (await client.request<List<Object?>>(
+        'textDocument/completion',
+        {
+          'textDocument': {'uri': 'file:///w/site.ioi'},
+          'position': {'line': line, 'character': character},
+        },
+      )).cast<Map<String, Object?>>())
+        item['label'],
+    ];
+    expect(
+      await labels(1, 10),
+      containsAll(['INTO DATABASE', 'AMNESIA', 'NEXT FROM']),
+    );
+    await client.change(
+      'file:///w/site.ioi',
+      'DO GIVE UP\nPLEASE DO (',
+      version: 2,
+    );
+    expect(await labels(1, 11), containsAll(['16010', '16200']));
+  });
+
   test('R5: Interstates\' words and strings are highlighted', () async {
     const text =
         'Prose comes first.\n'
