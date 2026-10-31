@@ -60,11 +60,12 @@ export const createServerController = (extensionVersion: string, politeness: Pol
 				{ scheme: 'file', language: 'intercal' },
 				{ scheme: 'file', language: 'html' }
 			],
-			initializationOptions: {
+			// A function, so that a server restarted after a crash starts with today's settings.
+			initializationOptions: () => ({
 				traditional: settings.traditional,
 				clockface: settings.clockface,
 				politenessInStatusBar: true
-			},
+			}),
 			errorHandler: {
 				error: (_error, _message, count) => ({
 					action: (count ?? 0) <= 3 ? ErrorAction.Continue : ErrorAction.Shutdown,
@@ -131,8 +132,8 @@ export const createServerController = (extensionVersion: string, politeness: Pol
 	};
 
 	const restart = async (): Promise<void> => {
-		await stop();
 		found = discover(settings);
+		await stop();
 		refreshIoiNotices();
 		ensureStarted();
 	};

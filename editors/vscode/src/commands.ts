@@ -61,9 +61,10 @@ const runCli = async (server: ServerController, command: CliCommand, target?: vs
 		return;
 	}
 	const args = cliArguments({ command, file: uri.fsPath, platform: process.platform, ...settings });
-	if (terminal === undefined || terminal.exitStatus !== undefined) {
-		terminal = vscode.window.createTerminal({ name: 'INTERCAL', cwd: dirname(uri.fsPath) });
-	}
+	// A fresh terminal each time: the last program may still be waiting at a WRITE IN, and would read
+	// the next command line as its input.
+	terminal?.dispose();
+	terminal = vscode.window.createTerminal({ name: 'INTERCAL', cwd: dirname(uri.fsPath) });
 	terminal.show();
 	terminal.sendText(shellLine(vscode.env.shell, cli.command, args));
 };

@@ -97,29 +97,6 @@
 				"when": "editorTextFocus && editorLangId == intercal && !editorReadonly"
 			}
 		],
-		"taskDefinitions": [
-			{
-				"type": "intercal",
-				"required": [
-					"command",
-					"file"
-				],
-				"properties": {
-					"command": {
-						"type": "string",
-						"enum": [
-							"run",
-							"build"
-						],
-						"description": "What to do with the file."
-					},
-					"file": {
-						"type": "string",
-						"description": "The program."
-					}
-				}
-			}
-		],
 		"configuration": {
 			"title": "INTERCAL",
 			"properties": {

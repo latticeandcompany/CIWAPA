@@ -23,6 +23,10 @@ describe('package.json', () => {
 		expect(language.extensions).not.toContain('.xc');
 	});
 
+	test('contributes no task type, since nothing provides one', () => {
+		expect(manifest.contributes.taskDefinitions).toBeUndefined();
+	});
+
 	test('binds the usual comment shortcut to the server-side toggle in INTERCAL files', () => {
 		expect(manifest.contributes.keybindings).toContainEqual({
 			command: 'intercal.toggleComment',
