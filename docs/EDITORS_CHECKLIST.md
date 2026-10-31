@@ -88,7 +88,7 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 ## The editors (R12, R13)
 
 - [x] R12 — the VS Code smoke test opens a sample, sees a diagnostic and follows a go to definition. Tests: `editors/vscode/smoke/smokeSuite.ts`
-- [ ] R12 — the JetBrains smoke test does the same on IDE 2026.1. Tests: —
+- [x] R12 — the JetBrains smoke test does the same on IDE 2026.1. Tests: `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/SmokeTest.kt`
 - [ ] R12 — the Neovim smoke test does the same on Neovim 0.11. Tests: —
 - [x] R12 — the VS Code extension's own code has Jest unit tests. Tests: `editors/vscode/tests`
 - [ ] R13 — Run and Build call the CLI picked by the `flavor` setting. Tests: —
