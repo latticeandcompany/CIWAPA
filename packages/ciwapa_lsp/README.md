@@ -1,8 +1,8 @@
 # ciwapa_lsp
 
 The INTERCAL language server. It isn't a program of its own: every CLI runs it as `lsp`
-(`ciwapa-llvm lsp`, `ciwapa-dart lsp`, `ioi-llvm lsp`, `ioi-dart lsp`), on stdin and stdout, with
-the same front end the CLI builds with. A compiler built on CIWAPA's gets the server for its own
+(`ciwapa-llvm lsp`, `ciwapa-dart lsp`, and the same command of any compiler built on CIWAPA's), on
+stdin and stdout, with the same front end the CLI builds with. A compiler built on CIWAPA's gets the server for its own
 files by handing its `Frontend` to `runCli`.
 
 The JSON-RPC layer and the LSP types are hand-rolled (Q169), so the package depends on
