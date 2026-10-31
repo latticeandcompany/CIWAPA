@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ciwapa_core/ciwapa_core.dart';
 
+import 'code_lens.dart';
 import 'diagnostics.dart';
 import 'document.dart';
 import 'extension.dart';
@@ -101,6 +102,17 @@ class LanguageServer {
         (warning) => showMessage(warning, type: 2),
       ),
     ),
+    'textDocument/codeLens': (params) => _withDocument(params, codeLenses),
+    'workspace/executeCommand': (params) {
+      if (params['command'] != goToCommand) {
+        throw ResponseError(
+          ResponseError.invalidParams,
+          'no command ${params['command']} here',
+        );
+      }
+      sendRequest('window/showDocument', showDocumentFor(params['arguments']));
+      return null;
+    },
     'intercal/librarySource': (params) => librarySource(params, _libraryNamed),
   };
 
@@ -131,6 +143,16 @@ class LanguageServer {
   void showMessage(String message, {int type = 3}) => connection.send({
     'method': 'window/showMessage',
     'params': {'type': type, 'message': message},
+  });
+
+  var _nextRequestId = 1;
+
+  /// A request to the client. Its answer is ignored: nothing the server asks for changes what it
+  /// does next.
+  void sendRequest(String method, Object? params) => connection.send({
+    'id': _nextRequestId++,
+    'method': method,
+    'params': params,
   });
 
   /// Runs [handler] on the open, handled document [params] names; null for any other.
@@ -248,6 +270,10 @@ class LanguageServer {
         'definitionProvider': true,
         'referencesProvider': true,
         'renameProvider': {'prepareProvider': true},
+        'codeLensProvider': {'resolveProvider': false},
+        'executeCommandProvider': {
+          'commands': [goToCommand],
+        },
         'semanticTokensProvider': {'legend': legend, 'full': true},
       },
       'serverInfo': {'name': name, 'version': ciwapaVersion},

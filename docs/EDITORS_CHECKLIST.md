@@ -55,8 +55,8 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## The COME FROM code lens (R7)
 
-- [ ] R7 — a labelled statement that something comes from has a lens listing every `COME FROM` and `NEXT FROM` that targets it. Tests: —
-- [ ] R7 — a file with computed or gerund `COME FROM`s has the warning lens on its first statement. Tests: —
+- [x] R7 — a labelled statement that something comes from has a lens listing every `COME FROM` and `NEXT FROM` that targets it. Tests: `packages/ciwapa_lsp/test/code_lens_test.dart`
+- [x] R7 — a file with computed or gerund `COME FROM`s has the warning lens on its first statement. Tests: `packages/ciwapa_lsp/test/code_lens_test.dart`
 
 ## Completion, inlay hints and politeness (R8)
 
