@@ -9,9 +9,6 @@
     },
     "lint": {},
     "format": {},
-    "goal-status": {
-      "cache": false
-    },
     "build": {}
   },
   "workspaces": [
@@ -23,7 +20,6 @@
         "lint": "tools/in-docker dart analyze --fatal-infos",
         "format": "tools/in-docker dart format --output=none --set-exit-if-changed .",
         "test": "",
-        "goal-status": "tools/goal/goal-status",
         "build": ""
       }
     },
@@ -35,7 +31,6 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       }
     },
@@ -47,7 +42,6 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       },
       "dependsOn": [
@@ -62,7 +56,6 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       },
       "dependsOn": [
@@ -78,7 +71,6 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       },
       "dependsOn": [
@@ -95,7 +87,6 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       }
     },
@@ -107,7 +98,6 @@
         "test": "",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       }
     },
@@ -119,7 +109,6 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": "",
         "build": ""
       },
       "dependsOn": [
@@ -137,8 +126,7 @@
         "lint": "../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run lint'",
         "test": "mkdir -p ../../.cache/build && ../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm test && xvfb-run -a npm run smoke'",
         "build": "../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run build'",
-        "format": "",
-        "goal-status": ""
+        "format": ""
       },
       "dependsOn": [
         "ciwapa_llvm"
@@ -152,8 +140,7 @@
         "lint": "../../tools/in-docker --image jdk ./gradlew --console=plain lint",
         "test": "mkdir -p ../../.cache/build && ../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image jdk ./gradlew --console=plain test",
         "build": "../../tools/in-docker --image jdk ./gradlew --console=plain buildPlugin",
-        "format": "",
-        "goal-status": ""
+        "format": ""
       },
       "dependsOn": [
         "ciwapa_llvm"
@@ -167,8 +154,7 @@
         "lint": "../../tools/in-docker --image neovim test/run lint",
         "test": "mkdir -p ../../.cache/build && ../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image neovim test/run unit && ../../tools/in-docker --image neovim test/run smoke",
         "build": "",
-        "format": "",
-        "goal-status": ""
+        "format": ""
       },
       "dependsOn": [
         "ciwapa_llvm"

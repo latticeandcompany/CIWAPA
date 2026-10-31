@@ -8,7 +8,7 @@ Format, as in [`INTERSTATES_CHECKLIST.md`](INTERSTATES_CHECKLIST.md):
 - [ ] R3 — rule, in one line. Tests: `packages/ciwapa_lsp/...`
 ```
 
-The sections follow the plan's requirements. `goal-status` reads this file, together with the CI run and the release on the `mega` HEAD.
+The sections follow the plan's requirements. `goal-status` read this file, together with the CI run and the release on the `mega` HEAD, until goal 4's cleanup removed it with `tools/goal`; its last verdict is in the git history.
 
 ## `.ioi` (R1)
 
@@ -104,4 +104,4 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 - [x] `docs/EDITORS.md` covers installing and using every extension, and the README links it. Tests: `docs/EDITORS.md`, `README.md`
 - [x] `packages/ciwapa_lsp/README.md` documents the custom protocol. Tests: `packages/ciwapa_lsp/README.md`
-- [ ] `tools/goal/` is removed. Tests: —
+- [x] `tools/goal/` is removed. Tests: `git ls-files tools/goal` prints nothing (removed by goal 4's cleanup; see the git history)
