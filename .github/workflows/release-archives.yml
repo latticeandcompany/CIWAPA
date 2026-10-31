@@ -112,6 +112,7 @@ jobs:
           echo "version=$(sed -n 's/^version: *//p' packages/ciwapa_llvm/pubspec.yaml)" >>"$GITHUB_OUTPUT"
       - name: Build the language server
         run: |
+          mkdir -p .cache/build
           tools/in-docker dart --suppress-analytics pub get
           tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
       - name: Test, smoke test and build the .vsix
@@ -144,6 +145,7 @@ jobs:
           echo "version=$(sed -n 's/^version: *//p' packages/ciwapa_llvm/pubspec.yaml)" >>"$GITHUB_OUTPUT"
       - name: Build the language server
         run: |
+          mkdir -p .cache/build
           tools/in-docker dart --suppress-analytics pub get
           tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
       - name: Smoke test and build the plugin

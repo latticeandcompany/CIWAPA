@@ -113,6 +113,7 @@ jobs:
           key: vscode-test-${{ matrix.platform.name }}-${{ hashFiles('editors/vscode/smoke/runSmoke.ts') }}
       - name: Build the language server
         run: |
+          mkdir -p .cache/build
           tools/in-docker dart --suppress-analytics pub get
           tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
       - name: Lint, test and build
@@ -146,6 +147,7 @@ jobs:
           key: jetbrains-${{ matrix.platform.name }}-${{ hashFiles('editors/jetbrains/*.gradle.kts', 'editors/jetbrains/gradle.properties', 'editors/jetbrains/gradle/wrapper/gradle-wrapper.properties') }}
       - name: Build the language server
         run: |
+          mkdir -p .cache/build
           tools/in-docker dart --suppress-analytics pub get
           tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
       # The plugin verifier downloads two IDEs, so it runs on one leg.
@@ -173,6 +175,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Build the language server
         run: |
+          mkdir -p .cache/build
           tools/in-docker dart --suppress-analytics pub get
           tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
       - name: Lint, unit checks and smoke test (Neovim 0.12 and 0.11)

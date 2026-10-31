@@ -135,7 +135,7 @@
       "auto": false,
       "scripts": {
         "lint": "../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run lint'",
-        "test": "../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm test && xvfb-run -a npm run smoke'",
+        "test": "mkdir -p ../../.cache/build && ../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm test && xvfb-run -a npm run smoke'",
         "build": "../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run build'",
         "format": "",
         "goal-status": ""
@@ -150,7 +150,7 @@
       "auto": false,
       "scripts": {
         "lint": "../../tools/in-docker --image jdk ./gradlew --console=plain lint",
-        "test": "../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image jdk ./gradlew --console=plain test",
+        "test": "mkdir -p ../../.cache/build && ../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image jdk ./gradlew --console=plain test",
         "build": "../../tools/in-docker --image jdk ./gradlew --console=plain buildPlugin",
         "format": "",
         "goal-status": ""
@@ -165,7 +165,7 @@
       "auto": false,
       "scripts": {
         "lint": "../../tools/in-docker --image neovim test/run lint",
-        "test": "../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image neovim test/run unit && ../../tools/in-docker --image neovim test/run smoke",
+        "test": "mkdir -p ../../.cache/build && ../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image neovim test/run unit && ../../tools/in-docker --image neovim test/run smoke",
         "build": "",
         "format": "",
         "goal-status": ""
