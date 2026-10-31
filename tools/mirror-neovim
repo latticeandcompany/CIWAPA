@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Pushes editors/neovim, with its history, to the main branch of latticeandcompany/intercal-neovim,
+# the mirror that plugin managers install from (L44). Run it after editors/neovim changes on mega.
+#   tools/mirror-neovim          mirrors origin/mega
+#   tools/mirror-neovim <ref>    mirrors another commit
+# The push is never forced: git subtree split gives the same commits every time, so the mirror
+# only ever fast-forwards. INTERCAL_NEOVIM_MIRROR overrides where it pushes.
+set -euo pipefail
+
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+mirror="${INTERCAL_NEOVIM_MIRROR:-https://github.com/latticeandcompany/intercal-neovim.git}"
+ref="${1:-origin/mega}"
+
+cd "$repo_root"
+if [[ "$ref" == origin/* ]]; then
+  git fetch --quiet origin "${ref#origin/}"
+fi
+split="$(git subtree split --quiet --prefix=editors/neovim "$ref")"
+echo "mirror-neovim: $ref is $split in the mirror"
+git push "$mirror" "$split:refs/heads/main"

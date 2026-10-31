@@ -1146,7 +1146,7 @@ Decided in the goal 4 grilling session on 2026-10-30. The plan is [`EDITORS_PLAN
 
 ### Q162: Neovim
 - **Options:** a small Lua plugin / a docs snippet / an upstream nvim-lspconfig entry; installed with lazy.nvim and a runtimepath line / a release tarball / a separate repo; that repo mirrored by CI / by hand
-- **Decision:** A small Lua plugin in `editors/neovim`, installed from `latticeandcompany/intercal-neovim`, a separate repo that Ryan mirrors by hand. The loop never creates repos.
+- **Decision:** A small Lua plugin in `editors/neovim`, installed from `latticeandcompany/intercal-neovim`, a separate repo that Ryan mirrors by hand with `tools/mirror-neovim` (L44). The loop never creates repos.
 - **Date:** 2026-10-30
 
 ### Q163: Undecodable statements
@@ -1334,7 +1334,7 @@ Decided in the goal 4 grilling session on 2026-10-30. The plan is [`EDITORS_PLAN
 
 ## Loop questions
 
-Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each up to L15 and L33; L16–L42 follow below.
+Answered from `QUESTIONS.md`. Ryan accepted the recommendation on each up to L15 and L33; L16–L46 follow below.
 
 ### L1: May GitHub Actions open pull requests in this repo?
 - **Options:** Ryan enables it at the org level and then on the repo / a GitHub App or fine-grained token as a secret / open an issue instead of a PR
@@ -1843,6 +1843,30 @@ Ryan asked Claude to settle every question still open after goal 3 (L16–L42) a
 - **Decision:** (a).
 - **Tests:** `apps/interstates/test/golden/activecassette` and `apps/interstates/test/adapter_test.dart` pin (a).
 - **Date:** 2026-10-20
+
+### L43: Which JetBrains LSP API names does the plugin use?
+- **Context:** IntelliJ 2026.1.4 renamed the LSP API's classes (`LspServerSupportProvider` became `LspIntegrationProvider`, and so on). The plugin uses the old names, so it runs on 2026.1.0 onwards, and the verifier reports 25 deprecated-API usages against 2026.2, which don't fail `lint`.
+- **Options:** keep 2026.1 as the floor with the old names / raise the floor to 2026.1.4 (build 261.26222) and use the new names.
+- **Decision:** Keep the 2026.1 floor and the old names. Deprecated isn't removed, and the floor reaches every 2026.1 install. Switch when JetBrains schedules the old names for removal, which the verifier in `lint` will report once `toolchain-bump.yml` moves it to an IDE that schedules it.
+- **Date:** 2026-10-31
+
+### L44: How is the Neovim plugin published?
+- **Context:** `docs/EDITORS.md` and the plugin's README install it from `latticeandcompany/intercal-neovim`, a mirror of `editors/neovim` that plugin managers can clone.
+- **Options:** create the mirror and sync it by hand / sync it from CI with a deploy key / tell users to point their plugin manager at `editors/neovim` in a CIWAPA checkout. Sub-questions: a `LICENSE` in the mirror; a `:help intercal` page.
+- **Decision:** The mirror was created on 2026-10-31, and Ryan syncs it by hand with `tools/mirror-neovim`, which pushes `git subtree split --prefix=editors/neovim` of `origin/mega` to the mirror's `main`, never forced. `editors/neovim/LICENSE` is a copy of CIWAPA's ISC license, so the mirror carries one. No help page for now: the README covers the plugin.
+- **Date:** 2026-10-31
+
+### L45: Should library documents be highlighted?
+- **Context:** `ciwapa-lib:` documents open read-only, but the protocol only syncs `file:` documents, so the server never sees them and they get no semantic tokens or hovers.
+- **Options:** leave them plain / have the server analyze `ciwapa-lib:` documents it serves, and the clients send them.
+- **Decision:** Leave them plain. Library source is for reading, and go to definition already lands on the routine.
+- **Date:** 2026-10-31
+
+### L46: JetBrains settings scope and the Comment menu item
+- **Context:** the plugin's settings apply to every project, where VS Code lets a workspace override them (except `serverPath`). Toggle comment takes the Comment with Line Comment shortcut through an action promoter, but the **Code › Comment with Line Comment** menu item still runs the platform's own action, which knows no INTERCAL comment syntax.
+- **Options:** keep both / per-project settings / override the platform's comment action for INTERCAL files.
+- **Decision:** Keep both. The compiler flags are a choice about the compiler, not the project, and the shortcut is what people use. Overriding the platform's action is more code to keep working across IDE versions than the menu item is worth.
+- **Date:** 2026-10-31
 
 ## EXTRACAL error codes
 

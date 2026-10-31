@@ -14,7 +14,7 @@ First install a compiler from [Releases](https://github.com/latticeandcompany/CI
 | IntelliJ IDEA and the other JetBrains IDEs | 2026.1 or later | Download `intercal-jetbrains-<version>.zip`, then **Settings › Plugins › ⚙ › Install Plugin from Disk...** |
 | Neovim | 0.11 or later | `{ 'latticeandcompany/intercal-neovim', opts = {} }` with lazy.nvim, or `vim.pack.add({ 'https://github.com/latticeandcompany/intercal-neovim' })` on 0.12 |
 
-The Neovim plugin lives in [`editors/neovim`](../editors/neovim) and is mirrored to `latticeandcompany/intercal-neovim` so that plugin managers can find it. Any plugin manager that takes a local path can use `editors/neovim` from a checkout too. Don't lazy-load it on the `intercal` filetype: the plugin is what decides which files are INTERCAL.
+The Neovim plugin lives in [`editors/neovim`](../editors/neovim) and is mirrored to `latticeandcompany/intercal-neovim`, by `tools/mirror-neovim`, so that plugin managers can find it. Any plugin manager that takes a local path can use `editors/neovim` from a checkout too. Don't lazy-load it on the `intercal` filetype: the plugin is what decides which files are INTERCAL.
 
 Nothing is published to the VS Code Marketplace, Open VSX or the JetBrains Marketplace.
 

@@ -95,4 +95,4 @@ The plugin warns once for each of these, and the warning says what to do:
 
 ## License
 
-ISC, the same as [CIWAPA](https://github.com/latticeandcompany/CIWAPA). This plugin is developed in CIWAPA's `editors/neovim`, so file issues and pull requests there.
+ISC (see [`LICENSE`](LICENSE)), the same as [CIWAPA](https://github.com/latticeandcompany/CIWAPA). This plugin is developed in CIWAPA's `editors/neovim`, so file issues and pull requests there.
