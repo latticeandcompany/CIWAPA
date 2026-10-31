@@ -237,5 +237,94 @@ void main() {
         expect(params['message'], contains('might still mean 10'));
       });
     }
+
+    test(
+      'CREATE (n) is a use like any other, and only its (n) changes',
+      () async {
+        await client.open(
+          'file:///w/c.xc',
+          '(100) DO .1 <- #1\nDO CREATE (100) FOO .1\nPLEASE FOO #2\nDO (100) NEXT\n',
+        );
+        final edit = await client.request<Map<String, Object?>>(
+          'textDocument/rename',
+          {...at('file:///w/c.xc', 3, 5), 'newName': '200'},
+        );
+        final edits = ((edit['changes'] as Map)['file:///w/c.xc'] as List)
+            .cast<Map<String, Object?>>();
+        expect(
+          [
+            for (final e in edits)
+              places([
+                {'uri': 'c', 'range': e['range']},
+              ]).single,
+          ],
+          ['c 0:0-0:5', 'c 1:10-1:15', 'c 3:3-3:8'],
+        );
+      },
+    );
+
+    test('rename won\'t land on a number in use, or in a library it uses', () async {
+      await client.open(
+        'file:///w/a.i',
+        '(10) DO .1 <- #1 \nPLEASE DO (1000) NEXT\nDO (10) NEXT\nDO (7) NEXT\n',
+      );
+      for (final (name, message) in [
+        ('7', 'already used'),
+        ('1999', 'range of a library'),
+      ]) {
+        final response = await client.send('textDocument/rename', {
+          ...at('file:///w/a.i', 2, 4),
+          'newName': name,
+        });
+        expect((response['error'] as Map)['message'], contains(message));
+      }
+    });
+
+    test('a WHILE\'s label is taken too', () async {
+      await client.open(
+        'file:///w/a.xc',
+        '(10) DO .1 <- #1 WHILE .2 <- #2\n(20) PLEASE DO (10) NEXT\nDO GIVE UP\n',
+      );
+      final response = await client.send('textDocument/rename', {
+        ...at('file:///w/a.xc', 1, 1),
+        'newName': '10',
+      });
+      expect((response['error'] as Map)['message'], contains('E182'));
+    });
+  });
+
+  group('R6: edges', () {
+    test('a cursor just after the ) is on the label', () async {
+      await client.open(
+        'file:///w/a.i',
+        '(5) DO .1 <- #1\nPLEASE (5) NEXT\nDO GIVE UP\n',
+      );
+      expect(
+        places(
+          await client.request(
+            'textDocument/definition',
+            at('file:///w/a.i', 1, 10),
+          ),
+        ),
+        ['file:///w/a.i 0:0-0:3'],
+      );
+    });
+
+    test(
+      'a library the compiler leaves out has no definitions (T36)',
+      () async {
+        await client.open(
+          'file:///w/a.i',
+          '(1500) DO .1 <- #1\nPLEASE DO (1000) NEXT\nDO GIVE UP\n',
+        );
+        expect(
+          await client.request(
+            'textDocument/definition',
+            at('file:///w/a.i', 1, 12),
+          ),
+          isEmpty,
+        );
+      },
+    );
   });
 }

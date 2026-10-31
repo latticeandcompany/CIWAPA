@@ -66,16 +66,24 @@ class Document {
         (analysis.program.extracal ? _extracalRoutines[label] : null);
   }
 
-  /// The library document that defines [label] for this file, by the same rules as
+  /// The library blocks the compiler included for this file.
+  List<LibraryBlock> get includedLibraries {
+    final program = analysis.program;
+    final included = {
+      for (final s in program.statements.skip(program.userStatements))
+        s.source.path,
+    };
+    return [
+      for (final block in server.knownLibraries)
+        if (included.contains(block.name)) block,
+    ];
+  }
+
+  /// The library document that defines [label] for this file: one the compiler included, as for
   /// [libraryRoutine].
   LibraryDocument? libraryOf(int label) {
-    final program = analysis.program;
-    if (program.base != 2 || definedLabels.contains(label)) return null;
-    for (final block in [
-      ...server.extension.librariesFor(path),
-      systemLibrary,
-      if (program.extracal) ...libraryBlocks,
-    ]) {
+    if (!includedLabels.contains(label)) return null;
+    for (final block in includedLibraries) {
       if (label >= block.first && label <= block.last) {
         return server.library(block);
       }

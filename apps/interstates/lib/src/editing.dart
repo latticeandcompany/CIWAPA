@@ -22,8 +22,7 @@ class InterstatesEditing extends LanguageExtension {
       label == 16000 && interstatesBase(path) != null ? _entryHelp : null;
 
   @override
-  List<LibraryBlock> librariesFor(String path) =>
-      interstatesBase(path) == null ? const [] : interstatesBlocks;
+  List<LibraryBlock> get libraries => interstatesBlocks;
 
   /// (16000) is where requests come in, and no statement has it: its definitions are the routes.
   @override

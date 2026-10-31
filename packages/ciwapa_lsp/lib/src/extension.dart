@@ -19,8 +19,8 @@ class LanguageExtension {
   /// Hover text for a label no routine documents, such as an entry point the compiler provides.
   String? labelHelp(String path, int label) => null;
 
-  /// Its own library blocks, which files of [path]'s kind get as EXTRACAL files get EXTRACAL's.
-  List<LibraryBlock> librariesFor(String path) => const [];
+  /// Its own library blocks, which its front end includes as EXTRACAL's are included.
+  List<LibraryBlock> get libraries => const [];
 
   /// Where go to definition takes a label the file doesn't define, such as an entry point; null
   /// to leave it to the libraries.

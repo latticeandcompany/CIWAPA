@@ -112,10 +112,16 @@ class LanguageServer {
     () => LibraryDocument(block.name, block.source),
   );
 
+  /// Every library block a file could include: the system library, EXTRACAL's and the
+  /// extension's.
+  List<LibraryBlock> get knownLibraries => [
+    systemLibrary,
+    ...libraryBlocks,
+    ...extension.libraries,
+  ];
+
   LibraryDocument? _libraryNamed(String name) {
-    final known = _libraries[name];
-    if (known != null) return known;
-    for (final block in [systemLibrary, ...libraryBlocks]) {
+    for (final block in knownLibraries) {
       if (block.name == name) return library(block);
     }
     return null;

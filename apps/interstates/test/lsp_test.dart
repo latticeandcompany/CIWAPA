@@ -226,6 +226,32 @@ void editingTests() {
     },
   );
 
+  test('R6: (16000) isn\'t the file\'s to rename', () async {
+    await client.open(
+      'file:///w/site.ioi',
+      'DO COME FROM (16000) WITH ROUTE "/a"\nDO GIVE UP\n',
+    );
+    final response = await client.send('textDocument/prepareRename', {
+      'textDocument': {'uri': 'file:///w/site.ioi'},
+      'position': {'line': 0, 'character': 15},
+    });
+    expect(
+      (response['error'] as Map)['message'],
+      contains('means something to the compiler'),
+    );
+  });
+
+  test(
+    'R6: an Interstates library document opens before anything asks for it',
+    () async {
+      final source = await client.request<Map<String, Object?>>(
+        'intercal/librarySource',
+        {'uri': 'ciwapa-lib:/interstates.xc'},
+      );
+      expect(source['text'], contains('(16010)'));
+    },
+  );
+
   test('R5: Interstates\' words and strings are highlighted', () async {
     const text =
         'Prose comes first.\n'

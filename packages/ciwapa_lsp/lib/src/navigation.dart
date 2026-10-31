@@ -12,9 +12,15 @@ Map<String, Object?> location(String uri, EditorText text, Span span) => {
 };
 
 /// The label piece at [position], if the position is on a label.
+///
+/// A cursor just after the `)` counts, as editors put it there after typing one.
 Piece? labelAt(Document document, Position position) {
-  final piece = document.model.pieceAt(document.text.offset(position));
-  return piece?.role == Role.label ? piece : null;
+  final offset = document.text.offset(position);
+  for (final at in [offset, offset - 1]) {
+    final piece = document.model.pieceAt(at);
+    if (piece?.role == Role.label) return piece;
+  }
+  return null;
 }
 
 /// Every label piece in the file whose number is [label].
@@ -70,12 +76,21 @@ Map<String, Object?>? prepareRename(Document document, Position position) {
   final piece = labelAt(document, position);
   if (piece == null) return null;
   final label = piece.token!.value;
-  if (!document.definedLabels.contains(label) &&
-      document.libraryOf(label) != null) {
-    throw ResponseError(
-      ResponseError.requestFailed,
-      '($label) belongs to the library. Renaming it here would only break the call.',
-    );
+  if (!document.definedLabels.contains(label)) {
+    if (document.libraryOf(label) != null) {
+      throw ResponseError(
+        ResponseError.requestFailed,
+        '($label) belongs to the library. Renaming it here would only break the call.',
+      );
+    }
+    final extension = document.server.extension;
+    if (extension.definitionsOf(document.path, label, document.model) != null ||
+        extension.labelHelp(document.path, label) != null) {
+      throw ResponseError(
+        ResponseError.requestFailed,
+        '($label) means something to the compiler itself. Renaming it would change what it means.',
+      );
+    }
   }
   return {'range': document.text.range(piece.span), 'placeholder': '$label'};
 }
@@ -99,11 +114,28 @@ Map<String, Object?>? rename(
       'Labels go from 1 to 65535. Counting is hard; we get it.',
     );
   }
-  if (number != label && document.definedLabels.contains(number)) {
-    throw ResponseError(
-      ResponseError.invalidParams,
-      '($number) is taken, and two statements with one label is E182.',
-    );
+  if (number != label) {
+    if (document.definedLabels.contains(number)) {
+      throw ResponseError(
+        ResponseError.invalidParams,
+        '($number) is taken, and two statements with one label is E182.',
+      );
+    }
+    if (labelPieces(document, number).isNotEmpty) {
+      throw ResponseError(
+        ResponseError.invalidParams,
+        '($number) is already used in this file. Renaming onto it would merge the two.',
+      );
+    }
+    for (final block in document.includedLibraries) {
+      if (number >= block.first && number <= block.last) {
+        throw ResponseError(
+          ResponseError.invalidParams,
+          '($number) is in the range of a library this file uses (${block.first} to '
+          '${block.last}). A label of the file\'s own there would leave the library out (T36).',
+        );
+      }
+    }
   }
   if (hasComputedTargets(document)) {
     warn(
@@ -123,14 +155,16 @@ Map<String, Object?>? rename(
 }
 
 /// Whether some statement's target is computed when it runs, so no tool can follow it (Q166).
-bool hasComputedTargets(Document document) => document.model.statements.any(
-  (s) => switch (s.statement.body) {
-    ComputedComeFrom() || GerundComeFrom() => true,
-    AbstainBody(count: _?) => true,
-    Create(target: _?) => true,
-    _ => false,
-  },
-);
+bool hasComputedTargets(Document document) => document.model.statements
+    .expand((s) => s.bodies)
+    .any(
+      (body) => switch (body) {
+        ComputedComeFrom() || GerundComeFrom() => true,
+        AbstainBody(count: _?) => true,
+        Create(target: _?) => true,
+        _ => false,
+      },
+    );
 
 /// `intercal/librarySource`: the text of a `ciwapa-lib:` document.
 Map<String, Object?> librarySource(
