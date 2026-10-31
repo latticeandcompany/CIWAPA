@@ -49,4 +49,14 @@ class ClaimsTest : BasePlatformTestCase() {
         assertEquals(false, Claims.answer(project, swig))
         assertFalse(swig.isIntercal)
     }
+
+    fun testIntercalWrittenLaterBeatsARememberedNo() {
+        val file = myFixture.addFileToProject("later.i", "").virtualFile
+        Claims.remember(project, file, asIntercal = false)
+        assertFalse(file.isIntercal)
+        com.intellij.openapi.application.WriteAction.runAndWait<Throwable> {
+            com.intellij.openapi.vfs.VfsUtil.saveText(file, "PLEASE GIVE UP\n")
+        }
+        assertTrue(Claims.isClaimed(file))
+    }
 }

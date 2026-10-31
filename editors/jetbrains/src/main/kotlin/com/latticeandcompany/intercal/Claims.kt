@@ -74,7 +74,8 @@ object Claims {
         val answers = ProjectManager.getInstanceIfCreated()?.openProjects.orEmpty()
             .filterNot { it.isDisposed }
             .mapNotNull { answer(it, file) }
-        return answers.firstOrNull() ?: contentLooksLikeIntercal(file)
+        // The content wins: a remembered No is for the file as it was, not for INTERCAL written in it later.
+        return contentLooksLikeIntercal(file) || answers.firstOrNull() == true
     }
 }
 

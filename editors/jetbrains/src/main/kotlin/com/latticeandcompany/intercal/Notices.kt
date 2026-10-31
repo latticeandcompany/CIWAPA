@@ -17,14 +17,19 @@ enum class Trouble {
 object Notices {
     private val alreadySaid = ConcurrentHashMap.newKeySet<Trouble>()
 
-    fun missing(project: Project) {
+    fun missing(project: Project, serverPath: String = IntercalSettings.getInstance().serverPath) {
         val flavor = IntercalSettings.getInstance().flavor.id
         say(
             project,
             Trouble.MISSING,
             "No INTERCAL compiler found",
-            "Looked for ioi-$flavor and ciwapa-$flavor on your PATH and found neither, which is the most " +
-                "sensible outcome INTERCAL has to offer. Install a CIWAPA release, or point the INTERCAL settings at one.",
+            if (serverPath.isNotEmpty()) {
+                "The INTERCAL settings point at $serverPath, and there's no compiler there. Fix the path, or empty " +
+                    "it to look for ioi-$flavor and ciwapa-$flavor on your PATH."
+            } else {
+                "Looked for ioi-$flavor and ciwapa-$flavor on your PATH and found neither, which is the most " +
+                    "sensible outcome INTERCAL has to offer. Install a CIWAPA release, or point the INTERCAL settings at one."
+            },
         )
     }
 

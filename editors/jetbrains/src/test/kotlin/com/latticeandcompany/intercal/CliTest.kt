@@ -37,7 +37,8 @@ class CliTest : BasePlatformTestCase() {
 
     fun testOnlyIoiSpeaksInterstates() {
         assertFalse(Cli(Path.of("/bin/ciwapa-llvm")).speaksInterstates)
-        assertTrue(Cli(Path.of("C:\\bin\\ioi-dart.exe")).speaksInterstates)
+        assertTrue(Cli(Path.of("/bin/ioi-dart.exe")).speaksInterstates)
+        assertEquals("ioi-dart", Cli(Path.of("/bin/ioi-dart.exe")).name)
     }
 
     fun testRunAndBuildCallTheCli() {

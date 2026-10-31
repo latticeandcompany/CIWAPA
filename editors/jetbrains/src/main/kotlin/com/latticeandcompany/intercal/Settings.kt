@@ -10,6 +10,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.ui.EditorNotifications
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindSelected
@@ -83,6 +84,7 @@ class IntercalConfigurable : BoundConfigurable("INTERCAL") {
         if (before == after) return
         for (project in ProjectManager.getInstance().openProjects) {
             if (before.server != after.server) IntercalServers.restart(project) else IntercalServers.sendSettings(project)
+            EditorNotifications.getInstance(project).updateAllNotifications()
         }
     }
 
