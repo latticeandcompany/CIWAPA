@@ -1068,6 +1068,178 @@ Every answer Ryan has given, so no question gets asked twice. Newest entries go 
   - the UI rules in their CLAUDE.md/AGENTS.md
 - **Date:** 2026-10-14
 
+## Editors
+
+Decided in the goal 4 grilling session on 2026-10-30. The plan is [`EDITORS_PLAN.md`](EDITORS_PLAN.md).
+
+### Q148: How goal 4 runs
+- **Options:** a `/goal` plan doc / interactive sessions / plan now, run after the playground
+- **Decision:** A `/goal` plan doc, `EDITORS_PLAN.md` with `EDITORS_CHECKLIST.md`. The editors are goal 4, and the WASM playground becomes goal 5.
+- **Date:** 2026-10-30
+
+### Q149: Tone
+- **Options:** helpful tool with funny copy / deliberately hostile, like the playground (Q128) / straight-faced
+- **Decision:** A helpful tool with funny copy. The features genuinely work, and the humor is in messages, hovers and names, in the README's voice.
+- **Date:** 2026-10-30
+
+### Q150: Editors in scope
+- **Options:** VS Code and its forks / JetBrains IDEs / Neovim, Helix and Zed / Sublime and Emacs
+- **Decision:** VS Code and its forks, JetBrains IDEs, and Neovim. Helix and Zed were in at first and dropped by Q155. Sublime and Emacs are out.
+- **Date:** 2026-10-30
+
+### Q151: How the server ships
+- **Options:** a subcommand of the existing CLIs / a separate `ciwapa-lsp` archive / bundled inside each extension
+- **Decision:** An `lsp` subcommand of `ciwapa-llvm`, `ciwapa-dart`, `ioi-llvm` and `ioi-dart`, so it's already in the archives people install.
+- **Date:** 2026-10-30
+
+### Q152: Features
+- **Options (any of):** diagnostics and hovers / label navigation / the COME FROM code lens / completion and inlay hints
+- **Decision:** All four.
+- **Date:** 2026-10-30
+
+### Q153: How deep diagnostics go
+- **Options:** collect every error in core / the first error only / a separate LSP linter
+- **Decision:** `ciwapa_core` collects every compile error with a span. The CLIs still print only the first, so conformance output stays byte-identical.
+- **Date:** 2026-10-30
+
+### Q154: Telling Interstates programs apart
+- **Options:** a project config file / an editor setting / detect it from the content / a new file extension
+- **Decision:** A new file extension, `.ioi`.
+  - `-s` is removed. Passing it fails with a message to rename the file to `.ioi` (a hard break with a clear error, rather than a silent one).
+  - Bases: Ryan first chose `.2ioi`–`.7ioi`. That conflicts with L35, which made `-s` binary-only because Interstates is built on the binary library blocks and string machinery. Asked again, he chose `.ioi` and `.2ioi` only; `.3ioi`–`.7ioi` are E998.
+- **Date:** 2026-10-30
+
+### Q155: Highlighting
+- **Options:** semantic tokens plus a TextMate grammar / semantic tokens only / tree-sitter everywhere
+- **Decision:** Semantic tokens only, from the real lexer. Helix (and possibly Zed) would show no colors, so they are dropped from v1. The other options for them were to accept plain text or to add tree-sitter just for them.
+- **Date:** 2026-10-30
+
+### Q156: Interstates templates
+- **Options:** diagnostics and navigation in the `.html` / only from the `.ioi` side / not in v1
+- **Decision:** Diagnostics and navigation in the `.html` file itself: E820, E821 and E443 in the template, grumpy hovers, and go to template.
+- **Date:** 2026-10-30
+
+### Q157: Running and debugging
+- **Options (any of):** Build and Run commands / a flavor picker / a debugger (DAP)
+- **Decision:** Build and Run commands and a flavor picker. Ryan first picked DAP too, then deferred it to a later goal when asked how it would work. The options were build hooks, native debuggers, or a separate interpreter.
+- **Date:** 2026-10-30
+
+### Q158: JetBrains integration
+- **Options:** LSP4IJ / the native IntelliJ LSP API; minimum IDE 2026.1 / 2025.2 with the lens degraded
+- **Decision:** The native IntelliJ LSP API, free to all users since 2025.2, with IDE 2026.1 as the minimum. That is the first release with code lens, so the COME FROM lens works everywhere.
+- **Date:** 2026-10-30
+
+### Q159: Publishing
+- **Options (any of):** GitHub Releases / the VS Code Marketplace / Open VSX / the JetBrains Marketplace
+- **Decision:** GitHub Releases only. No marketplace accounts are needed.
+- **Date:** 2026-10-30
+
+### Q160: Where the server gets compiler flags
+- **Options:** editor settings / a project config file / a magic comment
+- **Decision:** Editor settings, passed to the server. Files carry no hidden configuration.
+- **Date:** 2026-10-30
+
+### Q161: Node, JDK and Neovim toolchains
+- **Options:** Docker, like everything else / host nvm and a Gradle wrapper; later, Docker only / Docker plus `.nvmrc` / host nvm, like Ryan's other repos
+- **Decision:** Docker only. `tools/in-docker` gets pinned Node, JDK and Neovim images, and nothing touches the host.
+- **Date:** 2026-10-30
+
+### Q162: Neovim
+- **Options:** a small Lua plugin / a docs snippet / an upstream nvim-lspconfig entry; installed with lazy.nvim and a runtimepath line / a release tarball / a separate repo; that repo mirrored by CI / by hand
+- **Decision:** A small Lua plugin in `editors/neovim`, installed from `latticeandcompany/intercal-neovim`, a separate repo that Ryan mirrors by hand. The loop never creates repos.
+- **Date:** 2026-10-30
+
+### Q163: Undecodable statements
+- **Options:** comment color plus an E000 hint / comment color only / a warning unless the statement starts with NOTE
+- **Decision:** Comment color, plus an Information-level hint that the statement is E000 if it ever runs. Never a warning.
+- **Date:** 2026-10-30
+
+### Q164: Help with politeness
+- **Options (any of):** polite completion / quick fixes / a ratio display
+- **Decision:** Quick fixes for E079 and E099, and the ratio in VS Code's status bar and as an inlay hint elsewhere. Completion doesn't pick DO or PLEASE.
+- **Date:** 2026-10-30
+
+### Q165: Going to library labels
+- **Options:** open read-only library source / hover docs only; served as custom URIs / files in the install folder / files in a cache folder
+- **Decision:** Read-only library source, through a custom URI scheme that each extension registers. Nothing is written to disk.
+- **Date:** 2026-10-30
+
+### Q166: Rename with computed targets
+- **Options:** rename and warn / refuse in that file / rename without a warning
+- **Decision:** Rename every literal use, and warn that a computed target might still use the old number.
+- **Date:** 2026-10-30
+
+### Q167: Which server handles which files
+- **Options:** one server, the best one installed / two servers side by side
+- **Decision:** One server per workspace. `ioi-* lsp` handles `.i`, `.xc` and `.ioi`, and is preferred when it's installed. `ciwapa-* lsp` handles `.i` and `.xc`.
+- **Date:** 2026-10-30
+
+### Q168: Testing the extensions
+- **Options:** smoke tests in real editors / unit tests only / a manual checklist; run on PRs that touch the editors / every PR / releases only
+- **Decision:** Smoke tests in real editors: VS Code through `@vscode/test-electron`, a headless IntelliJ through its test framework, and headless Neovim. They run on PRs that touch the server, the front ends or `editors/**`, and on releases.
+- **Date:** 2026-10-30
+
+### Q169: The server's JSON-RPC and LSP types
+- **Options:** hand-rolled, with no new dependencies / a pub.dev package
+- **Decision:** Hand-rolled, in `packages/ciwapa_lsp`.
+- **Date:** 2026-10-30
+
+### Q170: The extensions' name
+- **Options:** CIWAPA / INTERCAL
+- **Decision:** **INTERCAL**, so people searching for the language find it, with CIWAPA in the description.
+- **Date:** 2026-10-30
+
+### Q171: Where the code lives
+- **Options:** `packages/ciwapa_lsp` and `editors/*` / everything under `apps/`
+- **Decision:** `packages/ciwapa_lsp`, plus `editors/vscode`, `editors/jetbrains` and `editors/neovim`, each a Lattice workspace.
+- **Date:** 2026-10-30
+
+### Q172: Inlay hints
+- **Options (any of):** constant values / library routine names / template arguments / statement numbers
+- **Decision:** Constant values, template arguments and statement numbers. No library routine names.
+- **Date:** 2026-10-30
+
+### Q173: Completion
+- **Options (any of):** statement keywords / labels / gerunds / template paths
+- **Decision:** Statement keywords, labels and gerunds. No template paths.
+- **Date:** 2026-10-30
+
+### Q174: Comment toggling
+- **Options:** prefix NOTE / swap to PLEASE NOTE / disabled; toggling back gives DO / PLEASE DO / whichever balances politeness; works on whole statements / physical lines
+- **Decision:** Swap the identifier for `PLEASE NOTE`, which lexes as `PLEASE NOT E…`, an abstained undecodable statement. Toggling back always gives `DO`. It works on whole statements, through a custom server request shared by every editor.
+- **Date:** 2026-10-30
+
+### Q175: The VS Code extension's Node setup
+- **Options:** Ryan's conventions, read from `~/Source/arenaswap` and `~/Source/deMotivator-v15`; line endings CRLF / LF; unit tests with Jest / `node --test` / none
+- **Decision:** Ryan's conventions: npm 12 with `allowScripts`, TypeScript 7, rolldown (not esbuild), oxlint, Jest with `@swc/jest`, tabs, single quotes, semicolons, arrow functions, camelCase files. The one change is LF line endings, which CIWAPA uses everywhere.
+  - Approved npm dependencies: `vscode-languageclient`; dev: `typescript`, `@types/vscode`, `rolldown`, `oxlint`, `@vscode/vsce`, `@vscode/test-electron`, `jest`, `@swc/jest`, `@swc/core`. All are pinned when the loop starts and bumped through `toolchain-bump.yml`.
+- **Date:** 2026-10-30
+
+### Q176: The JetBrains toolchain
+- **Options:** Kotlin / Java
+- **Decision:** Kotlin with the Gradle Kotlin DSL, the IntelliJ Platform Gradle Plugin 2.x, a checked-in Gradle wrapper, and an `eclipse-temurin` JDK 21 image. All are pinned.
+- **Date:** 2026-10-30
+
+### Q177: The Neovim smoke test
+- **Options:** a plain headless Lua script / plenary.nvim
+- **Decision:** A plain Lua script run by headless `nvim` 0.11+, with no Lua dependencies.
+- **Date:** 2026-10-30
+
+### Q178: Claiming `.i` and `.xc`
+- **Options:** claim them outright / claim them after a content check; the check is a statement in the first 50 lines / a whole-file ratio / the absence of SWIG and XC markers; on failure, leave the file alone / ask once
+- **Decision:** A content check. A `.i` or `.xc` file is INTERCAL when one of its first 50 lines matches `^\s*(\(\d+\)\s*)?(PLEASE|DO)\b`. When it isn't, the extension asks once whether to open it as INTERCAL anyway, and remembers the answer for that file.
+- **Date:** 2026-10-30
+
+### Q179: Versions
+- **Options:** lockstep with the compilers / a separate protocol version
+- **Decision:** Lockstep. The extensions ship in the compilers' release with the same version, and warn when the server's version differs.
+- **Date:** 2026-10-30
+
+### Q180: Error hovers
+- **Options:** the message, the manual's description and a fix / exactly what the CLI prints
+- **Decision:** The exact `ICLnnnI` line and its joke line, the §9.2 description in plain English, and what to do about it.
+- **Date:** 2026-10-30
+
 ## Final review (decisions made while writing the plans)
 
 ### Q133: C-INTERCAL pipeline-only error codes
