@@ -1,4 +1,4 @@
--- R13: Run this file and Build this file, in a terminal.
+-- R13: Run this file and Build this file, in a terminal, with the settings' compiler flags.
 local intercal = require('intercal')
 local discover = require('intercal.discover')
 
@@ -9,7 +9,14 @@ function M.command(subcommand, file)
 	if not cli then
 		return nil, looked_for
 	end
-	return { cli.path, subcommand, file }
+	local command = { cli.path, subcommand, file }
+	if intercal.options.traditional then
+		table.insert(command, '--traditional')
+	end
+	if intercal.options.clockface then
+		table.insert(command, '--clockface')
+	end
+	return command
 end
 
 -- subcommand is 'run' or 'build'.

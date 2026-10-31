@@ -135,7 +135,7 @@ stand_in('ciwapa-dart')
 vim.env.PATH = bin
 require('intercal').setup({ flavor = 'dart', traditional = true })
 t.equal(lsp.server, { path = bin .. '/ciwapa-dart', kind = 'ciwapa' }, 'setup discovers the server')
-t.equal(require('intercal.run').command('build', '/w/prog.i'), { bin .. '/ciwapa-dart', 'build', '/w/prog.i' }, 'Build uses the discovered CLI')
+t.equal(require('intercal.run').command('build', '/w/prog.i'), { bin .. '/ciwapa-dart', 'build', '/w/prog.i', '--traditional' }, 'Build uses the discovered CLI and the settings\' flags')
 local config = lsp.config(require('intercal').options)
 t.equal(config.cmd, { bin .. '/ciwapa-dart', 'lsp' }, 'server command')
 t.equal(config.init_options, { traditional = true, clockface = false, politenessInStatusBar = false }, 'initializationOptions')
