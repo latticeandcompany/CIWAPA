@@ -44,6 +44,10 @@ class CliTest : BasePlatformTestCase() {
         val cli = Cli(Path.of("/bin/ioi-dart"))
         assertEquals(listOf("/bin/ioi-dart", "run", "/w/a.i"), cli.commandLine("run", "/w/a.i"))
         assertEquals(listOf("/bin/ioi-dart", "build", "/w/a.i"), cli.commandLine("build", "/w/a.i"))
+        assertEquals(
+            listOf("/bin/ioi-dart", "run", "/w/a.i", "--traditional", "--clockface"),
+            cli.commandLine("run", "/w/a.i", traditional = true, clockface = true),
+        )
     }
 
     fun testToggleCommentHasTheCommentShortcut() {

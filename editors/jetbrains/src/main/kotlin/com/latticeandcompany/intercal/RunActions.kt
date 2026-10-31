@@ -33,7 +33,8 @@ sealed class CliFileAction(private val command: String) : DumbAwareAction() {
     }
 
     private fun start(project: Project, cli: Cli, file: VirtualFile) {
-        val commandLine = GeneralCommandLine(cli.commandLine(command, file.path))
+        val settings = IntercalSettings.getInstance()
+        val commandLine = GeneralCommandLine(cli.commandLine(command, file.path, settings.traditional, settings.clockface))
             .withWorkingDirectory(file.parent.toNioPath())
         val handler = try {
             KillableColoredProcessHandler(commandLine)

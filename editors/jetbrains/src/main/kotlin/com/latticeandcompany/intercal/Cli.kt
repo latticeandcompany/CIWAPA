@@ -12,8 +12,9 @@ data class Cli(val path: Path) {
     /** `ciwapa-*` never learned Interstates, so `.ioi` files need `ioi-*`. */
     val speaksInterstates: Boolean get() = !name.startsWith("ciwapa-")
 
-    /** What Run and Build start: `<cli> run <file>` or `<cli> build <file>`. */
-    fun commandLine(command: String, file: String): List<String> = listOf(path.toString(), command, file)
+    /** What Run and Build start: `<cli> run <file>` or `<cli> build <file>`, with the settings' compiler flags. */
+    fun commandLine(command: String, file: String, traditional: Boolean = false, clockface: Boolean = false): List<String> =
+        listOfNotNull(path.toString(), command, file, "--traditional".takeIf { traditional }, "--clockface".takeIf { clockface })
 
     companion object {
         fun find(settings: IntercalSettings = IntercalSettings.getInstance()): Cli? = find(settings.serverPath, settings.flavor)
