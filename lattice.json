@@ -123,6 +123,9 @@
   ],
   "globalDependencies": [
     "Dockerfile",
+    "tools/docker/jdk.Dockerfile",
+    "tools/docker/neovim.Dockerfile",
+    "tools/docker/node.Dockerfile",
     "tools/in-docker",
     "pubspec.lock"
   ]
