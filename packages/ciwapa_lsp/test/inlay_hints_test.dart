@@ -58,6 +58,21 @@ void main() {
       );
     });
 
+    test(
+      'no folded value where it would sit beside the wrong expression',
+      () async {
+        final shown = await hints(
+          'file:///w/a.i',
+          "DO .1 <- #1\$#2~#3\nPLEASE ,1 SUB '#1\$#2' #3 <- #5\nDO .2 <- #70000~#1\nDO GIVE UP\n",
+        );
+        expect(shown.where((h) => h.contains('=')), isEmpty);
+        expect(
+          shown.where((h) => h.startsWith('2:') && h.contains('0x')),
+          isEmpty,
+        );
+      },
+    );
+
     test('no folding outside base 2, where mingle and select differ', () async {
       final shown = await hints(
         'file:///w/a.3i',
@@ -103,6 +118,19 @@ void main() {
         expect(shown, contains('0:18 PLEASE 1/4, 25%'));
       },
     );
+
+    test('an emptied file clears the ratio', () async {
+      client = TestClient(const CiwapaFrontend());
+      await client.initialize();
+      await client.open('file:///w/a.i', text);
+      final notified = client.next(
+        (m) =>
+            m['method'] == 'intercal/politeness' &&
+            (m['params'] as Map)['total'] == 0,
+      );
+      await client.change('file:///w/a.i', '', version: 2);
+      expect(((await notified)['params'] as Map)['text'], '');
+    });
 
     test('an editor with a status bar gets no hint for it', () async {
       client = TestClient(const CiwapaFrontend());

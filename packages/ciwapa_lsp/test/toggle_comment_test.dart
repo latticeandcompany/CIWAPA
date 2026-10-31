@@ -77,5 +77,36 @@ void main() {
       );
       expect(diagnostics.where((d) => d['severity'] == 1), isEmpty);
     });
+
+    test('a cursor at the end of a line toggles its statement', () async {
+      expect(
+        await toggle('DO .1 <- #1\nDO GIVE UP\n', (0, 11)),
+        'PLEASE NOTE .1 <- #1\nDO GIVE UP\n',
+      );
+      expect(
+        await toggle('DO .1 <- #1\r\nDO GIVE UP\r\n', (0, 11)),
+        'PLEASE NOTE .1 <- #1\r\nDO GIVE UP\r\n',
+      );
+    });
+
+    test(
+      'a selection ending at the start of a line leaves that line alone',
+      () async {
+        expect(
+          await toggle(
+            'DO .1 <- #1\nDO .2 <- #2\nDO GIVE UP\n',
+            (0, 0),
+            (2, 0),
+          ),
+          'PLEASE NOTE .1 <- #1\nPLEASE NOTE .2 <- #2\nDO GIVE UP\n',
+        );
+      },
+    );
+
+    test("DON'T goes there and back", () async {
+      final commented = await toggle("DON'T GIVE UP\nDO GIVE UP\n", (0, 0));
+      expect(commented, "PLEASE NOTE N'T GIVE UP\nDO GIVE UP\n");
+      expect(await toggle(commented, (0, 0)), "DO N'T GIVE UP\nDO GIVE UP\n");
+    });
   });
 }

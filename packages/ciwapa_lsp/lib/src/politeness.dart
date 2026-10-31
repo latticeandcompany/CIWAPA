@@ -24,8 +24,10 @@ class Politeness {
   final int polite;
   final int total;
 
-  String get text =>
-      'PLEASE $polite/$total, ${(100 * polite / total).round()}%';
+  /// Empty for a file with nothing to count, so that a status bar can clear.
+  String get text => total == 0
+      ? ''
+      : 'PLEASE $polite/$total, ${(100 * polite / total).round()}%';
 
   String get tooltip => total <= 2
       ? 'Programs of two statements or fewer can be as polite as they like.'

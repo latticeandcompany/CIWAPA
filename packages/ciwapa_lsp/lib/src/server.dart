@@ -367,12 +367,12 @@ class LanguageServer {
         'diagnostics': diagnosticsOf(document),
       },
     });
-    if (Politeness.of(document) case final politeness?) {
-      connection.send({
-        'method': 'intercal/politeness',
-        'params': politeness.toJson(document.uri),
-      });
-    }
+    connection.send({
+      'method': 'intercal/politeness',
+      'params': (Politeness.of(document) ?? const Politeness(0, 0)).toJson(
+        document.uri,
+      ),
+    });
   }
 }
 

@@ -87,7 +87,9 @@ int? _constantValue(Document document, Piece piece) {
     runes.sublist(piece.span.start, piece.span.end),
   ).replaceAll(RegExp(r'\D'), '');
   final value = int.tryParse(digits);
-  return value != null && value > 1 ? value : null;
+  if (value == null || value < 2) return null;
+  // Too big for a `#` is E017 when it runs, and no value at all.
+  return piece.token!.kind == TokenKind.mesh && value > 0xFFFF ? null : value;
 }
 
 String _hexAndBinary(int value) =>
@@ -98,11 +100,11 @@ String _hexAndBinary(int value) =>
 /// and a statement where they don't pair up gets no hints.
 Iterable<(int, int)> _foldedConstants(SyntaxModel model) sync* {
   for (final s in model.statements) {
-    final values = <int>[];
+    final folded = <(Expr, int)>[];
     void visit(Expr e) {
       final value = e is Binary ? _fold(e) : null;
       if (value != null) {
-        values.add(value);
+        folded.add((e, value));
         return;
       }
       switch (e) {
@@ -123,14 +125,38 @@ Iterable<(int, int)> _foldedConstants(SyntaxModel model) sync* {
     for (final e in s.bodies.expand(_expressions)) {
       visit(e);
     }
-    if (values.isEmpty) continue;
-    final ends = _constantRunEnds(s.tokens);
-    if (ends.length != values.length) continue;
-    for (var i = 0; i < ends.length; i++) {
-      yield (ends[i], values[i]);
+    if (folded.isEmpty) continue;
+    final runs = _constantRuns(s.tokens);
+    if (runs.length != folded.length) continue;
+    // A run must be its tree token for token, or the hint would sit beside something else.
+    var same = true;
+    for (var i = 0; i < runs.length && same; i++) {
+      final (operators, constants) = _shape(folded[i].$1);
+      same =
+          runs[i].where(_isOperator).length == operators &&
+          runs[i].where((t) => _meshes.contains(t.kind)).length == constants;
+    }
+    if (!same) continue;
+    for (var i = 0; i < runs.length; i++) {
+      yield (runs[i].last.end, folded[i].$2);
     }
   }
 }
+
+const _meshes = {TokenKind.mesh, TokenKind.fence, TokenKind.stockade};
+
+bool _isOperator(Token t) =>
+    t.kind == TokenKind.mingle || t.kind == TokenKind.select;
+
+/// How many operators and constants a folded tree has.
+(int, int) _shape(Expr e) => switch (e) {
+  Binary(:final left, :final right) => () {
+    final (lo, lc) = _shape(left);
+    final (ro, rc) = _shape(right);
+    return (lo + ro + 1, lc + rc);
+  }(),
+  _ => (0, 1),
+};
 
 Iterable<Expr> _expressions(Body body) => switch (body) {
   Calculate(:final target, :final value) => [target, value],
@@ -140,7 +166,9 @@ Iterable<Expr> _expressions(Body body) => switch (body) {
 };
 
 int? _fold(Expr e) => switch (e) {
-  Constant(:final value, overflow: false) => value,
+  Constant(:final value, :final width, overflow: false)
+      when width != 16 || value <= 0xFFFF =>
+    value,
   Binary(:final op, :final left, :final right, ungrouped: false) => switch ((
     _fold(left),
     _fold(right),
@@ -171,10 +199,10 @@ int _select(int value, int mask) {
   return result;
 }
 
-/// Where each run of constant tokens holding an operator ends, trimmed of the operators at its
-/// edges. A run with unbalanced sparks or ears is part of a bigger expression, and doesn't count.
-List<int> _constantRunEnds(List<Token> tokens) {
-  final ends = <int>[];
+/// Each run of constant tokens holding an operator, trimmed of the operators at its edges. A run
+/// with unbalanced sparks or ears is part of a bigger expression, and doesn't count.
+List<List<Token>> _constantRuns(List<Token> tokens) {
+  final runs = <List<Token>>[];
   var i = 0;
   while (i < tokens.length) {
     if (!_constantRun.contains(tokens[i].kind)) {
@@ -186,19 +214,17 @@ List<int> _constantRunEnds(List<Token> tokens) {
       j++;
     }
     var run = tokens.sublist(i, j);
-    bool isOperator(Token t) =>
-        t.kind == TokenKind.mingle || t.kind == TokenKind.select;
-    while (run.isNotEmpty && isOperator(run.first)) {
+    while (run.isNotEmpty && _isOperator(run.first)) {
       run = run.sublist(1);
     }
-    while (run.isNotEmpty && isOperator(run.last)) {
+    while (run.isNotEmpty && _isOperator(run.last)) {
       run = run.sublist(0, run.length - 1);
     }
     final balanced =
         run.where((t) => t.kind == TokenKind.spark).length.isEven &&
         run.where((t) => t.kind == TokenKind.ears).length.isEven;
-    if (balanced && run.any(isOperator)) ends.add(run.last.end);
+    if (balanced && run.any(_isOperator)) runs.add(run);
     i = j;
   }
-  return ends;
+  return runs;
 }

@@ -6,22 +6,27 @@ import 'text.dart';
 
 final _note = RegExp(r'^NOTE\b\s*');
 
-/// `intercal/toggleComment` (R9, Q174): every statement the range touches becomes `PLEASE NOTE`
-/// with its label kept, which lexes as an abstained undecodable statement, so it never runs. When
-/// every one already is `PLEASE NOTE` or `DO NOTE`, they all go back to `DO`.
+/// `intercal/toggleComment` (R9, Q174): every statement on the lines the range covers becomes
+/// `PLEASE NOTE` with its label kept, which lexes as an abstained undecodable statement, so it
+/// never runs. When every one already is `PLEASE NOTE` or `DO NOTE`, they all go back to `DO`.
+/// Like an editor's line comments, it works in whole lines: a selection that ends at the start of
+/// a line leaves that line alone.
 List<Map<String, Object?>> toggleComment(Document document, Object? range) {
   final text = document.text;
-  final (from, to) = switch (range) {
+  final (start, end) = switch (range) {
     {'start': final Object? start, 'end': final Object? end} => (
-      text.offset(Position.fromJson(start)),
-      text.offset(Position.fromJson(end)),
+      Position.fromJson(start),
+      Position.fromJson(end),
     ),
-    _ => throw ArgumentError('range'),
+    _ => throw const FormatException('toggleComment takes a range'),
   };
+  final lastLine = end.line > start.line && end.character == 0
+      ? end.line - 1
+      : end.line;
   final heads = [
     for (final s in document.model.statements)
-      if (s.statement.start <= to &&
-          (s.statement.end > from || s.statement.start == from))
+      if (text.position(s.statement.start).line <= lastLine &&
+          text.position(s.statement.end).line >= start.line)
         ?_head(document, s),
   ];
   final uncomment = heads.isNotEmpty && heads.every((h) => h.note != null);
@@ -33,24 +38,30 @@ List<Map<String, Object?>> toggleComment(Document document, Object? range) {
           'newText': 'DO ',
         }
       else if (head.note == null)
-        {'range': text.range(head.identifier), 'newText': 'PLEASE NOTE'},
+        {
+          'range': text.range(head.identifier),
+          'newText': head.glued ? 'PLEASE NOTE ' : 'PLEASE NOTE',
+        },
   ];
 }
 
-/// A statement's identifier, and where the `NOTE` after it ends with its spaces, if it is a
-/// comment that toggling made or would make.
-({Span identifier, int? note})? _head(Document document, FileStatement s) {
-  final identifier = s.tokens
-      .where((t) => t.kind == TokenKind.identifier)
-      .firstOrNull;
-  if (!s.statement.hasIdentifier || identifier == null) return null;
+/// A statement's identifier; where the `NOTE` after it ends with its spaces, if it is a comment
+/// that toggling made or would make; and whether a `N'T` follows the identifier with no space,
+/// as in `DON'T`, which `PLEASE NOTE` would otherwise swallow.
+({Span identifier, int? note, bool glued})? _head(
+  Document document,
+  FileStatement s,
+) {
+  final at = s.tokens.indexWhere((t) => t.kind == TokenKind.identifier);
+  if (!s.statement.hasIdentifier || at < 0) return null;
+  final identifier = s.tokens[at];
+  final next = at + 1 < s.tokens.length ? s.tokens[at + 1] : null;
   final runes = document.text.source.runes;
   final word = String.fromCharCodes(
     runes,
     identifier.start,
     identifier.end,
   ).replaceAll(RegExp(r'\s+'), ' ');
-  if (!const {'DO', 'PLEASE', 'PLEASE DO'}.contains(word)) return null;
   var after = identifier.end;
   while (after < s.statement.end && _isSpace(runes[after])) {
     after++;
@@ -60,10 +71,11 @@ List<Map<String, Object?>> toggleComment(Document document, Object? range) {
     after,
     (after + 40).clamp(after, s.statement.end),
   );
-  final note = word == 'PLEASE DO' ? null : _note.firstMatch(rest);
+  final note = word == 'DO' || word == 'PLEASE' ? _note.firstMatch(rest) : null;
   return (
     identifier: Span(identifier.start, identifier.end),
     note: note == null ? null : after + note.end,
+    glued: next?.kind == TokenKind.not && next!.start == identifier.end,
   );
 }
 
