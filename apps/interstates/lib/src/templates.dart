@@ -89,70 +89,137 @@ String readTemplate(Source source, String path, int statement) {
 /// [count] is the number of arguments the template uses, and E997 for an operator binary doesn't
 /// have.
 Template compileTemplate(Source source, String path, int count, int statement) {
-  final text = readTemplate(source, path, statement);
+  final scan = scanTemplate(
+    readTemplate(source, path, statement),
+    path,
+    count,
+    (problem) => throw problem.code == 997
+        ? CompileError(997, statement)
+        : interstatesCompileError(problem.code, statement),
+  );
+  return Template(scan.pieces, scan.values);
+}
+
+/// A problem in a template, where it is in the template's text, in runes.
+typedef TemplateProblem = ({int code, int start, int end});
+
+/// A grumpy that names an argument, `,m`, where it is in the template's text, in runes.
+typedef ArgumentGrumpy = ({int m, int start, int end});
+
+/// What [scanTemplate] finds: the template's pieces, the values its valued pieces print, and its
+/// argument grumpies.
+typedef TemplateScan = ({
+  List<Piece> pieces,
+  List<Expr> values,
+  List<ArgumentGrumpy> arguments,
+});
+
+/// Reads a template's [text] as [compileTemplate] does, reporting each problem to [report] and
+/// carrying on past it where it can. [count] is the `READ OUT #count` it is rendered with.
+TemplateScan scanTemplate(
+  String text,
+  String path,
+  int count,
+  void Function(TemplateProblem problem) report,
+) {
+  final runes = text.runes.toList();
+  final source = String.fromCharCodes(runes);
   final pieces = <Piece>[];
   final values = <Expr>[];
+  final grumpies = <ArgumentGrumpy>[];
   var arguments = 0;
   final literal = StringBuffer();
   final html = _HtmlContext();
   var i = 0;
-  while (i < text.length) {
-    if (!text.startsWith('{{', i)) {
-      html.feed(text[i]);
-      literal.write(text[i]);
+  // Runes, not UTF-16 units, so that a problem's place is the Source's.
+  bool at(String s, int offset) =>
+      offset + s.length <= runes.length &&
+      String.fromCharCodes(runes, offset, offset + s.length) == s;
+  int find(String s, int from) {
+    for (var j = from; j + s.length <= runes.length; j++) {
+      if (at(s, j)) return j;
+    }
+    return -1;
+  }
+
+  while (i < runes.length) {
+    if (!at('{{', i)) {
+      final c = String.fromCharCode(runes[i]);
+      html.feed(c);
+      literal.write(c);
       i++;
       continue;
     }
-    final raw = text.startsWith('{{{', i);
+    final raw = at('{{{', i);
     final close = raw ? '}}}' : '}}';
     final start = i + close.length;
-    final end = text.indexOf(close, start);
-    if (end < 0) throw interstatesCompileError(820, statement);
+    final end = find(close, start);
+    if (end < 0) {
+      report((code: 820, start: i, end: runes.length));
+      break;
+    }
+    final grumpy = (start: i, end: end + close.length);
+    i = grumpy.end;
     if (literal.isNotEmpty) {
       pieces.add(Piece.text(literal.toString()));
       literal.clear();
     }
-    final inner = text.substring(start, end);
+    final inner = String.fromCharCodes(runes, start, end);
     final place = html.grumpy();
-    if (place == _Place.nowhere) throw interstatesCompileError(820, statement);
+    if (place == _Place.nowhere) {
+      report((code: 820, start: grumpy.start, end: grumpy.end));
+      continue;
+    }
     final attribute = place == _Place.noMarkup;
     final argument = RegExp(r'^\s*,\s*([0-9][0-9\s]*)$').firstMatch(inner);
     if (argument != null) {
       final m = int.tryParse(argument.group(1)!.replaceAll(RegExp(r'\s'), ''));
       if (m == null || m < 1 || m > 144) {
-        throw interstatesCompileError(820, statement);
+        report((code: 820, start: grumpy.start, end: grumpy.end));
+        continue;
       }
       final k = 145 - m;
       if (k > arguments) arguments = k;
+      grumpies.add((m: m, start: grumpy.start, end: grumpy.end));
       pieces.add(
         Piece(PieceKind.arg, index: k, raw: raw, attribute: attribute),
       );
-    } else {
-      final e = InterstatesParser(Source(path, inner)).parseExpression();
-      if (e == null || !_valid(e)) {
-        throw interstatesCompileError(820, statement);
-      }
-      if (unaryOps(e).any((op) => op.index > UnaryOp.xor.index)) {
-        throw CompileError(997, statement);
-      }
-      final kind = switch (e) {
-        Element(:final array) when array == params => PieceKind.param,
-        Element(:final array) when array == args => PieceKind.argValue,
-        _ => PieceKind.number,
-      };
-      if (kind == PieceKind.number && mentionsStrings(e)) {
-        throw interstatesCompileError(820, statement);
-      }
-      values.add(
-        kind == PieceKind.number ? e : (e as Element).subscripts.single,
-      );
-      pieces.add(Piece(kind, raw: raw, attribute: attribute));
+      continue;
     }
-    i = end + close.length;
+    final e = InterstatesParser(Source(path, inner)).parseExpression();
+    if (e == null || !_valid(e)) {
+      report((code: 820, start: grumpy.start, end: grumpy.end));
+      continue;
+    }
+    if (unaryOps(e).any((op) => op.index > UnaryOp.xor.index)) {
+      report((code: 997, start: grumpy.start, end: grumpy.end));
+      continue;
+    }
+    final kind = switch (e) {
+      Element(:final array) when array == params => PieceKind.param,
+      Element(:final array) when array == args => PieceKind.argValue,
+      _ => PieceKind.number,
+    };
+    if (kind == PieceKind.number && mentionsStrings(e)) {
+      report((code: 820, start: grumpy.start, end: grumpy.end));
+      continue;
+    }
+    values.add(kind == PieceKind.number ? e : (e as Element).subscripts.single);
+    pieces.add(Piece(kind, raw: raw, attribute: attribute));
   }
   if (literal.isNotEmpty) pieces.add(Piece.text(literal.toString()));
-  if (arguments != count) throw interstatesCompileError(821, statement);
-  return Template(pieces, values);
+  if (arguments != count) {
+    // About the grumpy that sets the count, or the whole template when none does.
+    final lowest = grumpies.isEmpty
+        ? null
+        : grumpies.reduce((a, b) => a.m <= b.m ? a : b);
+    report((
+      code: 821,
+      start: lowest?.start ?? 0,
+      end: lowest?.end ?? source.runes.length,
+    ));
+  }
+  return (pieces: pieces, values: values, arguments: grumpies);
 }
 
 /// What a template's expression may be: INTERCAL's operands and operators over the program's

@@ -1,0 +1,64 @@
+<idea-plugin>
+    <id>com.latticeandcompany.intercal</id>
+    <name>INTERCAL</name>
+    <vendor url="https://github.com/latticeandcompany/CIWAPA">Lattice &amp; Company</vendor>
+    <description><![CDATA[
+        <p>INTERCAL, EXTRACAL and INTERCAL on Interstates, with an editor that is on your side for once.</p>
+        <p>This plugin talks to the language server inside <b>CIWAPA</b>, the Compiler for INTERCAL With A Pronounceable
+        Acronym. Install a CIWAPA release (<code>ciwapa-llvm</code>, <code>ciwapa-dart</code>, or their <code>ioi-*</code>
+        siblings) and the plugin finds it on your <code>PATH</code>. Then you get:</p>
+        <ul>
+            <li>every compile error at once, where it happens, explained;</li>
+            <li>go to definition from <code>NEXT (1000)</code> to the routine, and back with find usages;</li>
+            <li>a code lens above each line that something COMES FROM, before it comes from it;</li>
+            <li>hovers, completion, inlay hints, and highlighting from the real lexer;</li>
+            <li>Comment with Line Comment, which turns <code>DO</code> into <code>PLEASE NOTE</code>, as is only polite;</li>
+            <li>Run This File and Build This File.</li>
+        </ul>
+        <p>Writing INTERCAL is still hard. Now it's hard because of INTERCAL.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lsp</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="INTERCAL"
+                  implementationClass="com.latticeandcompany.intercal.IntercalFileType"
+                  fieldName="INSTANCE"
+                  language="INTERCAL"
+                  extensions="2i;3i;4i;5i;6i;7i;2xc;3xc;4xc;5xc;6xc;7xc;ioi;2ioi"/>
+        <fileTypeOverrider implementation="com.latticeandcompany.intercal.ClaimOverrider"/>
+        <editorNotificationProvider implementation="com.latticeandcompany.intercal.ClaimPrompt"/>
+        <editorNotificationProvider implementation="com.latticeandcompany.intercal.InterstatesNotice"/>
+
+        <platform.lsp.serverSupportProvider implementation="com.latticeandcompany.intercal.IntercalLspServerSupportProvider"/>
+
+        <applicationConfigurable parentId="language"
+                                 id="com.latticeandcompany.intercal.settings"
+                                 displayName="INTERCAL"
+                                 instance="com.latticeandcompany.intercal.IntercalConfigurable"/>
+        <notificationGroup id="INTERCAL" displayType="BALLOON"/>
+        <actionPromoter implementation="com.latticeandcompany.intercal.ToggleCommentPromoter"/>
+    </extensions>
+
+    <actions>
+        <action id="Intercal.ToggleComment"
+                class="com.latticeandcompany.intercal.ToggleCommentAction"
+                text="Comment with Line Comment"
+                description="Swap a statement's DO or PLEASE for PLEASE NOTE, or back"
+                use-shortcut-of="CommentByLineComment"/>
+        <group id="Intercal.FileActions">
+            <separator/>
+            <action id="Intercal.RunFile"
+                    class="com.latticeandcompany.intercal.RunFileAction"
+                    text="Run This File"
+                    description="Compile this INTERCAL file and run it, with the compiler from the INTERCAL settings"/>
+            <action id="Intercal.BuildFile"
+                    class="com.latticeandcompany.intercal.BuildFileAction"
+                    text="Build This File"
+                    description="Compile this INTERCAL file to a native executable, which then does things in INTERCAL"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </group>
+    </actions>
+</idea-plugin>

@@ -1,0 +1,41 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error"
+	},
+	"rules": {
+		"no-console": ["warn", { "allow": ["error", "warn"] }],
+		"no-debugger": "error",
+		"no-var": "error",
+		"prefer-const": "error",
+		"no-alert": "error",
+		"func-style": ["error", "expression", { "overrides": { "namedExports": "expression" } }],
+		"prefer-arrow-callback": "error",
+		"eqeqeq": ["error", "smart"],
+		"block-scoped-var": "error",
+		"require-await": "error",
+		"import/no-unassigned-import": "error",
+		"id-match": ["error", "^[a-z$][a-zA-Z0-9$]*$|^[A-Z][a-zA-Z0-9]*$", { "properties": false, "onlyDeclarations": true, "ignoreDestructuring": true }],
+		"unicorn/filename-case": ["error", { "case": "camelCase", "ignore": ["\\.d\\.ts$"] }],
+		"typescript/consistent-type-definitions": ["error", "interface"],
+		"typescript/no-explicit-any": "off",
+		"no-new": "off"
+	},
+	"overrides": [
+		{
+			"files": ["smoke/**"],
+			"rules": {
+				"no-console": "off"
+			}
+		}
+	],
+	"ignorePatterns": [
+		"node_modules",
+		"dist",
+		"out",
+		".vscode-test",
+		"**/*.d.ts"
+	]
+}

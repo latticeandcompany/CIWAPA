@@ -97,3 +97,64 @@ jobs:
           path: ${{ steps.archive.outputs.path }}
           if-no-files-found: error
           compression-level: 0
+
+  # R14, Q179: the editors ship in the release with the compilers' version, after their smoke tests
+  # pass against the server built from the same commit (Q168).
+  vscode:
+    name: vscode extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read the version
+        id: version
+        run: |
+          echo "version=$(sed -n 's/^version: *//p' packages/ciwapa_llvm/pubspec.yaml)" >>"$GITHUB_OUTPUT"
+      - name: Build the language server
+        run: |
+          mkdir -p .cache/build
+          tools/in-docker dart --suppress-analytics pub get
+          tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
+      - name: Test, smoke test and build the .vsix
+        working-directory: editors/vscode
+        run: ../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm test && xvfb-run -a npm run smoke && npm run build'
+      - name: Upload the .vsix
+        uses: actions/upload-artifact@v7
+        with:
+          name: intercal-vscode-${{ steps.version.outputs.version }}
+          path: editors/vscode/intercal-vscode-${{ steps.version.outputs.version }}.vsix
+          if-no-files-found: error
+          compression-level: 0
+
+  jetbrains:
+    name: jetbrains plugin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            .cache/home/.gradle/caches
+            .cache/home/.gradle/wrapper
+            editors/jetbrains/.intellijPlatform
+          key: jetbrains-release-${{ hashFiles('editors/jetbrains/*.gradle.kts', 'editors/jetbrains/gradle.properties', 'editors/jetbrains/gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Read the version
+        id: version
+        run: |
+          echo "version=$(sed -n 's/^version: *//p' packages/ciwapa_llvm/pubspec.yaml)" >>"$GITHUB_OUTPUT"
+      - name: Build the language server
+        run: |
+          mkdir -p .cache/build
+          tools/in-docker dart --suppress-analytics pub get
+          tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
+      - name: Smoke test and build the plugin
+        working-directory: editors/jetbrains
+        run: ../../tools/in-docker --image jdk ./gradlew --console=plain test buildPlugin
+      - name: Upload the plugin
+        uses: actions/upload-artifact@v7
+        with:
+          name: intercal-jetbrains-${{ steps.version.outputs.version }}
+          path: editors/jetbrains/build/distributions/intercal-jetbrains-${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+          compression-level: 0

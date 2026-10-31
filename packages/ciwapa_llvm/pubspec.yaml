@@ -10,6 +10,7 @@ environment:
 dependencies:
   args: ^2.7.0
   ciwapa_core: any
+  ciwapa_lsp: any
   runtime_c: any
 
 dev_dependencies:

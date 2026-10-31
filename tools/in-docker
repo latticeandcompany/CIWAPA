@@ -1,18 +1,34 @@
 #!/usr/bin/env bash
-# The image tag is a hash of the Dockerfile, so editing the Dockerfile builds a fresh image.
+# Runs a command in a toolchain image, with the repo mounted at /work.
+#   tools/in-docker <command>...                 ciwapa-toolchain, from the Dockerfile (Dart, LLVM)
+#   tools/in-docker --image <name> <command>...  ciwapa-<name>, from tools/docker/<name>.Dockerfile
+#                                                (node, jdk, neovim: the editors' toolchains, Q161)
+# Each image's tag is a hash of its Dockerfile, so editing the Dockerfile builds a fresh image.
 set -euo pipefail
 
-# The devcontainer is already this image.
-if [[ "${CIWAPA_IN_TOOLCHAIN:-}" == 1 ]]; then
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+dockerfile="$repo_root/Dockerfile"
+name=toolchain
+if [[ "${1:-}" == --image ]]; then
+  name="${2:?--image needs a name}"
+  dockerfile="$repo_root/tools/docker/$name.Dockerfile"
+  shift 2
+  if [[ ! -f "$dockerfile" ]]; then
+    echo "in-docker: no image called $name (tools/docker/$name.Dockerfile)" >&2
+    exit 64
+  fi
+fi
+
+# The devcontainer is already ciwapa-toolchain.
+if [[ "$name" == toolchain && "${CIWAPA_IN_TOOLCHAIN:-}" == 1 ]]; then
   exec "$@"
 fi
 
-repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-dockerfile_hash="$(shasum -a 256 "$repo_root/Dockerfile" | cut -c1-12)"
-image="ciwapa-toolchain:$dockerfile_hash"
+dockerfile_hash="$(shasum -a 256 "$dockerfile" | cut -c1-12)"
+image="ciwapa-$name:$dockerfile_hash"
 
 if ! docker image inspect "$image" >/dev/null 2>&1; then
-  docker build --tag "$image" - <"$repo_root/Dockerfile" >&2
+  docker build --tag "$image" - <"$dockerfile" >&2
 fi
 
 mkdir -p "$repo_root/.cache/home" "$repo_root/.cache/pub"
@@ -21,6 +37,7 @@ exec docker run --rm \
   --user "$(id -u):$(id -g)" \
   --env HOME=/work/.cache/home \
   --env PUB_CACHE=/work/.cache/pub \
+  --env CI \
   --volume "$repo_root:/work" \
   --workdir "/work${PWD#"$repo_root"}" \
   "$image" "$@"

@@ -1,0 +1,7 @@
+	DO (10) NEXT
+	PLEASE READ OUT .2
+	DO GIVE UP
+
+(10)	DO .1 <- #1
+	DO .2 <- #70000
+	PLEASE RESUME #1

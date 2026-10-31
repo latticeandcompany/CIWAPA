@@ -126,11 +126,13 @@ class CiwapaFrontend implements Frontend {
       );
 }
 
-/// Runs the `build`, `run` and `doctor` commands (decisions Q100, Q101) and returns the exit status.
+/// Runs the `build`, `run`, `doctor` and `lsp` commands (decisions Q100, Q101, Q151) and returns
+/// the exit status. The language server comes from the binary, since CIWAPA's core doesn't hold it.
 Future<int> runCli(
   List<String> arguments,
   Backend backend, {
   Frontend frontend = const CiwapaFrontend(),
+  Future<int> Function(Frontend frontend, String name)? languageServer,
 }) async {
   final parser = _parser();
   frontend.addOptions(parser);
@@ -156,6 +158,8 @@ Future<int> runCli(
   switch (command) {
     case 'doctor':
       return _doctor(backend);
+    case 'lsp' when languageServer != null:
+      return languageServer(frontend, backend.name);
     case 'build' || 'run':
       if (args.rest.length < 2) {
         stderr.writeln(
@@ -205,6 +209,8 @@ ArgParser _parser() => ArgParser()
     help: 'Print IIII instead of IV (ick -C).',
   )
   ..addOption('seed', valueHelp: 'n', help: 'Seed where E774 bugs are planted.')
+  // Editors often start a language server with --stdio. `lsp` only speaks stdio anyway.
+  ..addFlag('stdio', negatable: false, hide: true)
   ..addFlag(
     'keep',
     negatable: false,
@@ -227,6 +233,7 @@ Usage:
   ${backend.name} build <${frontend.sourceDescription}> [-o <executable>] [options]
   ${backend.name} run <${frontend.sourceDescription}> [options] [-- <program arguments>]
   ${backend.name} doctor
+  ${backend.name} lsp                 the language server, on stdin and stdout
 
 Options:
 ${parser.usage}''';

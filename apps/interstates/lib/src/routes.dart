@@ -47,7 +47,11 @@ RouteTable routeTable(Program program) {
       in program.statements.take(program.userStatements).indexed) {
     if (s.data case RouteDecl(:final label, :final pattern)) {
       routes.add(
-        Route(i + 1, label, pattern == null ? null : _pattern(pattern, i + 1)),
+        Route(
+          i + 1,
+          label,
+          pattern == null ? null : routePattern(pattern, i + 1),
+        ),
       );
     }
   }
@@ -83,7 +87,7 @@ RouteTable routeTable(Program program) {
 /// A route pattern's segments: it starts with `/`, `/` separates them, a `:name` segment is a
 /// parameter, and `?`, `#` and `%` don't belong (E442): fixed text is compared with the request's
 /// decoded segments, so a percent-encoded pattern could never match.
-List<Segment> _pattern(String pattern, int statement) {
+List<Segment> routePattern(String pattern, int statement) {
   if (!pattern.startsWith('/') || pattern.contains(RegExp('[?#%]'))) {
     throw interstatesCompileError(442, statement);
   }

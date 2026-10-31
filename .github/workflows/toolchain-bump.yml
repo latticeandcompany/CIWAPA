@@ -38,13 +38,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git commit -am "Bump bundled toolchains" -m "$CHANGES"
+          git add -A
+          git commit -m "Bump bundled toolchains" -m "$CHANGES"
           git push --force origin "$branch"
           body="$(printf '%s\n' \
             '> [!NOTE]' \
             '> This content was created by an AI agent acting on behalf of Ryan.' \
             '' \
-            'Scheduled bump of the pinned toolchains in `.github/toolchain.env` and the Dockerfile:' \
+            'Scheduled bump of the pinned toolchains in `.github/toolchain.env`, the Dockerfile, `tools/docker/` (Node, npm, Temurin, Neovim) and `editors/` (VS Code, the extension'"'"'s npm packages, Gradle, Kotlin, the IntelliJ Platform Gradle Plugin and the IDE the verifier checks):' \
             '' \
             '```' "$CHANGES" '```')"
           gh pr create --base mega --head "$branch" --title "Bump bundled toolchains" --body "$body" ||

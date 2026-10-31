@@ -27,81 +27,81 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## The server (R3)
 
-- [ ] R3 — `lsp` exists on `ciwapa-llvm`, `ciwapa-dart`, `ioi-llvm` and `ioi-dart`, and speaks LSP on stdio. Tests: —
-- [ ] R3 — `ciwapa_lsp` has no dependencies beyond the workspace's, and doesn't depend on Interstates. Tests: —
-- [ ] R3 — `ciwapa-* lsp` diagnoses `.i` and `.xc`; `ioi-* lsp` also diagnoses `.ioi`, each the way its CLI would. Tests: —
-- [ ] R3 — E774 is never reported. Tests: —
-- [ ] R3 — the `traditional` and `clockface` settings change diagnostics as the flags would. Tests: —
-- [ ] R3 — the server reports its version, and each extension warns on a mismatch. Tests: —
+- [x] R3 — `lsp` exists on `ciwapa-llvm`, `ciwapa-dart`, `ioi-llvm` and `ioi-dart`, and speaks LSP on stdio. Tests: `packages/ciwapa_llvm/test/lsp_test.dart`, `packages/ciwapa_dart/test/lsp_test.dart`, `apps/interstates/test/lsp_test.dart`, `packages/ciwapa_lsp/test/server_test.dart`, `packages/ciwapa_lsp/test/rpc_test.dart`
+- [x] R3 — `ciwapa_lsp` has no dependencies beyond the workspace's, and doesn't depend on Interstates. Tests: `packages/ciwapa_lsp/test/dependencies_test.dart`, `apps/interstates/test/separation_test.dart`
+- [x] R3 — `ciwapa-* lsp` diagnoses `.i` and `.xc`; `ioi-* lsp` also diagnoses `.ioi`, each the way its CLI would. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`, `packages/ciwapa_lsp/test/text_test.dart`
+- [x] R3 — E774 is never reported. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `packages/ciwapa_core/test/analysis_test.dart`
+- [x] R3 — the `traditional` and `clockface` settings change diagnostics as the flags would. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R3 — the server reports its version, and each extension warns on a mismatch. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `editors/vscode/tests/version.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/VersionTest.kt`, `editors/neovim/test/unit.lua`
 
 ## Diagnostics and hovers (R4)
 
-- [ ] R4 — every compile error is an Error diagnostic on its statement. Tests: —
-- [ ] R4 — undecodable statements get an Information hint, never a warning or an error. Tests: —
-- [ ] R4 — an error hover shows the `ICLnnnI` line, the joke line, the §9.2 description and a fix. Tests: —
-- [ ] R4 — operators, sigils, gerunds and library labels have hovers, and library hovers say what goes in and out. Tests: —
+- [x] R4 — every compile error is an Error diagnostic on its statement. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R4 — undecodable statements get an Information hint, never a warning or an error. Tests: `packages/ciwapa_lsp/test/hover_test.dart`
+- [x] R4 — an error hover shows the `ICLnnnI` line, the joke line, the §9.2 description and a fix. Tests: `packages/ciwapa_lsp/test/hover_test.dart`, `packages/ciwapa_lsp/test/help_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R4 — operators, sigils, gerunds and library labels have hovers, and library hovers say what goes in and out. Tests: `packages/ciwapa_lsp/test/hover_test.dart`, `apps/interstates/test/lsp_test.dart`
 
 ## Highlighting (R5)
 
-- [ ] R5 — semantic tokens cover every token kind in the legend, in all three languages. Tests: —
-- [ ] R5 — undecodable statements are comment tokens. Tests: —
+- [x] R5 — semantic tokens cover every token kind in the legend, in all three languages. Tests: `packages/ciwapa_lsp/test/semantic_tokens_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R5 — undecodable statements are comment tokens. Tests: `packages/ciwapa_lsp/test/semantic_tokens_test.dart`
 
 ## Label navigation (R6)
 
-- [ ] R6 — go to definition works from every kind of label use. Tests: —
-- [ ] R6 — find references and rename cover every literal use of a label. Tests: —
-- [ ] R6 — rename in a file with computed targets warns that they might still use the old number. Tests: —
-- [ ] R6 — library labels open read-only `ciwapa-lib:` documents served by `intercal/librarySource`. Tests: —
+- [x] R6 — go to definition works from every kind of label use. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R6 — find references and rename cover every literal use of a label. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`
+- [x] R6 — rename in a file with computed targets warns that they might still use the old number. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`
+- [x] R6 — library labels open read-only `ciwapa-lib:` documents served by `intercal/librarySource`. Tests: `packages/ciwapa_lsp/test/navigation_test.dart`, `apps/interstates/test/lsp_test.dart`
 
 ## The COME FROM code lens (R7)
 
-- [ ] R7 — a labelled statement that something comes from has a lens listing every `COME FROM` and `NEXT FROM` that targets it. Tests: —
-- [ ] R7 — a file with computed or gerund `COME FROM`s has the warning lens on its first statement. Tests: —
+- [x] R7 — a labelled statement that something comes from has a lens listing every `COME FROM` and `NEXT FROM` that targets it. Tests: `packages/ciwapa_lsp/test/code_lens_test.dart`
+- [x] R7 — a file with computed or gerund `COME FROM`s has the warning lens on its first statement. Tests: `packages/ciwapa_lsp/test/code_lens_test.dart`
 
 ## Completion, inlay hints and politeness (R8)
 
-- [ ] R8 — completion offers statement keywords for the file's dialect, labels inside `( )`, and gerunds. Tests: —
-- [ ] R8 — inlay hints show constant values, constant mingles and selects, and statement ordinals. Tests: —
-- [ ] R8 — in `.ioi` files, inlay hints name template arguments. Tests: —
-- [ ] R8 — `intercal/politeness` carries the ratio, shown in VS Code's status bar and as an inlay hint elsewhere. Tests: —
-- [ ] R8 — the E079 and E099 quick fixes leave the file inside the band. Tests: —
+- [x] R8 — completion offers statement keywords for the file's dialect, labels inside `( )`, and gerunds. Tests: `packages/ciwapa_lsp/test/completion_test.dart`, `apps/interstates/test/lsp_test.dart`
+- [x] R8 — inlay hints show constant values, constant mingles and selects, and statement ordinals. Tests: `packages/ciwapa_lsp/test/inlay_hints_test.dart`
+- [x] R8 — in `.ioi` files, inlay hints name template arguments. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R8 — `intercal/politeness` carries the ratio, shown in VS Code's status bar and as an inlay hint elsewhere. Tests: `packages/ciwapa_lsp/test/inlay_hints_test.dart`
+- [x] R8 — the E079 and E099 quick fixes leave the file inside the band. Tests: `packages/ciwapa_lsp/test/politeness_test.dart`
 
 ## Comment toggling (R9)
 
-- [ ] R9 — toggling a statement gives `PLEASE NOTE`, keeps its label, and works across lines. Tests: —
-- [ ] R9 — toggling `PLEASE NOTE` or `DO NOTE` back gives `DO`. Tests: —
-- [ ] R9 — every extension binds its comment shortcut to `intercal/toggleComment`. Tests: —
+- [x] R9 — toggling a statement gives `PLEASE NOTE`, keeps its label, and works across lines. Tests: `packages/ciwapa_lsp/test/toggle_comment_test.dart`
+- [x] R9 — toggling `PLEASE NOTE` or `DO NOTE` back gives `DO`. Tests: `packages/ciwapa_lsp/test/toggle_comment_test.dart`
+- [x] R9 — every extension binds its comment shortcut to `intercal/toggleComment`. Tests: `editors/vscode/tests/manifest.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/CliTest.kt`, `editors/neovim/test/unit.lua`
 
 ## Templates (R10)
 
-- [ ] R10 — a template named by an open `.ioi` program gets E820, E821 and E443 diagnostics in the template. Tests: —
-- [ ] R10 — grumpy hovers show the `;49221 SUB #k` they stand for. Tests: —
-- [ ] R10 — go to definition from `WITH TEMPLATE "path"` opens the template. Tests: —
-- [ ] R10 — an `.html` file that no open program names is left alone. Tests: —
+- [x] R10 — a template named by an open `.ioi` program gets E820, E821 and E443 diagnostics in the template. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R10 — grumpy hovers show the `;49221 SUB #k` they stand for. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R10 — go to definition from `WITH TEMPLATE "path"` opens the template. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R10 — an `.html` file that no open program names is left alone. Tests: `apps/interstates/test/templates_lsp_test.dart`
 
 ## Claiming file extensions (R11)
 
-- [ ] R11 — the unambiguous extensions are always INTERCAL. Tests: —
-- [ ] R11 — `.i` and `.xc` are INTERCAL only when a statement appears in their first 50 lines. Tests: —
-- [ ] R11 — a `.i` or `.xc` that fails the check prompts once, and the answer is remembered. Tests: —
+- [x] R11 — the unambiguous extensions are always INTERCAL. Tests: `editors/vscode/tests/claiming.test.ts`, `editors/vscode/tests/manifest.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/ClaimsTest.kt`, `editors/neovim/test/unit.lua`
+- [x] R11 — `.i` and `.xc` are INTERCAL only when a statement appears in their first 50 lines. Tests: `editors/vscode/tests/claiming.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/ClaimsTest.kt`, `editors/neovim/test/unit.lua`
+- [x] R11 — a `.i` or `.xc` that fails the check prompts once, and the answer is remembered. Tests: `editors/vscode/tests/claiming.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/ClaimsTest.kt`, `editors/neovim/test/unit.lua`
 
 ## The editors (R12, R13)
 
-- [ ] R12 — the VS Code smoke test opens a sample, sees a diagnostic and follows a go to definition. Tests: —
-- [ ] R12 — the JetBrains smoke test does the same on IDE 2026.1. Tests: —
-- [ ] R12 — the Neovim smoke test does the same on Neovim 0.11. Tests: —
-- [ ] R12 — the VS Code extension's own code has Jest unit tests. Tests: —
-- [ ] R13 — Run and Build call the CLI picked by the `flavor` setting. Tests: —
-- [ ] R13 — server discovery follows `serverPath`, then `ioi-*`, then `ciwapa-*`, and `.ioi` files say when only `ciwapa-*` is installed. Tests: —
+- [x] R12 — the VS Code smoke test opens a sample, sees a diagnostic and follows a go to definition. Tests: `editors/vscode/smoke/smokeSuite.ts`
+- [x] R12 — the JetBrains smoke test does the same on IDE 2026.1. Tests: `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/SmokeTest.kt`
+- [x] R12 — the Neovim smoke test does the same on Neovim 0.11. Tests: `editors/neovim/test/smoke.lua`
+- [x] R12 — the VS Code extension's own code has Jest unit tests. Tests: `editors/vscode/tests`
+- [x] R13 — Run and Build call the CLI picked by the `flavor` setting. Tests: `editors/vscode/tests/invocation.test.ts`, `editors/vscode/tests/discovery.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/CliTest.kt`, `editors/neovim/test/unit.lua`
+- [x] R13 — server discovery follows `serverPath`, then `ioi-*`, then `ciwapa-*`, and `.ioi` files say when only `ciwapa-*` is installed. Tests: `editors/vscode/tests/discovery.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/CliTest.kt`, `editors/neovim/test/unit.lua`
 
 ## Releases and CI (R14)
 
-- [ ] R14 — the release attaches the `.vsix` and the plugin `.zip` with the compilers' version. Tests: `.github/workflows/release-archives.yml`
-- [ ] R14 — the editor smoke tests run on PRs touching the server, the front ends or `editors/**`. Tests: `.github/workflows/ci.yml`
-- [ ] R14 — `toolchain-bump.yml` bumps the Node, JDK, Gradle, IntelliJ and Neovim pins. Tests: `.github/workflows/toolchain-bump.yml`
+- [x] R14 — the release attaches the `.vsix` and the plugin `.zip` with the compilers' version. Tests: `.github/workflows/release-archives.yml`
+- [x] R14 — the editor smoke tests run on PRs touching the server, the front ends or `editors/**`. Tests: `.github/workflows/ci.yml`
+- [x] R14 — `toolchain-bump.yml` bumps the Node, JDK, Gradle, IntelliJ and Neovim pins. Tests: `.github/workflows/toolchain-bump.yml`
 
 ## Docs and cleanup
 
-- [ ] `docs/EDITORS.md` covers installing and using every extension, and the README links it. Tests: —
-- [ ] `packages/ciwapa_lsp/README.md` documents the custom protocol. Tests: —
+- [x] `docs/EDITORS.md` covers installing and using every extension, and the README links it. Tests: `docs/EDITORS.md`, `README.md`
+- [x] `packages/ciwapa_lsp/README.md` documents the custom protocol. Tests: `packages/ciwapa_lsp/README.md`
 - [ ] `tools/goal/` is removed. Tests: —

@@ -142,11 +142,7 @@ Program analyzeInterstates(
     dialect: const Dialect(2, extracal: true),
     parser: (source, {required wide, required extensions}) =>
         parser = InterstatesParser(source, memoryLimit: memoryLimit),
-    libraries: const [
-      LibraryBlock('interstates.xc', 16001, 16199, interstatesLibrary),
-      // Apart, so that only programs that NEXT to them link SQLite.
-      LibraryBlock('activecassette.xc', 16200, 16999, activecassetteLibrary),
-    ],
+    libraries: interstatesBlocks,
   );
   void report(CompileError error) {
     final placed = error.placed(program.statements, source);
@@ -196,6 +192,13 @@ Program analyzeInterstates(
   _templates[program] = templates;
   return program;
 }
+
+/// The library blocks `.ioi` programs get. ActiveCassette is apart, so that only programs that NEXT
+/// to it link SQLite.
+const interstatesBlocks = [
+  LibraryBlock('interstates.xc', 16001, 16199, interstatesLibrary),
+  LibraryBlock('activecassette.xc', 16200, 16999, activecassetteLibrary),
+];
 
 final _templates = Expando<List<Template>>();
 
