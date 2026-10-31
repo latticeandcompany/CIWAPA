@@ -137,16 +137,24 @@ class TestClient {
     int version = 1,
   }) {
     final published = diagnosticsFor(uri);
-    notify('textDocument/didOpen', {
-      'textDocument': {
-        'uri': uri,
-        'languageId': 'intercal',
-        'version': version,
-        'text': text,
-      },
-    });
+    openQuietly(uri, text, version: version);
     return published;
   }
+
+  /// Opens a document the server may say nothing about, such as an HTML file.
+  void openQuietly(
+    String uri,
+    String text, {
+    int version = 1,
+    String languageId = 'intercal',
+  }) => notify('textDocument/didOpen', {
+    'textDocument': {
+      'uri': uri,
+      'languageId': languageId,
+      'version': version,
+      'text': text,
+    },
+  });
 
   /// Replaces a document's text and returns its new diagnostics.
   Future<List<Map<String, Object?>>> change(

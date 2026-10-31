@@ -68,6 +68,11 @@ List<Map<String, Object?>> inlayHints(Document document, Object? range) {
     if (model.program.base == 2)
       for (final (end, value) in _foldedConstants(model))
         if (inRange(end)) hint(end, '= $value'),
+    for (final h in document.server.extension.inlayHintsFor(
+      document.path,
+      model,
+    ))
+      if (inRange(h.offset)) hint(h.offset, h.label, tooltip: h.tooltip),
   ];
 }
 

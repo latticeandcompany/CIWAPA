@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:ciwapa_core/ciwapa_core.dart';
 
 import 'code_lens.dart';
+import 'companions.dart';
 import 'completion.dart';
 import 'diagnostics.dart';
 import 'document.dart';
@@ -74,16 +75,21 @@ class LanguageServer {
       _shuttingDown = true;
       return null;
     },
-    'textDocument/hover': (params) => _withDocument(
-      params,
-      (document) => hover(document, Position.fromJson(params['position'])),
-    ),
+    'textDocument/hover': (params) {
+      final document = documentOf(params);
+      if (document == null) return null;
+      final position = Position.fromJson(params['position']);
+      if (document.handled) return hover(document, position);
+      final companions = companionsByUri(documents.values)[document.uri];
+      return companions == null ? null : companionHover(companions, position);
+    },
     'textDocument/semanticTokens/full': (params) =>
         _withDocument(params, semanticTokens),
-    'textDocument/definition': (params) => _withDocument(
-      params,
-      (document) => definition(document, Position.fromJson(params['position'])),
-    ),
+    'textDocument/definition': (params) => _withDocument(params, (document) {
+      final position = Position.fromJson(params['position']);
+      return companionDefinition(document, position) ??
+          definition(document, position);
+    }),
     'textDocument/references': (params) => _withDocument(
       params,
       (document) => references(
@@ -343,8 +349,45 @@ class LanguageServer {
         _ => document.version + 1,
       };
       document.update(text, version);
-      _publish(document);
+      if (document.handled) {
+        _publish(document);
+      } else {
+        _companionChanged();
+      }
     }
+  }
+
+  /// The text of the open document at [path], if there is one.
+  String? textOfPath(String path) {
+    for (final document in documents.values) {
+      if (document.path == path) return document.text.text;
+    }
+    return null;
+  }
+
+  var _companionUris = <String>{};
+
+  void _companionChanged() {
+    for (final document in documents.values) {
+      document.invalidateCompanions();
+    }
+    _publishCompanions();
+  }
+
+  /// Diagnostics for every companion of every open program, and none for a file that stopped
+  /// being one (R10).
+  void _publishCompanions() {
+    final byUri = companionsByUri(documents.values);
+    for (final uri in {..._companionUris, ...byUri.keys}) {
+      connection.send({
+        'method': 'textDocument/publishDiagnostics',
+        'params': {
+          'uri': uri,
+          'diagnostics': companionDiagnostics(byUri[uri] ?? const [], name),
+        },
+      });
+    }
+    _companionUris = byUri.keys.toSet();
   }
 
   void _didClose(Map<String, Object?> params) {
@@ -355,10 +398,14 @@ class LanguageServer {
       'method': 'textDocument/publishDiagnostics',
       'params': {'uri': document.uri, 'diagnostics': const []},
     });
+    _companionChanged();
   }
 
   void _publish(Document document) {
-    if (!document.handled) return;
+    if (!document.handled) {
+      _companionChanged();
+      return;
+    }
     connection.send({
       'method': 'textDocument/publishDiagnostics',
       'params': {
@@ -373,6 +420,7 @@ class LanguageServer {
         document.uri,
       ),
     });
+    _publishCompanions();
   }
 }
 

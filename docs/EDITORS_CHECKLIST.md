@@ -62,7 +62,7 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 - [x] R8 — completion offers statement keywords for the file's dialect, labels inside `( )`, and gerunds. Tests: `packages/ciwapa_lsp/test/completion_test.dart`, `apps/interstates/test/lsp_test.dart`
 - [x] R8 — inlay hints show constant values, constant mingles and selects, and statement ordinals. Tests: `packages/ciwapa_lsp/test/inlay_hints_test.dart`
-- [ ] R8 — in `.ioi` files, inlay hints name template arguments. Tests: —
+- [x] R8 — in `.ioi` files, inlay hints name template arguments. Tests: `apps/interstates/test/templates_lsp_test.dart`
 - [x] R8 — `intercal/politeness` carries the ratio, shown in VS Code's status bar and as an inlay hint elsewhere. Tests: `packages/ciwapa_lsp/test/inlay_hints_test.dart`
 - [x] R8 — the E079 and E099 quick fixes leave the file inside the band. Tests: `packages/ciwapa_lsp/test/politeness_test.dart`
 
@@ -74,10 +74,10 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Templates (R10)
 
-- [ ] R10 — a template named by an open `.ioi` program gets E820, E821 and E443 diagnostics in the template. Tests: —
-- [ ] R10 — grumpy hovers show the `;49221 SUB #k` they stand for. Tests: —
-- [ ] R10 — go to definition from `WITH TEMPLATE "path"` opens the template. Tests: —
-- [ ] R10 — an `.html` file that no open program names is left alone. Tests: —
+- [x] R10 — a template named by an open `.ioi` program gets E820, E821 and E443 diagnostics in the template. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R10 — grumpy hovers show the `;49221 SUB #k` they stand for. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R10 — go to definition from `WITH TEMPLATE "path"` opens the template. Tests: `apps/interstates/test/templates_lsp_test.dart`
+- [x] R10 — an `.html` file that no open program names is left alone. Tests: `apps/interstates/test/templates_lsp_test.dart`
 
 ## Claiming file extensions (R11)
 

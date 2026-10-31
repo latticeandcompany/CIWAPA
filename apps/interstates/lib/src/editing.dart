@@ -1,9 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:ciwapa_core/ciwapa_core.dart';
 import 'package:ciwapa_lsp/ciwapa_lsp.dart';
 
+import 'errors.dart';
 import 'frontend.dart';
 import 'library_docs.g.dart';
+import 'routes.dart';
 import 'syntax.dart';
+import 'templates.dart';
 
 /// What `ioi-* lsp` adds to CIWAPA's language server for `.ioi` files: the words for Interstates'
 /// errors and library, in the server's voice (R4).
@@ -37,6 +43,163 @@ class InterstatesEditing extends LanguageExtension {
       for (final s in model.statements)
         if (s.statement.data is RouteDecl) s.span,
     ];
+  }
+
+  /// The templates a program renders, each checked for every `READ OUT … WITH TEMPLATE` that
+  /// names it (R10): E820, E821 and E997 where they are, E443 for a restricted route whose page
+  /// doesn't link it, and a hover for each argument grumpy.
+  @override
+  List<Companion> companionsOf(
+    String path,
+    Program program,
+    String? Function(String path) textOf,
+  ) {
+    if (interstatesBase(path) == null) return const [];
+    final source = program.source;
+    final user = program.statements.take(program.userStatements).toList();
+    final file = File(path).uri.pathSegments.last;
+    return [
+      for (final (i, s) in user.indexed)
+        if (s.data case TemplateUse(:final count, path: final name)
+            when identical(s.source, source))
+          _template(
+            program,
+            user,
+            s,
+            i + 1,
+            count,
+            templatePath(source, name),
+            name,
+            'the READ OUT #$count WITH TEMPLATE on line ${source.lineOf(s.start) + 1} of $file',
+            textOf,
+          ),
+    ];
+  }
+
+  Companion _template(
+    Program program,
+    List<Statement> user,
+    Statement statement,
+    int ordinal,
+    int count,
+    String full,
+    String name,
+    String where,
+    String? Function(String path) textOf,
+  ) {
+    final reference =
+        program.tokens
+            .where(
+              (t) =>
+                  t.kind == TokenKind.dialect &&
+                  t.tag == 'string' &&
+                  t.start >= statement.start &&
+                  t.end <= statement.end,
+            )
+            .map((t) => Span(t.start, t.end))
+            .lastOrNull ??
+        Span(statement.start, statement.end);
+    final text = textOf(full) ?? _read(full);
+    if (text == null) return Companion(full, reference);
+    final diagnostics = <CompanionDiagnostic>[];
+    final scan = scanTemplate(text, name, count, (problem) {
+      diagnostics.add((
+        error: CompileError.of(
+          problem.code == 997
+              ? IclError.of(997)
+              : interstatesError(problem.code),
+          ordinal,
+        ),
+        span: Span(problem.start, problem.end),
+        note: 'For $where.',
+      ));
+    });
+    final firstLine = Span(0, Source(full, text).line(0).runes.length);
+    final links = templateLinks(text);
+    for (final route in user) {
+      if (route.data case RouteDecl(:final label, pattern: final pattern?)
+          when label == statement.label && label != 16000) {
+        final List<Segment> segments;
+        try {
+          segments = routePattern(pattern, ordinal);
+        } on CompileError {
+          continue;
+        }
+        if (links.any((link) => linkMatches(link, segments))) continue;
+        diagnostics.add((
+          error: CompileError.of(interstatesError(443), ordinal),
+          span: firstLine,
+          note:
+              'Nothing here links to "$pattern", which line '
+              '${program.source.lineOf(route.start) + 1} restricts to this page. ($where)',
+        ));
+      }
+    }
+    return Companion(
+      full,
+      reference,
+      text: text,
+      diagnostics: diagnostics,
+      hovers: [
+        for (final a in scan.arguments)
+          (
+            span: Span(a.start, a.end),
+            markdown:
+                '`,${a.m}` is `;49221 SUB #${145 - a.m}`: argument ${145 - a.m} of $where.',
+          ),
+      ],
+    );
+  }
+
+  /// In `.ioi` files, which name a template gives each `;49221 SUB #k`, and the names a
+  /// `READ OUT #n WITH TEMPLATE` passes (R8).
+  @override
+  List<ExtensionHint> inlayHintsFor(String path, SyntaxModel model) {
+    if (interstatesBase(path) == null) return const [];
+    return [
+      for (final s in model.statements) ...[
+        if (s.statement.data case TemplateUse(:final count) when count > 0)
+          if (s.tokens.lastOrNull case final last?)
+            (
+              offset: last.end,
+              label: count == 1 ? ',144' : ',144 to ,${145 - count}',
+              tooltip:
+                  'The template names its arguments ,144 (;49221 SUB #1) down to '
+                  ',${145 - count} (;49221 SUB #$count).',
+            ),
+        for (var i = 0; i + 4 < s.tokens.length; i++)
+          if (_argumentIndex(s.tokens, i) case final k?)
+            (
+              offset: s.tokens[i + 4].end,
+              label: ',${145 - k}',
+              tooltip: 'Templates name ;49221 SUB #$k as ,${145 - k}.',
+            ),
+      ],
+    ];
+  }
+}
+
+/// k, when [tokens] from [i] are `;49221 SUB #k` with k from 1 to 144.
+int? _argumentIndex(List<Token> tokens, int i) {
+  final [sigil, array, sub, mesh, number] = tokens.sublist(i, i + 5);
+  if (sigil.kind != TokenKind.hybrid ||
+      array.kind != TokenKind.number ||
+      array.value != 49221 ||
+      sub.kind != TokenKind.sub ||
+      mesh.kind != TokenKind.mesh ||
+      number.kind != TokenKind.number ||
+      number.value < 1 ||
+      number.value > 144) {
+    return null;
+  }
+  return number.value;
+}
+
+String? _read(String path) {
+  try {
+    return utf8.decode(File(path).readAsBytesSync(), allowMalformed: true);
+  } on FileSystemException {
+    return null;
   }
 }
 

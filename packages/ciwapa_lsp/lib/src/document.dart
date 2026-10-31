@@ -1,5 +1,6 @@
 import 'package:ciwapa_core/ciwapa_core.dart';
 
+import 'extension.dart';
 import 'libraries.dart';
 import 'library_docs.g.dart';
 import 'model.dart';
@@ -43,6 +44,11 @@ class Document {
   );
 
   SyntaxModel get model => _model ??= SyntaxModel(analysis.program);
+
+  /// The files the program depends on that aren't programs, such as templates (R10).
+  List<Companion> get companions => _companions ??= server.extension
+      .companionsOf(path, analysis.program, server.textOfPath);
+  List<Companion>? _companions;
 
   /// The labels the file's own statements carry.
   Set<int> get definedLabels => {
@@ -119,7 +125,11 @@ class Document {
   void invalidate() {
     _analysis = null;
     _model = null;
+    _companions = null;
   }
+
+  /// A companion's text changed, so what the extension says about it might have.
+  void invalidateCompanions() => _companions = null;
 }
 
 /// The file path a `file:` URI names, in this platform's form. Other schemes keep their path,
