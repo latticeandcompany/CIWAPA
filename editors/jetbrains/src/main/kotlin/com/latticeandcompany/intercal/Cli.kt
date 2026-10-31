@@ -12,14 +12,19 @@ data class Cli(val path: Path) {
     /** `ciwapa-*` never learned Interstates, so `.ioi` files need `ioi-*`. */
     val speaksInterstates: Boolean get() = !name.startsWith("ciwapa-")
 
+    /** What Run and Build start: `<cli> run <file>` or `<cli> build <file>`. */
+    fun commandLine(command: String, file: String): List<String> = listOf(path.toString(), command, file)
+
     companion object {
+        fun find(settings: IntercalSettings = IntercalSettings.getInstance()): Cli? = find(settings.serverPath, settings.flavor)
+
         /** The discovery order every INTERCAL extension follows: the setting, then `ioi-<flavor>`, then `ciwapa-<flavor>`. */
-        fun find(settings: IntercalSettings = IntercalSettings.getInstance()): Cli? {
-            if (settings.serverPath.isNotEmpty()) {
-                val configured = Path.of(settings.serverPath)
+        fun find(serverPath: String, flavor: Flavor, onPath: (String) -> Path? = ::onPath): Cli? {
+            if (serverPath.isNotEmpty()) {
+                val configured = Path.of(serverPath)
                 return if (Files.isRegularFile(configured)) Cli(configured) else null
             }
-            return (onPath("ioi-${settings.flavor.id}") ?: onPath("ciwapa-${settings.flavor.id}"))?.let(::Cli)
+            return (onPath("ioi-${flavor.id}") ?: onPath("ciwapa-${flavor.id}"))?.let(::Cli)
         }
 
         private fun onPath(name: String): Path? {
