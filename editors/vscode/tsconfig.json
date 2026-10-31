@@ -1,0 +1,13 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"lib": ["ES2023"],
+		"types": ["node"],
+		"newLine": "lf",
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true
+	},
+	"include": ["src/**/*.ts", "tests/**/*.ts", "smoke/**/*.ts", "rolldown.config.ts"]
+}

@@ -1,0 +1,186 @@
+{
+	"name": "intercal",
+	"displayName": "INTERCAL",
+	"description": "INTERCAL, EXTRACAL and INTERCAL on Interstates, served by CIWAPA's language server: every compile error at once, label navigation, the COME FROM lens, and a politeness meter.",
+	"version": "0.0.0",
+	"publisher": "latticeandcompany",
+	"license": "ISC",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/latticeandcompany/CIWAPA.git",
+		"directory": "editors/vscode"
+	},
+	"bugs": {
+		"url": "https://github.com/latticeandcompany/CIWAPA/issues"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"keywords": [
+		"intercal",
+		"extracal",
+		"interstates",
+		"ciwapa",
+		"esoteric"
+	],
+	"engines": {
+		"vscode": "^1.91.0"
+	},
+	"packageManager": "npm@12.2.1",
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "intercal",
+				"aliases": [
+					"INTERCAL"
+				],
+				"extensions": [
+					".2i",
+					".3i",
+					".4i",
+					".5i",
+					".6i",
+					".7i",
+					".2xc",
+					".3xc",
+					".4xc",
+					".5xc",
+					".6xc",
+					".7xc",
+					".ioi",
+					".2ioi"
+				]
+			}
+		],
+		"commands": [
+			{
+				"command": "intercal.run",
+				"title": "Run this file",
+				"category": "INTERCAL"
+			},
+			{
+				"command": "intercal.build",
+				"title": "Build this file",
+				"category": "INTERCAL"
+			},
+			{
+				"command": "intercal.toggleComment",
+				"title": "Toggle comment",
+				"category": "INTERCAL"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "intercal.run",
+					"when": "editorLangId == intercal"
+				},
+				{
+					"command": "intercal.build",
+					"when": "editorLangId == intercal"
+				},
+				{
+					"command": "intercal.toggleComment",
+					"when": "editorLangId == intercal && !editorReadonly"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "intercal.toggleComment",
+				"key": "ctrl+/",
+				"mac": "cmd+/",
+				"when": "editorTextFocus && editorLangId == intercal && !editorReadonly"
+			}
+		],
+		"taskDefinitions": [
+			{
+				"type": "intercal",
+				"required": [
+					"command",
+					"file"
+				],
+				"properties": {
+					"command": {
+						"type": "string",
+						"enum": [
+							"run",
+							"build"
+						],
+						"description": "What to do with the file."
+					},
+					"file": {
+						"type": "string",
+						"description": "The program."
+					}
+				}
+			}
+		],
+		"configuration": {
+			"title": "INTERCAL",
+			"properties": {
+				"intercal.serverPath": {
+					"type": "string",
+					"default": "",
+					"scope": "machine",
+					"markdownDescription": "The compiler to run as the language server and for **Run this file** and **Build this file**. Leave it empty to look for `ioi-<flavor>`, then `ciwapa-<flavor>`, on `PATH`. Only user settings can set it, so a workspace can't pick a program for you to run."
+				},
+				"intercal.flavor": {
+					"type": "string",
+					"enum": [
+						"llvm",
+						"dart"
+					],
+					"enumDescriptions": [
+						"ioi-llvm or ciwapa-llvm: LLVM IR, linked with clang.",
+						"ioi-dart or ciwapa-dart: Dart, built with dart compile exe."
+					],
+					"default": "llvm",
+					"markdownDescription": "Which compiler to look for on `PATH`. Both say the same things about your program; they just disappoint you through different toolchains."
+				},
+				"intercal.traditional": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "INTERCAL-72 only, as `--traditional`: `COME FROM` and the other bases become E111."
+				},
+				"intercal.clockface": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Print IIII instead of IV, as `--clockface`. It changes what programs print, never what the compiler says about them."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"lint": "oxlint --deny-warnings && tsc --noEmit",
+		"test": "jest",
+		"bundle": "rolldown -c",
+		"build": "rolldown -c && vsce package --no-dependencies --out intercal-vscode-$npm_package_version.vsix",
+		"smoke": "rolldown -c && node out/runSmoke.js"
+	},
+	"dependencies": {
+		"vscode-languageclient": "11.0.0"
+	},
+	"devDependencies": {
+		"@swc/core": "1.16.20",
+		"@swc/jest": "0.2.39",
+		"@types/vscode": "1.91.0",
+		"@vscode/test-electron": "3.1.0",
+		"@vscode/vsce": "4.1.0",
+		"jest": "30.5.2",
+		"oxlint": "1.90.0",
+		"rolldown": "1.2.16",
+		"typescript": "7.0.2"
+	},
+	"allowScripts": {
+		"@swc/core": false,
+		"esbuild": false,
+		"@parcel/watcher": false,
+		"@vscode/vsce-sign": false,
+		"unrs-resolver": false
+	}
+}

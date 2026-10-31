@@ -11,7 +11,8 @@
     "format": {},
     "goal-status": {
       "cache": false
-    }
+    },
+    "build": {}
   },
   "workspaces": [
     {
@@ -22,7 +23,8 @@
         "lint": "tools/in-docker dart analyze --fatal-infos",
         "format": "tools/in-docker dart format --output=none --set-exit-if-changed .",
         "test": "",
-        "goal-status": "tools/goal/goal-status"
+        "goal-status": "tools/goal/goal-status",
+        "build": ""
       }
     },
     {
@@ -33,7 +35,8 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       }
     },
     {
@@ -44,7 +47,8 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       },
       "dependsOn": [
         "ciwapa_core"
@@ -58,7 +62,8 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       },
       "dependsOn": [
         "ciwapa_core",
@@ -73,7 +78,8 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       },
       "dependsOn": [
         "ciwapa_core",
@@ -89,7 +95,8 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       }
     },
     {
@@ -100,7 +107,8 @@
         "test": "",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       }
     },
     {
@@ -111,13 +119,29 @@
         "test": "../../tools/in-docker dart --suppress-analytics test",
         "lint": "",
         "format": "",
-        "goal-status": ""
+        "goal-status": "",
+        "build": ""
       },
       "dependsOn": [
         "ciwapa_core",
         "ciwapa_dart",
         "ciwapa_llvm",
         "ciwapa_lsp"
+      ]
+    },
+    {
+      "name": "vscode",
+      "path": "editors/vscode",
+      "auto": false,
+      "scripts": {
+        "lint": "../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run lint'",
+        "test": "../../tools/in-docker dart --suppress-analytics compile exe ../../packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o ../../.cache/build/ciwapa-llvm && ../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm test && xvfb-run -a npm run smoke'",
+        "build": "../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run build'",
+        "format": "",
+        "goal-status": ""
+      },
+      "dependsOn": [
+        "ciwapa_llvm"
       ]
     }
   ],
