@@ -73,3 +73,111 @@ jobs:
           name: interstates-${{ matrix.platform.name }}-${{ matrix.flavor }}
           path: .cache/interstates/results.json
           if-no-files-found: ignore
+
+  # Q168: the editor smoke tests run on PRs that touch the server, the front ends or editors/, and on
+  # every push to mega.
+  editors:
+    name: editors changed
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.changes.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: changes
+        run: |
+          if [[ "${{ github.event_name }}" != pull_request ]] ||
+             git diff --name-only "origin/${{ github.base_ref }}...HEAD" |
+               grep -qE '^(packages/ciwapa_core|packages/ciwapa_lsp|apps/interstates|editors|tools/docker)/|^tools/in-docker$|^\.github/workflows/ci\.yml$'; then
+            echo run=true >>"$GITHUB_OUTPUT"
+          fi
+
+  vscode:
+    name: vscode smoke test (${{ matrix.platform.name }})
+    needs: editors
+    if: needs.editors.outputs.run == 'true'
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux-x64, runner: ubuntu-24.04 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: editors/vscode/.vscode-test
+          key: vscode-test-${{ matrix.platform.name }}-${{ hashFiles('editors/vscode/smoke/runSmoke.ts') }}
+      - name: Build the language server
+        run: |
+          tools/in-docker dart --suppress-analytics pub get
+          tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
+      - name: Lint, test and build
+        working-directory: editors/vscode
+        run: ../../tools/in-docker --image node sh -c 'npm ci --no-audit --no-fund && npm run lint && npm test && npm run build'
+      - name: Smoke test
+        working-directory: editors/vscode
+        run: ../../tools/in-docker --image node sh -c 'xvfb-run -a npm run smoke'
+
+  jetbrains:
+    name: jetbrains smoke test (${{ matrix.platform.name }})
+    needs: editors
+    if: needs.editors.outputs.run == 'true'
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux-x64, runner: ubuntu-24.04 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            .cache/home/.gradle/caches
+            .cache/home/.gradle/wrapper
+            .cache/home/.pluginVerifier
+            editors/jetbrains/.intellijPlatform
+          key: jetbrains-${{ matrix.platform.name }}-${{ hashFiles('editors/jetbrains/*.gradle.kts', 'editors/jetbrains/gradle.properties', 'editors/jetbrains/gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Build the language server
+        run: |
+          tools/in-docker dart --suppress-analytics pub get
+          tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
+      # The plugin verifier downloads two IDEs, so it runs on one leg.
+      - name: Lint
+        if: matrix.platform.name == 'linux-x64'
+        working-directory: editors/jetbrains
+        run: ../../tools/in-docker --image jdk ./gradlew --console=plain lint
+      - name: Smoke test and build
+        working-directory: editors/jetbrains
+        run: ../../tools/in-docker --image jdk ./gradlew --console=plain test buildPlugin
+
+  neovim:
+    name: neovim smoke test (${{ matrix.platform.name }})
+    needs: editors
+    if: needs.editors.outputs.run == 'true'
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux-x64, runner: ubuntu-24.04 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the language server
+        run: |
+          tools/in-docker dart --suppress-analytics pub get
+          tools/in-docker dart --suppress-analytics compile exe packages/ciwapa_llvm/bin/ciwapa_llvm.dart -o .cache/build/ciwapa-llvm
+      - name: Lint, unit checks and smoke test (Neovim 0.12 and 0.11)
+        working-directory: editors/neovim
+        run: |
+          ../../tools/in-docker --image neovim test/run lint
+          ../../tools/in-docker --image neovim test/run unit
+          ../../tools/in-docker --image neovim test/run smoke

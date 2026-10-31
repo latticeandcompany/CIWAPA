@@ -32,7 +32,7 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 - [x] R3 — `ciwapa-* lsp` diagnoses `.i` and `.xc`; `ioi-* lsp` also diagnoses `.ioi`, each the way its CLI would. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`, `packages/ciwapa_lsp/test/text_test.dart`
 - [x] R3 — E774 is never reported. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `packages/ciwapa_core/test/analysis_test.dart`
 - [x] R3 — the `traditional` and `clockface` settings change diagnostics as the flags would. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `apps/interstates/test/lsp_test.dart`
-- [ ] R3 — the server reports its version, and each extension warns on a mismatch. Tests: —
+- [x] R3 — the server reports its version, and each extension warns on a mismatch. Tests: `packages/ciwapa_lsp/test/server_test.dart`, `editors/vscode/tests/version.test.ts`, `editors/jetbrains/src/test/kotlin/com/latticeandcompany/intercal/VersionTest.kt`, `editors/neovim/test/unit.lua`
 
 ## Diagnostics and hovers (R4)
 
@@ -96,9 +96,9 @@ The sections follow the plan's requirements. `goal-status` reads this file, toge
 
 ## Releases and CI (R14)
 
-- [ ] R14 — the release attaches the `.vsix` and the plugin `.zip` with the compilers' version. Tests: `.github/workflows/release-archives.yml`
-- [ ] R14 — the editor smoke tests run on PRs touching the server, the front ends or `editors/**`. Tests: `.github/workflows/ci.yml`
-- [ ] R14 — `toolchain-bump.yml` bumps the Node, JDK, Gradle, IntelliJ and Neovim pins. Tests: `.github/workflows/toolchain-bump.yml`
+- [x] R14 — the release attaches the `.vsix` and the plugin `.zip` with the compilers' version. Tests: `.github/workflows/release-archives.yml`
+- [x] R14 — the editor smoke tests run on PRs touching the server, the front ends or `editors/**`. Tests: `.github/workflows/ci.yml`
+- [x] R14 — `toolchain-bump.yml` bumps the Node, JDK, Gradle, IntelliJ and Neovim pins. Tests: `.github/workflows/toolchain-bump.yml`
 
 ## Docs and cleanup
 
