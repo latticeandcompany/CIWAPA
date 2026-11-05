@@ -1,4 +1,4 @@
-FROM dart:3.13.5
+FROM dart:3.13.7
 
 ARG LLVM_MAJOR=23
 
