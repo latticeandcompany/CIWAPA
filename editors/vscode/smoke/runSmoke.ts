@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { runTests } from '@vscode/test-electron';
 
-const vscodeVersion = '1.144.0';
+const vscodeVersion = '1.145.2';
 
 const root = resolve(__dirname, '..');
 const serverPath = resolve(process.env['INTERCAL_SERVER'] ?? join(root, '../../.cache/build/ciwapa-llvm'));
