@@ -1,3 +1,3 @@
-FROM eclipse-temurin:21.0.12.1_1-jdk-noble
+FROM eclipse-temurin:21.0.13_9-jdk-noble
 
 WORKDIR /work
