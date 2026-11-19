@@ -29,7 +29,7 @@ git clone https://github.com/latticeandcompany/intercal-neovim \
 
 Don't lazy-load it on the `intercal` filetype. The plugin is what decides which files are INTERCAL, so Neovim would wait for a filetype that nothing can set.
 
-The plugin's version matches the compilers'. If they differ, it says so once, and things still mostly work until they don't.
+The plugin's version matches the compilers'. If they differ, it says so once, and things still mostly work until they don't. Each release is tagged in the mirror, so you can pin the plugin to the compiler you installed: `version = '1.0.0'` with lazy.nvim, or `{ src = '…', version = 'v1.0.0' }` with `vim.pack`.
 
 ## Settings
 
