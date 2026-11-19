@@ -1,6 +1,6 @@
 name: ciwapa_llvm
 description: ciwapa-llvm, the LLVM IR emitter and CLI.
-version: 0.0.0
+version: 1.0.0
 publish_to: none
 resolution: workspace
 

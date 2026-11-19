@@ -3,6 +3,7 @@
 # the mirror that plugin managers install from (L44). Run it after editors/neovim changes on mega.
 #   tools/mirror-neovim          mirrors origin/mega
 #   tools/mirror-neovim <ref>    mirrors another commit
+#   tools/mirror-neovim v1.2.3   tags the mirror's copy of that release (Q181), leaving main alone
 # The push is never forced: git subtree split gives the same commits every time, so the mirror
 # only ever fast-forwards. INTERCAL_NEOVIM_MIRROR overrides where it pushes.
 set -euo pipefail
@@ -17,4 +18,8 @@ if [[ "$ref" == origin/* ]]; then
 fi
 split="$(git subtree split --quiet --prefix=editors/neovim "$ref")"
 echo "mirror-neovim: $ref is $split in the mirror"
-git push "$mirror" "$split:refs/heads/main"
+if git show-ref --verify --quiet "refs/tags/$ref"; then
+  git push "$mirror" "$split:refs/tags/$ref"
+else
+  git push "$mirror" "$split:refs/heads/main"
+fi

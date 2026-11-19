@@ -2,7 +2,7 @@
 	"name": "intercal",
 	"displayName": "INTERCAL",
 	"description": "INTERCAL, EXTRACAL and INTERCAL on Interstates, served by CIWAPA's language server: every compile error at once, label navigation, the COME FROM lens, and a politeness meter.",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"publisher": "latticeandcompany",
 	"license": "ISC",
 	"repository": {

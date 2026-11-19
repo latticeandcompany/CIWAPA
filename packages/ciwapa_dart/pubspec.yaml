@@ -1,6 +1,6 @@
 name: ciwapa_dart
 description: ciwapa-dart, the Dart emitter, runtime.dart and CLI.
-version: 0.0.0
+version: 1.0.0
 publish_to: none
 resolution: workspace
 

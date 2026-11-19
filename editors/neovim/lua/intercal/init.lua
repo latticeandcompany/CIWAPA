@@ -1,7 +1,7 @@
 local M = {}
 
 -- The compilers' version. The plugin only trusts a server of exactly this version (Q179).
-M.version = '0.0.0'
+M.version = '1.0.0'
 
 M.defaults = {
 	serverPath = '',

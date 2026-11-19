@@ -13,8 +13,9 @@ local discover = require('intercal.discover')
 local lsp = require('intercal.lsp')
 
 -- Lockstep with the compilers (Q179): the plugin's version is ciwapa_core's.
+local plugin_version = require('intercal').version
 local version_dart = table.concat(vim.fn.readfile(t.repo .. '/packages/ciwapa_core/lib/src/version.dart'), '\n')
-t.equal(require('intercal').version, version_dart:match("ciwapaVersion = '([^']+)'"), "the plugin's version")
+t.equal(plugin_version, version_dart:match("ciwapaVersion = '([^']+)'"), "the plugin's version")
 
 -- The R11 regex, `^\s*(\(\d+\)\s*)?(PLEASE|DO)\b`.
 for _, line in ipairs({ 'DO GIVE UP', 'PLEASE GIVE UP', '\tPLEASE DO .1 <- #1', '(10) DO .1 <- #1', '(10)DO', '  (1)\tPLEASE NOTE', 'DO', 'DO,1 <- #2', 'PLEASE' }) do
@@ -180,17 +181,17 @@ end
 fresh()
 require('intercal').setup({ serverPath = fake_server('ioi-old', '9.9.9') })
 open_and_wait('old.i', function()
-	return warnings_containing('is version 9.9.9, and this plugin is 0.0.0') > 0
+	return warnings_containing('is version 9.9.9, and this plugin is ' .. plugin_version) > 0
 end)
 open_and_wait('old2.i', function()
 	return #vim.lsp.get_clients({ bufnr = 0, name = 'intercal' }) > 0
 end)
-t.equal(warnings_containing('is version 9.9.9, and this plugin is 0.0.0'), 1, 'version mismatch warnings')
+t.equal(warnings_containing('is version 9.9.9, and this plugin is ' .. plugin_version), 1, 'version mismatch warnings')
 t.equal(#vim.lsp.get_clients({ bufnr = 0, name = 'intercal' }), 1, 'a mismatched server still runs')
 t.equal(warnings_containing('fell over'), 0, 'crash warnings before anything crashed')
 
 fresh()
-require('intercal').setup({ serverPath = fake_server('ioi-crash', '0.0.0', 'crash') })
+require('intercal').setup({ serverPath = fake_server('ioi-crash', plugin_version, 'crash') })
 open_and_wait('crash.i', function()
 	return warnings_containing('fell over (exit code 7') > 0
 end)
@@ -202,7 +203,7 @@ t.equal(warnings_containing('is version'), 1, 'no version warning for a matching
 
 -- Templates: .html buffers join the server once an INTERCAL program has started it.
 fresh()
-require('intercal').setup({ serverPath = fake_server('ioi-good', '0.0.0') })
+require('intercal').setup({ serverPath = fake_server('ioi-good', plugin_version) })
 local function html(name)
 	local path = scratch .. '/' .. name
 	vim.fn.writefile({ '<p>{{ ,1 }}</p>' }, path)

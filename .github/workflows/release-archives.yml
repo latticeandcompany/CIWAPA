@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [mega]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -158,3 +159,36 @@ jobs:
           path: editors/jetbrains/build/distributions/intercal-jetbrains-${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
           compression-level: 0
+
+  # Q181: a v* tag publishes a Release with every file above. The tag's message is the notes.
+  publish:
+    name: publish the release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [archive, vscode, jetbrains]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the tag against the version
+        run: |
+          version="$(sed -n 's/^version: *//p' packages/ciwapa_llvm/pubspec.yaml)"
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::the tag is $GITHUB_REF_NAME, but packages/ciwapa_llvm/pubspec.yaml says $version"
+            exit 1
+          fi
+      - name: Read the notes from the tag
+        # checkout replaces an annotated tag with a lightweight one, so fetch the real one again.
+        run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag --list --format='%(contents)' "$GITHUB_REF_NAME" >"$RUNNER_TEMP/notes.md"
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/release
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/release/* \
+            --verify-tag --title "CIWAPA ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
