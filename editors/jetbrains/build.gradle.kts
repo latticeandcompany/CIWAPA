@@ -37,7 +37,7 @@ intellijPlatform {
     pluginVerification {
         ides {
             current()
-            create(IntelliJPlatformType.IntellijIdea, "2026.2.4")
+            create(IntelliJPlatformType.IntellijIdea, "2026.3")
         }
     }
     buildSearchableOptions = false
