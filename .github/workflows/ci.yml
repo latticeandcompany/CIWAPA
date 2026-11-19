@@ -40,7 +40,7 @@ jobs:
 
       - name: Set up Dart
         if: matrix.platform.os != 'linux'
-        uses: dart-lang/setup-dart@v1.8.1
+        uses: dart-lang/setup-dart@v1.8.2
         with:
           sdk: ${{ steps.dart.outputs.version }}
 
