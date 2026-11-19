@@ -1,6 +1,6 @@
 name: interstates
 description: INTERCAL on Interstates, a web framework for INTERCAL — the ioi-dart and ioi-llvm compilers and gross.
-version: 0.0.0
+version: 1.0.0
 publish_to: none
 resolution: workspace
 

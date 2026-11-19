@@ -1,6 +1,6 @@
 name: conformance
 description: The golden conformance suite, run against both flavors.
-version: 0.0.0
+version: 1.0.0
 publish_to: none
 resolution: workspace
 
