@@ -1,7 +1,7 @@
 # Node for editors/vscode (Q161), plus what @vscode/test-electron needs to run VS Code headless.
 FROM node:26.13.1-trixie-slim
 
-ARG NPM_VERSION=12.2.2
+ARG NPM_VERSION=12.2.3
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
